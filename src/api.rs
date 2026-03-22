@@ -86,14 +86,28 @@ struct JobResponse {
     execution_counts: ExecutionCounts,
 }
 
+#[derive(Serialize)]
+struct PaginatedResponse<T: serde::Serialize> {
+    data: T,
+    total: u32,
+    page: u32,
+    per_page: u32,
+    total_pages: u32,
+}
+
 #[derive(Deserialize)]
 struct ListJobsQuery {
     status: Option<String>,
+    search: Option<String>,
+    page: Option<u32>,
+    per_page: Option<u32>,
 }
 
 #[derive(Deserialize)]
 struct ListExecsQuery {
     limit: Option<u32>,
+    page: Option<u32>,
+    per_page: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -122,13 +136,27 @@ async fn health() -> Json<HealthResponse> {
 async fn list_jobs(
     State(state): State<AppState>,
     Query(query): Query<ListJobsQuery>,
-) -> Result<Json<Vec<JobResponse>>, AppError> {
-    let filter = query.status.as_deref();
+) -> Result<Json<PaginatedResponse<Vec<JobResponse>>>, AppError> {
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(20).min(100);
+    let offset = (page - 1) * per_page;
+    let filter_owned = query.status.clone();
+    let search_owned = query.search.clone();
+
     let db = state.db.clone();
-    let filter_owned = filter.map(|s| s.to_string());
-    let jobs = tokio::task::spawn_blocking(move || db.list_jobs(filter_owned.as_deref()))
-        .await
-        .unwrap()?;
+    let filter2 = filter_owned.clone();
+    let search2 = search_owned.clone();
+    let total =
+        tokio::task::spawn_blocking(move || db.count_jobs(filter2.as_deref(), search2.as_deref()))
+            .await
+            .unwrap()?;
+
+    let db = state.db.clone();
+    let jobs = tokio::task::spawn_blocking(move || {
+        db.list_jobs(filter_owned.as_deref(), search_owned.as_deref(), per_page, offset)
+    })
+    .await
+    .unwrap()?;
 
     let db2 = state.db.clone();
     let responses: Vec<JobResponse> = tokio::task::spawn_blocking(move || {
@@ -139,7 +167,15 @@ async fn list_jobs(
     .await
     .unwrap();
 
-    Ok(Json(responses))
+    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+
+    Ok(Json(PaginatedResponse {
+        data: responses,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }))
 }
 
 async fn create_job(
@@ -310,13 +346,31 @@ async fn list_executions(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
     Query(query): Query<ListExecsQuery>,
-) -> Result<Json<Vec<ExecutionRecord>>, AppError> {
-    let limit = query.limit.unwrap_or(20);
+) -> Result<Json<PaginatedResponse<Vec<ExecutionRecord>>>, AppError> {
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(query.limit.unwrap_or(20)).min(100);
+    let offset = (page - 1) * per_page;
+
     let db = state.db.clone();
-    let recs = tokio::task::spawn_blocking(move || db.list_executions_for_job(job_id, limit))
+    let total = tokio::task::spawn_blocking(move || db.count_executions_for_job(job_id))
         .await
         .unwrap()?;
-    Ok(Json(recs))
+
+    let db = state.db.clone();
+    let recs =
+        tokio::task::spawn_blocking(move || db.list_executions_for_job(job_id, per_page, offset))
+            .await
+            .unwrap()?;
+
+    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+
+    Ok(Json(PaginatedResponse {
+        data: recs,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }))
 }
 
 async fn get_execution(

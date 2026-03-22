@@ -112,6 +112,8 @@ pub struct ExecutionRecord {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
     pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub triggered_by: TriggerSource,

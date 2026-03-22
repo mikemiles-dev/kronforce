@@ -46,6 +46,8 @@ impl Db {
                 exit_code INTEGER,
                 stdout TEXT NOT NULL DEFAULT '',
                 stderr TEXT NOT NULL DEFAULT '',
+                stdout_truncated INTEGER NOT NULL DEFAULT 0,
+                stderr_truncated INTEGER NOT NULL DEFAULT 0,
                 started_at TEXT,
                 finished_at TEXT,
                 triggered_by_json TEXT NOT NULL,
@@ -108,34 +110,92 @@ impl Db {
         }
     }
 
-    pub fn list_jobs(&self, status_filter: Option<&str>) -> Result<Vec<Job>, AppError> {
+    pub fn count_jobs(
+        &self,
+        status_filter: Option<&str>,
+        search: Option<&str>,
+    ) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
-        let (sql, param): (&str, Vec<String>) = match status_filter {
-            Some(s) => (
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs WHERE status = ?1 ORDER BY name",
-                vec![s.to_string()],
-            ),
-            None => (
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs ORDER BY name",
-                vec![],
-            ),
-        };
-        let mut stmt = conn.prepare(sql).map_err(AppError::Db)?;
-        let mut jobs = Vec::new();
-        if param.is_empty() {
-            let rows = stmt
-                .query_map([], |row| Ok(row_to_job(row)))
-                .map_err(AppError::Db)?;
-            for row in rows {
-                jobs.push(row.map_err(AppError::Db)?);
-            }
+        let mut where_clauses = Vec::new();
+        let mut param_values: Vec<String> = Vec::new();
+
+        if let Some(s) = status_filter {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("status = ?{}", param_values.len()));
+        }
+        if let Some(q) = search {
+            let like = format!("%{}%", q);
+            param_values.push(like.clone());
+            let idx1 = param_values.len();
+            param_values.push(like);
+            let idx2 = param_values.len();
+            where_clauses.push(format!("(name LIKE ?{} OR command LIKE ?{})", idx1, idx2));
+        }
+
+        let sql = if where_clauses.is_empty() {
+            "SELECT COUNT(*) FROM jobs".to_string()
         } else {
-            let rows = stmt
-                .query_map(params![param[0]], |row| Ok(row_to_job(row)))
-                .map_err(AppError::Db)?;
-            for row in rows {
-                jobs.push(row.map_err(AppError::Db)?);
-            }
+            format!("SELECT COUNT(*) FROM jobs WHERE {}", where_clauses.join(" AND "))
+        };
+
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        stmt.query_row(params.as_slice(), |row| row.get(0))
+            .map_err(AppError::Db)
+    }
+
+    pub fn list_jobs(
+        &self,
+        status_filter: Option<&str>,
+        search: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<Job>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut where_clauses = Vec::new();
+        let mut param_values: Vec<String> = Vec::new();
+
+        if let Some(s) = status_filter {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("status = ?{}", param_values.len()));
+        }
+        if let Some(q) = search {
+            let like = format!("%{}%", q);
+            param_values.push(like.clone());
+            let idx1 = param_values.len();
+            param_values.push(like);
+            let idx2 = param_values.len();
+            where_clauses.push(format!("(name LIKE ?{} OR command LIKE ?{})", idx1, idx2));
+        }
+
+        // limit and offset as trailing params
+        param_values.push(limit.to_string());
+        let limit_idx = param_values.len();
+        param_values.push(offset.to_string());
+        let offset_idx = param_values.len();
+
+        let sql = if where_clauses.is_empty() {
+            format!(
+                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
+                limit_idx, offset_idx
+            )
+        } else {
+            format!(
+                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
+                where_clauses.join(" AND "), limit_idx, offset_idx
+            )
+        };
+
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let rows = stmt
+            .query_map(params.as_slice(), |row| Ok(row_to_job(row)))
+            .map_err(AppError::Db)?;
+        let mut jobs = Vec::new();
+        for row in rows {
+            jobs.push(row.map_err(AppError::Db)?);
         }
         Ok(jobs)
     }
@@ -212,7 +272,7 @@ impl Db {
     }
 
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {
-        self.list_jobs(Some("active"))
+        self.list_jobs(Some("active"), None, u32::MAX, 0)
     }
 
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {
@@ -269,8 +329,8 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let triggered_by_json = serde_json::to_string(&rec.triggered_by).unwrap();
         conn.execute(
-            "INSERT INTO executions (id, job_id, status, exit_code, stdout, stderr, started_at, finished_at, triggered_by_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            "INSERT INTO executions (id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 rec.id.to_string(),
                 rec.job_id.to_string(),
@@ -278,6 +338,8 @@ impl Db {
                 rec.exit_code,
                 rec.stdout,
                 rec.stderr,
+                rec.stdout_truncated as i32,
+                rec.stderr_truncated as i32,
                 rec.started_at.map(|t| t.to_rfc3339()),
                 rec.finished_at.map(|t| t.to_rfc3339()),
                 triggered_by_json,
@@ -290,12 +352,14 @@ impl Db {
     pub fn update_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "UPDATE executions SET status=?1, exit_code=?2, stdout=?3, stderr=?4, started_at=?5, finished_at=?6 WHERE id=?7",
+            "UPDATE executions SET status=?1, exit_code=?2, stdout=?3, stderr=?4, stdout_truncated=?5, stderr_truncated=?6, started_at=?7, finished_at=?8 WHERE id=?9",
             params![
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
                 rec.stderr,
+                rec.stdout_truncated as i32,
+                rec.stderr_truncated as i32,
                 rec.started_at.map(|t| t.to_rfc3339()),
                 rec.finished_at.map(|t| t.to_rfc3339()),
                 rec.id.to_string(),
@@ -308,7 +372,7 @@ impl Db {
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
+            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_execution(row)))
@@ -320,17 +384,28 @@ impl Db {
         }
     }
 
+    pub fn count_executions_for_job(&self, job_id: Uuid) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM executions WHERE job_id = ?1",
+            params![job_id.to_string()],
+            |row| row.get(0),
+        )
+        .map_err(AppError::Db)
+    }
+
     pub fn list_executions_for_job(
         &self,
         job_id: Uuid,
         limit: u32,
+        offset: u32,
     ) -> Result<Vec<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2")
+            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
         let rows = stmt
-            .query_map(params![job_id.to_string(), limit], |row| {
+            .query_map(params![job_id.to_string(), limit, offset], |row| {
                 Ok(row_to_execution(row))
             })
             .map_err(AppError::Db)?;
@@ -345,7 +420,7 @@ impl Db {
         &self,
         job_id: Uuid,
     ) -> Result<Option<ExecutionRecord>, AppError> {
-        let recs = self.list_executions_for_job(job_id, 1)?;
+        let recs = self.list_executions_for_job(job_id, 1, 0)?;
         Ok(recs.into_iter().next())
     }
 }
@@ -381,9 +456,11 @@ fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
     let id_str: String = row.get(0).unwrap();
     let job_id_str: String = row.get(1).unwrap();
     let status_str: String = row.get(2).unwrap();
-    let started_str: Option<String> = row.get(6).unwrap();
-    let finished_str: Option<String> = row.get(7).unwrap();
-    let triggered_json: String = row.get(8).unwrap();
+    let stdout_trunc: i32 = row.get(6).unwrap();
+    let stderr_trunc: i32 = row.get(7).unwrap();
+    let started_str: Option<String> = row.get(8).unwrap();
+    let finished_str: Option<String> = row.get(9).unwrap();
+    let triggered_json: String = row.get(10).unwrap();
 
     ExecutionRecord {
         id: Uuid::parse_str(&id_str).unwrap(),
@@ -392,6 +469,8 @@ fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
         exit_code: row.get(3).unwrap(),
         stdout: row.get(4).unwrap(),
         stderr: row.get(5).unwrap(),
+        stdout_truncated: stdout_trunc != 0,
+        stderr_truncated: stderr_trunc != 0,
         started_at: started_str.map(|s| {
             DateTime::parse_from_rfc3339(&s)
                 .unwrap()

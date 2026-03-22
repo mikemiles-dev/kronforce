@@ -2,6 +2,8 @@
 
 A workload automation and job scheduling engine built in Rust.
 
+![Kronforce Dashboard](screenshot.png)
+
 ## Quick Start
 
 ```bash

@@ -45,6 +45,8 @@ impl Executor {
             exit_code: None,
             stdout: String::new(),
             stderr: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
             started_at: Some(now),
             finished_at: None,
             triggered_by: trigger,
@@ -76,8 +78,10 @@ impl Executor {
                 job_id: rec.job_id,
                 status: result.status,
                 exit_code: result.exit_code,
-                stdout: result.stdout,
-                stderr: result.stderr,
+                stdout: result.stdout.text,
+                stderr: result.stderr.text,
+                stdout_truncated: result.stdout.truncated,
+                stderr_truncated: result.stderr.truncated,
                 started_at: rec.started_at,
                 finished_at: Some(finished_at),
                 triggered_by: rec.triggered_by,
@@ -119,11 +123,19 @@ impl Executor {
     }
 }
 
+/// Max bytes stored per stream (256KB). Output beyond this is truncated from the front (keeps tail).
+const MAX_OUTPUT_BYTES: usize = 256 * 1024;
+
+struct CapturedOutput {
+    text: String,
+    truncated: bool,
+}
+
 struct CommandResult {
     status: ExecutionStatus,
     exit_code: Option<i32>,
-    stdout: String,
-    stderr: String,
+    stdout: CapturedOutput,
+    stderr: CapturedOutput,
 }
 
 async fn run_command(
@@ -143,8 +155,8 @@ async fn run_command(
             return CommandResult {
                 status: ExecutionStatus::Failed,
                 exit_code: None,
-                stdout: String::new(),
-                stderr: format!("failed to spawn process: {e}"),
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: format!("failed to spawn process: {e}"), truncated: false },
             };
         }
     };
@@ -157,8 +169,8 @@ async fn run_command(
 
     tokio::select! {
         result = child.wait() => {
-            let stdout = read_async(&mut child_stdout).await;
-            let stderr = read_async_stderr(&mut child_stderr).await;
+            let stdout = read_pipe_stdout(&mut child_stdout).await;
+            let stderr = read_pipe_stderr(&mut child_stderr).await;
             match result {
                 Ok(exit_status) => {
                     let code = exit_status.code();
@@ -178,7 +190,7 @@ async fn run_command(
                     status: ExecutionStatus::Failed,
                     exit_code: None,
                     stdout,
-                    stderr: format!("process error: {e}"),
+                    stderr: CapturedOutput { text: format!("process error: {e}"), truncated: false },
                 },
             }
         }
@@ -192,8 +204,8 @@ async fn run_command(
             CommandResult {
                 status: ExecutionStatus::TimedOut,
                 exit_code: None,
-                stdout: String::new(),
-                stderr: format!("job timed out after {}s", timeout_secs.unwrap()),
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
             }
         }
         _ = cancel_rx => {
@@ -201,31 +213,50 @@ async fn run_command(
             CommandResult {
                 status: ExecutionStatus::Cancelled,
                 exit_code: None,
-                stdout: String::new(),
-                stderr: "job cancelled by user".to_string(),
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
             }
         }
     }
 }
 
-async fn read_async(pipe: &mut Option<tokio::process::ChildStdout>) -> String {
-    match pipe {
-        Some(p) => {
-            let mut buf = String::new();
-            let _ = p.read_to_string(&mut buf).await;
-            buf
+fn truncate_output(bytes: Vec<u8>) -> CapturedOutput {
+    if bytes.len() <= MAX_OUTPUT_BYTES {
+        CapturedOutput {
+            text: String::from_utf8_lossy(&bytes).to_string(),
+            truncated: false,
         }
-        None => String::new(),
+    } else {
+        // Keep the tail (most recent output)
+        let start = bytes.len() - MAX_OUTPUT_BYTES;
+        // Find the next valid char boundary to avoid splitting a UTF-8 sequence
+        let trimmed = &bytes[start..];
+        let text = String::from_utf8_lossy(trimmed).to_string();
+        CapturedOutput {
+            text: format!("[...truncated {} bytes...]\n{}", start, text),
+            truncated: true,
+        }
     }
 }
 
-async fn read_async_stderr(pipe: &mut Option<tokio::process::ChildStderr>) -> String {
+async fn read_pipe_stdout(pipe: &mut Option<tokio::process::ChildStdout>) -> CapturedOutput {
     match pipe {
         Some(p) => {
-            let mut buf = String::new();
-            let _ = p.read_to_string(&mut buf).await;
-            buf
+            let mut buf = Vec::new();
+            let _ = p.read_to_end(&mut buf).await;
+            truncate_output(buf)
         }
-        None => String::new(),
+        None => CapturedOutput { text: String::new(), truncated: false },
+    }
+}
+
+async fn read_pipe_stderr(pipe: &mut Option<tokio::process::ChildStderr>) -> CapturedOutput {
+    match pipe {
+        Some(p) => {
+            let mut buf = Vec::new();
+            let _ = p.read_to_end(&mut buf).await;
+            truncate_output(buf)
+        }
+        None => CapturedOutput { text: String::new(), truncated: false },
     }
 }

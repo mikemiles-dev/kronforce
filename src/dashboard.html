@@ -73,6 +73,125 @@ header {
 
 .health-text { font-size: 13px; color: var(--text-secondary); }
 
+.action-bar {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    position: sticky;
+    top: 56px;
+    z-index: 9;
+}
+
+.action-bar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.action-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.action-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 360px;
+}
+
+.search-wrap input {
+    width: 100%;
+    padding-left: 32px;
+    padding-right: 28px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 13px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.search-clear:hover { color: var(--text-primary); }
+
+.status-filters {
+    display: flex;
+    gap: 4px;
+}
+
+.status-btn {
+    padding: 4px 12px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.status-btn:hover { border-color: var(--text-secondary); }
+
+.status-btn.active {
+    background: rgba(139,143,163,0.15);
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.status-btn.s-active.active {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.status-btn.s-paused.active {
+    background: rgba(245,158,11,0.15);
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.status-btn.s-disabled.active {
+    background: rgba(139,143,163,0.15);
+    color: var(--text-secondary);
+    border-color: var(--text-secondary);
+}
+
+.status-btn.s-completed.active {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+    border-color: var(--success);
+}
+
 main {
     max-width: 1200px;
     margin: 0 auto;
@@ -323,16 +442,26 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 }
 
 .back-link {
-    color: var(--text-secondary);
+    color: var(--accent);
     cursor: pointer;
     font-size: 13px;
+    font-weight: 600;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     margin-bottom: 16px;
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    transition: all 0.15s;
 }
 
-.back-link:hover { color: var(--text-primary); }
+.back-link:hover {
+    color: var(--accent-hover);
+    border-color: var(--accent);
+    background: rgba(99,102,241,0.08);
+}
 
 .modal-overlay {
     position: fixed;
@@ -489,11 +618,120 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 .toast-error { background: var(--danger); color: white; }
 .toast-info { background: var(--info); color: white; }
 
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.pagination-info { font-size: 12px; }
+
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.page-btn {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.page-btn:hover { border-color: var(--accent); }
+.page-btn:disabled { opacity: 0.3; cursor: default; border-color: var(--border); }
+.page-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.refresh-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.refresh-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.refresh-toggle:hover { border-color: var(--text-secondary); }
+
+.refresh-toggle.active {
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.refresh-toggle .refresh-icon {
+    display: inline-block;
+    font-size: 13px;
+    transition: transform 0.4s;
+}
+
+.refresh-toggle.active .refresh-icon {
+    animation: none;
+}
+
+.refresh-toggle.spinning .refresh-icon {
+    animation: spin 0.6s linear;
+}
+
+.refresh-countdown {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 20px;
+    text-align: right;
+}
+
+.refresh-interval-select {
+    padding: 3px 6px;
+    font-size: 11px;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+
+.refresh-now {
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.refresh-now:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 768px) {
     .detail-grid { grid-template-columns: 1fr; }
     .toolbar { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .action-bar-inner { flex-wrap: wrap; }
+    .action-bar-left { flex-wrap: wrap; }
+    .search-wrap { max-width: 100%; min-width: 200px; }
     table { font-size: 12px; }
     th, td { padding: 8px 6px; }
 }
@@ -505,25 +743,50 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
     <div class="logo">Kron<span>force</span></div>
     <div class="header-right">
         <span class="health-text"><span id="health-dot" class="health-dot"></span><span id="health-text">checking...</span></span>
-        <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
     </div>
 </header>
 
-<main>
-    <section id="jobs-view">
-        <div class="toolbar">
-            <h2>Jobs</h2>
-            <div class="filter-group">
-                <select id="status-filter" onchange="fetchJobs()">
-                    <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="disabled">Disabled</option>
-                    <option value="completed">Completed</option>
-                </select>
+<div class="action-bar">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="search-input" type="text" placeholder="Search jobs..." oninput="onSearch()">
+                <button id="search-clear" class="search-clear" onclick="clearSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="status-filters">
+                <button class="status-btn active" data-status="" onclick="setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" data-status="active" onclick="setStatusFilter(this, 'active')">Active</button>
+                <button class="status-btn s-paused" data-status="paused" onclick="setStatusFilter(this, 'paused')">Paused</button>
+                <button class="status-btn s-disabled" data-status="disabled" onclick="setStatusFilter(this, 'disabled')">Disabled</button>
+                <button class="status-btn s-completed" data-status="completed" onclick="setStatusFilter(this, 'completed')">Completed</button>
             </div>
         </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button id="refresh-toggle" class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span id="refresh-label">On</span>
+                </button>
+                <span id="refresh-countdown" class="refresh-countdown"></span>
+                <select id="refresh-interval" class="refresh-interval-select" onchange="changeRefreshInterval()" title="Refresh interval">
+                    <option value="2">2s</option>
+                    <option value="5" selected>5s</option>
+                    <option value="10">10s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                </select>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
+        </div>
+    </div>
+</div>
+
+<main>
+    <section id="jobs-view">
         <div id="jobs-table-wrap"></div>
+        <div id="jobs-pagination" class="pagination"></div>
     </section>
 
     <section id="detail-view" style="display:none">
@@ -534,6 +797,7 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
                 <h3>Execution History</h3>
             </div>
             <div id="exec-table-wrap"></div>
+            <div id="exec-pagination" class="pagination"></div>
         </div>
     </section>
 </main>
@@ -601,6 +865,13 @@ let currentJobId = null;
 let editingJobId = null;
 let currentExecId = null;
 let pollTimer = null;
+let jobsPage = 1;
+let jobsTotalPages = 1;
+let jobsTotal = 0;
+let execsPage = 1;
+let execsTotalPages = 1;
+let execsTotal = 0;
+const PER_PAGE = 15;
 
 async function api(method, path, body) {
     const opts = { method, headers: {} };
@@ -640,16 +911,52 @@ async function fetchHealth() {
     }
 }
 
+let searchDebounce = null;
+let currentStatusFilter = '';
+
+function setStatusFilter(btn, status) {
+    currentStatusFilter = status;
+    document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    fetchJobs(true);
+}
+
+function onSearch() {
+    const val = document.getElementById('search-input').value;
+    document.getElementById('search-clear').style.display = val ? '' : 'none';
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => fetchJobs(true), 250);
+}
+
+function clearSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-clear').style.display = 'none';
+    fetchJobs(true);
+}
+
 // --- Jobs List ---
-async function fetchJobs() {
+async function fetchJobs(resetPage) {
+    if (resetPage) jobsPage = 1;
     try {
-        const filter = document.getElementById('status-filter').value;
-        const qs = filter ? '?status=' + filter : '';
-        allJobs = await api('GET', '/api/jobs' + qs);
+        const filter = currentStatusFilter;
+        const search = document.getElementById('search-input').value.trim();
+        let qs = '?page=' + jobsPage + '&per_page=' + PER_PAGE;
+        if (filter) qs += '&status=' + filter;
+        if (search) qs += '&search=' + encodeURIComponent(search);
+        const res = await api('GET', '/api/jobs' + qs);
+        allJobs = res.data;
+        jobsTotalPages = res.total_pages;
+        jobsTotal = res.total;
         renderJobsTable();
+        renderPagination('jobs-pagination', jobsPage, jobsTotalPages, jobsTotal, goToJobsPage);
     } catch (e) {
         console.error('fetchJobs:', e);
     }
+}
+
+function goToJobsPage(p) {
+    jobsPage = p;
+    fetchJobs();
 }
 
 function renderJobsTable() {
@@ -686,12 +993,13 @@ function renderJobsTable() {
 // --- Job Detail ---
 async function showJobDetail(id) {
     currentJobId = id;
+    execsPage = 1;
     document.getElementById('jobs-view').style.display = 'none';
     document.getElementById('detail-view').style.display = '';
     try {
         const job = await api('GET', '/api/jobs/' + id);
         renderJobDetail(job);
-        await fetchExecutions(id);
+        await fetchExecutions(id, true);
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -733,13 +1041,22 @@ function field(label, value) {
 }
 
 // --- Executions ---
-async function fetchExecutions(jobId) {
+async function fetchExecutions(jobId, resetPage) {
+    if (resetPage) execsPage = 1;
     try {
-        const execs = await api('GET', '/api/jobs/' + jobId + '/executions?limit=50');
-        renderExecTable(execs);
+        const res = await api('GET', '/api/jobs/' + jobId + '/executions?page=' + execsPage + '&per_page=' + PER_PAGE);
+        execsTotalPages = res.total_pages;
+        execsTotal = res.total;
+        renderExecTable(res.data);
+        renderPagination('exec-pagination', execsPage, execsTotalPages, execsTotal, goToExecsPage);
     } catch (e) {
         console.error('fetchExecutions:', e);
     }
+}
+
+function goToExecsPage(p) {
+    execsPage = p;
+    if (currentJobId) fetchExecutions(currentJobId);
 }
 
 function renderExecTable(execs) {
@@ -776,8 +1093,8 @@ async function showExecDetail(id) {
             execField('Duration', fmtDuration(e.started_at, e.finished_at)) +
             execField('Trigger', fmtTrigger(e.triggered_by)) +
             '</div>' +
-            '<div class="output-section"><h4>Stdout</h4><pre class="output-pre">' + esc(e.stdout || '(empty)') + '</pre></div>' +
-            '<div class="output-section"><h4>Stderr</h4><pre class="output-pre">' + esc(e.stderr || '(empty)') + '</pre></div>';
+            '<div class="output-section"><h4>Stdout' + (e.stdout_truncated ? ' <span class="badge badge-paused">truncated</span>' : '') + '</h4><pre class="output-pre">' + esc(e.stdout || '(empty)') + '</pre></div>' +
+            '<div class="output-section"><h4>Stderr' + (e.stderr_truncated ? ' <span class="badge badge-paused">truncated</span>' : '') + '</h4><pre class="output-pre">' + esc(e.stderr || '(empty)') + '</pre></div>';
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
         document.getElementById('exec-modal').style.display = '';
     } catch (e) {
@@ -829,9 +1146,9 @@ async function pollForResult(jobId) {
     const poll = async () => {
         attempts++;
         try {
-            const execs = await api('GET', '/api/jobs/' + jobId + '/executions?limit=1');
-            if (execs.length > 0) {
-                const latest = execs[0];
+            const res = await api('GET', '/api/jobs/' + jobId + '/executions?per_page=1&page=1');
+            if (res.data.length > 0) {
+                const latest = res.data[0];
                 if (latest.status === 'succeeded') {
                     toast('Job succeeded (exit code 0)', 'success');
                     cleanup();
@@ -1078,21 +1395,108 @@ function esc(s) {
     return d.innerHTML;
 }
 
-// --- Polling ---
+// --- Pagination ---
+function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
+    const el = document.getElementById(containerId);
+    if (totalPages <= 1) {
+        el.innerHTML = total > 0 ? '<span class="pagination-info">' + total + ' total</span>' : '';
+        return;
+    }
+    const fnName = '_pag_' + containerId.replace('-', '_');
+    window[fnName] = goToFn;
+    let html = '<span class="pagination-info">Page ' + currentPage + ' of ' + totalPages + ' (' + total + ' total)</span>';
+    html += '<div class="pagination-controls">';
+    html += '<button class="page-btn" ' + (currentPage <= 1 ? 'disabled' : 'onclick="' + fnName + '(' + (currentPage - 1) + ')"') + '>&laquo;</button>';
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    if (start > 1) html += '<button class="page-btn" onclick="' + fnName + '(1)">1</button>';
+    if (start > 2) html += '<span style="color:var(--text-muted)">...</span>';
+    for (let i = start; i <= end; i++) {
+        html += '<button class="page-btn' + (i === currentPage ? ' active' : '') + '" onclick="' + fnName + '(' + i + ')">' + i + '</button>';
+    }
+    if (end < totalPages - 1) html += '<span style="color:var(--text-muted)">...</span>';
+    if (end < totalPages) html += '<button class="page-btn" onclick="' + fnName + '(' + totalPages + ')">' + totalPages + '</button>';
+    html += '<button class="page-btn" ' + (currentPage >= totalPages ? 'disabled' : 'onclick="' + fnName + '(' + (currentPage + 1) + ')"') + '>&raquo;</button>';
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+// --- Auto-Refresh ---
+let autoRefreshEnabled = true;
+let refreshIntervalSecs = 5;
+let countdownRemaining = 5;
+let countdownTimer = null;
+
+function toggleAutoRefresh() {
+    autoRefreshEnabled = !autoRefreshEnabled;
+    const btn = document.getElementById('refresh-toggle');
+    const label = document.getElementById('refresh-label');
+    if (autoRefreshEnabled) {
+        btn.classList.add('active');
+        label.textContent = 'On';
+        startPolling();
+    } else {
+        btn.classList.remove('active');
+        label.textContent = 'Off';
+        stopPolling();
+        document.getElementById('refresh-countdown').textContent = '';
+    }
+}
+
+function changeRefreshInterval() {
+    refreshIntervalSecs = parseInt(document.getElementById('refresh-interval').value);
+    if (autoRefreshEnabled) {
+        startPolling();
+    }
+}
+
+async function refreshNow() {
+    const btn = document.getElementById('refresh-toggle');
+    btn.classList.add('spinning');
+    fetchHealth();
+    if (currentJobId) {
+        await fetchExecutions(currentJobId);
+    } else {
+        await fetchJobs();
+    }
+    setTimeout(() => btn.classList.remove('spinning'), 600);
+    if (autoRefreshEnabled) {
+        countdownRemaining = refreshIntervalSecs;
+    }
+}
+
 function startPolling() {
     stopPolling();
-    pollTimer = setInterval(() => {
-        fetchHealth();
-        if (currentJobId) {
-            fetchExecutions(currentJobId);
-        } else {
-            fetchJobs();
+    countdownRemaining = refreshIntervalSecs;
+    updateCountdown();
+    countdownTimer = setInterval(() => {
+        countdownRemaining--;
+        if (countdownRemaining <= 0) {
+            doRefreshTick();
+            countdownRemaining = refreshIntervalSecs;
         }
-    }, 5000);
+        updateCountdown();
+    }, 1000);
+}
+
+async function doRefreshTick() {
+    const btn = document.getElementById('refresh-toggle');
+    btn.classList.add('spinning');
+    fetchHealth();
+    if (currentJobId) {
+        await fetchExecutions(currentJobId);
+    } else {
+        await fetchJobs();
+    }
+    setTimeout(() => btn.classList.remove('spinning'), 600);
 }
 
 function stopPolling() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+}
+
+function updateCountdown() {
+    document.getElementById('refresh-countdown').textContent = countdownRemaining + 's';
 }
 
 // --- Init ---
