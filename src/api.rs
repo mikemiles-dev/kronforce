@@ -1,9 +1,12 @@
-use axum::extract::{Path, Query, State};
-use axum::routing::{get, post};
+use axum::extract::{Path, Query, Request, State};
+use axum::middleware::{self, Next};
+use axum::response::Response;
+use axum::routing::{get, post, delete};
 use axum::response::Html;
 use axum::{Json, Router};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use sha2::{Sha256, Digest};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -28,8 +31,8 @@ pub struct AppState {
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
-        .route("/", get(dashboard))
+    // Routes that require auth
+    let authed = Router::new()
         .route("/api/jobs", get(list_jobs).post(create_job))
         .route(
             "/api/jobs/{id}",
@@ -39,14 +42,25 @@ pub fn router(state: AppState) -> Router {
         .route("/api/jobs/{id}/executions", get(list_executions))
         .route("/api/executions/{id}", get(get_execution))
         .route("/api/executions/{id}/cancel", post(cancel_execution))
+        .route("/api/agents", get(list_agents))
+        .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
+        .route("/api/events", get(list_events))
+        .route("/api/keys", get(list_api_keys).post(create_api_key))
+        .route("/api/keys/{id}", delete(revoke_api_key))
+        .route("/api/auth/me", get(auth_me))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
+        .with_state(state.clone());
+
+    // Routes exempt from auth
+    let public = Router::new()
+        .route("/", get(dashboard))
         .route("/api/health", get(health))
         .route("/api/agents/register", post(register_agent))
         .route("/api/agents/{id}/heartbeat", post(agent_heartbeat))
-        .route("/api/agents", get(list_agents))
-        .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
         .route("/api/callbacks/execution-result", post(execution_result_callback))
-        .route("/api/events", get(list_events))
-        .with_state(state)
+        .with_state(state);
+
+    public.merge(authed)
 }
 
 // --- Request/Response types ---
@@ -55,7 +69,8 @@ pub fn router(state: AppState) -> Router {
 struct CreateJobRequest {
     name: String,
     description: Option<String>,
-    command: String,
+    task: TaskType,
+    run_as: Option<String>,
     schedule: ScheduleKind,
     timeout_secs: Option<u64>,
     depends_on: Option<Vec<Dependency>>,
@@ -66,7 +81,8 @@ struct CreateJobRequest {
 struct UpdateJobRequest {
     name: Option<String>,
     description: Option<String>,
-    command: Option<String>,
+    task: Option<TaskType>,
+    run_as: Option<String>,
     schedule: Option<ScheduleKind>,
     status: Option<JobStatus>,
     timeout_secs: Option<u64>,
@@ -216,12 +232,14 @@ async fn create_job(
         id: job_id,
         name: req.name,
         description: req.description,
-        command: req.command,
+        task: req.task,
+        run_as: req.run_as,
         schedule: req.schedule,
         status: JobStatus::Enabled,
         timeout_secs: req.timeout_secs,
         depends_on,
         target: req.target,
+        created_by: None, // TODO: set from auth context
         created_at: now,
         updated_at: now,
     };
@@ -283,8 +301,8 @@ async fn update_job(
     if let Some(desc) = req.description {
         job.description = Some(desc);
     }
-    if let Some(cmd) = req.command {
-        job.command = cmd;
+    if let Some(task) = req.task {
+        job.task = task;
     }
     if let Some(schedule) = req.schedule {
         if let ScheduleKind::Cron(ref expr) = schedule {
@@ -307,6 +325,9 @@ async fn update_job(
                 .unwrap()?;
         }
         job.depends_on = deps;
+    }
+    if req.run_as.is_some() {
+        job.run_as = req.run_as;
     }
     if let Some(target) = req.target {
         job.target = Some(target);
@@ -443,7 +464,7 @@ fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
                 None
             }
         }
-        ScheduleKind::Manual => None,
+        ScheduleKind::OnDemand => None,
     }
 }
 
@@ -673,4 +694,199 @@ async fn list_events(
         per_page,
         total_pages,
     }))
+}
+
+// --- Auth ---
+
+pub fn hash_api_key(raw: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+pub fn generate_api_key() -> (String, String) {
+    use rand::Rng;
+    let mut bytes = [0u8; 32];
+    rand::rng().fill(&mut bytes);
+    let raw = format!("kf_{}", base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes));
+    let prefix = raw[..11].to_string(); // "kf_" + first 8 chars of base64
+    (raw, prefix)
+}
+
+async fn auth_middleware(
+    State(state): State<AppState>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, AppError> {
+    // Check if auth is enabled (any keys exist)
+    let db = state.db.clone();
+    let key_count = tokio::task::spawn_blocking(move || db.count_api_keys())
+        .await
+        .unwrap()?;
+
+    // If no keys exist, skip auth (first-time setup)
+    if key_count == 0 {
+        return Ok(next.run(req).await);
+    }
+
+    let auth_header = req
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let raw_key = match auth_header {
+        Some(ref h) if h.starts_with("Bearer ") => &h[7..],
+        _ => {
+            return Err(AppError::Unauthorized("missing or invalid Authorization header".into()));
+        }
+    };
+
+    let hash = hash_api_key(raw_key);
+    let db = state.db.clone();
+    let hash2 = hash.clone();
+    let api_key = tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash2))
+        .await
+        .unwrap()?;
+
+    match api_key {
+        Some(key) => {
+            // Update last_used_at
+            let db = state.db.clone();
+            let key_id = key.id;
+            let now = Utc::now();
+            let _ = tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+
+            req.extensions_mut().insert(key);
+            Ok(next.run(req).await)
+        }
+        None => Err(AppError::Unauthorized("invalid API key".into())),
+    }
+}
+
+fn require_write(req: &Request) -> Result<(), AppError> {
+    if let Some(key) = req.extensions().get::<ApiKey>() {
+        if key.role.can_write() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("viewer role cannot modify resources".into()))
+        }
+    } else {
+        Ok(()) // no auth context = no keys configured, allow
+    }
+}
+
+fn require_admin(req: &Request) -> Result<(), AppError> {
+    if let Some(key) = req.extensions().get::<ApiKey>() {
+        if key.role.can_manage_keys() {
+            Ok(())
+        } else {
+            Err(AppError::Forbidden("admin role required".into()))
+        }
+    } else {
+        Ok(())
+    }
+}
+
+async fn auth_me(req: Request) -> Json<serde_json::Value> {
+    if let Some(key) = req.extensions().get::<ApiKey>() {
+        Json(serde_json::json!({
+            "authenticated": true,
+            "key_id": key.id,
+            "key_prefix": key.key_prefix,
+            "name": key.name,
+            "role": key.role,
+        }))
+    } else {
+        Json(serde_json::json!({
+            "authenticated": false,
+            "message": "no API keys configured, auth disabled",
+        }))
+    }
+}
+
+#[derive(Deserialize)]
+struct CreateApiKeyRequest {
+    name: String,
+    role: ApiKeyRole,
+}
+
+#[derive(Serialize)]
+struct CreateApiKeyResponse {
+    key: ApiKey,
+    raw_key: String,
+}
+
+async fn create_api_key(
+    State(state): State<AppState>,
+    req: Request,
+) -> Result<Json<CreateApiKeyResponse>, AppError> {
+    require_admin(&req)?;
+
+    let bytes = axum::body::to_bytes(req.into_body(), 1024 * 64)
+        .await
+        .map_err(|e| AppError::BadRequest(format!("invalid body: {e}")))?;
+    let body: CreateApiKeyRequest = serde_json::from_slice(&bytes)
+        .map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))?;
+
+    let (raw_key, prefix) = generate_api_key();
+    let hash = hash_api_key(&raw_key);
+
+    let key = ApiKey {
+        id: Uuid::new_v4(),
+        key_prefix: prefix,
+        key_hash: hash,
+        name: body.name,
+        role: body.role,
+        created_at: Utc::now(),
+        last_used_at: None,
+        active: true,
+    };
+
+    let db = state.db.clone();
+    let key2 = key.clone();
+    tokio::task::spawn_blocking(move || db.insert_api_key(&key2))
+        .await
+        .unwrap()?;
+
+    let db_log = state.db.clone();
+    let key_name = key.name.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("key.created", EventSeverity::Info, &format!("API key '{}' created", key_name), None, None)
+    }).await;
+
+    Ok(Json(CreateApiKeyResponse { key, raw_key }))
+}
+
+async fn list_api_keys(
+    State(state): State<AppState>,
+    req: Request,
+) -> Result<Json<Vec<ApiKey>>, AppError> {
+    require_admin(&req)?;
+
+    let db = state.db.clone();
+    let keys = tokio::task::spawn_blocking(move || db.list_api_keys())
+        .await
+        .unwrap()?;
+    Ok(Json(keys))
+}
+
+async fn revoke_api_key(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    req: Request,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_admin(&req)?;
+
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || db.delete_api_key(id))
+        .await
+        .unwrap()?;
+
+    let db_log = state.db.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("key.revoked", EventSeverity::Warning, &format!("API key {} revoked", id), None, None)
+    }).await;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

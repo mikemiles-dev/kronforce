@@ -101,7 +101,7 @@ impl Scheduler {
                         self.invalidate_cache();
                     }
                 }
-                ScheduleKind::Manual => {}
+                ScheduleKind::OnDemand => {}
             }
         }
     }

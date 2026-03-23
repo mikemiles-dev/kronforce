@@ -30,7 +30,7 @@ impl Db {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL UNIQUE,
                 description TEXT,
-                command TEXT NOT NULL,
+                command TEXT,
                 schedule_json TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'active',
                 timeout_secs INTEGER,
@@ -93,8 +93,30 @@ impl Db {
                 timestamp TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id TEXT PRIMARY KEY,
+                key_prefix TEXT NOT NULL,
+                key_hash TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'viewer',
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                active INTEGER NOT NULL DEFAULT 1
+            );
             "
         ).map_err(AppError::Db)?;
+
+        // New column migrations
+        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN run_as TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN created_by TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN api_key_id TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN task_json TEXT;");
+
+        // Migrate command -> task_json for existing jobs
+        let _ = conn.execute_batch(
+            "UPDATE jobs SET task_json = json_object('type', 'shell', 'command', command) WHERE task_json IS NULL AND command IS NOT NULL;"
+        );
 
         Ok(())
     }
@@ -107,25 +129,31 @@ impl Db {
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
         let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
         conn.execute(
-            "INSERT INTO jobs (id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 job.id.to_string(),
                 job.name,
                 job.description,
-                job.command,
+                serde_json::to_string(&job.task).unwrap(),
+                job.run_as,
                 schedule_json,
                 job.status.as_str(),
                 job.timeout_secs.map(|t| t as i64),
                 depends_on_json,
                 target_json,
+                job.created_by.map(|id| id.to_string()),
                 job.created_at.to_rfc3339(),
                 job.updated_at.to_rfc3339(),
             ],
         ).map_err(|e| {
             if let rusqlite::Error::SqliteFailure(ref err, _) = e {
                 if err.code == rusqlite::ErrorCode::ConstraintViolation {
-                    return AppError::Conflict(format!("job name '{}' already exists", job.name));
+                    let msg = e.to_string();
+                    if msg.contains("name") {
+                        return AppError::Conflict(format!("job name '{}' already exists", job.name));
+                    }
+                    return AppError::BadRequest(format!("constraint violation: {msg}"));
                 }
             }
             AppError::Db(e)
@@ -136,7 +164,7 @@ impl Db {
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_job(row)))
@@ -167,7 +195,7 @@ impl Db {
             let idx1 = param_values.len();
             param_values.push(like);
             let idx2 = param_values.len();
-            where_clauses.push(format!("(name LIKE ?{} OR command LIKE ?{})", idx1, idx2));
+            where_clauses.push(format!("(name LIKE ?{} OR task_json LIKE ?{})", idx1, idx2));
         }
 
         let sql = if where_clauses.is_empty() {
@@ -204,7 +232,7 @@ impl Db {
             let idx1 = param_values.len();
             param_values.push(like);
             let idx2 = param_values.len();
-            where_clauses.push(format!("(name LIKE ?{} OR command LIKE ?{})", idx1, idx2));
+            where_clauses.push(format!("(name LIKE ?{} OR task_json LIKE ?{})", idx1, idx2));
         }
 
         // limit and offset as trailing params
@@ -215,12 +243,12 @@ impl Db {
 
         let sql = if where_clauses.is_empty() {
             format!(
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
                 limit_idx, offset_idx
             )
         } else {
             format!(
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
                 where_clauses.join(" AND "), limit_idx, offset_idx
             )
         };
@@ -245,11 +273,12 @@ impl Db {
         let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, command=?3, schedule_json=?4, status=?5, timeout_secs=?6, depends_on_json=?7, target_json=?8, updated_at=?9 WHERE id=?10",
+                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10 WHERE id=?11",
                 params![
                     job.name,
                     job.description,
-                    job.command,
+                    serde_json::to_string(&job.task).unwrap(),
+                    job.run_as,
                     schedule_json,
                     job.status.as_str(),
                     job.timeout_secs.map(|t| t as i64),
@@ -588,6 +617,80 @@ impl Db {
         Ok(())
     }
 
+    // --- API Keys ---
+
+    pub fn insert_api_key(&self, key: &ApiKey) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO api_keys (id, key_prefix, key_hash, name, role, created_at, last_used_at, active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                key.id.to_string(),
+                key.key_prefix,
+                key.key_hash,
+                key.name,
+                key.role.as_str(),
+                key.created_at.to_rfc3339(),
+                key.last_used_at.map(|t| t.to_rfc3339()),
+                key.active as i32,
+            ],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn get_api_key_by_hash(&self, hash: &str) -> Result<Option<ApiKey>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys WHERE key_hash = ?1 AND active = 1")
+            .map_err(AppError::Db)?;
+        let mut rows = stmt
+            .query_map(params![hash], |row| Ok(row_to_api_key(row)))
+            .map_err(AppError::Db)?;
+        match rows.next() {
+            Some(Ok(key)) => Ok(Some(key)),
+            Some(Err(e)) => Err(AppError::Db(e)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn list_api_keys(&self) -> Result<Vec<ApiKey>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys ORDER BY created_at DESC")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| Ok(row_to_api_key(row)))
+            .map_err(AppError::Db)?;
+        let mut keys = Vec::new();
+        for row in rows {
+            keys.push(row.map_err(AppError::Db)?);
+        }
+        Ok(keys)
+    }
+
+    pub fn delete_api_key(&self, id: Uuid) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE api_keys SET active = 0 WHERE id = ?1",
+            params![id.to_string()],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn update_api_key_last_used(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE api_keys SET last_used_at = ?1 WHERE id = ?2",
+            params![at.to_rfc3339(), id.to_string()],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn count_api_keys(&self) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM api_keys WHERE active = 1", [], |row| row.get(0))
+            .map_err(AppError::Db)
+    }
+
     // --- Events ---
 
     pub fn insert_event(&self, event: &Event) -> Result<(), AppError> {
@@ -664,26 +767,34 @@ impl Db {
     }
 }
 
+// Columns: id(0), name(1), description(2), command(3), run_as(4), schedule_json(5), status(6),
+//          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12)
 fn row_to_job(row: &rusqlite::Row) -> Job {
     let id_str: String = row.get(0).unwrap();
-    let schedule_json: String = row.get(4).unwrap();
-    let status_str: String = row.get(5).unwrap();
-    let timeout: Option<i64> = row.get(6).unwrap();
-    let depends_json: String = row.get(7).unwrap();
-    let target_json: Option<String> = row.get(8).unwrap();
-    let created_str: String = row.get(9).unwrap();
-    let updated_str: String = row.get(10).unwrap();
+    let run_as: Option<String> = row.get(4).unwrap();
+    let schedule_json: String = row.get(5).unwrap();
+    let status_str: String = row.get(6).unwrap();
+    let timeout: Option<i64> = row.get(7).unwrap();
+    let depends_json: String = row.get(8).unwrap();
+    let target_json: Option<String> = row.get(9).unwrap();
+    let created_by_str: Option<String> = row.get(10).unwrap();
+    let created_str: String = row.get(11).unwrap();
+    let updated_str: String = row.get(12).unwrap();
+
+    let task_json: String = row.get(3).unwrap();
 
     Job {
         id: Uuid::parse_str(&id_str).unwrap(),
         name: row.get(1).unwrap(),
         description: row.get(2).unwrap(),
-        command: row.get(3).unwrap(),
+        task: serde_json::from_str(&task_json).unwrap(),
+        run_as,
         schedule: serde_json::from_str(&schedule_json).unwrap(),
         status: JobStatus::from_str(&status_str).unwrap(),
         timeout_secs: timeout.map(|t| t as u64),
         depends_on: serde_json::from_str(&depends_json).unwrap_or_default(),
         target: target_json.and_then(|s| serde_json::from_str(&s).ok()),
+        created_by: created_by_str.and_then(|s| Uuid::parse_str(&s).ok()),
         created_at: DateTime::parse_from_rfc3339(&created_str)
             .unwrap()
             .with_timezone(&Utc),
@@ -754,5 +865,24 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         registered_at: DateTime::parse_from_rfc3339(&reg_str)
             .unwrap()
             .with_timezone(&Utc),
+    }
+}
+
+fn row_to_api_key(row: &rusqlite::Row) -> ApiKey {
+    let id_str: String = row.get(0).unwrap();
+    let role_str: String = row.get(4).unwrap();
+    let created_str: String = row.get(5).unwrap();
+    let last_used_str: Option<String> = row.get(6).unwrap();
+    let active_int: i32 = row.get(7).unwrap();
+
+    ApiKey {
+        id: Uuid::parse_str(&id_str).unwrap(),
+        key_prefix: row.get(1).unwrap(),
+        key_hash: row.get(2).unwrap(),
+        name: row.get(3).unwrap(),
+        role: ApiKeyRole::from_str(&role_str).unwrap_or(ApiKeyRole::Viewer),
+        created_at: DateTime::parse_from_rfc3339(&created_str).unwrap().with_timezone(&Utc),
+        last_used_at: last_used_str.map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
+        active: active_int != 0,
     }
 }

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::ExecutionStatus;
+use crate::models::{ExecutionStatus, TaskType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistration {
@@ -29,7 +29,8 @@ pub struct AgentHeartbeat {
 pub struct JobDispatchRequest {
     pub execution_id: Uuid,
     pub job_id: Uuid,
-    pub command: String,
+    pub task: TaskType,
+    pub run_as: Option<String>,
     pub timeout_secs: Option<u64>,
     pub callback_url: String,
 }

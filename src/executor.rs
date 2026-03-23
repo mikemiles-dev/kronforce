@@ -14,6 +14,8 @@ use crate::error::AppError;
 use crate::models::*;
 use crate::protocol::JobDispatchRequest;
 
+use reqwest;
+
 struct RunningJob {
     cancel_tx: oneshot::Sender<()>,
 }
@@ -92,13 +94,14 @@ impl Executor {
             running.insert(exec_id, RunningJob { cancel_tx });
         }
 
-        let command = job.command.clone();
+        let task = job.task.clone();
+        let run_as = job.run_as.clone();
         let timeout_secs = job.timeout_secs;
         let db = self.db.clone();
         let running = self.running.clone();
 
         tokio::spawn(async move {
-            let result = run_command(&command, timeout_secs, cancel_rx).await;
+            let result = run_task(&task, run_as.as_deref(), timeout_secs, cancel_rx).await;
             let finished_at = Utc::now();
             let updated = ExecutionRecord {
                 id: exec_id,
@@ -298,7 +301,8 @@ impl Executor {
         let dispatch = JobDispatchRequest {
             execution_id: exec_id,
             job_id: job.id,
-            command: job.command.clone(),
+            task: job.task.clone(),
+            run_as: job.run_as.clone(),
             timeout_secs: job.timeout_secs,
             callback_url: format!("{}/api/callbacks/execution-result", callback_base_url),
         };
@@ -350,6 +354,126 @@ impl Executor {
     }
 }
 
+/// Run a task based on its type.
+pub async fn run_task(
+    task: &TaskType,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    match task {
+        TaskType::Shell { command } => {
+            run_command(command, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Sql { driver, connection_string, query } => {
+            let cmd = match driver {
+                SqlDriver::Postgres => format!("psql {} -c {}", shell_escape(connection_string), shell_escape(query)),
+                SqlDriver::Mysql => format!("mysql {} -e {}", shell_escape(connection_string), shell_escape(query)),
+                SqlDriver::Sqlite => format!("sqlite3 {} {}", shell_escape(connection_string), shell_escape(query)),
+            };
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Ftp { protocol, host, port, username, password, direction, remote_path, local_path } => {
+            let port_part = port.map(|p| format!(":{}", p)).unwrap_or_default();
+            let proto = match protocol {
+                FtpProtocol::Ftp => "ftp",
+                FtpProtocol::Ftps => "ftps",
+                FtpProtocol::Sftp => "sftp",
+            };
+            let url = format!("{}://{}{}{}",proto, host, port_part, remote_path);
+            let cmd = match direction {
+                TransferDirection::Download => format!("curl -u {}:{} {} -o {}", shell_escape(username), shell_escape(password), shell_escape(&url), shell_escape(local_path)),
+                TransferDirection::Upload => format!("curl -u {}:{} -T {} {}", shell_escape(username), shell_escape(password), shell_escape(local_path), shell_escape(&url)),
+            };
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Http { method, url, headers, body, expect_status } => {
+            run_http(method, url, headers.as_ref(), body.as_deref(), *expect_status, timeout_secs, cancel_rx).await
+        }
+    }
+}
+
+fn shell_escape(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+async fn run_http(
+    method: &HttpMethod,
+    url: &str,
+    headers: Option<&std::collections::HashMap<String, String>>,
+    body: Option<&str>,
+    expect_status: Option<u16>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let client = reqwest::Client::builder()
+        .timeout(timeout_secs.map(std::time::Duration::from_secs).unwrap_or(std::time::Duration::from_secs(30)))
+        .build()
+        .unwrap();
+
+    let mut req = match method {
+        HttpMethod::Get => client.get(url),
+        HttpMethod::Post => client.post(url),
+        HttpMethod::Put => client.put(url),
+        HttpMethod::Delete => client.delete(url),
+    };
+
+    if let Some(hdrs) = headers {
+        for (k, v) in hdrs {
+            req = req.header(k.as_str(), v.as_str());
+        }
+    }
+
+    if let Some(b) = body {
+        req = req.body(b.to_string());
+    }
+
+    let http_future = async {
+        match req.send().await {
+            Ok(resp) => {
+                let status_code = resp.status().as_u16();
+                let resp_body = resp.text().await.unwrap_or_default();
+
+                if let Some(expected) = expect_status {
+                    if status_code != expected {
+                        return CommandResult {
+                            status: ExecutionStatus::Failed,
+                            exit_code: Some(status_code as i32),
+                            stdout: CapturedOutput { text: resp_body, truncated: false },
+                            stderr: CapturedOutput { text: format!("expected status {}, got {}", expected, status_code), truncated: false },
+                        };
+                    }
+                }
+
+                CommandResult {
+                    status: if (200..300).contains(&status_code) { ExecutionStatus::Succeeded } else { ExecutionStatus::Failed },
+                    exit_code: Some(status_code as i32),
+                    stdout: CapturedOutput { text: resp_body, truncated: false },
+                    stderr: CapturedOutput { text: String::new(), truncated: false },
+                }
+            }
+            Err(e) => CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: format!("HTTP request failed: {e}"), truncated: false },
+            },
+        }
+    };
+
+    tokio::select! {
+        result = http_future => result,
+        _ = cancel_rx => {
+            CommandResult {
+                status: ExecutionStatus::Cancelled,
+                exit_code: None,
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
+            }
+        }
+    }
+}
+
 /// Max bytes stored per stream (256KB). Output beyond this is truncated from the front (keeps tail).
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 
@@ -367,12 +491,20 @@ pub struct CommandResult {
 
 pub async fn run_command(
     command: &str,
+    run_as: Option<&str>,
     timeout_secs: Option<u64>,
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
-    let mut child = match Command::new("sh")
-        .arg("-c")
-        .arg(command)
+    let mut cmd = if let Some(user) = run_as {
+        let mut c = Command::new("sudo");
+        c.args(["-n", "-u", user, "sh", "-c", command]);
+        c
+    } else {
+        let mut c = Command::new("sh");
+        c.args(["-c", command]);
+        c
+    };
+    let mut child = match cmd
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()

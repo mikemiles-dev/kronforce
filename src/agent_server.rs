@@ -8,7 +8,7 @@ use chrono::Utc;
 use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
-use crate::executor::run_command;
+use crate::executor::run_task;
 use crate::protocol::{
     CancelRequest, ExecutionResultReport, JobDispatchRequest, JobDispatchResponse,
 };
@@ -53,7 +53,7 @@ async fn execute_job(
     tokio::spawn(async move {
         let started_at = Utc::now();
 
-        let result = run_command(&req.command, req.timeout_secs, cancel_rx).await;
+        let result = run_task(&req.task, req.run_as.as_deref(), req.timeout_secs, cancel_rx).await;
 
         let finished_at = Utc::now();
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -10,13 +12,76 @@ pub struct CronExpr(pub String);
 pub enum ScheduleKind {
     Cron(CronExpr),
     OneShot(DateTime<Utc>),
-    Manual,
+    #[serde(alias = "manual")]
+    OnDemand,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dependency {
     pub job_id: Uuid,
     pub within_secs: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TaskType {
+    Shell {
+        command: String,
+    },
+    Sql {
+        driver: SqlDriver,
+        connection_string: String,
+        query: String,
+    },
+    Ftp {
+        protocol: FtpProtocol,
+        host: String,
+        port: Option<u16>,
+        username: String,
+        password: String,
+        direction: TransferDirection,
+        remote_path: String,
+        local_path: String,
+    },
+    Http {
+        method: HttpMethod,
+        url: String,
+        headers: Option<HashMap<String, String>>,
+        body: Option<String>,
+        expect_status: Option<u16>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SqlDriver {
+    Postgres,
+    Mysql,
+    Sqlite,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FtpProtocol {
+    Ftp,
+    Ftps,
+    Sftp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferDirection {
+    Upload,
+    Download,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,12 +120,14 @@ pub struct Job {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub command: String,
+    pub task: TaskType,
+    pub run_as: Option<String>,
     pub schedule: ScheduleKind,
     pub status: JobStatus,
     pub timeout_secs: Option<u64>,
     pub depends_on: Vec<Dependency>,
     pub target: Option<AgentTarget>,
+    pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -216,5 +283,53 @@ impl EventSeverity {
             "error" => Some(EventSeverity::Error),
             _ => None,
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiKey {
+    pub id: Uuid,
+    pub key_prefix: String,
+    #[serde(skip_serializing)]
+    pub key_hash: String,
+    pub name: String,
+    pub role: ApiKeyRole,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub active: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApiKeyRole {
+    Admin,
+    Operator,
+    Viewer,
+}
+
+impl ApiKeyRole {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ApiKeyRole::Admin => "admin",
+            ApiKeyRole::Operator => "operator",
+            ApiKeyRole::Viewer => "viewer",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "admin" => Some(ApiKeyRole::Admin),
+            "operator" => Some(ApiKeyRole::Operator),
+            "viewer" => Some(ApiKeyRole::Viewer),
+            _ => None,
+        }
+    }
+
+    pub fn can_write(&self) -> bool {
+        matches!(self, ApiKeyRole::Admin | ApiKeyRole::Operator)
+    }
+
+    pub fn can_manage_keys(&self) -> bool {
+        matches!(self, ApiKeyRole::Admin)
     }
 }

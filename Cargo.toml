@@ -30,3 +30,6 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 thiserror = "2"
 reqwest = { version = "0.12", features = ["json"] }
 hostname = "0.4"
+sha2 = "0.10"
+rand = "0.9"
+base64 = "0.22"

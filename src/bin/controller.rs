@@ -20,6 +20,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = Db::open(&config.db_path)?;
     db.migrate()?;
 
+    // Bootstrap admin API key if none exist
+    if db.count_api_keys()? == 0 {
+        let (raw_key, prefix) = kronforce::api::generate_api_key();
+        let hash = kronforce::api::hash_api_key(&raw_key);
+        let key = kronforce::models::ApiKey {
+            id: uuid::Uuid::new_v4(),
+            key_prefix: prefix,
+            key_hash: hash,
+            name: "admin (bootstrap)".to_string(),
+            role: kronforce::models::ApiKeyRole::Admin,
+            created_at: chrono::Utc::now(),
+            last_used_at: None,
+            active: true,
+        };
+        db.insert_api_key(&key)?;
+        tracing::info!("=============================================================");
+        tracing::info!("  No API keys found. Bootstrap admin key created:");
+        tracing::info!("  {}", raw_key);
+        tracing::info!("  Save this key — it will not be shown again.");
+        tracing::info!("=============================================================");
+    }
+
     let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
 
     let agent_client = AgentClient::new();

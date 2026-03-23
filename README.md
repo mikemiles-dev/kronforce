@@ -4,16 +4,6 @@ A workload automation and job scheduling engine built in Rust. Features a contro
 
 ![Kronforce Dashboard](screenshot.png)
 
-![Map View](screenshot2.png)
-
-![Execution Output](screenshot3.png)
-
-![Agents View](screenshot1.png)
-
-![Job Detail & Execution History](screenshot4.png)
-
-![Events View](screenshot5.png)
-
 ## Quick Start
 
 ### Controller
@@ -22,7 +12,7 @@ A workload automation and job scheduling engine built in Rust. Features a contro
 cargo run --bin kronforce
 ```
 
-The controller starts on `0.0.0.0:8080` with a web dashboard, REST API, scheduler, and SQLite database.
+The controller starts on `0.0.0.0:8080` with a web dashboard, REST API, scheduler, and SQLite database. Open `http://localhost:8080` in your browser.
 
 ### Agent
 
@@ -104,59 +94,109 @@ The agent registers with the controller, sends heartbeats, and executes jobs dis
 5. Agent POSTs the result back to the controller's callback endpoint
 6. Controller updates the execution record in SQLite
 
+## Web Dashboard
+
+The dashboard is embedded in the controller binary (no separate build step). Navigate to `http://localhost:8080`.
+
+### Pages
+
+| Page | URL | Description |
+|---|---|---|
+| Jobs | `/#/jobs` | Job list with search, filters, bulk actions, sortable columns |
+| Map | `/#/map` | Visual dependency graph showing all jobs and their relationships |
+| Agents | `/#/agents` | Registered agents with status, tags, heartbeat info |
+| Events | `/#/events` | Activity feed — job triggers, completions, agent status changes |
+| Settings | `/#/settings` | Theme toggle, API key management, sign out |
+| Job Detail | `/#/jobs/{id}` | Job info, execution history, output viewer, mini dependency map |
+
+All URLs are shareable — opening a link goes directly to that view.
+
+### Features
+
+- **Task types** — Shell, HTTP, SQL, and FTP/SFTP job types with type-specific configuration forms
+- **Search and filter** — search jobs by name/task, filter by state; search agents by name/hostname/tag, filter by status
+- **Bulk actions** — select multiple jobs to schedule or delete at once
+- **Sortable columns** — click any column header to sort ascending/descending
+- **Auto-refresh** — configurable polling interval (2s–60s) with countdown, toggle on/off
+- **Dark/Light mode** — persisted in localStorage, or follow system preference
+- **Pagination** — jobs, executions, and events are paginated
+- **Output viewer** — execution output with Text/JSON/HTML view tabs (HTML rendered in sandboxed iframe)
+- **Mini dependency map** — job detail page shows a focused DAG of related jobs
+
 ## API
 
 ### Jobs
 
 ```bash
-# Create a local job (runs on controller)
+# Create a shell job (one-shot)
 curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
   -H 'Content-Type: application/json' \
   -d '{
-    "name": "cleanup",
-    "command": "echo running cleanup",
+    "name": "migration",
+    "task": {"type": "shell", "command": "./migrate.sh"},
+    "schedule": {"type": "one_shot", "value": "2026-04-01T00:00:00Z"}
+  }'
+
+# Create an HTTP job (cron)
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "health-ping",
+    "task": {"type": "http", "method": "get", "url": "https://api.example.com/health", "expect_status": 200},
     "schedule": {"type": "cron", "value": "0 * * * * *"}
   }'
 
-# Create a job targeting agents with a tag
+# Create a SQL job
 curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "report-query",
+    "task": {"type": "sql", "driver": "postgres", "connection_string": "postgresql://user:pass@host/db", "query": "SELECT count(*) FROM orders WHERE date = CURRENT_DATE"},
+    "schedule": {"type": "cron", "value": "0 30 8 * * 1-5"}
+  }'
+
+# Create an FTP job
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "upload-report",
+    "task": {"type": "ftp", "protocol": "sftp", "host": "ftp.example.com", "username": "user", "password": "pass", "direction": "upload", "local_path": "/data/report.csv", "remote_path": "/uploads/report.csv"},
+    "schedule": {"type": "on_demand"}
+  }'
+
+# Create a shell job targeted at agents
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "deploy",
-    "command": "/opt/scripts/deploy.sh",
-    "schedule": {"type": "manual"},
+    "task": {"type": "shell", "command": "/opt/scripts/deploy.sh"},
+    "schedule": {"type": "on_demand"},
     "timeout_secs": 300,
     "target": {"type": "tagged", "tag": "linux"}
   }'
 
-# Create a job targeting a specific agent
-curl -X POST http://localhost:8080/api/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "db-backup",
-    "command": "pg_dump mydb > backup.sql",
-    "schedule": {"type": "cron", "value": "0 0 2 * * *"},
-    "target": {"type": "agent", "agent_id": "<agent-uuid>"}
-  }'
-
-# Create a one-shot job
-curl -X POST http://localhost:8080/api/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "migration",
-    "command": "./migrate.sh",
-    "schedule": {"type": "one_shot", "value": "2026-04-01T00:00:00Z"}
-  }'
-
-# List all jobs (paginated)
+# List all jobs (paginated, searchable, filterable)
 curl http://localhost:8080/api/jobs
-curl http://localhost:8080/api/jobs?status=active&search=deploy&page=1&per_page=20
+curl "http://localhost:8080/api/jobs?status=enabled&search=deploy&page=1&per_page=20"
 
 # Get / Update / Delete
 curl http://localhost:8080/api/jobs/{id}
-curl -X PUT http://localhost:8080/api/jobs/{id} -H 'Content-Type: application/json' -d '{"command": "echo updated"}'
+curl -X PUT http://localhost:8080/api/jobs/{id} -H "Authorization: Bearer kf_your_key" -H 'Content-Type: application/json' -d '{"task": {"type": "shell", "command": "echo updated"}}'
 curl -X DELETE http://localhost:8080/api/jobs/{id}
 ```
+
+### Schedule Types
+
+| Type | JSON | Description |
+|---|---|---|
+| One-shot | `{"type": "one_shot", "value": "2026-04-01T00:00:00Z"}` | Fires once at the specified time, then becomes unscheduled |
+| Cron | `{"type": "cron", "value": "0 * * * * *"}` | Fires on a recurring cron schedule |
+| On-demand | `{"type": "on_demand"}` | Never fires automatically, triggered via API/UI only |
 
 ### Job Targeting
 
@@ -164,16 +204,18 @@ curl -X DELETE http://localhost:8080/api/jobs/{id}
 |---|---|---|
 | Local | `null` or `{"type": "local"}` | Runs on the controller (default) |
 | Specific agent | `{"type": "agent", "agent_id": "uuid"}` | Runs on a specific agent |
+| Any agent | `{"type": "any"}` | Runs on a random online agent |
+| All agents | `{"type": "all"}` | Runs on every online agent simultaneously |
 | Tagged | `{"type": "tagged", "tag": "linux"}` | Runs on a random online agent with the tag |
 
 ### Execution
 
 ```bash
-# Trigger a job manually
+# Trigger a job now
 curl -X POST http://localhost:8080/api/jobs/{id}/trigger
 
 # View execution history (paginated)
-curl http://localhost:8080/api/jobs/{id}/executions?page=1&per_page=20
+curl "http://localhost:8080/api/jobs/{id}/executions?page=1&per_page=20"
 
 # Get execution details (includes stdout/stderr)
 curl http://localhost:8080/api/executions/{id}
@@ -198,6 +240,26 @@ curl -X DELETE http://localhost:8080/api/agents/{id}
 curl http://localhost:8080/api/health
 ```
 
+### Events
+
+```bash
+# List recent events (paginated)
+curl "http://localhost:8080/api/events?page=1&per_page=50"
+```
+
+Events are logged for: job created/deleted/triggered, execution completed (success/failure), agent registered/offline.
+
+## Task Types
+
+| Type | Execution | Config Fields |
+|---|---|---|
+| `shell` | Runs `sh -c` (or `sudo -n -u` with `run_as`) | `command` |
+| `http` | In-process HTTP request via reqwest | `method`, `url`, `headers`, `body`, `expect_status` |
+| `sql` | Shells out to `psql`/`mysql`/`sqlite3` | `driver`, `connection_string`, `query` |
+| `ftp` | Uses `curl` for FTP/FTPS/SFTP transfers | `protocol`, `host`, `port`, `username`, `password`, `direction`, `remote_path`, `local_path` |
+
+All task types capture output and errors. HTTP returns the response body as output and the status code as exit code. SQL returns query results as output. FTP returns the transfer log.
+
 ## Cron Expressions
 
 6-field cron with second-level precision: `sec min hour dom month dow`
@@ -216,27 +278,42 @@ Supports: `*`, ranges (`1-5`), lists (`1,3,5`), steps (`*/5`, `1-30/5`).
 
 ## Dependencies
 
-Jobs can declare dependencies. A job only runs when all dependencies have a recent successful execution. Circular dependencies are rejected at creation time.
+Jobs can declare dependencies with optional time windows. A job only runs when all dependencies have a successful execution within the specified window. Circular dependencies are rejected at creation time.
 
 ```bash
+# Job that depends on "extract" completing successfully within the last 2 hours
 curl -X POST http://localhost:8080/api/jobs \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "transform",
-    "command": "transform.sh",
+    "task": {"type": "shell", "command": "transform.sh"},
     "schedule": {"type": "cron", "value": "0 0 3 * * *"},
-    "depends_on": ["<extract-job-id>"]
+    "depends_on": [
+      {"job_id": "<extract-job-id>", "within_secs": 7200}
+    ]
+  }'
+
+# Job with a dependency but no time window (any past success counts)
+curl -X POST http://localhost:8080/api/jobs \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "load",
+    "task": {"type": "shell", "command": "load.sh"},
+    "schedule": {"type": "cron", "value": "0 0 4 * * *"},
+    "depends_on": [
+      {"job_id": "<transform-job-id>", "within_secs": null}
+    ]
   }'
 ```
 
-## Job Statuses
+## Job States
 
-| Status | Description |
+| State | Description |
 |---|---|
-| `active` | Scheduled and will run |
+| `enabled` | Scheduled and will run automatically |
 | `paused` | Won't be scheduled until resumed |
 | `disabled` | Permanently disabled |
-| `completed` | One-shot job that has fired |
+| `unscheduled` | No future schedule (one-shot that has fired), can still be triggered manually |
 
 ## Execution Statuses
 
@@ -253,6 +330,84 @@ curl -X POST http://localhost:8080/api/jobs \
 ## Output Capture
 
 Stdout and stderr are captured and stored in the database. Each stream is capped at **256KB** — output beyond that is truncated from the front (keeps the tail). Truncated output is prefixed with `[...truncated N bytes...]` and flagged in the API response.
+
+## Authentication
+
+Kronforce uses API keys for authentication. All `/api/*` endpoints (except health and agent callbacks) require a valid key.
+
+### Bootstrap Key
+
+On first startup with a fresh database, an admin API key is automatically generated and printed to the console:
+
+```
+INFO kronforce: =============================================================
+INFO kronforce:   No API keys found. Bootstrap admin key created:
+INFO kronforce:   kf_rlpzh75R60xG9w8QtLhxyNAqvA-q_K7NKB3mFT9uH1g
+INFO kronforce:   Save this key — it will not be shown again.
+INFO kronforce: =============================================================
+```
+
+Copy this key immediately — it's only shown once.
+
+### Using API Keys
+
+Pass the key via the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer kf_your_key_here" http://localhost:8080/api/jobs
+```
+
+In the web dashboard, you'll see a login screen where you paste your key. It's stored in your browser's localStorage.
+
+### Roles
+
+| Role | Permissions |
+|---|---|
+| `admin` | Full access: manage jobs, agents, API keys |
+| `operator` | Create/edit/trigger/delete jobs, view agents. Cannot manage keys |
+| `viewer` | Read-only: view jobs, executions, agents, events |
+
+### Managing Keys
+
+Admins can create and revoke keys via the API or the Settings page in the dashboard.
+
+```bash
+# Create a new key
+curl -X POST http://localhost:8080/api/keys \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "CI pipeline", "role": "operator"}'
+
+# List all keys
+curl -H "Authorization: Bearer kf_admin_key" http://localhost:8080/api/keys
+
+# Revoke a key
+curl -X DELETE -H "Authorization: Bearer kf_admin_key" http://localhost:8080/api/keys/{id}
+```
+
+If no API keys exist in the database, authentication is disabled and all endpoints are open. This allows initial setup without needing a key first.
+
+## Run-As User
+
+Jobs can specify a system user to execute as. This uses `sudo -n -u <user>` (non-interactive) on the controller or agent.
+
+```bash
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "db-backup",
+    "task": {"type": "shell", "command": "pg_dump mydb > /backups/mydb.sql"},
+    "run_as": "postgres",
+    "schedule": {"type": "cron", "value": "0 0 2 * * *"}
+  }'
+```
+
+The controller/agent process must have passwordless sudo access for the target user. Configure via `/etc/sudoers`:
+
+```
+kronforce ALL=(postgres) NOPASSWD: ALL
+```
 
 ## Development
 

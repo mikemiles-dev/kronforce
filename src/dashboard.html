@@ -825,10 +825,39 @@ th .job-checkbox { margin: 0; }
     margin-bottom: 6px;
 }
 
+.output-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0;
+}
+
+.output-tab {
+    padding: 4px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+}
+
+.output-tab:hover { color: var(--text-secondary); }
+.output-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.output-iframe {
+    width: 100%;
+    height: 300px;
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) var(--radius);
+    background: #fff;
+}
+
 .output-pre {
     background: var(--bg-primary);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0 var(--radius) var(--radius) var(--radius);
     padding: 12px;
     font-family: var(--font-mono);
     font-size: 12px;
@@ -1152,6 +1181,81 @@ th .job-checkbox { margin: 0; }
     border-radius: 3px;
 }
 
+.login-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: var(--bg-primary);
+}
+
+.login-card {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(42,47,61,0.5);
+    border-radius: 10px;
+    padding: 32px;
+    width: 360px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+
+.new-key-display {
+    background: rgba(46,204,113,0.08);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+
+.new-key-display code {
+    display: block;
+    background: var(--bg-primary);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin: 8px 0;
+    word-break: break-all;
+    user-select: all;
+}
+
+.key-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.key-row:last-child { border-bottom: none; }
+
+.key-info { display: flex; align-items: center; gap: 10px; }
+.key-prefix { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+
+.mini-map-container {
+    width: 100%;
+    max-height: 300px;
+    overflow: auto;
+    background:
+        radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+    background-size: 24px 24px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+#mini-map-svg {
+    min-width: 100%;
+}
+
+.mini-map-container .map-node .node-name { font-size: 11px; }
+.mini-map-container .map-node .node-status { font-size: 9px; }
+
+.mini-map-current rect {
+    stroke-width: 2.5 !important;
+    stroke-dasharray: 4 2;
+}
+
 .event-time {
     flex-shrink: 0;
     font-size: 11px;
@@ -1338,7 +1442,19 @@ th .job-checkbox { margin: 0; }
 </head>
 <body>
 
-<div class="app-layout">
+<div id="login-screen" class="login-screen" style="display:none">
+    <div class="login-card">
+        <div class="logo" style="font-size:24px;margin-bottom:24px;text-align:center">Kron<span>force</span></div>
+        <div class="form-group">
+            <label>API Key</label>
+            <input id="login-key" type="password" placeholder="kf_..." onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
+        <div id="login-error" style="color:var(--danger);font-size:12px;margin-top:10px;text-align:center"></div>
+    </div>
+</div>
+
+<div class="app-layout" id="app-layout">
 
 <aside class="sidebar">
     <div class="sidebar-header">
@@ -1447,6 +1563,14 @@ th .job-checkbox { margin: 0; }
             <div id="exec-table-wrap"></div>
             <div id="exec-pagination" class="pagination"></div>
         </div>
+        <div class="card" id="mini-map-card" style="display:none">
+            <div class="card-header">
+                <h3>Dependencies</h3>
+            </div>
+            <div class="mini-map-container">
+                <svg id="mini-map-svg"></svg>
+            </div>
+        </div>
     </section>
 
     <section id="map-view" style="display:none">
@@ -1485,6 +1609,41 @@ th .job-checkbox { margin: 0; }
                 </div>
             </div>
         </div>
+        <div class="card" id="auth-card">
+            <div class="card-header"><h3>Authentication</h3></div>
+            <div class="settings-group">
+                <div id="auth-info"></div>
+            </div>
+            <div class="settings-group">
+                <button class="btn btn-danger" onclick="doLogout()">Sign Out</button>
+            </div>
+        </div>
+        <div class="card" id="keys-card" style="display:none">
+            <div class="card-header">
+                <h3>API Keys</h3>
+                <button class="btn btn-primary btn-sm" onclick="showCreateKeyForm()">+ Create Key</button>
+            </div>
+            <div id="create-key-form" style="display:none;margin-bottom:16px">
+                <div style="display:flex;gap:8px;align-items:flex-end">
+                    <div class="form-group" style="flex:1;margin-bottom:0">
+                        <label>Name</label>
+                        <input id="new-key-name" type="text" placeholder="Key name">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>Role</label>
+                        <select id="new-key-role">
+                            <option value="admin">Admin</option>
+                            <option value="operator" selected>Operator</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary" onclick="createKey()">Create</button>
+                    <button class="btn btn-ghost" onclick="hideCreateKeyForm()">Cancel</button>
+                </div>
+            </div>
+            <div id="new-key-display" style="display:none" class="new-key-display"></div>
+            <div id="keys-list"></div>
+        </div>
     </section>
 </main>
 </div><!-- scrollable -->
@@ -1499,8 +1658,103 @@ th .job-checkbox { margin: 0; }
             <input id="f-name" type="text" placeholder="my-job">
         </div>
         <div class="form-group">
-            <label>Command</label>
-            <textarea id="f-command" placeholder="echo hello"></textarea>
+            <label>Task Type</label>
+            <div class="radio-group">
+                <label><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()"> Shell</label>
+                <label><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> HTTP</label>
+                <label><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> SQL</label>
+                <label><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> FTP</label>
+            </div>
+        </div>
+        <div id="task-shell-fields">
+            <div class="form-group">
+                <label>Command</label>
+                <textarea id="f-command" placeholder="echo hello"></textarea>
+            </div>
+        </div>
+        <div id="task-http-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:120px">
+                    <label>Method</label>
+                    <select id="f-http-method"><option>get</option><option>post</option><option>put</option><option>delete</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>URL</label>
+                    <input id="f-http-url" type="text" placeholder="https://api.example.com/endpoint">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Headers (JSON, optional)</label>
+                <input id="f-http-headers" type="text" placeholder='{"Content-Type": "application/json"}'>
+            </div>
+            <div class="form-group">
+                <label>Body (optional)</label>
+                <textarea id="f-http-body" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label>Expected Status (optional)</label>
+                <input id="f-http-expect" type="number" placeholder="200">
+            </div>
+        </div>
+        <div id="task-sql-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:140px">
+                    <label>Driver</label>
+                    <select id="f-sql-driver"><option value="postgres">Postgres</option><option value="mysql">MySQL</option><option value="sqlite">SQLite</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>Connection String</label>
+                    <input id="f-sql-conn" type="text" placeholder="postgresql://user:pass@host/db">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Query</label>
+                <textarea id="f-sql-query" placeholder="SELECT * FROM users LIMIT 10;" style="font-family:var(--font-mono)"></textarea>
+            </div>
+        </div>
+        <div id="task-ftp-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:120px">
+                    <label>Protocol</label>
+                    <select id="f-ftp-proto"><option value="sftp">SFTP</option><option value="ftps">FTPS</option><option value="ftp">FTP</option></select>
+                </div>
+                <div style="width:120px">
+                    <label>Direction</label>
+                    <select id="f-ftp-dir"><option value="download">Download</option><option value="upload">Upload</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>Host</label>
+                    <input id="f-ftp-host" type="text" placeholder="ftp.example.com">
+                </div>
+                <div style="width:80px">
+                    <label>Port</label>
+                    <input id="f-ftp-port" type="number" placeholder="22">
+                </div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Username</label>
+                    <input id="f-ftp-user" type="text" placeholder="user">
+                </div>
+                <div style="flex:1">
+                    <label>Password</label>
+                    <input id="f-ftp-pass" type="password" placeholder="password">
+                </div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Remote Path</label>
+                    <input id="f-ftp-remote" type="text" placeholder="/uploads/file.csv">
+                </div>
+                <div style="flex:1">
+                    <label>Local Path</label>
+                    <input id="f-ftp-local" type="text" placeholder="/data/file.csv">
+                </div>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Run As (optional)</label>
+            <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
         </div>
         <div class="form-group">
             <label>Description (optional)</label>
@@ -1509,18 +1763,18 @@ th .job-checkbox { margin: 0; }
         <div class="form-group">
             <label>Schedule</label>
             <div class="radio-group">
-                <label><input type="radio" name="sched-type" value="cron" checked onchange="updateSchedFields()"> Cron</label>
-                <label><input type="radio" name="sched-type" value="one_shot" onchange="updateSchedFields()"> One-Shot</label>
-                <label><input type="radio" name="sched-type" value="manual" onchange="updateSchedFields()"> Manual</label>
+                <label><input type="radio" name="sched-type" value="one_shot" checked onchange="updateSchedFields()"> One-Shot</label>
+                <label><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> Cron</label>
+                <label><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> On-Demand</label>
             </div>
         </div>
-        <div class="form-group" id="cron-field">
+        <div class="form-group" id="oneshot-field">
+            <label>Run At</label>
+            <input id="f-oneshot" type="datetime-local">
+        </div>
+        <div class="form-group" id="cron-field" style="display:none">
             <label>Cron Expression (sec min hour dom month dow)</label>
             <input id="f-cron" type="text" placeholder="0 * * * * *" style="font-family:var(--font-mono)">
-        </div>
-        <div class="form-group" id="oneshot-field" style="display:none">
-            <label>Run At (UTC)</label>
-            <input id="f-oneshot" type="datetime-local">
         </div>
         <div class="form-group">
             <label>Timeout (seconds, optional)</label>
@@ -1584,11 +1838,23 @@ const PER_PAGE = 15;
 
 async function api(method, path, body) {
     const opts = { method, headers: {} };
+    const storedKey = localStorage.getItem('kronforce-api-key');
+    if (storedKey) {
+        opts.headers['Authorization'] = 'Bearer ' + storedKey;
+    }
     if (body !== undefined) {
         opts.headers['Content-Type'] = 'application/json';
         opts.body = JSON.stringify(body);
     }
     const res = await fetch(path, opts);
+    if (res.status === 401) {
+        showLoginScreen();
+        throw new Error('Authentication required');
+    }
+    if (res.status === 403) {
+        const err = await res.json().catch(() => ({ error: 'forbidden' }));
+        throw new Error(err.error || 'Permission denied');
+    }
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(err.error || res.statusText);
@@ -1734,7 +2000,7 @@ function renderJobsTable() {
         const checked = selectedJobs.has(j.id) ? ' checked' : '';
         html += '<tr class="' + rowClass + '">';
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
-        html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span></td>';
+        html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span> ' + fmtTaskBadge(j.task) + '</td>';
         html += '<td>' + badge(j.status) + '</td>';
         html += '<td>' + fmtTarget(j.target) + '</td>';
         html += '<td>' + fmtLastRun(j.last_execution) + '</td>';
@@ -1784,6 +2050,7 @@ async function showJobDetail(id) {
     try {
         const job = await api('GET', '/api/jobs/' + id);
         renderJobDetail(job);
+        renderMiniMap(job);
         await fetchExecutions(id, true);
     } catch (e) {
         toast(e.message, 'error');
@@ -1812,9 +2079,10 @@ function renderJobDetail(job) {
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
-        field('Command', '<code>' + esc(job.command) + '</code>') +
+        field('Task', fmtTaskDetail(job.task)) +
         field('Schedule', fmtSchedule(job.schedule)) +
         field('Description', job.description || '-') +
+        field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : 'Default') +
         field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : 'None') +
         field('Target', fmtTarget(job.target)) +
         field('Dependencies', deps) +
@@ -1881,12 +2149,57 @@ async function showExecDetail(id) {
             execField('Duration', fmtDuration(e.started_at, e.finished_at)) +
             execField('Trigger', fmtTrigger(e.triggered_by)) +
             '</div>' +
-            '<div class="output-section"><h4>Stdout' + (e.stdout_truncated ? ' <span class="badge badge-paused">truncated</span>' : '') + '</h4><pre class="output-pre">' + esc(e.stdout || '(empty)') + '</pre></div>' +
-            '<div class="output-section"><h4>Stderr' + (e.stderr_truncated ? ' <span class="badge badge-paused">truncated</span>' : '') + '</h4><pre class="output-pre">' + esc(e.stderr || '(empty)') + '</pre></div>';
+            renderOutputSection('Output', e.stdout, e.stdout_truncated) +
+            renderOutputSection('Error', e.stderr, e.stderr_truncated);
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
         document.getElementById('exec-modal').style.display = '';
     } catch (e) {
         toast(e.message, 'error');
+    }
+}
+
+let outputIdCounter = 0;
+
+// Store raw output content by id
+const outputRawData = {};
+
+function renderOutputSection(label, content, truncated) {
+    const id = 'output-' + (outputIdCounter++);
+    const truncBadge = truncated ? ' <span class="badge badge-paused">truncated</span>' : '';
+    const raw = content || '(empty)';
+    outputRawData[id] = raw;
+
+    let html = '<div class="output-section"><h4>' + label + truncBadge + '</h4>';
+    html += '<div class="output-tabs">';
+    html += '<button class="output-tab active" onclick="switchOutputView(\'' + id + '\',\'text\',this)">Text</button>';
+    html += '<button class="output-tab" onclick="switchOutputView(\'' + id + '\',\'json\',this)">JSON</button>';
+    html += '<button class="output-tab" onclick="switchOutputView(\'' + id + '\',\'html\',this)">HTML</button>';
+    html += '</div>';
+    html += '<div id="' + id + '-wrap"><pre class="output-pre">' + esc(raw) + '</pre></div>';
+    html += '</div>';
+    return html;
+}
+
+function switchOutputView(id, mode, btn) {
+    btn.parentElement.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    const wrap = document.getElementById(id + '-wrap');
+    const raw = outputRawData[id] || '';
+
+    if (mode === 'text') {
+        wrap.innerHTML = '<pre class="output-pre">' + esc(raw) + '</pre>';
+    } else if (mode === 'json') {
+        let formatted;
+        try {
+            const parsed = JSON.parse(raw.trim());
+            formatted = JSON.stringify(parsed, null, 2);
+        } catch(e) {
+            formatted = '(not valid JSON)\n\n' + raw;
+        }
+        wrap.innerHTML = '<pre class="output-pre">' + esc(formatted) + '</pre>';
+    } else if (mode === 'html') {
+        wrap.innerHTML = '<iframe class="output-iframe" sandbox="allow-same-origin" srcdoc="' + esc(raw).replace(/"/g, '&quot;') + '"></iframe>';
     }
 }
 
@@ -2093,11 +2406,14 @@ function openCreateModal() {
     document.getElementById('modal-title').textContent = 'Create Job';
     document.getElementById('f-name').value = '';
     document.getElementById('f-command').value = '';
+    document.getElementById('f-run-as').value = '';
+    populateTaskForm(null);
     document.getElementById('f-desc').value = '';
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
-    document.querySelector('input[name="sched-type"][value="cron"]').checked = true;
+    document.querySelector('input[name="sched-type"][value="one_shot"]').checked = true;
+    document.getElementById('f-oneshot').value = toLocalDatetimeString(new Date());
     updateSchedFields();
     document.querySelector('input[name="target-type"][value="local"]').checked = true;
     updateTargetFields();
@@ -2111,11 +2427,13 @@ async function openEditModal(id) {
         editingJobId = id;
         document.getElementById('modal-title').textContent = 'Edit Job';
         document.getElementById('f-name').value = job.name;
-        document.getElementById('f-command').value = job.command;
+        populateTaskForm(job.task);
+        document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-desc').value = job.description || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
-        const schedType = job.schedule.type;
+        let schedType = job.schedule.type;
+        if (schedType === 'manual') schedType = 'on_demand';
         document.querySelector('input[name="sched-type"][value="' + schedType + '"]').checked = true;
         updateSchedFields();
 
@@ -2123,7 +2441,7 @@ async function openEditModal(id) {
             document.getElementById('f-cron').value = job.schedule.value;
         } else if (schedType === 'one_shot') {
             const dt = new Date(job.schedule.value);
-            document.getElementById('f-oneshot').value = dt.toISOString().slice(0, 16);
+            document.getElementById('f-oneshot').value = toLocalDatetimeString(dt);
         }
 
         // Set target
@@ -2152,6 +2470,88 @@ async function openEditModal(id) {
 
 function closeCreateModal() {
     document.getElementById('create-modal').style.display = 'none';
+}
+
+function updateTaskFields() {
+    const type = document.querySelector('input[name="task-type"]:checked').value;
+    document.getElementById('task-shell-fields').style.display = type === 'shell' ? '' : 'none';
+    document.getElementById('task-http-fields').style.display = type === 'http' ? '' : 'none';
+    document.getElementById('task-sql-fields').style.display = type === 'sql' ? '' : 'none';
+    document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
+}
+
+function buildTaskFromForm() {
+    const type = document.querySelector('input[name="task-type"]:checked').value;
+    if (type === 'shell') {
+        const command = document.getElementById('f-command').value.trim();
+        if (!command) return null;
+        return { type: 'shell', command };
+    }
+    if (type === 'http') {
+        const url = document.getElementById('f-http-url').value.trim();
+        if (!url) return null;
+        const task = { type: 'http', method: document.getElementById('f-http-method').value, url };
+        const hdrs = document.getElementById('f-http-headers').value.trim();
+        if (hdrs) { try { task.headers = JSON.parse(hdrs); } catch(e) { toast('Invalid headers JSON', 'error'); return null; } }
+        const body = document.getElementById('f-http-body').value.trim();
+        if (body) task.body = body;
+        const expect = document.getElementById('f-http-expect').value.trim();
+        if (expect) task.expect_status = parseInt(expect);
+        return task;
+    }
+    if (type === 'sql') {
+        const query = document.getElementById('f-sql-query').value.trim();
+        const conn = document.getElementById('f-sql-conn').value.trim();
+        if (!query || !conn) return null;
+        return { type: 'sql', driver: document.getElementById('f-sql-driver').value, connection_string: conn, query };
+    }
+    if (type === 'ftp') {
+        const host = document.getElementById('f-ftp-host').value.trim();
+        const remote = document.getElementById('f-ftp-remote').value.trim();
+        const local = document.getElementById('f-ftp-local').value.trim();
+        if (!host || !remote || !local) return null;
+        const port = document.getElementById('f-ftp-port').value.trim();
+        return {
+            type: 'ftp',
+            protocol: document.getElementById('f-ftp-proto').value,
+            host, port: port ? parseInt(port) : null,
+            username: document.getElementById('f-ftp-user').value.trim(),
+            password: document.getElementById('f-ftp-pass').value.trim(),
+            direction: document.getElementById('f-ftp-dir').value,
+            remote_path: remote, local_path: local,
+        };
+    }
+    return null;
+}
+
+function populateTaskForm(task) {
+    if (!task) { document.querySelector('input[name="task-type"][value="shell"]').checked = true; updateTaskFields(); return; }
+    const type = task.type;
+    const radio = document.querySelector('input[name="task-type"][value="' + type + '"]');
+    if (radio) radio.checked = true;
+    updateTaskFields();
+    if (type === 'shell') {
+        document.getElementById('f-command').value = task.command || '';
+    } else if (type === 'http') {
+        document.getElementById('f-http-method').value = task.method || 'get';
+        document.getElementById('f-http-url').value = task.url || '';
+        document.getElementById('f-http-headers').value = task.headers ? JSON.stringify(task.headers) : '';
+        document.getElementById('f-http-body').value = task.body || '';
+        document.getElementById('f-http-expect').value = task.expect_status || '';
+    } else if (type === 'sql') {
+        document.getElementById('f-sql-driver').value = task.driver || 'postgres';
+        document.getElementById('f-sql-conn').value = task.connection_string || '';
+        document.getElementById('f-sql-query').value = task.query || '';
+    } else if (type === 'ftp') {
+        document.getElementById('f-ftp-proto').value = task.protocol || 'sftp';
+        document.getElementById('f-ftp-dir').value = task.direction || 'download';
+        document.getElementById('f-ftp-host').value = task.host || '';
+        document.getElementById('f-ftp-port').value = task.port || '';
+        document.getElementById('f-ftp-user').value = task.username || '';
+        document.getElementById('f-ftp-pass').value = task.password || '';
+        document.getElementById('f-ftp-remote').value = task.remote_path || '';
+        document.getElementById('f-ftp-local').value = task.local_path || '';
+    }
 }
 
 function updateSchedFields() {
@@ -2277,8 +2677,9 @@ function getDepEntries() {
 
 async function submitJobForm() {
     const name = document.getElementById('f-name').value.trim();
-    const command = document.getElementById('f-command').value.trim();
-    if (!name || !command) { toast('Name and command are required', 'error'); return; }
+    if (!name) { toast('Name is required', 'error'); return; }
+    const task = buildTaskFromForm();
+    if (!task) { toast('Task configuration is incomplete', 'error'); return; }
 
     const schedType = document.querySelector('input[name="sched-type"]:checked').value;
     let schedule;
@@ -2291,7 +2692,7 @@ async function submitJobForm() {
         if (!dt) { toast('Date/time is required', 'error'); return; }
         schedule = { type: 'one_shot', value: new Date(dt).toISOString() };
     } else {
-        schedule = { type: 'manual' };
+        schedule = { type: 'on_demand' };
     }
 
     const timeoutVal = document.getElementById('f-timeout').value;
@@ -2312,7 +2713,9 @@ async function submitJobForm() {
         target = { type: 'all' };
     }
 
-    const body = { name, command, schedule, timeout_secs, depends_on, target };
+    const body = { name, task, schedule, timeout_secs, depends_on, target };
+    const run_as = document.getElementById('f-run-as').value.trim();
+    if (run_as) body.run_as = run_as;
     const desc = document.getElementById('f-desc').value.trim();
     if (desc) body.description = desc;
 
@@ -2340,6 +2743,25 @@ function badge(status) {
     return '<span class="badge badge-' + status + '">' + status.replace('_', ' ') + '</span>';
 }
 
+function fmtTaskBadge(task) {
+    if (!task) return '';
+    const t = task.type;
+    if (t === 'shell') return '<span class="badge badge-enabled">shell</span>';
+    if (t === 'http') return '<span class="badge badge-running">http</span>';
+    if (t === 'sql') return '<span class="badge badge-paused">sql</span>';
+    if (t === 'ftp') return '<span class="badge badge-disabled">ftp</span>';
+    return '<span class="badge">' + t + '</span>';
+}
+
+function fmtTaskDetail(task) {
+    if (!task) return '-';
+    if (task.type === 'shell') return fmtTaskBadge(task) + ' <code>' + esc(task.command) + '</code>';
+    if (task.type === 'http') return fmtTaskBadge(task) + ' <code>' + esc(task.method.toUpperCase() + ' ' + task.url) + '</code>';
+    if (task.type === 'sql') return fmtTaskBadge(task) + ' <code>' + esc(task.driver + ': ' + task.query.slice(0, 80)) + '</code>';
+    if (task.type === 'ftp') return fmtTaskBadge(task) + ' <code>' + esc(task.direction + ' ' + task.protocol + '://' + task.host + task.remote_path) + '</code>';
+    return task.type;
+}
+
 function fmtTarget(t) {
     if (!t || t.type === 'local') return '<span class="badge badge-active">local</span>';
     if (t.type === 'agent') {
@@ -2355,7 +2777,7 @@ function fmtTarget(t) {
 function fmtSchedule(s) {
     if (s.type === 'cron') return 'cron: ' + s.value;
     if (s.type === 'one_shot') return 'once: ' + fmtDate(s.value);
-    return 'manual';
+    return 'on-demand';
 }
 
 function fmtDate(iso) {
@@ -2368,6 +2790,11 @@ function fmtDate(iso) {
     if (diff >= 0 && diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
     if (diff < 0 && diff > -86400000) return 'in ' + Math.floor(-diff / 60000) + 'm';
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function toLocalDatetimeString(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 
 function fmtSeconds(secs) {
@@ -2482,6 +2909,7 @@ function showPage(page) {
         fetchEvents();
     } else if (page === 'settings') {
         updateThemeButtons();
+        renderSettingsAuth();
     }
 }
 
@@ -2763,7 +3191,7 @@ async function renderMap() {
 
         // Schedule icon
         let schedIcon = '\u23F0'; // alarm clock - cron
-        if (j.schedule.type === 'manual') schedIcon = '\u270B'; // hand - manual
+        if (j.schedule.type === 'on_demand') schedIcon = '\u270B'; // hand - on-demand
         else if (j.schedule.type === 'one_shot') schedIcon = '\u26A1'; // lightning - one-shot
 
         // Target icon
@@ -2874,6 +3302,167 @@ function updateCountdown() {
     document.getElementById('refresh-countdown').textContent = countdownRemaining + 's';
 }
 
+// --- Mini Dependency Map ---
+
+function renderMiniMap(job) {
+    const card = document.getElementById('mini-map-card');
+    const svg = document.getElementById('mini-map-svg');
+
+    // Collect related jobs: this job + its dependencies + jobs that depend on it
+    const relatedIds = new Set();
+    relatedIds.add(job.id);
+    for (const dep of job.depends_on) {
+        relatedIds.add(dep.job_id);
+    }
+    // Find jobs that depend on this job
+    for (const j of allJobs) {
+        for (const dep of j.depends_on) {
+            if (dep.job_id === job.id) {
+                relatedIds.add(j.id);
+            }
+        }
+    }
+
+    if (relatedIds.size <= 1 && job.depends_on.length === 0) {
+        // No dependencies at all
+        card.style.display = 'none';
+        return;
+    }
+
+    card.style.display = '';
+
+    // Build job lookup from allJobs + current job
+    const jobMap = {};
+    for (const j of allJobs) jobMap[j.id] = j;
+    jobMap[job.id] = job;
+
+    const related = Array.from(relatedIds).map(id => jobMap[id]).filter(Boolean);
+
+    // Build adjacency for layout
+    const children = {};
+    const parents = {};
+    for (const j of related) {
+        children[j.id] = children[j.id] || [];
+        parents[j.id] = parents[j.id] || [];
+        for (const dep of j.depends_on) {
+            if (relatedIds.has(dep.job_id)) {
+                children[dep.job_id] = children[dep.job_id] || [];
+                children[dep.job_id].push(j.id);
+                parents[j.id].push(dep.job_id);
+            }
+        }
+    }
+
+    // Layer assignment
+    const layers = {};
+    const roots = related.filter(j => (parents[j.id] || []).length === 0).map(j => j.id);
+    const visited = new Set();
+    const queue = roots.map(id => ({ id, layer: 0 }));
+
+    while (queue.length > 0) {
+        const { id, layer } = queue.shift();
+        if (visited.has(id)) {
+            layers[id] = Math.max(layers[id] || 0, layer);
+            continue;
+        }
+        visited.add(id);
+        layers[id] = layer;
+        for (const cid of (children[id] || [])) {
+            queue.push({ id: cid, layer: layer + 1 });
+        }
+    }
+    for (const j of related) {
+        if (!visited.has(j.id)) layers[j.id] = 0;
+    }
+
+    // Layout
+    const nodeW = 150;
+    const nodeH = 44;
+    const layerGap = 80;
+    const nodeGap = 16;
+    const padX = 20;
+    const padY = 20;
+
+    const layerGroups = {};
+    let maxLayer = 0;
+    for (const [id, layer] of Object.entries(layers)) {
+        layerGroups[layer] = layerGroups[layer] || [];
+        layerGroups[layer].push(id);
+        maxLayer = Math.max(maxLayer, layer);
+    }
+
+    const positions = {};
+    let totalW = 0;
+    let totalH = 0;
+    for (let l = 0; l <= maxLayer; l++) {
+        const group = layerGroups[l] || [];
+        const colX = padX + l * (nodeW + layerGap);
+        for (let i = 0; i < group.length; i++) {
+            const y = padY + i * (nodeH + nodeGap);
+            positions[group[i]] = { x: colX, y };
+            totalW = Math.max(totalW, colX + nodeW + padX);
+            totalH = Math.max(totalH, y + nodeH + padY);
+        }
+    }
+
+    svg.setAttribute('width', totalW);
+    svg.setAttribute('height', totalH);
+    svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
+
+    let svgHtml = '<defs><marker id="mini-arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 3 L 0 6 z" class="map-arrowhead"/></marker></defs>';
+
+    // Edges
+    for (const j of related) {
+        for (const dep of j.depends_on) {
+            const from = positions[dep.job_id];
+            const to = positions[j.id];
+            if (!from || !to) continue;
+            const x1 = from.x + nodeW;
+            const y1 = from.y + nodeH / 2;
+            const x2 = to.x;
+            const y2 = to.y + nodeH / 2;
+            const cx1 = x1 + (x2 - x1) * 0.4;
+            const cx2 = x2 - (x2 - x1) * 0.4;
+
+            let label = '';
+            if (dep.within_secs) {
+                const mx = (x1 + x2) / 2;
+                const my = (y1 + y2) / 2 - 8;
+                label = '<text x="' + mx + '" y="' + my + '" text-anchor="middle" font-size="9" fill="var(--text-muted)">within ' + fmtSeconds(dep.within_secs) + '</text>';
+            }
+            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--text-muted)" marker-end="url(#mini-arrow)"/>' + label;
+        }
+    }
+
+    // Nodes
+    for (const j of related) {
+        const pos = positions[j.id];
+        if (!pos) continue;
+
+        const isCurrent = j.id === job.id;
+        let fill, stroke;
+        const lastStatus = j.last_execution ? j.last_execution.status : null;
+        if (lastStatus === 'succeeded') { fill = 'rgba(46,204,113,0.15)'; stroke = 'var(--success)'; }
+        else if (lastStatus === 'failed' || lastStatus === 'timed_out') { fill = 'rgba(224,82,82,0.15)'; stroke = 'var(--danger)'; }
+        else if (lastStatus === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
+        else { fill = 'var(--bg-tertiary)'; stroke = 'var(--border)'; }
+
+        if (isCurrent) stroke = 'var(--accent)';
+
+        const cls = isCurrent ? 'map-node mini-map-current' : 'map-node';
+        const onclick = isCurrent ? '' : ' onclick="showJobDetail(\'' + j.id + '\')"';
+
+        svgHtml += '<g class="' + cls + '"' + onclick + '>';
+        svgHtml += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + fill + '" stroke="' + stroke + '"/>';
+        svgHtml += '<circle cx="' + (pos.x + 12) + '" cy="' + (pos.y + 16) + '" r="3" fill="' + (isCurrent ? 'var(--accent)' : 'var(--text-muted)') + '"/>';
+        svgHtml += '<text class="node-name" x="' + (pos.x + 20) + '" y="' + (pos.y + 18) + '">' + (isCurrent ? '\u25C9 ' : '') + esc(j.name) + '</text>';
+        svgHtml += '<text class="node-status" x="' + (pos.x + 20) + '" y="' + (pos.y + 32) + '">' + j.status + (lastStatus ? ' \u2022 ' + lastStatus : '') + '</text>';
+        svgHtml += '</g>';
+    }
+
+    svg.innerHTML = svgHtml;
+}
+
 // --- Events ---
 let eventsPage = 1;
 
@@ -2941,6 +3530,140 @@ function resolveJobName(jobId) {
 function resolveAgentName(agentId) {
     const a = allAgents.find(a => a.id === agentId);
     return a ? a.name : agentId.slice(0, 8);
+}
+
+// --- Auth ---
+let currentUser = null;
+
+function showLoginScreen() {
+    document.getElementById('login-screen').style.display = '';
+    document.getElementById('app-layout').style.display = 'none';
+    document.getElementById('login-key').focus();
+}
+
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-layout').style.display = '';
+}
+
+async function doLogin() {
+    const key = document.getElementById('login-key').value.trim();
+    if (!key) return;
+    localStorage.setItem('kronforce-api-key', key);
+    try {
+        currentUser = await api('GET', '/api/auth/me');
+        document.getElementById('login-error').textContent = '';
+        showApp();
+        handleRoute();
+    } catch (e) {
+        document.getElementById('login-error').textContent = 'Invalid API key';
+        localStorage.removeItem('kronforce-api-key');
+    }
+}
+
+function doLogout() {
+    localStorage.removeItem('kronforce-api-key');
+    currentUser = null;
+    showLoginScreen();
+}
+
+async function checkAuth() {
+    try {
+        currentUser = await api('GET', '/api/auth/me');
+        showApp();
+        return true;
+    } catch (e) {
+        // If 401, login screen is already shown by the api() function
+        return false;
+    }
+}
+
+// --- Key Management (Settings) ---
+
+function renderSettingsAuth() {
+    const info = document.getElementById('auth-info');
+    if (currentUser && currentUser.authenticated) {
+        info.innerHTML =
+            '<div style="font-size:13px">Signed in as <strong>' + esc(currentUser.name) + '</strong></div>' +
+            '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">Role: ' + badge(currentUser.role) + ' &middot; Key: <span class="key-prefix">' + esc(currentUser.key_prefix) + '...</span></div>';
+        // Show keys card for admins
+        document.getElementById('keys-card').style.display = currentUser.role === 'admin' ? '' : 'none';
+        if (currentUser.role === 'admin') fetchKeys();
+    } else {
+        info.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">No API keys configured. Authentication is disabled.</div>';
+        document.getElementById('keys-card').style.display = 'none';
+    }
+}
+
+function showCreateKeyForm() {
+    document.getElementById('create-key-form').style.display = '';
+    document.getElementById('new-key-name').focus();
+}
+
+function hideCreateKeyForm() {
+    document.getElementById('create-key-form').style.display = 'none';
+    document.getElementById('new-key-display').style.display = 'none';
+}
+
+async function createKey() {
+    const name = document.getElementById('new-key-name').value.trim();
+    const role = document.getElementById('new-key-role').value;
+    if (!name) { toast('Key name is required', 'error'); return; }
+    try {
+        const res = await api('POST', '/api/keys', { name, role });
+        document.getElementById('new-key-display').style.display = '';
+        document.getElementById('new-key-display').innerHTML =
+            '<strong>Key created!</strong> Copy it now — it won\'t be shown again.' +
+            '<code>' + esc(res.raw_key) + '</code>';
+        document.getElementById('new-key-name').value = '';
+        fetchKeys();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function fetchKeys() {
+    try {
+        const keys = await api('GET', '/api/keys');
+        renderKeys(keys);
+    } catch (e) {
+        console.error('fetchKeys:', e);
+    }
+}
+
+function renderKeys(keys) {
+    const list = document.getElementById('keys-list');
+    if (keys.length === 0) {
+        list.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">No API keys</div>';
+        return;
+    }
+    let html = '';
+    for (const k of keys) {
+        const status = k.active ? '' : ' <span class="badge badge-disabled">revoked</span>';
+        html += '<div class="key-row">';
+        html += '<div class="key-info">';
+        html += '<span>' + esc(k.name) + status + '</span>';
+        html += '<span class="key-prefix">' + esc(k.key_prefix) + '...</span>';
+        html += badge(k.role);
+        html += '<span class="time-text">' + (k.last_used_at ? 'used ' + fmtDate(k.last_used_at) : 'never used') + '</span>';
+        html += '</div>';
+        if (k.active) {
+            html += '<button class="btn btn-danger btn-sm" onclick="revokeKey(\'' + k.id + '\',\'' + esc(k.name) + '\')">Revoke</button>';
+        }
+        html += '</div>';
+    }
+    list.innerHTML = html;
+}
+
+async function revokeKey(id, name) {
+    if (!confirm('Revoke key "' + name + '"? This cannot be undone.')) return;
+    try {
+        await api('DELETE', '/api/keys/' + id);
+        toast('Key revoked');
+        fetchKeys();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 // --- Theme ---
@@ -3033,10 +3756,14 @@ window.addEventListener('hashchange', handleRoute);
 
 // --- Init ---
 fetchHealth();
-fetchAgents().then(() => {
-    handleRoute();
-});
-startPolling();
+(async () => {
+    const authed = await checkAuth();
+    if (authed) {
+        await fetchAgents();
+        handleRoute();
+        startPolling();
+    }
+})();
 </script>
 </body>
 </html>
