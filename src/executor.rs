@@ -124,6 +124,25 @@ impl Executor {
             }
             running.lock().await.remove(&exec_id);
             tracing::info!("execution {} finished: {:?}", exec_id, updated.status);
+
+            let severity = match updated.status {
+                ExecutionStatus::Succeeded => EventSeverity::Success,
+                ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
+                ExecutionStatus::Cancelled => EventSeverity::Warning,
+                _ => EventSeverity::Info,
+            };
+            let db3 = db.clone();
+            let job_id = updated.job_id;
+            let status_str = format!("{:?}", updated.status);
+            let _ = tokio::task::spawn_blocking(move || {
+                db3.log_event(
+                    "execution.completed",
+                    severity,
+                    &format!("Execution {} finished: {}", exec_id, status_str),
+                    Some(job_id),
+                    None,
+                )
+            }).await;
         });
 
         Ok(exec_id)

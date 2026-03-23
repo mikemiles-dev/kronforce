@@ -4,11 +4,15 @@ A workload automation and job scheduling engine built in Rust. Features a contro
 
 ![Kronforce Dashboard](screenshot.png)
 
-![Job Detail & Execution History](screenshot2.png)
+![Map View](screenshot2.png)
 
 ![Execution Output](screenshot3.png)
 
 ![Agents View](screenshot1.png)
+
+![Job Detail & Execution History](screenshot4.png)
+
+![Events View](screenshot5.png)
 
 ## Quick Start
 

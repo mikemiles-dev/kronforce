@@ -81,6 +81,21 @@ impl Db {
         let _ = conn.execute_batch("UPDATE jobs SET status = 'enabled' WHERE status = 'active';");
         let _ = conn.execute_batch("UPDATE jobs SET status = 'unscheduled' WHERE status = 'completed';");
 
+        // Events table
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                severity TEXT NOT NULL DEFAULT 'info',
+                message TEXT NOT NULL,
+                job_id TEXT,
+                agent_id TEXT,
+                timestamp TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+            "
+        ).map_err(AppError::Db)?;
+
         Ok(())
     }
 
@@ -342,7 +357,12 @@ impl Db {
         for row in rows {
             let (id_str, deps_json) = row.map_err(AppError::Db)?;
             let id = Uuid::parse_str(&id_str).unwrap();
-            let deps: Vec<Uuid> = serde_json::from_str(&deps_json).unwrap_or_default();
+            // Support both old Vec<Uuid> and new Vec<Dependency> formats
+            let deps: Vec<Uuid> = if let Ok(dep_objs) = serde_json::from_str::<Vec<crate::models::Dependency>>(&deps_json) {
+                dep_objs.iter().map(|d| d.job_id).collect()
+            } else {
+                serde_json::from_str(&deps_json).unwrap_or_default()
+            };
             result.push((id, deps));
         }
         Ok(result)
@@ -566,6 +586,81 @@ impl Db {
         )
         .map_err(AppError::Db)?;
         Ok(())
+    }
+
+    // --- Events ---
+
+    pub fn insert_event(&self, event: &Event) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO events (id, kind, severity, message, job_id, agent_id, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                event.id.to_string(),
+                event.kind,
+                event.severity.as_str(),
+                event.message,
+                event.job_id.map(|id| id.to_string()),
+                event.agent_id.map(|id| id.to_string()),
+                event.timestamp.to_rfc3339(),
+            ],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn list_events(&self, limit: u32, offset: u32) -> Result<Vec<Event>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, kind, severity, message, job_id, agent_id, timestamp FROM events ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map(params![limit, offset], |row| {
+                let id_str: String = row.get(0)?;
+                let severity_str: String = row.get(2)?;
+                let job_id_str: Option<String> = row.get(4)?;
+                let agent_id_str: Option<String> = row.get(5)?;
+                let ts_str: String = row.get(6)?;
+                Ok(Event {
+                    id: Uuid::parse_str(&id_str).unwrap(),
+                    kind: row.get(1)?,
+                    severity: EventSeverity::from_str(&severity_str).unwrap_or(EventSeverity::Info),
+                    message: row.get(3)?,
+                    job_id: job_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
+                    agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
+                    timestamp: DateTime::parse_from_rfc3339(&ts_str).unwrap().with_timezone(&Utc),
+                })
+            })
+            .map_err(AppError::Db)?;
+        let mut events = Vec::new();
+        for row in rows {
+            events.push(row.map_err(AppError::Db)?);
+        }
+        Ok(events)
+    }
+
+    pub fn count_events(&self) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))
+            .map_err(AppError::Db)
+    }
+
+    pub fn log_event(
+        &self,
+        kind: &str,
+        severity: EventSeverity,
+        message: &str,
+        job_id: Option<Uuid>,
+        agent_id: Option<Uuid>,
+    ) -> Result<(), AppError> {
+        let event = Event {
+            id: Uuid::new_v4(),
+            kind: kind.to_string(),
+            severity,
+            message: message.to_string(),
+            job_id,
+            agent_id,
+            timestamp: Utc::now(),
+        };
+        self.insert_event(&event)
     }
 }
 

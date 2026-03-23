@@ -45,6 +45,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agents", get(list_agents))
         .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
         .route("/api/callbacks/execution-result", post(execution_result_callback))
+        .route("/api/events", get(list_events))
         .with_state(state)
 }
 
@@ -57,7 +58,7 @@ struct CreateJobRequest {
     command: String,
     schedule: ScheduleKind,
     timeout_secs: Option<u64>,
-    depends_on: Option<Vec<Uuid>>,
+    depends_on: Option<Vec<Dependency>>,
     target: Option<AgentTarget>,
 }
 
@@ -69,7 +70,7 @@ struct UpdateJobRequest {
     schedule: Option<ScheduleKind>,
     status: Option<JobStatus>,
     timeout_secs: Option<u64>,
-    depends_on: Option<Vec<Uuid>>,
+    depends_on: Option<Vec<Dependency>>,
     target: Option<AgentTarget>,
 }
 
@@ -234,6 +235,13 @@ async fn create_job(
     // Tell scheduler to reload
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
+    let db_log = state.db.clone();
+    let job_name = job.name.clone();
+    let job_id_log = job.id;
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("job.created", EventSeverity::Info, &format!("Job '{}' created", job_name), Some(job_id_log), None)
+    }).await;
+
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
         .await
@@ -331,6 +339,10 @@ async fn delete_job(
         .unwrap()?;
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
+    let db_log = state.db.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("job.deleted", EventSeverity::Warning, &format!("Job deleted ({})", id), Some(id), None)
+    }).await;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -350,6 +362,11 @@ async fn trigger_job(
         .send(SchedulerCommand::TriggerNow(id))
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
+
+    let db_log = state.db.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("job.triggered", EventSeverity::Info, &format!("Job manually triggered ({})", id), Some(id), None)
+    }).await;
 
     Ok(Json(TriggerResponse {
         message: "job triggered".to_string(),
@@ -498,6 +515,13 @@ async fn register_agent(
 
     tracing::info!("agent registered: {} ({})", agent.name, agent.id);
 
+    let db_log = state.db.clone();
+    let agent_name = agent.name.clone();
+    let agent_id_log = agent.id;
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event("agent.registered", EventSeverity::Success, &format!("Agent '{}' registered", agent_name), None, Some(agent_id_log))
+    }).await;
+
     Ok(Json(AgentRegistrationResponse {
         agent_id: agent.id,
         heartbeat_interval_secs: 10,
@@ -587,6 +611,25 @@ async fn execution_result_callback(
         .await
         .unwrap()?;
 
+    let severity = match status {
+        ExecutionStatus::Succeeded => EventSeverity::Success,
+        ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
+        _ => EventSeverity::Info,
+    };
+    let db_log = state.db.clone();
+    let exec_id = result.execution_id;
+    let job_id = result.job_id;
+    let agent_id = result.agent_id;
+    let _ = tokio::task::spawn_blocking(move || {
+        db_log.log_event(
+            "execution.completed",
+            severity,
+            &format!("Execution {} finished: {:?}", exec_id, status),
+            Some(job_id),
+            Some(agent_id),
+        )
+    }).await;
+
     tracing::info!(
         "received execution result {} from agent {}: {:?}",
         result.execution_id,
@@ -595,4 +638,39 @@ async fn execution_result_callback(
     );
 
     Ok(Json(serde_json::json!({"status": "ok"})))
+}
+
+#[derive(Deserialize)]
+struct ListEventsQuery {
+    page: Option<u32>,
+    per_page: Option<u32>,
+}
+
+async fn list_events(
+    State(state): State<AppState>,
+    Query(query): Query<ListEventsQuery>,
+) -> Result<Json<PaginatedResponse<Vec<crate::models::Event>>>, AppError> {
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(50).min(100);
+    let offset = (page - 1) * per_page;
+
+    let db = state.db.clone();
+    let total = tokio::task::spawn_blocking(move || db.count_events())
+        .await
+        .unwrap()?;
+
+    let db = state.db.clone();
+    let events = tokio::task::spawn_blocking(move || db.list_events(per_page, offset))
+        .await
+        .unwrap()?;
+
+    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+
+    Ok(Json(PaginatedResponse {
+        data: events,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }))
 }

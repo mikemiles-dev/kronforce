@@ -13,6 +13,12 @@ pub enum ScheduleKind {
     Manual,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Dependency {
+    pub job_id: Uuid,
+    pub within_secs: Option<u64>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
@@ -53,7 +59,7 @@ pub struct Job {
     pub schedule: ScheduleKind,
     pub status: JobStatus,
     pub timeout_secs: Option<u64>,
-    pub depends_on: Vec<Uuid>,
+    pub depends_on: Vec<Dependency>,
     pub target: Option<AgentTarget>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -170,4 +176,45 @@ pub struct ExecutionRecord {
     pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub triggered_by: TriggerSource,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub id: Uuid,
+    pub kind: String,
+    pub severity: EventSeverity,
+    pub message: String,
+    pub job_id: Option<Uuid>,
+    pub agent_id: Option<Uuid>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventSeverity {
+    Info,
+    Success,
+    Warning,
+    Error,
+}
+
+impl EventSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EventSeverity::Info => "info",
+            EventSeverity::Success => "success",
+            EventSeverity::Warning => "warning",
+            EventSeverity::Error => "error",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "info" => Some(EventSeverity::Info),
+            "success" => Some(EventSeverity::Success),
+            "warning" => Some(EventSeverity::Warning),
+            "error" => Some(EventSeverity::Error),
+            _ => None,
+        }
+    }
 }

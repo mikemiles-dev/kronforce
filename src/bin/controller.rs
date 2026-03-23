@@ -45,7 +45,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await;
             let db = health_db.clone();
             let timeout = timeout;
-            let _ = tokio::task::spawn_blocking(move || db.expire_agents(timeout)).await;
+            let _ = tokio::task::spawn_blocking(move || {
+                // Get online agents before expire
+                let before: Vec<_> = db.list_agents()?.into_iter()
+                    .filter(|a| a.status == kronforce::models::AgentStatus::Online)
+                    .map(|a| (a.id, a.name.clone()))
+                    .collect();
+                db.expire_agents(timeout)?;
+                // Check which went offline
+                let after = db.list_agents()?;
+                for (id, name) in &before {
+                    if let Some(a) = after.iter().find(|a| a.id == *id) {
+                        if a.status == kronforce::models::AgentStatus::Offline {
+                            let _ = db.log_event(
+                                "agent.offline",
+                                kronforce::models::EventSeverity::Warning,
+                                &format!("Agent '{}' went offline (heartbeat timeout)", name),
+                                None,
+                                Some(*id),
+                            );
+                        }
+                    }
+                }
+                Ok::<(), kronforce::error::AppError>(())
+            }).await;
         }
     });
 

@@ -23,6 +23,61 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
 }
 
+[data-theme="light"] {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e8eaef;
+    --border: #d1d5de;
+    --text-primary: #1a1d27;
+    --text-secondary: #5a6070;
+    --text-muted: #8b90a0;
+    --accent: #2970e6;
+    --accent-hover: #4088f0;
+    --success: #1ea85a;
+    --warning: #c48a0a;
+    --danger: #cc3a3a;
+    --info: #2970e6;
+}
+
+[data-theme="light"] .sidebar {
+    box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .action-bar {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .card,
+[data-theme="light"] .agent-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border-color: var(--border);
+}
+
+[data-theme="light"] .modal-overlay {
+    background: rgba(0,0,0,0.3);
+}
+
+[data-theme="light"] .modal-card {
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+[data-theme="light"] .map-container {
+    background: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+    background-size: 24px 24px;
+}
+
+[data-theme="light"] .toast {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+[data-theme="light"] .nav-tab.active {
+    box-shadow: 0 1px 6px rgba(41,112,230,0.2);
+}
+
+[data-theme="light"] .output-pre {
+    background: var(--bg-tertiary);
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -679,22 +734,67 @@ th .job-checkbox { margin: 0; }
     margin-top: 20px;
 }
 
-.deps-list {
-    max-height: 120px;
-    overflow-y: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 8px;
-}
-
-.deps-list label {
+.dep-entry {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 3px 0;
-    font-size: 13px;
-    color: var(--text-primary);
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.dep-entry select {
+    flex: 1;
+    min-width: 0;
+}
+
+.dep-entry .dep-window-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.dep-entry .dep-window-group input[type="number"] {
+    width: 60px;
+    text-align: center;
+}
+
+.dep-entry .dep-window-group select {
+    width: auto;
+    flex: 0;
+}
+
+.dep-entry .dep-remove {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 16px;
     cursor: pointer;
+    border-radius: var(--radius);
+}
+
+.dep-entry .dep-remove:hover { color: var(--danger); background: rgba(224,82,82,0.1); }
+
+.dep-window-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+#deps-container .btn-ghost { margin-top: 4px; }
+
+.no-deps-text { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
+
+.form-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    line-height: 1.4;
 }
 
 .exec-modal-card {
@@ -993,6 +1093,221 @@ th .job-checkbox { margin: 0; }
     gap: 6px;
 }
 
+.event-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+}
+
+.event-item:hover { background: var(--bg-secondary); }
+
+.event-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.event-icon.success { background: rgba(46,204,113,0.15); }
+.event-icon.error { background: rgba(224,82,82,0.15); }
+.event-icon.warning { background: rgba(230,168,23,0.15); }
+.event-icon.info { background: rgba(62,139,255,0.15); }
+
+.event-body { flex: 1; min-width: 0; }
+
+.event-message {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.event-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.event-kind {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+.event-time {
+    flex-shrink: 0;
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 70px;
+    text-align: right;
+    margin-top: 2px;
+}
+
+.settings-group {
+    margin-bottom: 20px;
+}
+
+.settings-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.theme-switcher {
+    display: flex;
+    gap: 8px;
+}
+
+.theme-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 24px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 90px;
+}
+
+.theme-btn:hover {
+    border-color: var(--text-secondary);
+    color: var(--text-primary);
+}
+
+.theme-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(62,139,255,0.06);
+}
+
+.theme-btn-icon {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.map-container {
+    width: 100%;
+    height: calc(100vh - 120px);
+    position: relative;
+    overflow: auto;
+    background:
+        radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+    background-size: 24px 24px;
+    border-radius: 8px;
+    border: 1px solid rgba(42,47,61,0.5);
+}
+
+#map-svg {
+    min-width: 100%;
+    min-height: 100%;
+}
+
+.map-node {
+    cursor: pointer;
+}
+
+.map-node rect {
+    rx: 6;
+    ry: 6;
+    stroke-width: 1.5;
+    transition: filter 0.15s;
+}
+
+.map-node:hover rect {
+    filter: brightness(1.2);
+}
+
+.map-node text {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    fill: var(--text-primary);
+    pointer-events: none;
+}
+
+.map-node .node-name {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.map-node .node-status {
+    font-size: 10px;
+    fill: var(--text-secondary);
+}
+
+.map-node .node-target {
+    font-size: 9px;
+    fill: var(--text-muted);
+}
+
+.map-edge {
+    fill: none;
+    stroke-width: 1.5;
+}
+
+.map-arrowhead {
+    fill: var(--text-muted);
+}
+
+.map-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.map-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.map-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.map-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1031,7 +1346,10 @@ th .job-checkbox { margin: 0; }
     </div>
     <nav class="sidebar-nav">
         <button class="nav-tab active" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
+        <button class="nav-tab" id="tab-map" onclick="showPage('map')"><span class="tab-icon">&#9741;</span> Map</button>
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
+        <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
+        <button class="nav-tab" id="tab-settings" onclick="showPage('settings')"><span class="tab-icon">&#9881;</span> Settings</button>
     </nav>
     <div class="sidebar-footer">
         <span class="health-text"><span id="health-dot" class="health-dot"></span><span id="health-text">checking...</span></span>
@@ -1131,8 +1449,42 @@ th .job-checkbox { margin: 0; }
         </div>
     </section>
 
+    <section id="map-view" style="display:none">
+        <div class="map-container" id="map-container">
+            <svg id="map-svg"></svg>
+        </div>
+    </section>
+
     <section id="agents-view" style="display:none">
         <div id="agents-table-wrap"></div>
+    </section>
+
+    <section id="events-view" style="display:none">
+        <div id="events-list-wrap"></div>
+        <div id="events-pagination" class="pagination"></div>
+    </section>
+
+    <section id="settings-view" style="display:none">
+        <div class="card">
+            <div class="card-header"><h3>Appearance</h3></div>
+            <div class="settings-group">
+                <label class="settings-label">Theme</label>
+                <div class="theme-switcher">
+                    <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')">
+                        <span class="theme-btn-icon">&#127769;</span>
+                        <span>Dark</span>
+                    </button>
+                    <button class="theme-btn" id="theme-light" onclick="setTheme('light')">
+                        <span class="theme-btn-icon">&#9728;</span>
+                        <span>Light</span>
+                    </button>
+                    <button class="theme-btn" id="theme-system" onclick="setTheme('system')">
+                        <span class="theme-btn-icon">&#128187;</span>
+                        <span>System</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </section>
 </main>
 </div><!-- scrollable -->
@@ -1189,7 +1541,11 @@ th .job-checkbox { margin: 0; }
         </div>
         <div class="form-group">
             <label>Dependencies</label>
-            <div id="deps-list" class="deps-list"><span class="time-text">No other jobs yet</span></div>
+            <div class="form-hint">This job will only run if the selected jobs completed successfully within the specified time window. Leave the window empty for no time limit.</div>
+            <div id="deps-container">
+                <div id="deps-entries"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
+            </div>
         </div>
         <div class="form-actions">
             <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
@@ -1402,11 +1758,29 @@ function renderJobsTable() {
 }
 
 // --- Job Detail ---
+let detailReturnTo = 'jobs';
+
 async function showJobDetail(id) {
+    detailReturnTo = currentPage;
     currentJobId = id;
     execsPage = 1;
     document.getElementById('jobs-view').style.display = 'none';
+    document.getElementById('map-view').style.display = 'none';
+    document.getElementById('agents-view').style.display = 'none';
+    document.getElementById('events-view').style.display = 'none';
+    document.getElementById('settings-view').style.display = 'none';
+    document.getElementById('jobs-action-bar').style.display = 'none';
+    document.getElementById('agents-action-bar').style.display = 'none';
     document.getElementById('detail-view').style.display = '';
+
+    // Update back button text
+    const backLink = document.querySelector('.back-link');
+    if (detailReturnTo === 'map') {
+        backLink.innerHTML = '&larr; Back to Map';
+    } else {
+        backLink.innerHTML = '&larr; Back to Jobs';
+    }
+
     try {
         const job = await api('GET', '/api/jobs/' + id);
         renderJobDetail(job);
@@ -1419,17 +1793,19 @@ async function showJobDetail(id) {
 function showJobsList() {
     currentJobId = null;
     document.getElementById('detail-view').style.display = 'none';
-    document.getElementById('jobs-view').style.display = '';
-    fetchJobs();
+    showPage(detailReturnTo);
 }
 
 function renderJobDetail(job) {
-    const deps = job.depends_on.length > 0
-        ? job.depends_on.map(d => {
-            const dj = allJobs.find(j => j.id === d);
-            return dj ? dj.name : d.slice(0, 8);
-        }).join(', ')
-        : 'None';
+    let deps = 'None';
+    if (job.depends_on.length > 0) {
+        deps = job.depends_on.map(d => {
+            const dj = allJobs.find(j => j.id === d.job_id);
+            const name = dj ? esc(dj.name) : d.job_id.slice(0, 8);
+            const window = d.within_secs ? ' <span class="time-text">(within ' + fmtSeconds(d.within_secs) + ')</span>' : '';
+            return '<span class="badge badge-running">' + name + '</span>' + window;
+        }).join(' ');
+    }
 
     document.getElementById('detail-card').innerHTML =
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
@@ -1810,16 +2186,93 @@ async function populateAgentSelect() {
 }
 
 function populateDeps(excludeId, selected) {
-    const list = document.getElementById('deps-list');
-    const jobs = allJobs.filter(j => j.id !== excludeId);
+    const container = document.getElementById('deps-entries');
+    container.innerHTML = '';
+    const sel = selected || [];
+    for (const dep of sel) {
+        addDepEntry(dep.job_id, dep.within_secs, excludeId);
+    }
+    updateDepsEmpty();
+}
+
+function addDepEntry(jobId, withinSecs, excludeId) {
+    const container = document.getElementById('deps-entries');
+    const exclude = excludeId || editingJobId;
+    const jobs = allJobs.filter(j => j.id !== exclude);
     if (jobs.length === 0) {
-        list.innerHTML = '<span class="time-text">No other jobs available</span>';
+        toast('No other jobs available to depend on', 'error');
         return;
     }
-    const sel = selected || [];
-    list.innerHTML = jobs.map(j =>
-        '<label><input type="checkbox" value="' + j.id + '"' + (sel.includes(j.id) ? ' checked' : '') + '> ' + esc(j.name) + '</label>'
-    ).join('');
+
+    // Convert seconds to best unit for display
+    let windowVal = '';
+    let windowUnit = '60'; // default to minutes
+    if (withinSecs) {
+        if (withinSecs % 86400 === 0) { windowVal = withinSecs / 86400; windowUnit = '86400'; }
+        else if (withinSecs % 3600 === 0) { windowVal = withinSecs / 3600; windowUnit = '3600'; }
+        else if (withinSecs % 60 === 0) { windowVal = withinSecs / 60; windowUnit = '60'; }
+        else { windowVal = withinSecs; windowUnit = '1'; }
+    }
+
+    const div = document.createElement('div');
+    div.className = 'dep-entry';
+
+    let html = '<select class="dep-job-select"><option value="">Select job...</option>';
+    for (const j of jobs) {
+        const sel = j.id === jobId ? ' selected' : '';
+        html += '<option value="' + j.id + '"' + sel + '>' + esc(j.name) + '</option>';
+    }
+    html += '</select>';
+    html += '<div class="dep-window-group">';
+    html += '<span class="dep-window-label">succeeded within</span>';
+    html += '<input type="number" class="dep-window-val" min="1" placeholder="\u221E" value="' + windowVal + '" title="Time window (empty = no limit)">';
+    html += '<select class="dep-window-unit">';
+    html += '<option value="1"' + (windowUnit === '1' ? ' selected' : '') + '>sec</option>';
+    html += '<option value="60"' + (windowUnit === '60' ? ' selected' : '') + '>min</option>';
+    html += '<option value="3600"' + (windowUnit === '3600' ? ' selected' : '') + '>hr</option>';
+    html += '<option value="86400"' + (windowUnit === '86400' ? ' selected' : '') + '>day</option>';
+    html += '</select>';
+    html += '</div>';
+    html += '<button type="button" class="dep-remove" onclick="removeDepEntry(this)" title="Remove">&times;</button>';
+
+    div.innerHTML = html;
+    container.appendChild(div);
+    updateDepsEmpty();
+}
+
+function removeDepEntry(btn) {
+    btn.closest('.dep-entry').remove();
+    updateDepsEmpty();
+}
+
+function updateDepsEmpty() {
+    const container = document.getElementById('deps-entries');
+    const existing = container.querySelectorAll('.dep-entry');
+    const emptyMsg = container.querySelector('.no-deps-text');
+    if (existing.length === 0 && !emptyMsg) {
+        const p = document.createElement('div');
+        p.className = 'no-deps-text';
+        p.textContent = 'No dependencies configured';
+        container.appendChild(p);
+    } else if (existing.length > 0 && emptyMsg) {
+        emptyMsg.remove();
+    }
+}
+
+function getDepEntries() {
+    const entries = document.querySelectorAll('#deps-entries .dep-entry');
+    const deps = [];
+    for (const entry of entries) {
+        const jobId = entry.querySelector('.dep-job-select').value;
+        const val = entry.querySelector('.dep-window-val').value.trim();
+        const unit = parseInt(entry.querySelector('.dep-window-unit').value);
+        if (!jobId) continue;
+        deps.push({
+            job_id: jobId,
+            within_secs: val ? parseInt(val) * unit : null,
+        });
+    }
+    return deps;
 }
 
 async function submitJobForm() {
@@ -1844,8 +2297,7 @@ async function submitJobForm() {
     const timeoutVal = document.getElementById('f-timeout').value;
     const timeout_secs = timeoutVal ? parseInt(timeoutVal) : null;
 
-    const depCheckboxes = document.querySelectorAll('#deps-list input[type="checkbox"]:checked');
-    const depends_on = Array.from(depCheckboxes).map(cb => cb.value);
+    const depends_on = getDepEntries();
 
     // Build target
     const targetType = document.querySelector('input[name="target-type"]:checked').value;
@@ -1916,6 +2368,13 @@ function fmtDate(iso) {
     if (diff >= 0 && diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
     if (diff < 0 && diff > -86400000) return 'in ' + Math.floor(-diff / 60000) + 'm';
     return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtSeconds(secs) {
+    if (secs < 60) return secs + 's';
+    if (secs < 3600) return Math.floor(secs / 60) + 'm';
+    if (secs < 86400) return Math.floor(secs / 3600) + 'h';
+    return Math.floor(secs / 86400) + 'd';
 }
 
 function fmtDuration(start, end) {
@@ -2004,7 +2463,10 @@ function showPage(page) {
 
     document.getElementById('jobs-view').style.display = page === 'jobs' ? '' : 'none';
     document.getElementById('detail-view').style.display = 'none';
+    document.getElementById('map-view').style.display = page === 'map' ? '' : 'none';
     document.getElementById('agents-view').style.display = page === 'agents' ? '' : 'none';
+    document.getElementById('events-view').style.display = page === 'events' ? '' : 'none';
+    document.getElementById('settings-view').style.display = page === 'settings' ? '' : 'none';
 
     document.getElementById('jobs-action-bar').style.display = page === 'jobs' ? '' : 'none';
     document.getElementById('agents-action-bar').style.display = page === 'agents' ? '' : 'none';
@@ -2014,6 +2476,12 @@ function showPage(page) {
     } else if (page === 'jobs') {
         currentJobId = null;
         fetchJobs();
+    } else if (page === 'map') {
+        renderMap();
+    } else if (page === 'events') {
+        fetchEvents();
+    } else if (page === 'settings') {
+        updateThemeButtons();
     }
 }
 
@@ -2130,6 +2598,196 @@ function agentMeta(label, value) {
     return '<div class="agent-meta-item"><label>' + label + '</label><div class="value">' + value + '</div></div>';
 }
 
+// --- Dependency Map ---
+
+async function renderMap() {
+    // Fetch all jobs (unpaginated) for the map
+    let jobs;
+    try {
+        const res = await api('GET', '/api/jobs?per_page=100');
+        jobs = res.data;
+    } catch (e) {
+        console.error('renderMap:', e);
+        return;
+    }
+
+    const svg = document.getElementById('map-svg');
+    const container = document.getElementById('map-container');
+
+    if (jobs.length === 0) {
+        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + getComputedStyle(document.documentElement).getPropertyValue('--text-muted') + '" font-size="14">No jobs to display</text>';
+        return;
+    }
+
+    // Build adjacency: job -> jobs that depend on it (children)
+    const jobMap = {};
+    for (const j of jobs) jobMap[j.id] = j;
+
+    const children = {};   // parent_id -> [child_id]
+    const parents = {};    // child_id -> [parent_id]
+    for (const j of jobs) {
+        children[j.id] = children[j.id] || [];
+        parents[j.id] = parents[j.id] || [];
+        for (const dep of j.depends_on) {
+            const pid = dep.job_id;
+            children[pid] = children[pid] || [];
+            children[pid].push(j.id);
+            parents[j.id].push(pid);
+        }
+    }
+
+    // Assign layers via BFS from roots
+    const layers = {};
+    const roots = jobs.filter(j => j.depends_on.length === 0).map(j => j.id);
+    const visited = new Set();
+    const queue = roots.map(id => ({ id, layer: 0 }));
+    // Also handle jobs whose parents aren't in the list
+    for (const j of jobs) {
+        if (!roots.includes(j.id) && j.depends_on.every(d => !jobMap[d.job_id])) {
+            queue.push({ id: j.id, layer: 0 });
+        }
+    }
+
+    while (queue.length > 0) {
+        const { id, layer } = queue.shift();
+        if (visited.has(id)) {
+            layers[id] = Math.max(layers[id] || 0, layer);
+            continue;
+        }
+        visited.add(id);
+        layers[id] = layer;
+        for (const cid of (children[id] || [])) {
+            queue.push({ id: cid, layer: layer + 1 });
+        }
+    }
+
+    // Handle any unvisited (disconnected) jobs
+    for (const j of jobs) {
+        if (!visited.has(j.id)) {
+            layers[j.id] = 0;
+        }
+    }
+
+    // Group by layer
+    const layerGroups = {};
+    let maxLayer = 0;
+    for (const [id, layer] of Object.entries(layers)) {
+        layerGroups[layer] = layerGroups[layer] || [];
+        layerGroups[layer].push(id);
+        maxLayer = Math.max(maxLayer, layer);
+    }
+
+    // Layout constants
+    const nodeW = 180;
+    const nodeH = 56;
+    const layerGap = 100;
+    const nodeGap = 20;
+    const padX = 40;
+    const padY = 40;
+
+    // Position nodes
+    const positions = {};
+    let totalW = 0;
+    let totalH = 0;
+
+    for (let l = 0; l <= maxLayer; l++) {
+        const group = layerGroups[l] || [];
+        const colX = padX + l * (nodeW + layerGap);
+        for (let i = 0; i < group.length; i++) {
+            const y = padY + i * (nodeH + nodeGap);
+            positions[group[i]] = { x: colX, y };
+            totalW = Math.max(totalW, colX + nodeW + padX);
+            totalH = Math.max(totalH, y + nodeH + padY);
+        }
+    }
+
+    svg.setAttribute('width', totalW);
+    svg.setAttribute('height', totalH);
+    svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
+
+    let svgHtml = '';
+
+    // Defs for arrowhead
+    svgHtml += '<defs><marker id="arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 3 L 0 6 z" class="map-arrowhead"/></marker></defs>';
+
+    // Draw edges
+    for (const j of jobs) {
+        for (const dep of j.depends_on) {
+            const from = positions[dep.job_id];
+            const to = positions[j.id];
+            if (!from || !to) continue;
+
+            const x1 = from.x + nodeW;
+            const y1 = from.y + nodeH / 2;
+            const x2 = to.x;
+            const y2 = to.y + nodeH / 2;
+            const cx1 = x1 + (x2 - x1) * 0.4;
+            const cx2 = x2 - (x2 - x1) * 0.4;
+
+            // Window label
+            let label = '';
+            if (dep.within_secs) {
+                const mid_x = (x1 + x2) / 2;
+                const mid_y = (y1 + y2) / 2 - 8;
+                label = '<text x="' + mid_x + '" y="' + mid_y + '" text-anchor="middle" font-size="9" fill="' + 'var(--text-muted)' + '">within ' + fmtSeconds(dep.within_secs) + '</text>';
+            }
+
+            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--text-muted)" marker-end="url(#arrow)"/>' + label;
+        }
+    }
+
+    // Draw nodes
+    for (const j of jobs) {
+        const pos = positions[j.id];
+        if (!pos) continue;
+
+        let fill, stroke;
+        const lastStatus = j.last_execution ? j.last_execution.status : null;
+        if (lastStatus === 'succeeded') { fill = 'rgba(46,204,113,0.15)'; stroke = 'var(--success)'; }
+        else if (lastStatus === 'failed' || lastStatus === 'timed_out') { fill = 'rgba(224,82,82,0.15)'; stroke = 'var(--danger)'; }
+        else if (lastStatus === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
+        else { fill = 'var(--bg-tertiary)'; stroke = 'var(--border)'; }
+
+        if (j.status === 'paused' || j.status === 'disabled') {
+            fill = 'var(--bg-tertiary)'; stroke = 'var(--text-muted)';
+        }
+
+        const targetText = j.target ? (j.target.type === 'local' ? '' : j.target.type) : '';
+
+        // Status indicator color
+        let dotColor;
+        if (lastStatus === 'succeeded') dotColor = 'var(--success)';
+        else if (lastStatus === 'failed' || lastStatus === 'timed_out') dotColor = 'var(--danger)';
+        else if (lastStatus === 'running') dotColor = 'var(--info)';
+        else dotColor = 'var(--text-muted)';
+
+        // Schedule icon
+        let schedIcon = '\u23F0'; // alarm clock - cron
+        if (j.schedule.type === 'manual') schedIcon = '\u270B'; // hand - manual
+        else if (j.schedule.type === 'one_shot') schedIcon = '\u26A1'; // lightning - one-shot
+
+        // Target icon
+        let targetIcon = '';
+        if (j.target && j.target.type !== 'local') targetIcon = ' \uD83D\uDDA5'; // computer
+
+        svgHtml += '<g class="map-node" onclick="showJobDetail(\'' + j.id + '\')">';
+        svgHtml += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + fill + '" stroke="' + stroke + '"/>';
+        // Status dot
+        svgHtml += '<circle cx="' + (pos.x + 14) + '" cy="' + (pos.y + 17) + '" r="4" fill="' + dotColor + '"/>';
+        // Name with schedule icon
+        svgHtml += '<text class="node-name" x="' + (pos.x + 24) + '" y="' + (pos.y + 20) + '">' + schedIcon + ' ' + esc(j.name) + '</text>';
+        // Status line
+        svgHtml += '<text class="node-status" x="' + (pos.x + 24) + '" y="' + (pos.y + 35) + '">' + j.status + (lastStatus ? ' \u2022 ' + lastStatus : '') + '</text>';
+        // Target
+        if (targetText) {
+            svgHtml += '<text class="node-target" x="' + (pos.x + 24) + '" y="' + (pos.y + 47) + '">' + targetIcon + ' ' + targetText + '</text>';
+        }
+        svgHtml += '</g>';
+    }
+
+    svg.innerHTML = svgHtml;
+}
+
 // --- Auto-Refresh ---
 let autoRefreshEnabled = true;
 let refreshIntervalSecs = 5;
@@ -2165,6 +2823,8 @@ async function refreshNow() {
     fetchHealth();
     if (currentPage === 'agents') {
         await fetchAgents();
+    } else if (currentPage === 'events') {
+        await fetchEvents();
     } else if (currentJobId) {
         await fetchExecutions(currentJobId);
     } else {
@@ -2196,6 +2856,8 @@ async function doRefreshTick() {
     fetchHealth();
     if (currentPage === 'agents') {
         await fetchAgents();
+    } else if (currentPage === 'events') {
+        await fetchEvents();
     } else if (currentJobId) {
         await fetchExecutions(currentJobId);
     } else {
@@ -2212,10 +2874,168 @@ function updateCountdown() {
     document.getElementById('refresh-countdown').textContent = countdownRemaining + 's';
 }
 
+// --- Events ---
+let eventsPage = 1;
+
+async function fetchEvents() {
+    try {
+        const res = await api('GET', '/api/events?page=' + eventsPage + '&per_page=50');
+        renderEvents(res.data);
+        renderPagination('events-pagination', eventsPage, res.total_pages, res.total, goToEventsPage);
+    } catch (e) {
+        console.error('fetchEvents:', e);
+    }
+}
+
+function goToEventsPage(p) {
+    eventsPage = p;
+    fetchEvents();
+}
+
+function renderEvents(events) {
+    const wrap = document.getElementById('events-list-wrap');
+    if (events.length === 0) {
+        wrap.innerHTML = '<div class="empty-state"><p>No events yet</p><p style="font-size:12px;color:var(--text-muted)">Events are logged when jobs are created, triggered, completed, or when agents come online/offline.</p></div>';
+        return;
+    }
+
+    let html = '<div class="event-timeline">';
+    for (const e of events) {
+        const icon = eventIcon(e.severity, e.kind);
+        const jobLink = e.job_id ? '<span class="event-kind" style="cursor:pointer" onclick="showJobDetail(\'' + e.job_id + '\')">' + resolveJobName(e.job_id) + '</span>' : '';
+        const agentLink = e.agent_id ? '<span class="event-kind">' + resolveAgentName(e.agent_id) + '</span>' : '';
+
+        html += '<div class="event-item">';
+        html += '<div class="event-icon ' + e.severity + '">' + icon + '</div>';
+        html += '<div class="event-body">';
+        html += '<div class="event-message">' + esc(e.message) + '</div>';
+        html += '<div class="event-meta">';
+        html += '<span class="event-kind">' + e.kind + '</span>';
+        if (jobLink) html += jobLink;
+        if (agentLink) html += agentLink;
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="event-time">' + fmtDate(e.timestamp) + '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+}
+
+function eventIcon(severity, kind) {
+    if (kind.startsWith('agent')) return '\uD83D\uDDA5';
+    if (kind === 'job.created') return '+';
+    if (kind === 'job.deleted') return '\uD83D\uDDD1';
+    if (kind === 'job.triggered') return '\u25B6';
+    if (severity === 'success') return '\u2714';
+    if (severity === 'error') return '\u2718';
+    if (severity === 'warning') return '\u26A0';
+    return '\u2139';
+}
+
+function resolveJobName(jobId) {
+    const j = allJobs.find(j => j.id === jobId);
+    return j ? j.name : jobId.slice(0, 8);
+}
+
+function resolveAgentName(agentId) {
+    const a = allAgents.find(a => a.id === agentId);
+    return a ? a.name : agentId.slice(0, 8);
+}
+
+// --- Theme ---
+let currentTheme = localStorage.getItem('kronforce-theme') || 'dark';
+
+function setTheme(theme) {
+    currentTheme = theme;
+    localStorage.setItem('kronforce-theme', theme);
+    applyTheme();
+    updateThemeButtons();
+}
+
+function applyTheme() {
+    let resolved = currentTheme;
+    if (resolved === 'system') {
+        resolved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    if (resolved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+    }
+}
+
+function updateThemeButtons() {
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.getElementById('theme-' + currentTheme);
+    if (btn) btn.classList.add('active');
+}
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (currentTheme === 'system') applyTheme();
+});
+
+// Apply on load
+applyTheme();
+
+// --- Routing ---
+
+function updateHash() {
+    if (currentJobId) {
+        history.replaceState(null, '', '#/jobs/' + currentJobId);
+    } else {
+        history.replaceState(null, '', '#/' + currentPage);
+    }
+}
+
+function handleRoute() {
+    const hash = location.hash || '#/jobs';
+    const parts = hash.replace('#/', '').split('/');
+
+    if (parts[0] === 'jobs' && parts[1]) {
+        // Job detail: #/jobs/{id}
+        currentPage = 'jobs';
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-jobs').classList.add('active');
+        showJobDetail(parts[1]);
+        return;
+    }
+
+    const page = parts[0] || 'jobs';
+    if (['jobs', 'map', 'agents', 'events', 'settings'].includes(page)) {
+        showPage(page);
+    } else {
+        showPage('jobs');
+    }
+}
+
+// Patch showPage and showJobDetail to update the hash
+const _origShowPage = showPage;
+showPage = function(page) {
+    _origShowPage(page);
+    updateHash();
+};
+
+const _origShowJobDetail = showJobDetail;
+showJobDetail = async function(id) {
+    await _origShowJobDetail(id);
+    updateHash();
+};
+
+const _origShowJobsList = showJobsList;
+showJobsList = function() {
+    _origShowJobsList();
+    updateHash();
+};
+
+window.addEventListener('hashchange', handleRoute);
+
 // --- Init ---
 fetchHealth();
-// Fetch agents first so fmtTarget can resolve names, then fetch jobs
-fetchAgents().then(() => fetchJobs());
+fetchAgents().then(() => {
+    handleRoute();
+});
 startPolling();
 </script>
 </body>
