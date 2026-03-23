@@ -57,9 +57,30 @@ impl Db {
             CREATE INDEX IF NOT EXISTS idx_executions_job_id ON executions(job_id);
             CREATE INDEX IF NOT EXISTS idx_executions_status ON executions(status);
             CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions(started_at);
+
+            CREATE TABLE IF NOT EXISTS agents (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                hostname TEXT NOT NULL,
+                address TEXT NOT NULL,
+                port INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'online',
+                last_heartbeat TEXT,
+                registered_at TEXT NOT NULL
+            );
             ",
         )
         .map_err(AppError::Db)?;
+
+        // Migrations for new columns (safe to re-run)
+        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN target_json TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE executions ADD COLUMN agent_id TEXT;");
+
+        // Migrate old status names
+        let _ = conn.execute_batch("UPDATE jobs SET status = 'enabled' WHERE status = 'active';");
+        let _ = conn.execute_batch("UPDATE jobs SET status = 'unscheduled' WHERE status = 'completed';");
+
         Ok(())
     }
 
@@ -69,9 +90,10 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
+        let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
         conn.execute(
-            "INSERT INTO jobs (id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO jobs (id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 job.id.to_string(),
                 job.name,
@@ -81,6 +103,7 @@ impl Db {
                 job.status.as_str(),
                 job.timeout_secs.map(|t| t as i64),
                 depends_on_json,
+                target_json,
                 job.created_at.to_rfc3339(),
                 job.updated_at.to_rfc3339(),
             ],
@@ -98,7 +121,7 @@ impl Db {
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_job(row)))
@@ -177,12 +200,12 @@ impl Db {
 
         let sql = if where_clauses.is_empty() {
             format!(
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
                 limit_idx, offset_idx
             )
         } else {
             format!(
-                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, command, schedule_json, status, timeout_secs, depends_on_json, target_json, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
                 where_clauses.join(" AND "), limit_idx, offset_idx
             )
         };
@@ -204,9 +227,10 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
+        let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, command=?3, schedule_json=?4, status=?5, timeout_secs=?6, depends_on_json=?7, updated_at=?8 WHERE id=?9",
+                "UPDATE jobs SET name=?1, description=?2, command=?3, schedule_json=?4, status=?5, timeout_secs=?6, depends_on_json=?7, target_json=?8, updated_at=?9 WHERE id=?10",
                 params![
                     job.name,
                     job.description,
@@ -215,6 +239,7 @@ impl Db {
                     job.status.as_str(),
                     job.timeout_secs.map(|t| t as i64),
                     depends_on_json,
+                    target_json,
                     job.updated_at.to_rfc3339(),
                     job.id.to_string(),
                 ],
@@ -272,7 +297,7 @@ impl Db {
     }
 
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {
-        self.list_jobs(Some("active"), None, u32::MAX, 0)
+        self.list_jobs(Some("enabled"), None, u32::MAX, 0)
     }
 
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {
@@ -329,11 +354,12 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let triggered_by_json = serde_json::to_string(&rec.triggered_by).unwrap();
         conn.execute(
-            "INSERT INTO executions (id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO executions (id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 rec.id.to_string(),
                 rec.job_id.to_string(),
+                rec.agent_id.map(|a| a.to_string()),
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
@@ -352,8 +378,9 @@ impl Db {
     pub fn update_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "UPDATE executions SET status=?1, exit_code=?2, stdout=?3, stderr=?4, stdout_truncated=?5, stderr_truncated=?6, started_at=?7, finished_at=?8 WHERE id=?9",
+            "UPDATE executions SET agent_id=?1, status=?2, exit_code=?3, stdout=?4, stderr=?5, stdout_truncated=?6, stderr_truncated=?7, started_at=?8, finished_at=?9 WHERE id=?10",
             params![
+                rec.agent_id.map(|a| a.to_string()),
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
@@ -372,7 +399,7 @@ impl Db {
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
+            .prepare("SELECT id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_execution(row)))
@@ -402,7 +429,7 @@ impl Db {
     ) -> Result<Vec<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
+            .prepare("SELECT id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string(), limit, offset], |row| {
@@ -423,6 +450,123 @@ impl Db {
         let recs = self.list_executions_for_job(job_id, 1, 0)?;
         Ok(recs.into_iter().next())
     }
+
+    // --- Agents ---
+
+    pub fn upsert_agent(&self, agent: &Agent) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        let tags_json = serde_json::to_string(&agent.tags).unwrap();
+        conn.execute(
+            "INSERT INTO agents (id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(name) DO UPDATE SET
+               tags_json=excluded.tags_json, hostname=excluded.hostname, address=excluded.address,
+               port=excluded.port, status=excluded.status, last_heartbeat=excluded.last_heartbeat,
+               registered_at=excluded.registered_at",
+            params![
+                agent.id.to_string(),
+                agent.name,
+                tags_json,
+                agent.hostname,
+                agent.address,
+                agent.port as i64,
+                agent.status.as_str(),
+                agent.last_heartbeat.map(|t| t.to_rfc3339()),
+                agent.registered_at.to_rfc3339(),
+            ],
+        )
+        .map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn get_agent(&self, id: Uuid) -> Result<Option<Agent>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents WHERE id = ?1")
+            .map_err(AppError::Db)?;
+        let mut rows = stmt
+            .query_map(params![id.to_string()], |row| Ok(row_to_agent(row)))
+            .map_err(AppError::Db)?;
+        match rows.next() {
+            Some(Ok(a)) => Ok(Some(a)),
+            Some(Err(e)) => Err(AppError::Db(e)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents WHERE name = ?1")
+            .map_err(AppError::Db)?;
+        let mut rows = stmt
+            .query_map(params![name], |row| Ok(row_to_agent(row)))
+            .map_err(AppError::Db)?;
+        match rows.next() {
+            Some(Ok(a)) => Ok(Some(a)),
+            Some(Err(e)) => Err(AppError::Db(e)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn list_agents(&self) -> Result<Vec<Agent>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents ORDER BY name")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| Ok(row_to_agent(row)))
+            .map_err(AppError::Db)?;
+        let mut agents = Vec::new();
+        for row in rows {
+            agents.push(row.map_err(AppError::Db)?);
+        }
+        Ok(agents)
+    }
+
+    pub fn get_online_agents_by_tag(&self, tag: &str) -> Result<Vec<Agent>, AppError> {
+        let agents = self.list_agents()?;
+        Ok(agents
+            .into_iter()
+            .filter(|a| a.status == AgentStatus::Online && a.tags.contains(&tag.to_string()))
+            .collect())
+    }
+
+    pub fn get_online_agents(&self) -> Result<Vec<Agent>, AppError> {
+        let agents = self.list_agents()?;
+        Ok(agents
+            .into_iter()
+            .filter(|a| a.status == AgentStatus::Online)
+            .collect())
+    }
+
+    pub fn update_agent_heartbeat(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE agents SET last_heartbeat = ?1, status = 'online' WHERE id = ?2",
+            params![at.to_rfc3339(), id.to_string()],
+        )
+        .map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn delete_agent(&self, id: Uuid) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM agents WHERE id = ?1", params![id.to_string()])
+            .map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn expire_agents(&self, timeout: std::time::Duration) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::seconds(timeout.as_secs() as i64)).to_rfc3339();
+        conn.execute(
+            "UPDATE agents SET status = 'offline' WHERE status = 'online' AND last_heartbeat < ?1",
+            params![cutoff],
+        )
+        .map_err(AppError::Db)?;
+        Ok(())
+    }
 }
 
 fn row_to_job(row: &rusqlite::Row) -> Job {
@@ -431,8 +575,9 @@ fn row_to_job(row: &rusqlite::Row) -> Job {
     let status_str: String = row.get(5).unwrap();
     let timeout: Option<i64> = row.get(6).unwrap();
     let depends_json: String = row.get(7).unwrap();
-    let created_str: String = row.get(8).unwrap();
-    let updated_str: String = row.get(9).unwrap();
+    let target_json: Option<String> = row.get(8).unwrap();
+    let created_str: String = row.get(9).unwrap();
+    let updated_str: String = row.get(10).unwrap();
 
     Job {
         id: Uuid::parse_str(&id_str).unwrap(),
@@ -443,6 +588,7 @@ fn row_to_job(row: &rusqlite::Row) -> Job {
         status: JobStatus::from_str(&status_str).unwrap(),
         timeout_secs: timeout.map(|t| t as u64),
         depends_on: serde_json::from_str(&depends_json).unwrap_or_default(),
+        target: target_json.and_then(|s| serde_json::from_str(&s).ok()),
         created_at: DateTime::parse_from_rfc3339(&created_str)
             .unwrap()
             .with_timezone(&Utc),
@@ -455,20 +601,22 @@ fn row_to_job(row: &rusqlite::Row) -> Job {
 fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
     let id_str: String = row.get(0).unwrap();
     let job_id_str: String = row.get(1).unwrap();
-    let status_str: String = row.get(2).unwrap();
-    let stdout_trunc: i32 = row.get(6).unwrap();
-    let stderr_trunc: i32 = row.get(7).unwrap();
-    let started_str: Option<String> = row.get(8).unwrap();
-    let finished_str: Option<String> = row.get(9).unwrap();
-    let triggered_json: String = row.get(10).unwrap();
+    let agent_id_str: Option<String> = row.get(2).unwrap();
+    let status_str: String = row.get(3).unwrap();
+    let stdout_trunc: i32 = row.get(7).unwrap();
+    let stderr_trunc: i32 = row.get(8).unwrap();
+    let started_str: Option<String> = row.get(9).unwrap();
+    let finished_str: Option<String> = row.get(10).unwrap();
+    let triggered_json: String = row.get(11).unwrap();
 
     ExecutionRecord {
         id: Uuid::parse_str(&id_str).unwrap(),
         job_id: Uuid::parse_str(&job_id_str).unwrap(),
+        agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
         status: ExecutionStatus::from_str(&status_str).unwrap(),
-        exit_code: row.get(3).unwrap(),
-        stdout: row.get(4).unwrap(),
-        stderr: row.get(5).unwrap(),
+        exit_code: row.get(4).unwrap(),
+        stdout: row.get(5).unwrap(),
+        stderr: row.get(6).unwrap(),
         stdout_truncated: stdout_trunc != 0,
         stderr_truncated: stderr_trunc != 0,
         started_at: started_str.map(|s| {
@@ -482,5 +630,34 @@ fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
                 .with_timezone(&Utc)
         }),
         triggered_by: serde_json::from_str(&triggered_json).unwrap(),
+    }
+}
+
+fn row_to_agent(row: &rusqlite::Row) -> Agent {
+    let id_str: String = row.get(0).unwrap();
+    let tags_json: String = row.get(2).unwrap();
+    let status_str: String = row.get(6).unwrap();
+    let hb_str: Option<String> = row.get(7).unwrap();
+    let reg_str: String = row.get(8).unwrap();
+
+    Agent {
+        id: Uuid::parse_str(&id_str).unwrap(),
+        name: row.get(1).unwrap(),
+        tags: serde_json::from_str(&tags_json).unwrap_or_default(),
+        hostname: row.get(3).unwrap(),
+        address: row.get(4).unwrap(),
+        port: {
+            let p: i64 = row.get(5).unwrap();
+            p as u16
+        },
+        status: AgentStatus::from_str(&status_str).unwrap_or(AgentStatus::Offline),
+        last_heartbeat: hb_str.map(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .unwrap()
+                .with_timezone(&Utc)
+        }),
+        registered_at: DateTime::parse_from_rfc3339(&reg_str)
+            .unwrap()
+            .with_timezone(&Utc),
     }
 }

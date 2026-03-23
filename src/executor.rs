@@ -8,8 +8,11 @@ use tokio::process::Command;
 use tokio::sync::{oneshot, Mutex};
 use uuid::Uuid;
 
+use crate::agent_client::AgentClient;
 use crate::db::Db;
+use crate::error::AppError;
 use crate::models::*;
+use crate::protocol::JobDispatchRequest;
 
 struct RunningJob {
     cancel_tx: oneshot::Sender<()>,
@@ -18,29 +21,56 @@ struct RunningJob {
 #[derive(Clone)]
 pub struct Executor {
     db: Db,
+    agent_client: AgentClient,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
 }
 
 impl Executor {
-    pub fn new(db: Db) -> Self {
+    pub fn new(db: Db, agent_client: AgentClient) -> Self {
         Self {
             db,
+            agent_client,
             running: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    /// Execute a job. Returns the execution ID immediately; the job runs in the background.
     pub async fn execute(
         &self,
         job: &Job,
         trigger: TriggerSource,
-    ) -> Result<Uuid, crate::error::AppError> {
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        match &job.target {
+            None | Some(AgentTarget::Local) => {
+                self.execute_local(job, trigger).await
+            }
+            Some(AgentTarget::Agent { agent_id }) => {
+                self.dispatch_to_agent(*agent_id, job, trigger, callback_base_url).await
+            }
+            Some(AgentTarget::Tagged { tag }) => {
+                self.dispatch_to_tagged(tag, job, trigger, callback_base_url).await
+            }
+            Some(AgentTarget::Any) => {
+                self.dispatch_to_any(job, trigger, callback_base_url).await
+            }
+            Some(AgentTarget::All) => {
+                self.dispatch_to_all(job, trigger, callback_base_url).await
+            }
+        }
+    }
+
+    async fn execute_local(
+        &self,
+        job: &Job,
+        trigger: TriggerSource,
+    ) -> Result<Uuid, AppError> {
         let exec_id = Uuid::new_v4();
         let now = Utc::now();
 
         let rec = ExecutionRecord {
             id: exec_id,
             job_id: job.id,
+            agent_id: None,
             status: ExecutionStatus::Running,
             exit_code: None,
             stdout: String::new(),
@@ -52,13 +82,11 @@ impl Executor {
             triggered_by: trigger,
         };
 
-        // Insert into DB on blocking thread
         let db = self.db.clone();
         let rec_clone = rec.clone();
         tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone)).await.unwrap()?;
 
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
-
         {
             let mut running = self.running.lock().await;
             running.insert(exec_id, RunningJob { cancel_tx });
@@ -71,11 +99,11 @@ impl Executor {
 
         tokio::spawn(async move {
             let result = run_command(&command, timeout_secs, cancel_rx).await;
-
             let finished_at = Utc::now();
             let updated = ExecutionRecord {
                 id: exec_id,
                 job_id: rec.job_id,
+                agent_id: None,
                 status: result.status,
                 exit_code: result.exit_code,
                 stdout: result.stdout.text,
@@ -94,18 +122,202 @@ impl Executor {
             {
                 tracing::error!("failed to update execution {}: {e}", exec_id);
             }
-
             running.lock().await.remove(&exec_id);
-
-            tracing::info!(
-                "execution {} finished: {:?} (exit_code: {:?})",
-                exec_id,
-                updated.status,
-                updated.exit_code
-            );
+            tracing::info!("execution {} finished: {:?}", exec_id, updated.status);
         });
 
         Ok(exec_id)
+    }
+
+    async fn dispatch_to_agent(
+        &self,
+        agent_id: Uuid,
+        job: &Job,
+        trigger: TriggerSource,
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let db = self.db.clone();
+        let agent = tokio::task::spawn_blocking(move || db.get_agent(agent_id))
+            .await
+            .unwrap()?
+            .ok_or_else(|| AppError::AgentUnavailable(format!("agent {agent_id} not found")))?;
+
+        if agent.status != AgentStatus::Online {
+            return Err(AppError::AgentUnavailable(format!(
+                "agent {} is {}",
+                agent.name,
+                agent.status.as_str()
+            )));
+        }
+
+        self.dispatch_to_specific_agent(&agent, job, trigger, callback_base_url).await
+    }
+
+    async fn dispatch_to_tagged(
+        &self,
+        tag: &str,
+        job: &Job,
+        trigger: TriggerSource,
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let db = self.db.clone();
+        let tag_owned = tag.to_string();
+        let tag_for_err = tag_owned.clone();
+        let agents = tokio::task::spawn_blocking(move || db.get_online_agents_by_tag(&tag_owned))
+            .await
+            .unwrap()?;
+
+        if agents.is_empty() {
+            return Err(AppError::AgentUnavailable(format!(
+                "no online agents with tag '{}'",
+                tag_for_err
+            )));
+        }
+
+        // Pick random agent
+        let idx = (Utc::now().timestamp_nanos_opt().unwrap_or(0) as usize) % agents.len();
+        let agent = &agents[idx];
+
+        self.dispatch_to_specific_agent(agent, job, trigger, callback_base_url).await
+    }
+
+    async fn dispatch_to_any(
+        &self,
+        job: &Job,
+        trigger: TriggerSource,
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let db = self.db.clone();
+        let agents = tokio::task::spawn_blocking(move || db.get_online_agents())
+            .await
+            .unwrap()?;
+
+        if agents.is_empty() {
+            return Err(AppError::AgentUnavailable(
+                "no online agents available".to_string(),
+            ));
+        }
+
+        let idx = (Utc::now().timestamp_nanos_opt().unwrap_or(0) as usize) % agents.len();
+        let agent = &agents[idx];
+
+        self.dispatch_to_specific_agent(agent, job, trigger, callback_base_url).await
+    }
+
+    async fn dispatch_to_all(
+        &self,
+        job: &Job,
+        trigger: TriggerSource,
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let db = self.db.clone();
+        let agents = tokio::task::spawn_blocking(move || db.get_online_agents())
+            .await
+            .unwrap()?;
+
+        if agents.is_empty() {
+            return Err(AppError::AgentUnavailable(
+                "no online agents available".to_string(),
+            ));
+        }
+
+        let mut first_exec_id = None;
+        for agent in &agents {
+            match self
+                .dispatch_to_specific_agent(agent, job, trigger.clone(), callback_base_url)
+                .await
+            {
+                Ok(exec_id) => {
+                    if first_exec_id.is_none() {
+                        first_exec_id = Some(exec_id);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "failed to dispatch to agent {} ({}): {e}",
+                        agent.name,
+                        agent.id
+                    );
+                }
+            }
+        }
+
+        first_exec_id.ok_or_else(|| {
+            AppError::AgentError("failed to dispatch to any agent".to_string())
+        })
+    }
+
+    async fn dispatch_to_specific_agent(
+        &self,
+        agent: &Agent,
+        job: &Job,
+        trigger: TriggerSource,
+        callback_base_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let exec_id = Uuid::new_v4();
+        let now = Utc::now();
+
+        let rec = ExecutionRecord {
+            id: exec_id,
+            job_id: job.id,
+            agent_id: Some(agent.id),
+            status: ExecutionStatus::Pending,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            started_at: Some(now),
+            finished_at: None,
+            triggered_by: trigger,
+        };
+
+        let db = self.db.clone();
+        let rec_clone = rec.clone();
+        tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone)).await.unwrap()?;
+
+        let dispatch = JobDispatchRequest {
+            execution_id: exec_id,
+            job_id: job.id,
+            command: job.command.clone(),
+            timeout_secs: job.timeout_secs,
+            callback_url: format!("{}/api/callbacks/execution-result", callback_base_url),
+        };
+
+        match self.agent_client.dispatch_job(&agent.address, agent.port, &dispatch).await {
+            Ok(resp) if resp.accepted => {
+                // Update to Running
+                let db = self.db.clone();
+                let mut running_rec = rec;
+                running_rec.status = ExecutionStatus::Running;
+                let _ = tokio::task::spawn_blocking(move || db.update_execution(&running_rec)).await;
+                tracing::info!(
+                    "dispatched job {} to agent {} -> execution {}",
+                    job.name, agent.name, exec_id
+                );
+                Ok(exec_id)
+            }
+            Ok(resp) => {
+                let msg = resp.message.unwrap_or_else(|| "rejected".into());
+                // Mark as failed
+                let db = self.db.clone();
+                let mut failed_rec = rec;
+                failed_rec.status = ExecutionStatus::Failed;
+                failed_rec.stderr = format!("agent rejected: {msg}");
+                failed_rec.finished_at = Some(Utc::now());
+                let _ = tokio::task::spawn_blocking(move || db.update_execution(&failed_rec)).await;
+                Err(AppError::AgentError(msg))
+            }
+            Err(e) => {
+                let db = self.db.clone();
+                let mut failed_rec = rec;
+                failed_rec.status = ExecutionStatus::Failed;
+                failed_rec.stderr = format!("dispatch failed: {e}");
+                failed_rec.finished_at = Some(Utc::now());
+                let _ = tokio::task::spawn_blocking(move || db.update_execution(&failed_rec)).await;
+                Err(e)
+            }
+        }
     }
 
     pub async fn cancel(&self, execution_id: Uuid) -> bool {
@@ -117,28 +329,24 @@ impl Executor {
             false
         }
     }
-
-    pub async fn is_running(&self, execution_id: Uuid) -> bool {
-        self.running.lock().await.contains_key(&execution_id)
-    }
 }
 
 /// Max bytes stored per stream (256KB). Output beyond this is truncated from the front (keeps tail).
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 
-struct CapturedOutput {
-    text: String,
-    truncated: bool,
+pub struct CapturedOutput {
+    pub text: String,
+    pub truncated: bool,
 }
 
-struct CommandResult {
-    status: ExecutionStatus,
-    exit_code: Option<i32>,
-    stdout: CapturedOutput,
-    stderr: CapturedOutput,
+pub struct CommandResult {
+    pub status: ExecutionStatus,
+    pub exit_code: Option<i32>,
+    pub stdout: CapturedOutput,
+    pub stderr: CapturedOutput,
 }
 
-async fn run_command(
+pub async fn run_command(
     command: &str,
     timeout_secs: Option<u64>,
     cancel_rx: oneshot::Receiver<()>,

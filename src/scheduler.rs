@@ -4,7 +4,8 @@ use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::config::Config;
+use crate::agent_client::AgentClient;
+use crate::config::ControllerConfig;
 use crate::cron_parser::CronSchedule;
 use crate::dag::DagResolver;
 use crate::db::Db;
@@ -22,8 +23,10 @@ pub struct Scheduler {
     db: Db,
     executor: Executor,
     dag: DagResolver,
+    agent_client: AgentClient,
     rx: mpsc::Receiver<SchedulerCommand>,
     tick_interval: std::time::Duration,
+    callback_base_url: String,
     next_fire_times: HashMap<Uuid, DateTime<Utc>>,
     jobs_cache: Option<Vec<Job>>,
 }
@@ -34,14 +37,17 @@ impl Scheduler {
         executor: Executor,
         dag: DagResolver,
         rx: mpsc::Receiver<SchedulerCommand>,
-        config: &Config,
+        config: &ControllerConfig,
+        agent_client: AgentClient,
     ) -> Self {
         Self {
             db,
             executor,
             dag,
+            agent_client,
             rx,
             tick_interval: config.tick_interval,
+            callback_base_url: config.callback_base_url.clone(),
             next_fire_times: HashMap::new(),
             jobs_cache: None,
         }
@@ -66,7 +72,6 @@ impl Scheduler {
     async fn tick(&mut self) {
         let now = Utc::now();
 
-        // Load jobs if cache is empty
         if self.jobs_cache.is_none() {
             self.reload_jobs().await;
         }
@@ -77,7 +82,7 @@ impl Scheduler {
         };
 
         for job in &jobs {
-            if job.status != JobStatus::Active {
+            if job.status != JobStatus::Enabled {
                 continue;
             }
 
@@ -88,9 +93,8 @@ impl Scheduler {
                 ScheduleKind::OneShot(fire_at) => {
                     if now >= *fire_at {
                         self.fire_job(job, TriggerSource::Scheduler).await;
-                        // Disable one-shot after firing
                         let mut updated = job.clone();
-                        updated.status = JobStatus::Completed;
+                        updated.status = JobStatus::Unscheduled;
                         updated.updated_at = Utc::now();
                         let db = self.db.clone();
                         let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
@@ -108,7 +112,6 @@ impl Scheduler {
         let fire_time = match next_fire {
             Some(t) => t,
             None => {
-                // Compute initial next fire time
                 let Ok(schedule) = CronSchedule::parse(cron_expr) else {
                     tracing::warn!("invalid cron for job {}: {}", job.name, cron_expr);
                     return;
@@ -126,7 +129,6 @@ impl Scheduler {
         if now >= fire_time {
             self.fire_job(job, TriggerSource::Scheduler).await;
 
-            // Compute next fire time
             let Ok(schedule) = CronSchedule::parse(cron_expr) else {
                 return;
             };
@@ -137,7 +139,6 @@ impl Scheduler {
     }
 
     async fn fire_job(&self, job: &Job, trigger: TriggerSource) {
-        // Check dependencies
         if !job.depends_on.is_empty() {
             let dag = self.dag.clone();
             let deps = job.depends_on.clone();
@@ -162,7 +163,7 @@ impl Scheduler {
             }
         }
 
-        match self.executor.execute(job, trigger).await {
+        match self.executor.execute(job, trigger, &self.callback_base_url).await {
             Ok(exec_id) => {
                 tracing::info!("fired job {} ({}) -> execution {}", job.name, job.id, exec_id);
             }
@@ -196,11 +197,40 @@ impl Scheduler {
                 }
             }
             SchedulerCommand::CancelExecution(exec_id) => {
+                // Try local cancel first
                 if self.executor.cancel(exec_id).await {
-                    tracing::info!("cancelled execution {}", exec_id);
-                } else {
-                    tracing::warn!("cancel: execution {} not running", exec_id);
+                    tracing::info!("cancelled local execution {}", exec_id);
+                    return;
                 }
+
+                // Check if it's running on an agent
+                let db = self.db.clone();
+                let exec = tokio::task::spawn_blocking(move || db.get_execution(exec_id))
+                    .await
+                    .unwrap_or(Ok(None));
+
+                if let Ok(Some(exec)) = exec {
+                    if let Some(agent_id) = exec.agent_id {
+                        let db = self.db.clone();
+                        if let Ok(Some(agent)) =
+                            tokio::task::spawn_blocking(move || db.get_agent(agent_id))
+                                .await
+                                .unwrap_or(Ok(None))
+                        {
+                            match self
+                                .agent_client
+                                .cancel_execution(&agent.address, agent.port, exec_id)
+                                .await
+                            {
+                                Ok(_) => tracing::info!("cancelled remote execution {} on agent {}", exec_id, agent.name),
+                                Err(e) => tracing::error!("failed to cancel on agent: {e}"),
+                            }
+                            return;
+                        }
+                    }
+                }
+
+                tracing::warn!("cancel: execution {} not found or not running", exec_id);
             }
         }
     }

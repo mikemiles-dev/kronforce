@@ -16,28 +16,29 @@ pub enum ScheduleKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
-    Active,
+    Enabled,
     Paused,
     Disabled,
-    Completed,
+    Unscheduled,
 }
 
 impl JobStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
-            JobStatus::Active => "active",
+            JobStatus::Enabled => "enabled",
             JobStatus::Paused => "paused",
             JobStatus::Disabled => "disabled",
-            JobStatus::Completed => "completed",
+            JobStatus::Unscheduled => "unscheduled",
         }
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "active" => Some(JobStatus::Active),
+            // Support both old and new names for DB compatibility
+            "enabled" | "active" => Some(JobStatus::Enabled),
             "paused" => Some(JobStatus::Paused),
             "disabled" => Some(JobStatus::Disabled),
-            "completed" => Some(JobStatus::Completed),
+            "unscheduled" | "completed" => Some(JobStatus::Unscheduled),
             _ => None,
         }
     }
@@ -53,8 +54,59 @@ pub struct Job {
     pub status: JobStatus,
     pub timeout_secs: Option<u64>,
     pub depends_on: Vec<Uuid>,
+    pub target: Option<AgentTarget>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AgentTarget {
+    Local,
+    Agent { agent_id: Uuid },
+    Tagged { tag: String },
+    Any,
+    All,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentStatus {
+    Online,
+    Offline,
+    Draining,
+}
+
+impl AgentStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AgentStatus::Online => "online",
+            AgentStatus::Offline => "offline",
+            AgentStatus::Draining => "draining",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "online" => Some(AgentStatus::Online),
+            "offline" => Some(AgentStatus::Offline),
+            "draining" => Some(AgentStatus::Draining),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Agent {
+    pub id: Uuid,
+    pub name: String,
+    pub tags: Vec<String>,
+    pub hostname: String,
+    pub address: String,
+    pub port: u16,
+    pub status: AgentStatus,
+    pub last_heartbeat: Option<DateTime<Utc>>,
+    pub registered_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,6 +160,7 @@ pub enum TriggerSource {
 pub struct ExecutionRecord {
     pub id: Uuid,
     pub job_id: Uuid,
+    pub agent_id: Option<Uuid>,
     pub status: ExecutionStatus,
     pub exit_code: Option<i32>,
     pub stdout: String,

@@ -7,11 +7,13 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+use crate::agent_client::AgentClient;
 use crate::cron_parser::CronSchedule;
 use crate::dag::DagResolver;
 use crate::db::Db;
 use crate::error::AppError;
 use crate::models::*;
+use crate::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse, ExecutionResultReport};
 use crate::scheduler::SchedulerCommand;
 
 #[derive(Clone)]
@@ -19,6 +21,8 @@ pub struct AppState {
     pub db: Db,
     pub dag: DagResolver,
     pub scheduler_tx: mpsc::Sender<SchedulerCommand>,
+    pub agent_client: AgentClient,
+    pub callback_base_url: String,
 }
 
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
@@ -36,6 +40,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/executions/{id}", get(get_execution))
         .route("/api/executions/{id}/cancel", post(cancel_execution))
         .route("/api/health", get(health))
+        .route("/api/agents/register", post(register_agent))
+        .route("/api/agents/{id}/heartbeat", post(agent_heartbeat))
+        .route("/api/agents", get(list_agents))
+        .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
+        .route("/api/callbacks/execution-result", post(execution_result_callback))
         .with_state(state)
 }
 
@@ -49,6 +58,7 @@ struct CreateJobRequest {
     schedule: ScheduleKind,
     timeout_secs: Option<u64>,
     depends_on: Option<Vec<Uuid>>,
+    target: Option<AgentTarget>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +70,7 @@ struct UpdateJobRequest {
     status: Option<JobStatus>,
     timeout_secs: Option<u64>,
     depends_on: Option<Vec<Uuid>>,
+    target: Option<AgentTarget>,
 }
 
 #[derive(Serialize)]
@@ -206,9 +217,10 @@ async fn create_job(
         description: req.description,
         command: req.command,
         schedule: req.schedule,
-        status: JobStatus::Active,
+        status: JobStatus::Enabled,
         timeout_secs: req.timeout_secs,
         depends_on,
+        target: req.target,
         created_at: now,
         updated_at: now,
     };
@@ -287,6 +299,9 @@ async fn update_job(
                 .unwrap()?;
         }
         job.depends_on = deps;
+    }
+    if let Some(target) = req.target {
+        job.target = Some(target);
     }
 
     job.updated_at = Utc::now();
@@ -440,4 +455,144 @@ fn build_job_response(job: Job, db: &Db) -> JobResponse {
             failed,
         },
     }
+}
+
+// --- Agent Handlers ---
+
+async fn register_agent(
+    State(state): State<AppState>,
+    Json(req): Json<AgentRegistration>,
+) -> Result<Json<AgentRegistrationResponse>, AppError> {
+    let db = state.db.clone();
+    let name = req.name.clone();
+
+    // Check if agent with same name exists (re-registration)
+    let existing = tokio::task::spawn_blocking({
+        let db = db.clone();
+        let name = name.clone();
+        move || db.get_agent_by_name(&name)
+    })
+    .await
+    .unwrap()?;
+
+    let agent_id = existing.as_ref().map(|a| a.id).unwrap_or_else(Uuid::new_v4);
+    let now = Utc::now();
+
+    let agent = Agent {
+        id: agent_id,
+        name: req.name,
+        tags: req.tags,
+        hostname: req.hostname,
+        address: req.address,
+        port: req.port,
+        status: AgentStatus::Online,
+        last_heartbeat: Some(now),
+        registered_at: existing.map(|a| a.registered_at).unwrap_or(now),
+    };
+
+    let db2 = db.clone();
+    let agent2 = agent.clone();
+    tokio::task::spawn_blocking(move || db2.upsert_agent(&agent2))
+        .await
+        .unwrap()?;
+
+    tracing::info!("agent registered: {} ({})", agent.name, agent.id);
+
+    Ok(Json(AgentRegistrationResponse {
+        agent_id: agent.id,
+        heartbeat_interval_secs: 10,
+    }))
+}
+
+async fn agent_heartbeat(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(_hb): Json<AgentHeartbeat>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    let now = Utc::now();
+    tokio::task::spawn_blocking(move || db.update_agent_heartbeat(id, now))
+        .await
+        .unwrap()?;
+    Ok(Json(serde_json::json!({"status": "ok"})))
+}
+
+async fn list_agents(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<Agent>>, AppError> {
+    let db = state.db.clone();
+    let agents = tokio::task::spawn_blocking(move || db.list_agents())
+        .await
+        .unwrap()?;
+    Ok(Json(agents))
+}
+
+async fn get_agent_handler(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Agent>, AppError> {
+    let db = state.db.clone();
+    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
+        .await
+        .unwrap()?
+        .ok_or_else(|| AppError::NotFound(format!("agent {id} not found")))?;
+    Ok(Json(agent))
+}
+
+async fn deregister_agent(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<axum::http::StatusCode, AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || db.delete_agent(id))
+        .await
+        .unwrap()?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+async fn execution_result_callback(
+    State(state): State<AppState>,
+    Json(result): Json<ExecutionResultReport>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    let exec_id = result.execution_id;
+
+    // Get existing execution to preserve triggered_by
+    let db2 = db.clone();
+    let existing = tokio::task::spawn_blocking(move || db2.get_execution(exec_id))
+        .await
+        .unwrap()?;
+
+    let triggered_by = existing
+        .map(|e| e.triggered_by)
+        .unwrap_or(TriggerSource::Scheduler);
+
+    let rec = ExecutionRecord {
+        id: result.execution_id,
+        job_id: result.job_id,
+        agent_id: Some(result.agent_id),
+        status: result.status,
+        exit_code: result.exit_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        stdout_truncated: result.stdout_truncated,
+        stderr_truncated: result.stderr_truncated,
+        started_at: Some(result.started_at),
+        finished_at: Some(result.finished_at),
+        triggered_by,
+    };
+
+    let status = rec.status;
+    tokio::task::spawn_blocking(move || db.update_execution(&rec))
+        .await
+        .unwrap()?;
+
+    tracing::info!(
+        "received execution result {} from agent {}: {:?}",
+        result.execution_id,
+        result.agent_id,
+        status
+    );
+
+    Ok(Json(serde_json::json!({"status": "ok"})))
 }

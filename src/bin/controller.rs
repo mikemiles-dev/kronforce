@@ -1,0 +1,66 @@
+use kronforce::agent_client::AgentClient;
+use kronforce::config::ControllerConfig;
+use kronforce::dag::DagResolver;
+use kronforce::db::Db;
+use kronforce::executor::Executor;
+use kronforce::scheduler::Scheduler;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "kronforce=debug,info".parse().unwrap()),
+        )
+        .init();
+
+    let config = ControllerConfig::from_env();
+
+    tracing::info!("opening database: {}", config.db_path);
+    let db = Db::open(&config.db_path)?;
+    db.migrate()?;
+
+    let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
+
+    let agent_client = AgentClient::new();
+    let executor = Executor::new(db.clone(), agent_client.clone());
+    let dag = DagResolver::new(db.clone());
+    let scheduler = Scheduler::new(
+        db.clone(),
+        executor,
+        dag.clone(),
+        scheduler_rx,
+        &config,
+        agent_client.clone(),
+    );
+
+    tokio::spawn(scheduler.run());
+
+    // Spawn agent health monitor
+    let health_db = db.clone();
+    let timeout = config.agent_heartbeat_timeout;
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
+        loop {
+            interval.tick().await;
+            let db = health_db.clone();
+            let timeout = timeout;
+            let _ = tokio::task::spawn_blocking(move || db.expire_agents(timeout)).await;
+        }
+    });
+
+    let state = kronforce::api::AppState {
+        db,
+        dag,
+        scheduler_tx,
+        agent_client,
+        callback_base_url: config.callback_base_url.clone(),
+    };
+    let app = kronforce::api::router(state);
+
+    let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
+    tracing::info!("listening on {}", config.bind_addr);
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}

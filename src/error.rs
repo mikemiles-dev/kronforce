@@ -13,6 +13,10 @@ pub enum AppError {
     BadRequest(String),
     #[error("internal: {0}")]
     Internal(String),
+    #[error("agent error: {0}")]
+    AgentError(String),
+    #[error("agent unavailable: {0}")]
+    AgentUnavailable(String),
     #[error(transparent)]
     Db(#[from] rusqlite::Error),
 }
@@ -24,6 +28,8 @@ impl IntoResponse for AppError {
             AppError::Conflict(m) => (StatusCode::CONFLICT, m.clone()),
             AppError::BadRequest(m) => (StatusCode::BAD_REQUEST, m.clone()),
             AppError::Internal(m) => (StatusCode::INTERNAL_SERVER_ERROR, m.clone()),
+            AppError::AgentError(m) => (StatusCode::BAD_GATEWAY, m.clone()),
+            AppError::AgentUnavailable(m) => (StatusCode::SERVICE_UNAVAILABLE, m.clone()),
             AppError::Db(e) => {
                 tracing::error!("database error: {e}");
                 (

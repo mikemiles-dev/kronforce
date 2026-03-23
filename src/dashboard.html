@@ -6,54 +6,131 @@
 <title>Kronforce</title>
 <style>
 :root {
-    --bg-primary: #0f1117;
-    --bg-secondary: #1a1d27;
-    --bg-tertiary: #252833;
-    --border: #2e3140;
-    --text-primary: #e1e4eb;
-    --text-secondary: #8b8fa3;
-    --text-muted: #5c5f73;
-    --accent: #6366f1;
-    --accent-hover: #818cf8;
-    --success: #22c55e;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --info: #3b82f6;
-    --radius: 6px;
-    --font-mono: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    --bg-primary: #0c0e14;
+    --bg-secondary: #151820;
+    --bg-tertiary: #1e222d;
+    --border: #2a2f3d;
+    --text-primary: #d4d8e3;
+    --text-secondary: #7c8298;
+    --text-muted: #4e5468;
+    --accent: #3e8bff;
+    --accent-hover: #5da0ff;
+    --success: #2ecc71;
+    --warning: #e6a817;
+    --danger: #e05252;
+    --info: #4a9eff;
+    --radius: 5px;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
     line-height: 1.5;
 }
 
-header {
-    background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    padding: 0 24px;
-    height: 56px;
+.app-layout {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 200px;
+    min-width: 200px;
+    background: var(--bg-secondary);
+    border-right: none;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.25);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
     position: sticky;
     top: 0;
     z-index: 10;
 }
 
-.logo {
-    font-size: 18px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+.sidebar-header {
+    padding: 18px 20px 16px;
 }
 
-.logo span { color: var(--accent); }
+.logo {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+}
 
-.header-right {
+.logo span { color: var(--accent); font-weight: 800; }
+
+.sidebar-nav {
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.nav-tab {
+    padding: 9px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    width: 100%;
+}
+
+.nav-tab:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+
+.nav-tab.active {
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 1px 6px rgba(62,139,255,0.2);
+}
+
+.nav-tab .tab-icon {
+    font-size: 16px;
+    line-height: 1;
+    width: 20px;
+    text-align: center;
+}
+
+.sidebar-footer {
+    padding: 12px 16px;
+    box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
+    font-size: 12px;
+}
+
+.content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.top-bar {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.top-bar-right {
     display: flex;
     align-items: center;
     gap: 16px;
@@ -68,18 +145,18 @@ header {
     margin-right: 6px;
 }
 
-.health-dot.ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
-.health-dot.err { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+.health-dot.ok { background: var(--success); box-shadow: 0 0 5px rgba(46,204,113,0.4); }
+.health-dot.err { background: var(--danger); box-shadow: 0 0 5px rgba(224,82,82,0.4); }
 
 .health-text { font-size: 13px; color: var(--text-secondary); }
 
 .action-bar {
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     padding: 10px 24px;
-    position: sticky;
-    top: 56px;
-    z-index: 9;
+    flex-shrink: 0;
+    z-index: 5;
 }
 
 .action-bar-inner {
@@ -153,15 +230,23 @@ header {
     border-radius: 14px;
     border: 1px solid var(--border);
     background: transparent;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s;
 }
 
-.status-btn:hover { border-color: var(--text-secondary); }
+.status-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
 
+/* Default (unselected) tints */
+.status-btn.s-active { color: rgba(100,180,255,0.6); border-color: rgba(100,180,255,0.2); }
+.status-btn.s-paused { color: rgba(230,168,23,0.6); border-color: rgba(230,168,23,0.2); }
+.status-btn.s-disabled { color: rgba(124,130,152,0.6); border-color: rgba(124,130,152,0.2); }
+.status-btn.s-completed { color: rgba(46,204,113,0.6); border-color: rgba(46,204,113,0.2); }
+.status-btn.s-danger { color: rgba(224,82,82,0.6); border-color: rgba(224,82,82,0.2); }
+
+/* Selected states */
 .status-btn.active {
     background: rgba(139,143,163,0.15);
     color: var(--text-primary);
@@ -169,33 +254,46 @@ header {
 }
 
 .status-btn.s-active.active {
-    background: rgba(34,197,94,0.15);
-    color: var(--success);
-    border-color: var(--success);
+    background: rgba(100,180,255,0.12);
+    color: #64b4ff;
+    border-color: #64b4ff;
 }
 
 .status-btn.s-paused.active {
-    background: rgba(245,158,11,0.15);
+    background: rgba(230,168,23,0.12);
     color: var(--warning);
     border-color: var(--warning);
 }
 
 .status-btn.s-disabled.active {
-    background: rgba(139,143,163,0.15);
+    background: rgba(124,130,152,0.12);
     color: var(--text-secondary);
     border-color: var(--text-secondary);
 }
 
 .status-btn.s-completed.active {
-    background: rgba(34,197,94,0.15);
+    background: rgba(46,204,113,0.12);
     color: var(--success);
     border-color: var(--success);
 }
 
+.status-btn.s-danger.active {
+    background: rgba(224,82,82,0.12);
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
 main {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.scrollable {
+    flex: 1;
+    overflow-y: auto;
 }
 
 .btn {
@@ -217,6 +315,7 @@ main {
 .btn-danger { background: var(--danger); color: white; }
 .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
 .btn-ghost:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-icon { padding: 4px 8px; font-size: 14px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; border-radius: var(--radius); }
 .btn-icon:hover { background: var(--bg-tertiary); color: var(--text-primary); }
@@ -233,12 +332,13 @@ main {
     letter-spacing: 0.5px;
 }
 
-.badge-active, .badge-succeeded { background: rgba(34,197,94,0.15); color: var(--success); }
-.badge-running, .badge-pending { background: rgba(59,130,246,0.15); color: var(--info); }
-.badge-paused { background: rgba(245,158,11,0.15); color: var(--warning); }
-.badge-failed, .badge-timed_out { background: rgba(239,68,68,0.15); color: var(--danger); }
-.badge-cancelled, .badge-skipped, .badge-disabled { background: rgba(139,143,163,0.15); color: var(--text-secondary); }
-.badge-completed { background: rgba(34,197,94,0.15); color: var(--success); }
+.badge-active, .badge-enabled { background: rgba(100,180,255,0.12); color: #64b4ff; }
+.badge-succeeded { background: rgba(46,204,113,0.12); color: var(--success); }
+.badge-running, .badge-pending { background: rgba(62,139,255,0.12); color: var(--info); }
+.badge-paused { background: rgba(230,168,23,0.12); color: var(--warning); }
+.badge-failed, .badge-timed_out { background: rgba(224,82,82,0.12); color: var(--danger); }
+.badge-cancelled, .badge-skipped, .badge-disabled { background: rgba(124,130,152,0.12); color: var(--text-secondary); }
+.badge-completed, .badge-unscheduled { background: rgba(124,130,152,0.12); color: var(--text-secondary); }
 
 .toolbar {
     display: flex;
@@ -293,6 +393,32 @@ th {
     border-bottom: 1px solid var(--border);
 }
 
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+
+th.sortable:hover { color: var(--text-primary); }
+
+th.sortable::after {
+    content: ' \2195';
+    font-size: 10px;
+    opacity: 0.3;
+}
+
+th.sortable.sort-asc::after {
+    content: ' \2191';
+    opacity: 0.8;
+    color: var(--accent);
+}
+
+th.sortable.sort-desc::after {
+    content: ' \2193';
+    opacity: 0.8;
+    color: var(--accent);
+}
+
 td {
     padding: 10px 12px;
     border-bottom: 1px solid var(--border);
@@ -301,17 +427,13 @@ td {
 
 tr:hover td { background: var(--bg-secondary); }
 
-tr.run-succeeded td { background: rgba(34,197,94,0.04); }
-tr.run-succeeded td:first-child { box-shadow: inset 3px 0 0 var(--success); }
-tr.run-failed td, tr.run-timed_out td { background: rgba(239,68,68,0.04); }
-tr.run-failed td:first-child, tr.run-timed_out td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
-tr.run-running td { background: rgba(59,130,246,0.04); }
-tr.run-running td:first-child { box-shadow: inset 3px 0 0 var(--info); }
-tr.run-cancelled td:first-child { box-shadow: inset 3px 0 0 var(--text-muted); }
+tr.run-succeeded td { background: rgba(46,204,113,0.04); }
+tr.run-succeeded:hover td { background: rgba(46,204,113,0.08); }
+tr.run-failed td, tr.run-timed_out td { background: rgba(224,82,82,0.04); }
+tr.run-failed:hover td, tr.run-timed_out:hover td { background: rgba(224,82,82,0.08); }
+tr.run-running td { background: rgba(62,139,255,0.04); }
+tr.run-running:hover td { background: rgba(62,139,255,0.08); }
 
-tr.run-succeeded:hover td { background: rgba(34,197,94,0.08); }
-tr.run-failed:hover td, tr.run-timed_out:hover td { background: rgba(239,68,68,0.08); }
-tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 
 .last-run {
     display: flex;
@@ -334,10 +456,10 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
     font-weight: 600;
 }
 
-.run-indicator.success { background: rgba(34,197,94,0.12); color: var(--success); }
-.run-indicator.failure { background: rgba(239,68,68,0.12); color: var(--danger); }
-.run-indicator.running { background: rgba(59,130,246,0.12); color: var(--info); }
-.run-indicator.neutral { background: rgba(139,143,163,0.1); color: var(--text-secondary); }
+.run-indicator.success { background: rgba(46,204,113,0.1); color: var(--success); }
+.run-indicator.failure { background: rgba(224,82,82,0.1); color: var(--danger); }
+.run-indicator.running { background: rgba(62,139,255,0.1); color: var(--info); }
+.run-indicator.neutral { background: rgba(124,130,152,0.08); color: var(--text-secondary); }
 
 .run-indicator .dot {
     width: 6px;
@@ -357,6 +479,33 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
     opacity: 0.5;
     pointer-events: none;
 }
+
+.jobs-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.jobs-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bulk-count-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.job-checkbox {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+th .job-checkbox { margin: 0; }
 
 .exec-counts {
     display: flex;
@@ -399,10 +548,11 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 
 .card {
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(42,47,61,0.5);
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
 }
 
 .card-header {
@@ -460,7 +610,7 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 .back-link:hover {
     color: var(--accent-hover);
     border-color: var(--accent);
-    background: rgba(99,102,241,0.08);
+    background: rgba(62,139,255,0.06);
 }
 
 .modal-overlay {
@@ -475,12 +625,13 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 
 .modal-card {
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(42,47,61,0.5);
     border-radius: 10px;
     padding: 24px;
     width: 90%;
     max-width: 560px;
     max-height: 85vh;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     overflow-y: auto;
 }
 
@@ -722,13 +873,146 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 
 .refresh-now:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 
+.agents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+}
+
+.agent-card {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(42,47,61,0.5);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.agent-card:hover { border-color: var(--text-muted); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+.agent-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.agent-name {
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.agent-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.agent-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.agent-meta-item label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.agent-meta-item .value {
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.agent-tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.agent-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: rgba(62,139,255,0.1);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.agent-card.online { border-left: 3px solid var(--success); }
+.agent-card.offline { border-left: 3px solid var(--danger); opacity: 0.6; }
+.agent-card.draining { border-left: 3px solid var(--warning); }
+
+.agent-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.agent-status-dot.online { background: var(--success); box-shadow: 0 0 5px rgba(46,204,113,0.4); }
+.agent-status-dot.offline { background: var(--danger); }
+.agent-status-dot.draining { background: var(--warning); }
+
+.agents-empty {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--text-secondary);
+}
+
+.agents-empty p { font-size: 14px; margin-bottom: 8px; }
+.agents-empty code {
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.agents-summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.agents-summary-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
+    .app-layout { flex-direction: column; }
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        flex-direction: row;
+        align-items: center;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header { padding: 10px 16px; border-bottom: none; }
+    .sidebar-nav { flex-direction: row; padding: 4px 8px; gap: 4px; }
+    .sidebar-footer { padding: 10px 16px; border-top: none; }
+    .content-area { height: calc(100vh - 52px); }
     .detail-grid { grid-template-columns: 1fr; }
-    .toolbar { flex-direction: column; gap: 8px; align-items: flex-start; }
     .action-bar-inner { flex-wrap: wrap; }
     .action-bar-left { flex-wrap: wrap; }
     .search-wrap { max-width: 100%; min-width: 200px; }
@@ -739,14 +1023,24 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 </head>
 <body>
 
-<header>
-    <div class="logo">Kron<span>force</span></div>
-    <div class="header-right">
+<div class="app-layout">
+
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">Kron<span>force</span></div>
+    </div>
+    <nav class="sidebar-nav">
+        <button class="nav-tab active" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
+        <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
+    </nav>
+    <div class="sidebar-footer">
         <span class="health-text"><span id="health-dot" class="health-dot"></span><span id="health-text">checking...</span></span>
     </div>
-</header>
+</aside>
 
-<div class="action-bar">
+<div class="content-area">
+
+<div class="action-bar" id="jobs-action-bar">
     <div class="action-bar-inner">
         <div class="action-bar-left">
             <div class="search-wrap">
@@ -756,10 +1050,10 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
             </div>
             <div class="status-filters" id="status-filters">
                 <button class="status-btn active" data-status="" onclick="setStatusFilter(this, '')">All</button>
-                <button class="status-btn s-active" data-status="active" onclick="setStatusFilter(this, 'active')">Active</button>
+                <button class="status-btn s-active" data-status="enabled" onclick="setStatusFilter(this, 'enabled')">Enabled</button>
                 <button class="status-btn s-paused" data-status="paused" onclick="setStatusFilter(this, 'paused')">Paused</button>
                 <button class="status-btn s-disabled" data-status="disabled" onclick="setStatusFilter(this, 'disabled')">Disabled</button>
-                <button class="status-btn s-completed" data-status="completed" onclick="setStatusFilter(this, 'completed')">Completed</button>
+                <button class="status-btn s-completed" data-status="unscheduled" onclick="setStatusFilter(this, 'unscheduled')">Unscheduled</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -778,13 +1072,49 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
                 </select>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
-            <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
         </div>
     </div>
 </div>
 
+<div class="action-bar" id="agents-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="agent-search-input" type="text" placeholder="Search agents..." oninput="onAgentSearch()">
+                <button id="agent-search-clear" class="search-clear" onclick="clearAgentSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="agent-status-filters">
+                <button class="status-btn active" onclick="setAgentStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="setAgentStatusFilter(this, 'online')">Online</button>
+                <button class="status-btn s-danger" onclick="setAgentStatusFilter(this, 'offline')">Offline</button>
+                <button class="status-btn s-paused" onclick="setAgentStatusFilter(this, 'draining')">Draining</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="scrollable">
 <main>
     <section id="jobs-view">
+        <div class="jobs-toolbar" id="jobs-toolbar">
+            <div class="jobs-toolbar-left">
+                <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
+                <button class="btn btn-primary" id="bulk-run-btn" onclick="bulkTrigger()" disabled>&#9654; Schedule Now</button>
+                <button class="btn btn-danger" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
+                <button class="btn btn-ghost" id="bulk-clear-btn" onclick="clearSelection()" disabled>Clear</button>
+            </div>
+            <span id="bulk-count-text" class="bulk-count-text"></span>
+        </div>
         <div id="jobs-table-wrap"></div>
         <div id="jobs-pagination" class="pagination"></div>
     </section>
@@ -800,7 +1130,14 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
             <div id="exec-pagination" class="pagination"></div>
         </div>
     </section>
+
+    <section id="agents-view" style="display:none">
+        <div id="agents-table-wrap"></div>
+    </section>
 </main>
+</div><!-- scrollable -->
+</div><!-- content-area -->
+</div><!-- app-layout -->
 
 <div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeCreateModal()">
     <div class="modal-card">
@@ -838,6 +1175,19 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
             <input id="f-timeout" type="number" min="1" placeholder="300">
         </div>
         <div class="form-group">
+            <label>Target</label>
+            <div class="radio-group">
+                <label><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> Local</label>
+                <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> Specific Agent</label>
+                <label><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> Any Agent</label>
+                <label><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> All Agents</label>
+            </div>
+        </div>
+        <div class="form-group" id="agent-select-field" style="display:none">
+            <label>Agent</label>
+            <select id="f-agent"><option value="">Loading agents...</option></select>
+        </div>
+        <div class="form-group">
             <label>Dependencies</label>
             <div id="deps-list" class="deps-list"><span class="time-text">No other jobs yet</span></div>
         </div>
@@ -861,6 +1211,9 @@ tr.run-running:hover td { background: rgba(59,130,246,0.08); }
 
 <script>
 let allJobs = [];
+let selectedJobs = new Set();
+let sortColumn = 'name';
+let sortDirection = 'asc';
 let currentJobId = null;
 let editingJobId = null;
 let currentExecId = null;
@@ -959,26 +1312,83 @@ function goToJobsPage(p) {
     fetchJobs();
 }
 
+function sortJobs(col) {
+    if (sortColumn === col) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortColumn = col;
+        sortDirection = 'asc';
+    }
+    renderJobsTable();
+}
+
+function getSortValue(job, col) {
+    switch (col) {
+        case 'name': return job.name.toLowerCase();
+        case 'state': return job.status;
+        case 'target':
+            if (!job.target) return 'local';
+            return job.target.type;
+        case 'last_run':
+            if (!job.last_execution) return '';
+            return job.last_execution.status;
+        case 'runs': return job.execution_counts.total;
+        case 'schedule': return job.schedule.type;
+        case 'next_fire':
+            return job.next_fire_time || '';
+        default: return '';
+    }
+}
+
 function renderJobsTable() {
     const wrap = document.getElementById('jobs-table-wrap');
     if (allJobs.length === 0) {
         wrap.innerHTML = '<div class="empty-state"><p>No jobs yet</p><button class="btn btn-primary" onclick="openCreateModal()">Create your first job</button></div>';
         return;
     }
-    let html = '<table><thead><tr><th>Name</th><th>Status</th><th>Last Run</th><th>Runs</th><th>Schedule</th><th>Next Fire</th><th>Actions</th></tr></thead><tbody>';
-    for (const j of allJobs) {
+
+    // Sort
+    const sorted = [...allJobs].sort((a, b) => {
+        let va = getSortValue(a, sortColumn);
+        let vb = getSortValue(b, sortColumn);
+        if (typeof va === 'number' && typeof vb === 'number') {
+            return sortDirection === 'asc' ? va - vb : vb - va;
+        }
+        va = String(va); vb = String(vb);
+        const cmp = va.localeCompare(vb);
+        return sortDirection === 'asc' ? cmp : -cmp;
+    });
+
+    function sortTh(col, label) {
+        const cls = sortColumn === col ? (sortDirection === 'asc' ? 'sortable sort-asc' : 'sortable sort-desc') : 'sortable';
+        return '<th class="' + cls + '" onclick="sortJobs(\'' + col + '\')">' + label + '</th>';
+    }
+
+    let html = '<table><thead><tr><th><input type="checkbox" class="job-checkbox" onchange="toggleSelectAll(this)"></th>';
+    html += sortTh('name', 'Name');
+    html += sortTh('state', 'State');
+    html += sortTh('target', 'Target');
+    html += sortTh('last_run', 'Last Run');
+    html += sortTh('runs', 'Runs');
+    html += sortTh('schedule', 'Schedule');
+    html += sortTh('next_fire', 'Next Fire');
+    html += '<th>Actions</th></tr></thead><tbody>';
+    for (const j of sorted) {
         const rowClass = j.last_execution ? 'run-' + j.last_execution.status : '';
+        const checked = selectedJobs.has(j.id) ? ' checked' : '';
         html += '<tr class="' + rowClass + '">';
+        html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
         html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span></td>';
         html += '<td>' + badge(j.status) + '</td>';
+        html += '<td>' + fmtTarget(j.target) + '</td>';
         html += '<td>' + fmtLastRun(j.last_execution) + '</td>';
         html += '<td>' + fmtCounts(j.execution_counts) + '</td>';
         html += '<td><span class="schedule-text">' + fmtSchedule(j.schedule) + '</span></td>';
         html += '<td><span class="time-text">' + (j.next_fire_time ? fmtDate(j.next_fire_time) : '-') + '</span></td>';
         html += '<td><div class="actions">';
         html += '<button class="btn-icon trigger" title="Trigger" id="trigger-' + j.id + '" onclick="triggerJob(\'' + j.id + '\')">&#9654;</button>';
-        if (j.status === 'active') {
-            html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'active\')">&#10074;&#10074;</button>';
+        if (j.status === 'enabled') {
+            html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'enabled\')">&#10074;&#10074;</button>';
         } else if (j.status === 'paused') {
             html += '<button class="btn-icon trigger" title="Resume" onclick="togglePause(\'' + j.id + '\',\'paused\')">&#9654;</button>';
         }
@@ -988,6 +1398,7 @@ function renderJobsTable() {
     }
     html += '</tbody></table>';
     wrap.innerHTML = html;
+    updateBulkBar();
 }
 
 // --- Job Detail ---
@@ -1029,6 +1440,7 @@ function renderJobDetail(job) {
         field('Schedule', fmtSchedule(job.schedule)) +
         field('Description', job.description || '-') +
         field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : 'None') +
+        field('Target', fmtTarget(job.target)) +
         field('Dependencies', deps) +
         field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '-') +
         field('Created', fmtDate(job.created_at)) +
@@ -1185,7 +1597,7 @@ async function pollForResult(jobId) {
 }
 
 async function togglePause(id, current) {
-    const newStatus = current === 'active' ? 'paused' : 'active';
+    const newStatus = current === 'enabled' ? 'paused' : 'enabled';
     try {
         await api('PUT', '/api/jobs/' + id, { status: newStatus });
         toast('Job ' + newStatus);
@@ -1207,6 +1619,98 @@ async function deleteJob(id, name) {
     }
 }
 
+// --- Bulk Selection ---
+
+function toggleSelectJob(checkbox) {
+    const id = checkbox.dataset.id;
+    if (checkbox.checked) {
+        selectedJobs.add(id);
+    } else {
+        selectedJobs.delete(id);
+    }
+    updateBulkBar();
+    // Update select-all checkbox state
+    const all = document.querySelectorAll('#jobs-table-wrap .job-checkbox[data-id]');
+    const selectAll = document.querySelector('#jobs-table-wrap thead .job-checkbox');
+    if (selectAll) {
+        selectAll.checked = all.length > 0 && selectedJobs.size === all.length;
+    }
+}
+
+function toggleSelectAll(checkbox) {
+    const all = document.querySelectorAll('#jobs-table-wrap .job-checkbox[data-id]');
+    all.forEach(cb => {
+        cb.checked = checkbox.checked;
+        if (checkbox.checked) {
+            selectedJobs.add(cb.dataset.id);
+        } else {
+            selectedJobs.delete(cb.dataset.id);
+        }
+    });
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const countText = document.getElementById('bulk-count-text');
+    const runBtn = document.getElementById('bulk-run-btn');
+    const delBtn = document.getElementById('bulk-delete-btn');
+    const clearBtn = document.getElementById('bulk-clear-btn');
+    const n = selectedJobs.size;
+    runBtn.textContent = n > 0 ? '\u25B6 Schedule Now (' + n + ')' : '\u25B6 Schedule Now';
+    delBtn.textContent = n > 0 ? 'Delete (' + n + ')' : 'Delete';
+    countText.textContent = n > 0 ? n + ' selected' : '';
+    const disabled = n === 0;
+    runBtn.disabled = disabled;
+    delBtn.disabled = disabled;
+    clearBtn.disabled = disabled;
+}
+
+function clearSelection() {
+    selectedJobs.clear();
+    renderJobsTable();
+}
+
+async function bulkTrigger() {
+    const ids = Array.from(selectedJobs);
+    const count = ids.length;
+    if (!confirm('Schedule ' + count + ' job' + (count > 1 ? 's' : '') + ' now?')) return;
+    let succeeded = 0;
+    for (const id of ids) {
+        try {
+            await api('POST', '/api/jobs/' + id + '/trigger');
+            succeeded++;
+        } catch (e) {
+            console.error('bulk trigger failed for ' + id, e);
+        }
+    }
+    toast(succeeded + ' of ' + count + ' jobs triggered', succeeded === count ? 'success' : 'error');
+    selectedJobs.clear();
+    fetchJobs();
+}
+
+async function bulkDelete() {
+    const ids = Array.from(selectedJobs);
+    const count = ids.length;
+    if (!confirm('Delete ' + count + ' job' + (count > 1 ? 's' : '') + '? This cannot be undone.')) return;
+    let succeeded = 0;
+    let errors = [];
+    for (const id of ids) {
+        try {
+            await api('DELETE', '/api/jobs/' + id);
+            succeeded++;
+        } catch (e) {
+            errors.push(e.message);
+        }
+    }
+    if (errors.length > 0) {
+        toast(succeeded + ' deleted, ' + errors.length + ' failed: ' + errors[0], 'error');
+    } else {
+        toast(succeeded + ' job' + (succeeded > 1 ? 's' : '') + ' deleted');
+    }
+    selectedJobs.clear();
+    fetchJobs();
+}
+
 // --- Create/Edit Modal ---
 function openCreateModal() {
     editingJobId = null;
@@ -1219,6 +1723,8 @@ function openCreateModal() {
     document.getElementById('f-timeout').value = '';
     document.querySelector('input[name="sched-type"][value="cron"]').checked = true;
     updateSchedFields();
+    document.querySelector('input[name="target-type"][value="local"]').checked = true;
+    updateTargetFields();
     populateDeps(null);
     document.getElementById('create-modal').style.display = '';
 }
@@ -1244,6 +1750,23 @@ async function openEditModal(id) {
             document.getElementById('f-oneshot').value = dt.toISOString().slice(0, 16);
         }
 
+        // Set target
+        const target = job.target;
+        if (!target || target.type === 'local') {
+            document.querySelector('input[name="target-type"][value="local"]').checked = true;
+        } else if (target.type === 'agent') {
+            document.querySelector('input[name="target-type"][value="agent"]').checked = true;
+        } else if (target.type === 'any') {
+            document.querySelector('input[name="target-type"][value="any"]').checked = true;
+        } else if (target.type === 'all') {
+            document.querySelector('input[name="target-type"][value="all"]').checked = true;
+        }
+        updateTargetFields();
+        if (target && target.type === 'agent') {
+            await populateAgentSelect();
+            document.getElementById('f-agent').value = target.agent_id;
+        }
+
         populateDeps(id, job.depends_on);
         document.getElementById('create-modal').style.display = '';
     } catch (e) {
@@ -1259,6 +1782,31 @@ function updateSchedFields() {
     const type = document.querySelector('input[name="sched-type"]:checked').value;
     document.getElementById('cron-field').style.display = type === 'cron' ? '' : 'none';
     document.getElementById('oneshot-field').style.display = type === 'one_shot' ? '' : 'none';
+}
+
+function updateTargetFields() {
+    const type = document.querySelector('input[name="target-type"]:checked').value;
+    document.getElementById('agent-select-field').style.display = type === 'agent' ? '' : 'none';
+    if (type === 'agent') {
+        populateAgentSelect();
+    }
+}
+
+async function populateAgentSelect() {
+    const select = document.getElementById('f-agent');
+    try {
+        const agents = await api('GET', '/api/agents');
+        const online = agents.filter(a => a.status === 'online');
+        if (online.length === 0) {
+            select.innerHTML = '<option value="">No online agents</option>';
+        } else {
+            select.innerHTML = online.map(a =>
+                '<option value="' + a.id + '">' + esc(a.name) + ' (' + a.hostname + ')' + (a.tags.length ? ' [' + a.tags.join(', ') + ']' : '') + '</option>'
+            ).join('');
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Failed to load agents</option>';
+    }
 }
 
 function populateDeps(excludeId, selected) {
@@ -1299,7 +1847,20 @@ async function submitJobForm() {
     const depCheckboxes = document.querySelectorAll('#deps-list input[type="checkbox"]:checked');
     const depends_on = Array.from(depCheckboxes).map(cb => cb.value);
 
-    const body = { name, command, schedule, timeout_secs, depends_on };
+    // Build target
+    const targetType = document.querySelector('input[name="target-type"]:checked').value;
+    let target = null;
+    if (targetType === 'agent') {
+        const agentId = document.getElementById('f-agent').value;
+        if (!agentId) { toast('Select an agent', 'error'); return; }
+        target = { type: 'agent', agent_id: agentId };
+    } else if (targetType === 'any') {
+        target = { type: 'any' };
+    } else if (targetType === 'all') {
+        target = { type: 'all' };
+    }
+
+    const body = { name, command, schedule, timeout_secs, depends_on, target };
     const desc = document.getElementById('f-desc').value.trim();
     if (desc) body.description = desc;
 
@@ -1325,6 +1886,18 @@ async function submitJobForm() {
 // --- Formatting ---
 function badge(status) {
     return '<span class="badge badge-' + status + '">' + status.replace('_', ' ') + '</span>';
+}
+
+function fmtTarget(t) {
+    if (!t || t.type === 'local') return '<span class="badge badge-active">local</span>';
+    if (t.type === 'agent') {
+        const agent = allAgents.find(a => a.id === t.agent_id);
+        const name = agent ? agent.name : t.agent_id.slice(0, 8);
+        return '<span class="badge badge-running">&#128421; ' + esc(name) + '</span>';
+    }
+    if (t.type === 'any') return '<span class="badge badge-running">any agent</span>';
+    if (t.type === 'all') return '<span class="badge badge-paused">all agents</span>';
+    return t.type;
 }
 
 function fmtSchedule(s) {
@@ -1421,6 +1994,142 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
     el.innerHTML = html;
 }
 
+// --- Page Navigation ---
+let currentPage = 'jobs';
+
+function showPage(page) {
+    currentPage = page;
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + page).classList.add('active');
+
+    document.getElementById('jobs-view').style.display = page === 'jobs' ? '' : 'none';
+    document.getElementById('detail-view').style.display = 'none';
+    document.getElementById('agents-view').style.display = page === 'agents' ? '' : 'none';
+
+    document.getElementById('jobs-action-bar').style.display = page === 'jobs' ? '' : 'none';
+    document.getElementById('agents-action-bar').style.display = page === 'agents' ? '' : 'none';
+
+    if (page === 'agents') {
+        fetchAgents();
+    } else if (page === 'jobs') {
+        currentJobId = null;
+        fetchJobs();
+    }
+}
+
+// --- Agents ---
+let allAgents = [];
+let agentSearchTerm = '';
+let agentStatusFilter = '';
+let agentSearchDebounce = null;
+
+function onAgentSearch() {
+    const val = document.getElementById('agent-search-input').value;
+    document.getElementById('agent-search-clear').style.display = val ? '' : 'none';
+    clearTimeout(agentSearchDebounce);
+    agentSearchDebounce = setTimeout(() => {
+        agentSearchTerm = val.trim().toLowerCase();
+        renderAgents();
+    }, 200);
+}
+
+function clearAgentSearch() {
+    document.getElementById('agent-search-input').value = '';
+    document.getElementById('agent-search-clear').style.display = 'none';
+    agentSearchTerm = '';
+    renderAgents();
+}
+
+function setAgentStatusFilter(btn, status) {
+    agentStatusFilter = status;
+    document.querySelectorAll('#agent-status-filters .status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderAgents();
+}
+
+async function fetchAgents() {
+    try {
+        allAgents = await api('GET', '/api/agents');
+        renderAgents();
+    } catch (e) {
+        console.error('fetchAgents:', e);
+    }
+}
+
+function renderAgents() {
+    const wrap = document.getElementById('agents-table-wrap');
+
+    if (allAgents.length === 0) {
+        wrap.innerHTML = '<div class="agents-empty"><p>No agents registered</p><p>Start an agent with:</p><code>KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code></div>';
+        return;
+    }
+
+    // Filter
+    let filtered = allAgents;
+    if (agentStatusFilter) {
+        filtered = filtered.filter(a => a.status === agentStatusFilter);
+    }
+    if (agentSearchTerm) {
+        filtered = filtered.filter(a =>
+            a.name.toLowerCase().includes(agentSearchTerm) ||
+            a.hostname.toLowerCase().includes(agentSearchTerm) ||
+            a.address.toLowerCase().includes(agentSearchTerm) ||
+            a.tags.some(t => t.toLowerCase().includes(agentSearchTerm))
+        );
+    }
+
+    // Summary counts (from all agents, not filtered)
+    const online = allAgents.filter(a => a.status === 'online').length;
+    const offline = allAgents.filter(a => a.status === 'offline').length;
+    const draining = allAgents.filter(a => a.status === 'draining').length;
+
+    let html = '<div class="agents-summary">';
+    html += '<div class="agents-summary-item"><span class="agent-status-dot online"></span>' + online + ' online</div>';
+    if (offline > 0) html += '<div class="agents-summary-item"><span class="agent-status-dot offline"></span>' + offline + ' offline</div>';
+    if (draining > 0) html += '<div class="agents-summary-item"><span class="agent-status-dot draining"></span>' + draining + ' draining</div>';
+    html += '<div class="agents-summary-item" style="color:var(--text-muted)">' + allAgents.length + ' total</div>';
+    if (filtered.length !== allAgents.length) {
+        html += '<div class="agents-summary-item" style="color:var(--accent)">' + filtered.length + ' shown</div>';
+    }
+    html += '</div>';
+
+    if (filtered.length === 0) {
+        html += '<div class="agents-empty"><p>No agents match your filters</p></div>';
+        wrap.innerHTML = html;
+        return;
+    }
+
+    html += '<div class="agents-grid">';
+    for (const a of filtered) {
+        html += '<div class="agent-card ' + a.status + '">';
+        html += '<div class="agent-card-header">';
+        html += '<span class="agent-name"><span class="agent-icon">&#128421;</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
+        html += badge(a.status);
+        html += '</div>';
+        html += '<div class="agent-meta">';
+        html += agentMeta('Hostname', esc(a.hostname));
+        html += agentMeta('Address', esc(a.address) + ':' + a.port);
+        html += agentMeta('Last Heartbeat', a.last_heartbeat ? fmtDate(a.last_heartbeat) : 'never');
+        html += agentMeta('Registered', fmtDate(a.registered_at));
+        html += '</div>';
+        if (a.tags.length > 0) {
+            html += '<div class="agent-tags">';
+            for (const t of a.tags) {
+                html += '<span class="agent-tag">' + esc(t) + '</span>';
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+
+    wrap.innerHTML = html;
+}
+
+function agentMeta(label, value) {
+    return '<div class="agent-meta-item"><label>' + label + '</label><div class="value">' + value + '</div></div>';
+}
+
 // --- Auto-Refresh ---
 let autoRefreshEnabled = true;
 let refreshIntervalSecs = 5;
@@ -1454,7 +2163,9 @@ async function refreshNow() {
     const btn = document.getElementById('refresh-toggle');
     btn.classList.add('spinning');
     fetchHealth();
-    if (currentJobId) {
+    if (currentPage === 'agents') {
+        await fetchAgents();
+    } else if (currentJobId) {
         await fetchExecutions(currentJobId);
     } else {
         await fetchJobs();
@@ -1483,7 +2194,9 @@ async function doRefreshTick() {
     const btn = document.getElementById('refresh-toggle');
     btn.classList.add('spinning');
     fetchHealth();
-    if (currentJobId) {
+    if (currentPage === 'agents') {
+        await fetchAgents();
+    } else if (currentJobId) {
         await fetchExecutions(currentJobId);
     } else {
         await fetchJobs();
@@ -1501,7 +2214,8 @@ function updateCountdown() {
 
 // --- Init ---
 fetchHealth();
-fetchJobs();
+// Fetch agents first so fmtTarget can resolve names, then fetch jobs
+fetchAgents().then(() => fetchJobs());
 startPolling();
 </script>
 </body>
