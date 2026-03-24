@@ -66,4 +66,18 @@ impl AgentClient {
         }
         Ok(())
     }
+
+    pub async fn shutdown_agent(
+        &self,
+        agent_address: &str,
+        agent_port: u16,
+    ) -> Result<(), AppError> {
+        let url = format!("http://{}:{}/shutdown", agent_address, agent_port);
+        let _ = self
+            .client
+            .post(&url)
+            .send()
+            .await; // Best-effort, don't fail if agent is already down
+        Ok(())
+    }
 }

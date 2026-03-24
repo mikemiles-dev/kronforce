@@ -78,6 +78,17 @@
     background: var(--bg-tertiary);
 }
 
+[data-theme="light"] .status-btn.s-active { color: #1a6abf; border-color: rgba(26,106,191,0.4); }
+[data-theme="light"] .status-btn.s-active.active { background: rgba(26,106,191,0.1); color: #1a6abf; border-color: #1a6abf; }
+[data-theme="light"] .status-btn.s-paused { color: #9a6d00; border-color: rgba(154,109,0,0.4); }
+[data-theme="light"] .status-btn.s-paused.active { background: rgba(154,109,0,0.1); color: #9a6d00; border-color: #9a6d00; }
+[data-theme="light"] .status-btn.s-disabled { color: #5a6070; border-color: rgba(90,96,112,0.4); }
+[data-theme="light"] .status-btn.s-disabled.active { background: rgba(90,96,112,0.1); color: #5a6070; border-color: #5a6070; }
+[data-theme="light"] .status-btn.s-completed { color: #15803d; border-color: rgba(21,128,61,0.4); }
+[data-theme="light"] .status-btn.s-completed.active { background: rgba(21,128,61,0.1); color: #15803d; border-color: #15803d; }
+[data-theme="light"] .status-btn.s-danger { color: #b91c1c; border-color: rgba(185,28,28,0.4); }
+[data-theme="light"] .status-btn.s-danger.active { background: rgba(185,28,28,0.1); color: #b91c1c; border-color: #b91c1c; }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -295,11 +306,11 @@ body {
 .status-btn:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
 
 /* Default (unselected) tints */
-.status-btn.s-active { color: rgba(100,180,255,0.6); border-color: rgba(100,180,255,0.2); }
-.status-btn.s-paused { color: rgba(230,168,23,0.6); border-color: rgba(230,168,23,0.2); }
-.status-btn.s-disabled { color: rgba(124,130,152,0.6); border-color: rgba(124,130,152,0.2); }
-.status-btn.s-completed { color: rgba(46,204,113,0.6); border-color: rgba(46,204,113,0.2); }
-.status-btn.s-danger { color: rgba(224,82,82,0.6); border-color: rgba(224,82,82,0.2); }
+.status-btn.s-active { color: rgba(100,180,255,0.85); border-color: rgba(100,180,255,0.4); }
+.status-btn.s-paused { color: rgba(230,168,23,0.85); border-color: rgba(230,168,23,0.4); }
+.status-btn.s-disabled { color: rgba(124,130,152,0.85); border-color: rgba(124,130,152,0.4); }
+.status-btn.s-completed { color: rgba(46,204,113,0.85); border-color: rgba(46,204,113,0.4); }
+.status-btn.s-danger { color: rgba(224,82,82,0.85); border-color: rgba(224,82,82,0.4); }
 
 /* Selected states */
 .status-btn.active {
@@ -387,7 +398,7 @@ main {
     letter-spacing: 0.5px;
 }
 
-.badge-active, .badge-enabled { background: rgba(100,180,255,0.12); color: #64b4ff; }
+.badge-active, .badge-enabled, .badge-scheduled { background: rgba(100,180,255,0.12); color: #64b4ff; }
 .badge-succeeded { background: rgba(46,204,113,0.12); color: var(--success); }
 .badge-running, .badge-pending { background: rgba(62,139,255,0.12); color: var(--info); }
 .badge-paused { background: rgba(230,168,23,0.12); color: var(--warning); }
@@ -1181,6 +1192,132 @@ th .job-checkbox { margin: 0; }
     border-radius: 3px;
 }
 
+.dash-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(42,47,61,0.5);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card.success .stat-value { color: var(--success); }
+.stat-card.danger .stat-value { color: var(--danger); }
+.stat-card.info .stat-value { color: var(--info); }
+.stat-card.warning .stat-value { color: var(--warning); }
+.stat-card.neutral .stat-value { color: var(--text-primary); }
+
+.dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 1000px) {
+    .dash-grid { grid-template-columns: 1fr; }
+}
+
+.dash-mini-table {
+    font-size: 12px;
+}
+
+.dash-mini-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.dash-mini-table tr:last-child td { border-bottom: none; }
+
+.cron-builder-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.cron-field-group label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cron-dow-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.cron-dow {
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.cron-dow:hover { border-color: var(--text-secondary); }
+.cron-dow.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.cron-preview {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+}
+
+.cron-preview label {
+    color: var(--text-muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+
+.cron-preview code {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.cron-description {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
 .login-screen {
     display: flex;
     align-items: center;
@@ -1457,11 +1594,12 @@ th .job-checkbox { margin: 0; }
 <div class="app-layout" id="app-layout">
 
 <aside class="sidebar">
-    <div class="sidebar-header">
+    <div class="sidebar-header" onclick="showPage('dashboard')" style="cursor:pointer" title="Dashboard">
         <div class="logo">Kron<span>force</span></div>
     </div>
     <nav class="sidebar-nav">
-        <button class="nav-tab active" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
+        <button class="nav-tab active" id="tab-dashboard" onclick="showPage('dashboard')"><span class="tab-icon">&#9632;</span> Dashboard</button>
+        <button class="nav-tab" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
         <button class="nav-tab" id="tab-map" onclick="showPage('map')"><span class="tab-icon">&#9741;</span> Map</button>
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
         <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
@@ -1484,10 +1622,10 @@ th .job-checkbox { margin: 0; }
             </div>
             <div class="status-filters" id="status-filters">
                 <button class="status-btn active" data-status="" onclick="setStatusFilter(this, '')">All</button>
-                <button class="status-btn s-active" data-status="enabled" onclick="setStatusFilter(this, 'enabled')">Enabled</button>
+                <button class="status-btn s-active" data-status="scheduled" onclick="setStatusFilter(this, 'scheduled')">Scheduled</button>
                 <button class="status-btn s-paused" data-status="paused" onclick="setStatusFilter(this, 'paused')">Paused</button>
-                <button class="status-btn s-disabled" data-status="disabled" onclick="setStatusFilter(this, 'disabled')">Disabled</button>
                 <button class="status-btn s-completed" data-status="unscheduled" onclick="setStatusFilter(this, 'unscheduled')">Unscheduled</button>
+                <button class="status-btn s-paused" data-status="blocked" onclick="setStatusFilter(this, 'blocked')">Waiting</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -1537,9 +1675,63 @@ th .job-checkbox { margin: 0; }
     </div>
 </div>
 
+<div class="action-bar" id="events-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="event-search-input" type="text" placeholder="Search events..." oninput="onEventSearch()">
+                <button id="event-search-clear" class="search-clear" onclick="clearEventSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="event-type-filters">
+                <button class="status-btn active" onclick="setEventTypeFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="setEventTypeFilter(this, 'success')">Success</button>
+                <button class="status-btn s-danger" onclick="setEventTypeFilter(this, 'error')">Error</button>
+                <button class="status-btn s-paused" onclick="setEventTypeFilter(this, 'warning')">Warning</button>
+                <button class="status-btn s-completed" onclick="setEventTypeFilter(this, 'info')">Info</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="scrollable">
 <main>
-    <section id="jobs-view">
+    <section id="dashboard-view">
+        <div class="dash-stats" id="dash-stats"></div>
+        <div class="dash-grid">
+            <div class="card">
+                <div class="card-header"><h3>Recent Executions</h3></div>
+                <div id="dash-recent-execs"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Dependency Map</h3></div>
+                <div class="mini-map-container" style="max-height:350px">
+                    <svg id="dash-map-svg"></svg>
+                </div>
+            </div>
+        </div>
+        <div class="dash-grid">
+            <div class="card">
+                <div class="card-header"><h3>Recent Events</h3></div>
+                <div id="dash-recent-events"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Agents</h3></div>
+                <div id="dash-agents"></div>
+            </div>
+        </div>
+    </section>
+
+    <section id="jobs-view" style="display:none">
         <div class="jobs-toolbar" id="jobs-toolbar">
             <div class="jobs-toolbar-left">
                 <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
@@ -1772,9 +1964,66 @@ th .job-checkbox { margin: 0; }
             <label>Run At</label>
             <input id="f-oneshot" type="datetime-local">
         </div>
-        <div class="form-group" id="cron-field" style="display:none">
-            <label>Cron Expression (sec min hour dom month dow)</label>
-            <input id="f-cron" type="text" placeholder="0 * * * * *" style="font-family:var(--font-mono)">
+        <div id="cron-field" style="display:none">
+            <div class="form-group">
+                <label>Cron Schedule</label>
+                <div class="output-tabs" style="margin-bottom:0">
+                    <button type="button" class="output-tab active" onclick="switchCronMode('builder',this)">Builder</button>
+                    <button type="button" class="output-tab" onclick="switchCronMode('raw',this)">Expression</button>
+                </div>
+            </div>
+            <div id="cron-builder">
+                <div class="cron-builder-grid">
+                    <div class="cron-field-group">
+                        <label>Run every</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="cb-interval" type="number" min="1" value="1" style="width:60px" onchange="buildCronFromUI()">
+                            <select id="cb-unit" onchange="buildCronFromUI();updateCronOptions()">
+                                <option value="minute">minute(s)</option>
+                                <option value="hour">hour(s)</option>
+                                <option value="day">day(s)</option>
+                                <option value="week">week(s)</option>
+                                <option value="month">month(s)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-at-time-group" style="display:none">
+                        <label>At time</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="cb-hour" type="number" min="0" max="23" value="0" style="width:50px" onchange="buildCronFromUI()">
+                            <span>:</span>
+                            <input id="cb-minute" type="number" min="0" max="59" value="0" style="width:50px" onchange="buildCronFromUI()">
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-dow-group" style="display:none">
+                        <label>On days</label>
+                        <div class="cron-dow-buttons">
+                            <button type="button" class="cron-dow" data-dow="1" onclick="toggleDow(this)">Mon</button>
+                            <button type="button" class="cron-dow" data-dow="2" onclick="toggleDow(this)">Tue</button>
+                            <button type="button" class="cron-dow" data-dow="3" onclick="toggleDow(this)">Wed</button>
+                            <button type="button" class="cron-dow" data-dow="4" onclick="toggleDow(this)">Thu</button>
+                            <button type="button" class="cron-dow" data-dow="5" onclick="toggleDow(this)">Fri</button>
+                            <button type="button" class="cron-dow" data-dow="6" onclick="toggleDow(this)">Sat</button>
+                            <button type="button" class="cron-dow" data-dow="0" onclick="toggleDow(this)">Sun</button>
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-dom-group" style="display:none">
+                        <label>On day of month</label>
+                        <input id="cb-dom" type="number" min="1" max="31" value="1" style="width:60px" onchange="buildCronFromUI()">
+                    </div>
+                </div>
+                <div class="cron-preview">
+                    <label>Expression</label>
+                    <code id="cb-preview">0 * * * * *</code>
+                    <span id="cb-description" class="cron-description"></span>
+                </div>
+            </div>
+            <div id="cron-raw" style="display:none">
+                <div class="form-group" style="margin-bottom:0">
+                    <input id="f-cron" type="text" placeholder="0 * * * * *" style="font-family:var(--font-mono)" oninput="updateCronPreviewFromRaw()">
+                    <div class="form-hint" style="margin-top:4px">Format: sec min hour day_of_month month day_of_week</div>
+                </div>
+            </div>
         </div>
         <div class="form-group">
             <label>Timeout (seconds, optional)</label>
@@ -1815,6 +2064,16 @@ th .job-checkbox { margin: 0; }
         <div class="form-actions">
             <button id="exec-cancel-btn" class="btn btn-danger btn-sm" style="display:none" onclick="cancelExec()">Cancel Execution</button>
             <button class="btn btn-ghost" onclick="closeExecModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeWaitingModal()">
+    <div class="modal-card">
+        <h3>Waiting on Dependencies</h3>
+        <div id="waiting-detail-content"></div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeWaitingModal()">Close</button>
         </div>
     </div>
 </div>
@@ -1914,14 +2173,25 @@ async function fetchJobs(resetPage) {
     if (resetPage) jobsPage = 1;
     try {
         const filter = currentStatusFilter;
+        const isClientFilter = filter === 'blocked';
         const search = document.getElementById('search-input').value.trim();
-        let qs = '?page=' + jobsPage + '&per_page=' + PER_PAGE;
-        if (filter) qs += '&status=' + filter;
+        // "scheduled" filter should include waiting (scheduled) jobs, so send scheduled to API
+        // "blocked" is client-side only, fetch all
+        const apiFilter = filter === 'scheduled' ? 'scheduled' : (isClientFilter ? '' : filter);
+        let qs = '?page=' + jobsPage + '&per_page=' + (isClientFilter ? 100 : PER_PAGE);
+        if (apiFilter) qs += '&status=' + apiFilter;
         if (search) qs += '&search=' + encodeURIComponent(search);
         const res = await api('GET', '/api/jobs' + qs);
         allJobs = res.data;
-        jobsTotalPages = res.total_pages;
-        jobsTotal = res.total;
+        if (isClientFilter) {
+            // Waiting = has deps that aren't satisfied
+            allJobs = allJobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
+        } else if (filter === 'unscheduled') {
+            // Unscheduled should exclude waiting jobs (those are really scheduled, just blocked)
+            allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
+        }
+        jobsTotalPages = isClientFilter ? 1 : res.total_pages;
+        jobsTotal = isClientFilter ? allJobs.length : res.total;
         renderJobsTable();
         renderPagination('jobs-pagination', jobsPage, jobsTotalPages, jobsTotal, goToJobsPage);
     } catch (e) {
@@ -2001,7 +2271,12 @@ function renderJobsTable() {
         html += '<tr class="' + rowClass + '">';
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
         html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span> ' + fmtTaskBadge(j.task) + '</td>';
-        html += '<td>' + badge(j.status) + '</td>';
+        const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
+        if (isBlocked) {
+            html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';
+        } else {
+            html += '<td>' + badge(j.status) + '</td>';
+        }
         html += '<td>' + fmtTarget(j.target) + '</td>';
         html += '<td>' + fmtLastRun(j.last_execution) + '</td>';
         html += '<td>' + fmtCounts(j.execution_counts) + '</td>';
@@ -2009,8 +2284,8 @@ function renderJobsTable() {
         html += '<td><span class="time-text">' + (j.next_fire_time ? fmtDate(j.next_fire_time) : '-') + '</span></td>';
         html += '<td><div class="actions">';
         html += '<button class="btn-icon trigger" title="Trigger" id="trigger-' + j.id + '" onclick="triggerJob(\'' + j.id + '\')">&#9654;</button>';
-        if (j.status === 'enabled') {
-            html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'enabled\')">&#10074;&#10074;</button>';
+        if (j.status === 'scheduled') {
+            html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'scheduled\')">&#10074;&#10074;</button>';
         } else if (j.status === 'paused') {
             html += '<button class="btn-icon trigger" title="Resume" onclick="togglePause(\'' + j.id + '\',\'paused\')">&#9654;</button>';
         }
@@ -2030,6 +2305,7 @@ async function showJobDetail(id) {
     detailReturnTo = currentPage;
     currentJobId = id;
     execsPage = 1;
+    document.getElementById('dashboard-view').style.display = 'none';
     document.getElementById('jobs-view').style.display = 'none';
     document.getElementById('map-view').style.display = 'none';
     document.getElementById('agents-view').style.display = 'none';
@@ -2037,6 +2313,7 @@ async function showJobDetail(id) {
     document.getElementById('settings-view').style.display = 'none';
     document.getElementById('jobs-action-bar').style.display = 'none';
     document.getElementById('agents-action-bar').style.display = 'none';
+    document.getElementById('events-action-bar').style.display = 'none';
     document.getElementById('detail-view').style.display = '';
 
     // Update back button text
@@ -2065,7 +2342,18 @@ function showJobsList() {
 
 function renderJobDetail(job) {
     let deps = 'None';
-    if (job.depends_on.length > 0) {
+    if (job.deps_status && job.deps_status.length > 0) {
+        deps = job.deps_status.map(d => {
+            const name = d.job_name || d.job_id.slice(0, 8);
+            const icon = d.satisfied ? '<span style="color:var(--success)">\u2714</span>' : '<span style="color:var(--danger)">\u2718</span>';
+            const window = d.within_secs ? ' <span class="time-text">(within ' + fmtSeconds(d.within_secs) + ')</span>' : '';
+            const badgeCls = d.satisfied ? 'badge-succeeded' : 'badge-failed';
+            return icon + ' <span class="badge ' + badgeCls + '" style="cursor:pointer" onclick="showJobDetail(\'' + d.job_id + '\')">' + esc(name) + '</span>' + window;
+        }).join(' &nbsp; ');
+        if (!job.deps_satisfied) {
+            deps = '<span class="badge badge-paused" style="margin-right:8px">waiting</span>' + deps;
+        }
+    } else if (job.depends_on && job.depends_on.length > 0) {
         deps = job.depends_on.map(d => {
             const dj = allJobs.find(j => j.id === d.job_id);
             const name = dj ? esc(dj.name) : d.job_id.slice(0, 8);
@@ -2121,7 +2409,7 @@ function renderExecTable(execs) {
         wrap.innerHTML = '<div class="empty-state"><p>No executions yet</p></div>';
         return;
     }
-    let html = '<table><thead><tr><th>ID</th><th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Trigger</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>ID</th><th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
     for (const e of execs) {
         html += '<tr style="cursor:pointer" onclick="showExecDetail(\'' + e.id + '\')">';
         html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + '</span></td>';
@@ -2129,6 +2417,7 @@ function renderExecTable(execs) {
         html += '<td>' + (e.exit_code !== null ? e.exit_code : '-') + '</td>';
         html += '<td><span class="time-text">' + (e.started_at ? fmtDate(e.started_at) : '-') + '</span></td>';
         html += '<td><span class="time-text">' + fmtDuration(e.started_at, e.finished_at) + '</span></td>';
+        html += '<td>' + (e.agent_id ? fmtAgentLink(e.agent_id) : '<span class="time-text">local</span>') + '</td>';
         html += '<td><span class="time-text">' + fmtTrigger(e.triggered_by) + '</span></td>';
         html += '</tr>';
     }
@@ -2147,6 +2436,7 @@ async function showExecDetail(id) {
             execField('Exit Code', e.exit_code !== null ? e.exit_code : '-') +
             execField('Started', e.started_at ? fmtDate(e.started_at) : '-') +
             execField('Duration', fmtDuration(e.started_at, e.finished_at)) +
+            execField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local') +
             execField('Trigger', fmtTrigger(e.triggered_by)) +
             '</div>' +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
@@ -2163,19 +2453,46 @@ let outputIdCounter = 0;
 // Store raw output content by id
 const outputRawData = {};
 
+function detectOutputType(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed === '(empty)') return 'text';
+    // Check JSON
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try { JSON.parse(trimmed); return 'json'; } catch(e) {}
+    }
+    // Check HTML - look for common tags
+    if (/<(!DOCTYPE|html|head|body|div|span|p|h[1-6]|table|ul|ol|a |img |form|input|script|style|link|meta)/i.test(trimmed)) {
+        return 'html';
+    }
+    return 'text';
+}
+
 function renderOutputSection(label, content, truncated) {
     const id = 'output-' + (outputIdCounter++);
     const truncBadge = truncated ? ' <span class="badge badge-paused">truncated</span>' : '';
     const raw = content || '(empty)';
     outputRawData[id] = raw;
 
+    const detected = detectOutputType(raw);
+
     let html = '<div class="output-section"><h4>' + label + truncBadge + '</h4>';
     html += '<div class="output-tabs">';
-    html += '<button class="output-tab active" onclick="switchOutputView(\'' + id + '\',\'text\',this)">Text</button>';
-    html += '<button class="output-tab" onclick="switchOutputView(\'' + id + '\',\'json\',this)">JSON</button>';
-    html += '<button class="output-tab" onclick="switchOutputView(\'' + id + '\',\'html\',this)">HTML</button>';
+    html += '<button class="output-tab' + (detected === 'text' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'text\',this)">Text</button>';
+    html += '<button class="output-tab' + (detected === 'json' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'json\',this)">JSON</button>';
+    html += '<button class="output-tab' + (detected === 'html' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'html\',this)">HTML</button>';
     html += '</div>';
-    html += '<div id="' + id + '-wrap"><pre class="output-pre">' + esc(raw) + '</pre></div>';
+
+    // Render the detected format by default
+    if (detected === 'json') {
+        let formatted;
+        try { formatted = JSON.stringify(JSON.parse(raw.trim()), null, 2); } catch(e) { formatted = raw; }
+        html += '<div id="' + id + '-wrap"><pre class="output-pre">' + esc(formatted) + '</pre></div>';
+    } else if (detected === 'html') {
+        html += '<div id="' + id + '-wrap"><iframe class="output-iframe" sandbox="allow-same-origin" srcdoc="' + esc(raw).replace(/"/g, '&quot;') + '"></iframe></div>';
+    } else {
+        html += '<div id="' + id + '-wrap"><pre class="output-pre">' + esc(raw) + '</pre></div>';
+    }
+
     html += '</div>';
     return html;
 }
@@ -2210,6 +2527,46 @@ function execField(label, value) {
 function closeExecModal() {
     document.getElementById('exec-modal').style.display = 'none';
     currentExecId = null;
+}
+
+async function showWaitingDetail(jobId) {
+    try {
+        const job = await api('GET', '/api/jobs/' + jobId);
+        const content = document.getElementById('waiting-detail-content');
+
+        if (!job.deps_status || job.deps_status.length === 0) {
+            content.innerHTML = '<p style="color:var(--text-secondary)">No dependencies configured.</p>';
+        } else {
+            let html = '<p style="margin-bottom:12px;color:var(--text-secondary)">This job will run once all dependencies are satisfied:</p>';
+            html += '<div style="display:flex;flex-direction:column;gap:8px">';
+            for (const d of job.deps_status) {
+                const name = d.job_name || d.job_id.slice(0, 8);
+                const icon = d.satisfied ? '\u2714' : '\u2718';
+                const color = d.satisfied ? 'var(--success)' : 'var(--danger)';
+                const statusText = d.satisfied ? 'Satisfied' : 'Not met';
+                const window = d.within_secs ? ' within ' + fmtSeconds(d.within_secs) : '';
+
+                html += '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border)">';
+                html += '<span style="font-size:18px;color:' + color + '">' + icon + '</span>';
+                html += '<div style="flex:1">';
+                html += '<div style="font-weight:600;font-size:13px"><span class="job-name" onclick="closeWaitingModal();showJobDetail(\'' + d.job_id + '\')">' + esc(name) + '</span></div>';
+                html += '<div style="font-size:11px;color:var(--text-muted)">Must have succeeded' + window + '</div>';
+                html += '</div>';
+                html += '<span class="badge ' + (d.satisfied ? 'badge-succeeded' : 'badge-failed') + '">' + statusText + '</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        document.getElementById('waiting-modal').style.display = '';
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+function closeWaitingModal() {
+    document.getElementById('waiting-modal').style.display = 'none';
 }
 
 async function cancelExec() {
@@ -2286,7 +2643,7 @@ async function pollForResult(jobId) {
 }
 
 async function togglePause(id, current) {
-    const newStatus = current === 'enabled' ? 'paused' : 'enabled';
+    const newStatus = current === 'scheduled' ? 'paused' : 'scheduled';
     try {
         await api('PUT', '/api/jobs/' + id, { status: newStatus });
         toast('Job ' + newStatus);
@@ -2408,6 +2765,7 @@ function openCreateModal() {
     document.getElementById('f-command').value = '';
     document.getElementById('f-run-as').value = '';
     populateTaskForm(null);
+    parseCronToUI('');
     document.getElementById('f-desc').value = '';
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
@@ -2439,6 +2797,7 @@ async function openEditModal(id) {
 
         if (schedType === 'cron') {
             document.getElementById('f-cron').value = job.schedule.value;
+            parseCronToUI(job.schedule.value);
         } else if (schedType === 'one_shot') {
             const dt = new Date(job.schedule.value);
             document.getElementById('f-oneshot').value = toLocalDatetimeString(dt);
@@ -2552,6 +2911,130 @@ function populateTaskForm(task) {
         document.getElementById('f-ftp-remote').value = task.remote_path || '';
         document.getElementById('f-ftp-local').value = task.local_path || '';
     }
+}
+
+// --- Cron Builder ---
+
+function switchCronMode(mode, btn) {
+    btn.parentElement.querySelectorAll('.output-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('cron-builder').style.display = mode === 'builder' ? '' : 'none';
+    document.getElementById('cron-raw').style.display = mode === 'raw' ? '' : 'none';
+    if (mode === 'raw') {
+        // Sync builder -> raw
+        document.getElementById('f-cron').value = document.getElementById('cb-preview').textContent;
+    } else {
+        // Try to parse raw -> builder
+        parseCronToUI(document.getElementById('f-cron').value.trim());
+    }
+}
+
+function toggleDow(btn) {
+    btn.classList.toggle('active');
+    buildCronFromUI();
+}
+
+function updateCronOptions() {
+    const unit = document.getElementById('cb-unit').value;
+    document.getElementById('cb-at-time-group').style.display = (unit === 'day' || unit === 'week' || unit === 'month') ? '' : 'none';
+    document.getElementById('cb-dow-group').style.display = unit === 'week' ? '' : 'none';
+    document.getElementById('cb-dom-group').style.display = unit === 'month' ? '' : 'none';
+}
+
+function buildCronFromUI() {
+    const unit = document.getElementById('cb-unit').value;
+    const interval = parseInt(document.getElementById('cb-interval').value) || 1;
+    const hour = parseInt(document.getElementById('cb-hour').value) || 0;
+    const minute = parseInt(document.getElementById('cb-minute').value) || 0;
+
+    let expr = '';
+    let desc = '';
+
+    if (unit === 'minute') {
+        if (interval === 1) { expr = '0 * * * * *'; desc = 'Every minute'; }
+        else { expr = '0 */' + interval + ' * * * *'; desc = 'Every ' + interval + ' minutes'; }
+    } else if (unit === 'hour') {
+        if (interval === 1) { expr = '0 0 * * * *'; desc = 'Every hour'; }
+        else { expr = '0 0 */' + interval + ' * * *'; desc = 'Every ' + interval + ' hours'; }
+    } else if (unit === 'day') {
+        const pad = n => String(n).padStart(2, '0');
+        if (interval === 1) { expr = '0 ' + minute + ' ' + hour + ' * * *'; desc = 'Daily at ' + pad(hour) + ':' + pad(minute); }
+        else { expr = '0 ' + minute + ' ' + hour + ' */' + interval + ' * *'; desc = 'Every ' + interval + ' days at ' + pad(hour) + ':' + pad(minute); }
+    } else if (unit === 'week') {
+        const pad = n => String(n).padStart(2, '0');
+        const selectedDow = Array.from(document.querySelectorAll('.cron-dow.active')).map(b => b.dataset.dow);
+        const dow = selectedDow.length > 0 ? selectedDow.join(',') : '*';
+        const dayNames = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
+        const dowDesc = selectedDow.length > 0 ? selectedDow.map(d => dayNames[d]).join(', ') : 'every day';
+        expr = '0 ' + minute + ' ' + hour + ' * * ' + dow;
+        desc = 'Weekly on ' + dowDesc + ' at ' + pad(hour) + ':' + pad(minute);
+    } else if (unit === 'month') {
+        const pad = n => String(n).padStart(2, '0');
+        const dom = parseInt(document.getElementById('cb-dom').value) || 1;
+        expr = '0 ' + minute + ' ' + hour + ' ' + dom + ' * *';
+        desc = 'Monthly on day ' + dom + ' at ' + pad(hour) + ':' + pad(minute);
+    }
+
+    document.getElementById('cb-preview').textContent = expr;
+    document.getElementById('cb-description').textContent = desc;
+    document.getElementById('f-cron').value = expr;
+}
+
+function parseCronToUI(expr) {
+    if (!expr) { buildCronFromUI(); return; }
+    const parts = expr.split(/\s+/);
+    if (parts.length !== 6) { buildCronFromUI(); return; }
+
+    const [sec, min, hr, dom, mon, dow] = parts;
+
+    // Reset
+    document.querySelectorAll('.cron-dow').forEach(b => b.classList.remove('active'));
+
+    // Try to detect pattern
+    if (min.startsWith('*/')) {
+        document.getElementById('cb-unit').value = 'minute';
+        document.getElementById('cb-interval').value = parseInt(min.slice(2));
+    } else if (hr.startsWith('*/')) {
+        document.getElementById('cb-unit').value = 'hour';
+        document.getElementById('cb-interval').value = parseInt(hr.slice(2));
+    } else if (dow !== '*') {
+        document.getElementById('cb-unit').value = 'week';
+        document.getElementById('cb-interval').value = 1;
+        document.getElementById('cb-hour').value = hr === '*' ? 0 : parseInt(hr);
+        document.getElementById('cb-minute').value = min === '*' ? 0 : parseInt(min);
+        dow.split(',').forEach(d => {
+            const btn = document.querySelector('.cron-dow[data-dow="' + d.trim() + '"]');
+            if (btn) btn.classList.add('active');
+        });
+    } else if (dom !== '*' && !dom.startsWith('*/')) {
+        document.getElementById('cb-unit').value = 'month';
+        document.getElementById('cb-interval').value = 1;
+        document.getElementById('cb-dom').value = parseInt(dom);
+        document.getElementById('cb-hour').value = hr === '*' ? 0 : parseInt(hr);
+        document.getElementById('cb-minute').value = min === '*' ? 0 : parseInt(min);
+    } else if (hr !== '*' && min !== '*') {
+        document.getElementById('cb-unit').value = 'day';
+        document.getElementById('cb-interval').value = dom.startsWith('*/') ? parseInt(dom.slice(2)) : 1;
+        document.getElementById('cb-hour').value = parseInt(hr);
+        document.getElementById('cb-minute').value = parseInt(min);
+    } else if (min === '*' && hr === '*') {
+        document.getElementById('cb-unit').value = 'minute';
+        document.getElementById('cb-interval').value = 1;
+    } else {
+        document.getElementById('cb-unit').value = 'minute';
+        document.getElementById('cb-interval').value = 1;
+    }
+
+    updateCronOptions();
+    buildCronFromUI();
+}
+
+function updateCronPreviewFromRaw() {
+    // Just sync the raw input — don't update builder to avoid loops
+}
+
+function getCronValue() {
+    return document.getElementById('f-cron').value.trim() || document.getElementById('cb-preview').textContent;
 }
 
 function updateSchedFields() {
@@ -2684,7 +3167,7 @@ async function submitJobForm() {
     const schedType = document.querySelector('input[name="sched-type"]:checked').value;
     let schedule;
     if (schedType === 'cron') {
-        const expr = document.getElementById('f-cron').value.trim();
+        const expr = getCronValue();
         if (!expr) { toast('Cron expression is required', 'error'); return; }
         schedule = { type: 'cron', value: expr };
     } else if (schedType === 'one_shot') {
@@ -2762,22 +3245,78 @@ function fmtTaskDetail(task) {
     return task.type;
 }
 
+// Cache agent names so deleted agents can still be displayed
+const agentNameCache = {};
+
+function cacheAgentNames() {
+    for (const a of allAgents) {
+        agentNameCache[a.id] = a.name;
+    }
+}
+
+function fmtAgentLink(agentId) {
+    const agent = allAgents.find(a => a.id === agentId);
+    const name = agent ? agent.name : (agentNameCache[agentId] || agentId.slice(0, 8));
+    if (agent) agentNameCache[agentId] = agent.name;
+    return '<span class="badge badge-running" style="cursor:pointer" onclick="showPage(\'agents\')" title="View agents">&#128421; ' + esc(name) + '</span>';
+}
+
 function fmtTarget(t) {
     if (!t || t.type === 'local') return '<span class="badge badge-active">local</span>';
-    if (t.type === 'agent') {
-        const agent = allAgents.find(a => a.id === t.agent_id);
-        const name = agent ? agent.name : t.agent_id.slice(0, 8);
-        return '<span class="badge badge-running">&#128421; ' + esc(name) + '</span>';
-    }
+    if (t.type === 'agent') return fmtAgentLink(t.agent_id);
     if (t.type === 'any') return '<span class="badge badge-running">any agent</span>';
     if (t.type === 'all') return '<span class="badge badge-paused">all agents</span>';
     return t.type;
 }
 
 function fmtSchedule(s) {
-    if (s.type === 'cron') return 'cron: ' + s.value;
+    if (s.type === 'cron') return describeCron(s.value);
     if (s.type === 'one_shot') return 'once: ' + fmtDate(s.value);
     return 'on-demand';
+}
+
+function describeCron(expr) {
+    const parts = expr.split(/\s+/);
+    if (parts.length !== 6) return expr;
+    const [sec, min, hr, dom, mon, dow] = parts;
+    const pad = n => String(n).padStart(2, '0');
+    const dayNames = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
+
+    // Every N seconds
+    if (sec.startsWith('*/')) return 'every ' + sec.slice(2) + 's';
+    if (sec === '*') return 'every second';
+
+    // Every N minutes
+    if (min.startsWith('*/')) return 'every ' + min.slice(2) + ' min';
+    if (min === '*' && hr === '*' && dom === '*') return 'every minute';
+
+    // Every N hours
+    if (hr.startsWith('*/')) return 'every ' + hr.slice(2) + 'h';
+    if (hr === '*' && min !== '*' && dom === '*') return 'hourly at :' + pad(parseInt(min));
+
+    // Weekly
+    if (dow !== '*' && dom === '*') {
+        const days = dow.split(',').map(d => dayNames[d.trim()] || d).join(', ');
+        if (hr !== '*') return days + ' at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        return 'weekly on ' + days;
+    }
+
+    // Monthly
+    if (dom !== '*' && !dom.startsWith('*/') && mon === '*' && dow === '*') {
+        if (hr !== '*') return 'monthly day ' + dom + ' at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        return 'monthly on day ' + dom;
+    }
+
+    // Daily / every N days
+    if (dom.startsWith('*/')) {
+        return 'every ' + dom.slice(2) + ' days at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+    }
+    if (hr !== '*' && min !== '*' && dom === '*' && dow === '*') {
+        return 'daily at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+    }
+
+    // Fallback
+    return expr;
 }
 
 function fmtDate(iso) {
@@ -2888,6 +3427,7 @@ function showPage(page) {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + page).classList.add('active');
 
+    document.getElementById('dashboard-view').style.display = page === 'dashboard' ? '' : 'none';
     document.getElementById('jobs-view').style.display = page === 'jobs' ? '' : 'none';
     document.getElementById('detail-view').style.display = 'none';
     document.getElementById('map-view').style.display = page === 'map' ? '' : 'none';
@@ -2897,8 +3437,11 @@ function showPage(page) {
 
     document.getElementById('jobs-action-bar').style.display = page === 'jobs' ? '' : 'none';
     document.getElementById('agents-action-bar').style.display = page === 'agents' ? '' : 'none';
+    document.getElementById('events-action-bar').style.display = page === 'events' ? '' : 'none';
 
-    if (page === 'agents') {
+    if (page === 'dashboard') {
+        renderDashboard();
+    } else if (page === 'agents') {
         fetchAgents();
     } else if (page === 'jobs') {
         currentJobId = null;
@@ -2946,6 +3489,7 @@ function setAgentStatusFilter(btn, status) {
 async function fetchAgents() {
     try {
         allAgents = await api('GET', '/api/agents');
+        cacheAgentNames();
         renderAgents();
     } catch (e) {
         console.error('fetchAgents:', e);
@@ -3000,8 +3544,9 @@ function renderAgents() {
         html += '<div class="agent-card ' + a.status + '">';
         html += '<div class="agent-card-header">';
         html += '<span class="agent-name"><span class="agent-icon">&#128421;</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
-        html += badge(a.status);
-        html += '</div>';
+        html += '<div style="display:flex;align-items:center;gap:6px">' + badge(a.status);
+        html += '<button class="btn btn-danger btn-sm" onclick="unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
+        html += '</div></div>';
         html += '<div class="agent-meta">';
         html += agentMeta('Hostname', esc(a.hostname));
         html += agentMeta('Address', esc(a.address) + ':' + a.port);
@@ -3020,6 +3565,17 @@ function renderAgents() {
     html += '</div>';
 
     wrap.innerHTML = html;
+}
+
+async function unpairAgent(id, name) {
+    if (!confirm('Unpair agent "' + name + '"? It will need to re-register to connect again.')) return;
+    try {
+        await api('DELETE', '/api/agents/' + id);
+        toast('Agent "' + name + '" removed');
+        fetchAgents();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 function agentMeta(label, value) {
@@ -3176,7 +3732,7 @@ async function renderMap() {
         else if (lastStatus === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
         else { fill = 'var(--bg-tertiary)'; stroke = 'var(--border)'; }
 
-        if (j.status === 'paused' || j.status === 'disabled') {
+        if (j.status === 'paused') {
             fill = 'var(--bg-tertiary)'; stroke = 'var(--text-muted)';
         }
 
@@ -3249,8 +3805,11 @@ async function refreshNow() {
     const btn = document.getElementById('refresh-toggle');
     btn.classList.add('spinning');
     fetchHealth();
-    if (currentPage === 'agents') {
-        await fetchAgents();
+    try { const a = await api('GET', '/api/agents'); allAgents = a; cacheAgentNames(); } catch(e) {}
+    if (currentPage === 'dashboard') {
+        await renderDashboard();
+    } else if (currentPage === 'agents') {
+        renderAgents();
     } else if (currentPage === 'events') {
         await fetchEvents();
     } else if (currentJobId) {
@@ -3282,8 +3841,12 @@ async function doRefreshTick() {
     const btn = document.getElementById('refresh-toggle');
     btn.classList.add('spinning');
     fetchHealth();
-    if (currentPage === 'agents') {
-        await fetchAgents();
+    // Always refresh agent names cache
+    try { const a = await api('GET', '/api/agents'); allAgents = a; cacheAgentNames(); } catch(e) {}
+    if (currentPage === 'dashboard') {
+        await renderDashboard();
+    } else if (currentPage === 'agents') {
+        renderAgents();
     } else if (currentPage === 'events') {
         await fetchEvents();
     } else if (currentJobId) {
@@ -3463,14 +4026,282 @@ function renderMiniMap(job) {
     svg.innerHTML = svgHtml;
 }
 
+// --- Dashboard Home ---
+
+async function renderDashboard() {
+    try {
+        // Fetch all data in parallel
+        const [jobsRes, eventsRes] = await Promise.all([
+            api('GET', '/api/jobs?per_page=100'),
+            api('GET', '/api/events?per_page=10'),
+        ]);
+
+        const jobs = jobsRes.data;
+        const events = eventsRes.data;
+
+        // Compute stats
+        const totalJobs = jobs.length;
+        const scheduled = jobs.filter(j => j.status === 'scheduled').length;
+        const waiting = jobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied).length;
+        const paused = jobs.filter(j => j.status === 'paused').length;
+
+        let totalExecs = 0, totalSucceeded = 0, totalFailed = 0;
+        for (const j of jobs) {
+            totalExecs += j.execution_counts.total;
+            totalSucceeded += j.execution_counts.succeeded;
+            totalFailed += j.execution_counts.failed;
+        }
+
+        const onlineAgents = allAgents.filter(a => a.status === 'online').length;
+        const totalAgents = allAgents.length;
+
+        // Render stats cards
+        document.getElementById('dash-stats').innerHTML =
+            statCard(totalJobs, 'Total Jobs', 'neutral') +
+            statCard(scheduled, 'Scheduled', 'info') +
+            statCard(waiting, 'Waiting', 'warning') +
+            statCard(paused, 'Paused', 'neutral') +
+            statCard(totalSucceeded, 'Succeeded', 'success') +
+            statCard(totalFailed, 'Failed', 'danger') +
+            statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral') +
+            statCard(totalExecs, 'Total Runs', 'neutral');
+
+        // Recent executions - collect from all jobs
+        let recentExecs = [];
+        for (const j of jobs) {
+            if (j.last_execution) {
+                recentExecs.push({ ...j.last_execution, job_name: j.name, job_id: j.id });
+            }
+        }
+        recentExecs.sort((a, b) => {
+            const ta = a.finished_at || '';
+            const tb = b.finished_at || '';
+            return tb.localeCompare(ta);
+        });
+        recentExecs = recentExecs.slice(0, 8);
+
+        if (recentExecs.length > 0) {
+            let html = '<table class="dash-mini-table"><tbody>';
+            for (const e of recentExecs) {
+                html += '<tr style="cursor:pointer" onclick="showJobDetail(\'' + e.job_id + '\')">';
+                html += '<td><span class="job-name">' + esc(e.job_name) + '</span></td>';
+                html += '<td>' + badge(e.status) + '</td>';
+                html += '<td><span class="time-text">' + (e.finished_at ? fmtDate(e.finished_at) : 'running') + '</span></td>';
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            document.getElementById('dash-recent-execs').innerHTML = html;
+        } else {
+            document.getElementById('dash-recent-execs').innerHTML = '<div class="empty-state" style="padding:20px"><p>No executions yet</p></div>';
+        }
+
+        // Recent events
+        if (events.length > 0) {
+            let html = '<div class="event-timeline">';
+            for (const e of events.slice(0, 6)) {
+                const icon = eventIcon(e.severity, e.kind);
+                html += '<div class="event-item" style="padding:6px 10px">';
+                html += '<div class="event-icon ' + e.severity + '" style="width:22px;height:22px;font-size:11px">' + icon + '</div>';
+                html += '<div class="event-body"><div class="event-message" style="font-size:12px">' + esc(e.message) + '</div></div>';
+                html += '<div class="event-time">' + fmtDate(e.timestamp) + '</div>';
+                html += '</div>';
+            }
+            html += '</div>';
+            document.getElementById('dash-recent-events').innerHTML = html;
+        } else {
+            document.getElementById('dash-recent-events').innerHTML = '<div class="empty-state" style="padding:20px"><p>No events yet</p></div>';
+        }
+
+        // Agents summary
+        if (allAgents.length > 0) {
+            let html = '<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">';
+            for (const a of allAgents) {
+                html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px">';
+                html += '<span class="agent-status-dot ' + a.status + '"></span>';
+                html += '<span style="flex:1">' + esc(a.name) + '</span>';
+                html += badge(a.status);
+                html += '</div>';
+            }
+            html += '</div>';
+            document.getElementById('dash-agents').innerHTML = html;
+        } else {
+            document.getElementById('dash-agents').innerHTML = '<div class="empty-state" style="padding:20px"><p>No agents</p></div>';
+        }
+
+        // Mini map
+        renderDashMap(jobs);
+
+    } catch (e) {
+        console.error('renderDashboard:', e);
+    }
+}
+
+function statCard(value, label, cls) {
+    return '<div class="stat-card ' + cls + '"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div>';
+}
+
+function renderDashMap(jobs) {
+    // Reuse the full map renderer but target the dashboard SVG
+    const svg = document.getElementById('dash-map-svg');
+    if (!svg || jobs.length === 0) return;
+
+    // Only show jobs with dependencies for a cleaner view
+    const withDeps = new Set();
+    for (const j of jobs) {
+        if (j.depends_on.length > 0) {
+            withDeps.add(j.id);
+            for (const d of j.depends_on) withDeps.add(d.job_id);
+        }
+    }
+
+    if (withDeps.size === 0) {
+        svg.innerHTML = '';
+        return;
+    }
+
+    const filtered = jobs.filter(j => withDeps.has(j.id));
+
+    // Build layout (same logic as renderMap)
+    const jobMap = {};
+    for (const j of filtered) jobMap[j.id] = j;
+
+    const children = {};
+    const parents = {};
+    for (const j of filtered) {
+        children[j.id] = children[j.id] || [];
+        parents[j.id] = parents[j.id] || [];
+        for (const dep of j.depends_on) {
+            if (withDeps.has(dep.job_id)) {
+                children[dep.job_id] = children[dep.job_id] || [];
+                children[dep.job_id].push(j.id);
+                parents[j.id].push(dep.job_id);
+            }
+        }
+    }
+
+    const layers = {};
+    const roots = filtered.filter(j => (parents[j.id] || []).length === 0).map(j => j.id);
+    const visited = new Set();
+    const queue = roots.map(id => ({ id, layer: 0 }));
+    while (queue.length > 0) {
+        const { id, layer } = queue.shift();
+        if (visited.has(id)) { layers[id] = Math.max(layers[id] || 0, layer); continue; }
+        visited.add(id);
+        layers[id] = layer;
+        for (const cid of (children[id] || [])) queue.push({ id: cid, layer: layer + 1 });
+    }
+    for (const j of filtered) { if (!visited.has(j.id)) layers[j.id] = 0; }
+
+    const nodeW = 140, nodeH = 36, layerGap = 70, nodeGap = 12, padX = 20, padY = 16;
+    const layerGroups = {};
+    let maxLayer = 0;
+    for (const [id, layer] of Object.entries(layers)) {
+        layerGroups[layer] = layerGroups[layer] || [];
+        layerGroups[layer].push(id);
+        maxLayer = Math.max(maxLayer, layer);
+    }
+
+    const positions = {};
+    let totalW = 0, totalH = 0;
+    for (let l = 0; l <= maxLayer; l++) {
+        const group = layerGroups[l] || [];
+        const colX = padX + l * (nodeW + layerGap);
+        for (let i = 0; i < group.length; i++) {
+            const y = padY + i * (nodeH + nodeGap);
+            positions[group[i]] = { x: colX, y };
+            totalW = Math.max(totalW, colX + nodeW + padX);
+            totalH = Math.max(totalH, y + nodeH + padY);
+        }
+    }
+
+    svg.setAttribute('width', totalW);
+    svg.setAttribute('height', totalH);
+    svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
+
+    let svgHtml = '<defs><marker id="dash-arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="7" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 3 L 0 6 z" class="map-arrowhead"/></marker></defs>';
+
+    for (const j of filtered) {
+        for (const dep of j.depends_on) {
+            const from = positions[dep.job_id];
+            const to = positions[j.id];
+            if (!from || !to) continue;
+            const x1 = from.x + nodeW, y1 = from.y + nodeH / 2, x2 = to.x, y2 = to.y + nodeH / 2;
+            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + 30) + ' ' + y1 + ', ' + (x2 - 30) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--text-muted)" marker-end="url(#dash-arrow)"/>';
+        }
+    }
+
+    for (const j of filtered) {
+        const pos = positions[j.id];
+        if (!pos) continue;
+        let fill = 'var(--bg-tertiary)', stroke = 'var(--border)';
+        const ls = j.last_execution ? j.last_execution.status : null;
+        if (ls === 'succeeded') { fill = 'rgba(46,204,113,0.15)'; stroke = 'var(--success)'; }
+        else if (ls === 'failed' || ls === 'timed_out') { fill = 'rgba(224,82,82,0.15)'; stroke = 'var(--danger)'; }
+        else if (ls === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
+
+        svgHtml += '<g class="map-node" onclick="showJobDetail(\'' + j.id + '\')">';
+        svgHtml += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + fill + '" stroke="' + stroke + '" rx="5" ry="5"/>';
+        svgHtml += '<text x="' + (pos.x + 8) + '" y="' + (pos.y + 14) + '" font-size="10" font-weight="600" fill="var(--text-primary)">' + esc(j.name) + '</text>';
+        svgHtml += '<text x="' + (pos.x + 8) + '" y="' + (pos.y + 26) + '" font-size="9" fill="var(--text-muted)">' + j.status + (ls ? ' \u2022 ' + ls : '') + '</text>';
+        svgHtml += '</g>';
+    }
+
+    svg.innerHTML = svgHtml;
+}
+
 // --- Events ---
 let eventsPage = 1;
+let eventSearchTerm = '';
+let eventTypeFilter = '';
+let eventSearchDebounce = null;
+
+function onEventSearch() {
+    const val = document.getElementById('event-search-input').value;
+    document.getElementById('event-search-clear').style.display = val ? '' : 'none';
+    clearTimeout(eventSearchDebounce);
+    eventSearchDebounce = setTimeout(() => {
+        eventSearchTerm = val.trim().toLowerCase();
+        eventsPage = 1;
+        fetchEvents();
+    }, 250);
+}
+
+function clearEventSearch() {
+    document.getElementById('event-search-input').value = '';
+    document.getElementById('event-search-clear').style.display = 'none';
+    eventSearchTerm = '';
+    eventsPage = 1;
+    fetchEvents();
+}
+
+function setEventTypeFilter(btn, type) {
+    eventTypeFilter = type;
+    document.querySelectorAll('#event-type-filters .status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    eventsPage = 1;
+    fetchEvents();
+}
 
 async function fetchEvents() {
     try {
-        const res = await api('GET', '/api/events?page=' + eventsPage + '&per_page=50');
-        renderEvents(res.data);
-        renderPagination('events-pagination', eventsPage, res.total_pages, res.total, goToEventsPage);
+        const fetchSize = (eventSearchTerm || eventTypeFilter) ? 200 : 50;
+        const res = await api('GET', '/api/events?page=' + eventsPage + '&per_page=' + fetchSize);
+        let events = res.data;
+
+        if (eventTypeFilter) {
+            events = events.filter(e => e.severity === eventTypeFilter);
+        }
+        if (eventSearchTerm) {
+            events = events.filter(e =>
+                e.message.toLowerCase().includes(eventSearchTerm) ||
+                e.kind.toLowerCase().includes(eventSearchTerm)
+            );
+        }
+
+        renderEvents(events);
+        const total = (eventSearchTerm || eventTypeFilter) ? events.length : res.total;
+        const pages = (eventSearchTerm || eventTypeFilter) ? 1 : res.total_pages;
+        renderPagination('events-pagination', eventsPage, pages, total, goToEventsPage);
     } catch (e) {
         console.error('fetchEvents:', e);
     }
@@ -3713,7 +4544,7 @@ function updateHash() {
 }
 
 function handleRoute() {
-    const hash = location.hash || '#/jobs';
+    const hash = location.hash || '#/dashboard';
     const parts = hash.replace('#/', '').split('/');
 
     if (parts[0] === 'jobs' && parts[1]) {
@@ -3726,7 +4557,7 @@ function handleRoute() {
     }
 
     const page = parts[0] || 'jobs';
-    if (['jobs', 'map', 'agents', 'events', 'settings'].includes(page)) {
+    if (['dashboard', 'jobs', 'map', 'agents', 'events', 'settings'].includes(page)) {
         showPage(page);
     } else {
         showPage('jobs');

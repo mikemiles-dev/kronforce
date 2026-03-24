@@ -78,7 +78,8 @@ impl Db {
         let _ = conn.execute_batch("ALTER TABLE executions ADD COLUMN agent_id TEXT;");
 
         // Migrate old status names
-        let _ = conn.execute_batch("UPDATE jobs SET status = 'enabled' WHERE status = 'active';");
+        let _ = conn.execute_batch("UPDATE jobs SET status = 'scheduled' WHERE status IN ('active', 'enabled');");
+        let _ = conn.execute_batch("UPDATE jobs SET status = 'paused' WHERE status = 'disabled';");
         let _ = conn.execute_batch("UPDATE jobs SET status = 'unscheduled' WHERE status = 'completed';");
 
         // Events table
@@ -341,7 +342,7 @@ impl Db {
     }
 
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {
-        self.list_jobs(Some("enabled"), None, u32::MAX, 0)
+        self.list_jobs(Some("scheduled"), None, u32::MAX, 0)
     }
 
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {

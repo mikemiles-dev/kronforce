@@ -106,12 +106,22 @@ struct ExecutionCounts {
 }
 
 #[derive(Serialize)]
+struct DepStatus {
+    job_id: Uuid,
+    job_name: Option<String>,
+    within_secs: Option<u64>,
+    satisfied: bool,
+}
+
+#[derive(Serialize)]
 struct JobResponse {
     #[serde(flatten)]
     job: Job,
     next_fire_time: Option<chrono::DateTime<Utc>>,
     last_execution: Option<LastExecution>,
     execution_counts: ExecutionCounts,
+    deps_satisfied: bool,
+    deps_status: Vec<DepStatus>,
 }
 
 #[derive(Serialize)]
@@ -235,7 +245,7 @@ async fn create_job(
         task: req.task,
         run_as: req.run_as,
         schedule: req.schedule,
-        status: JobStatus::Enabled,
+        status: JobStatus::Scheduled,
         timeout_secs: req.timeout_secs,
         depends_on,
         target: req.target,
@@ -483,6 +493,34 @@ fn build_job_response(job: Job, db: &Db) -> JobResponse {
     let (total, succeeded, failed) = db
         .get_execution_counts(job.id)
         .unwrap_or((0, 0, 0));
+
+    // Check dependency status
+    let now = chrono::Utc::now();
+    let mut all_satisfied = true;
+    let deps_status: Vec<DepStatus> = job.depends_on.iter().map(|dep| {
+        let dep_job = db.get_job(dep.job_id).ok().flatten();
+        let dep_name = dep_job.map(|j| j.name);
+        let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
+            Some(exec) if exec.status == ExecutionStatus::Succeeded => {
+                if let Some(within) = dep.within_secs {
+                    exec.finished_at
+                        .map(|f| (now - f).num_seconds() <= within as i64)
+                        .unwrap_or(false)
+                } else {
+                    true
+                }
+            }
+            _ => false,
+        };
+        if !satisfied { all_satisfied = false; }
+        DepStatus {
+            job_id: dep.job_id,
+            job_name: dep_name,
+            within_secs: dep.within_secs,
+            satisfied,
+        }
+    }).collect();
+
     JobResponse {
         job,
         next_fire_time: next,
@@ -492,6 +530,8 @@ fn build_job_response(job: Job, db: &Db) -> JobResponse {
             succeeded,
             failed,
         },
+        deps_satisfied: all_satisfied,
+        deps_status,
     }
 }
 
@@ -588,10 +628,31 @@ async fn deregister_agent(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<axum::http::StatusCode, AppError> {
+    // Look up agent to get address before deleting
+    let db = state.db.clone();
+    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
+        .await
+        .unwrap()?;
+
+    // Send shutdown signal to agent (best-effort)
+    if let Some(ref a) = agent {
+        let _ = state.agent_client.shutdown_agent(&a.address, a.port).await;
+        tracing::info!("sent shutdown to agent {} ({})", a.name, a.id);
+    }
+
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || db.delete_agent(id))
         .await
         .unwrap()?;
+
+    if let Some(a) = agent {
+        let db_log = state.db.clone();
+        let name = a.name.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            db_log.log_event("agent.unpaired", EventSeverity::Warning, &format!("Agent '{}' unpaired and shut down", name), None, Some(id))
+        }).await;
+    }
+
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 

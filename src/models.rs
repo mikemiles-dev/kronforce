@@ -87,28 +87,24 @@ pub enum HttpMethod {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
-    Enabled,
+    Scheduled,
     Paused,
-    Disabled,
     Unscheduled,
 }
 
 impl JobStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
-            JobStatus::Enabled => "enabled",
+            JobStatus::Scheduled => "scheduled",
             JobStatus::Paused => "paused",
-            JobStatus::Disabled => "disabled",
             JobStatus::Unscheduled => "unscheduled",
         }
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            // Support both old and new names for DB compatibility
-            "enabled" | "active" => Some(JobStatus::Enabled),
-            "paused" => Some(JobStatus::Paused),
-            "disabled" => Some(JobStatus::Disabled),
+            "scheduled" | "enabled" | "active" => Some(JobStatus::Scheduled),
+            "paused" | "disabled" => Some(JobStatus::Paused),
             "unscheduled" | "completed" => Some(JobStatus::Unscheduled),
             _ => None,
         }

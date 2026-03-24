@@ -82,7 +82,7 @@ impl Scheduler {
         };
 
         for job in &jobs {
-            if job.status != JobStatus::Enabled {
+            if job.status != JobStatus::Scheduled {
                 continue;
             }
 

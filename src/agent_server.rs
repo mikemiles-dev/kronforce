@@ -26,6 +26,7 @@ pub fn router(state: AgentState) -> Router {
         .route("/execute", post(execute_job))
         .route("/cancel", post(cancel_job))
         .route("/health", get(health))
+        .route("/shutdown", post(shutdown))
         .with_state(state)
 }
 
@@ -119,4 +120,14 @@ async fn cancel_job(
     } else {
         Json(serde_json::json!({"cancelled": false, "message": "not running"}))
     }
+}
+
+async fn shutdown() -> Json<serde_json::Value> {
+    tracing::info!("shutdown requested by controller, exiting...");
+    // Spawn a delayed exit so the response can be sent first
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        std::process::exit(0);
+    });
+    Json(serde_json::json!({"status": "shutting_down"}))
 }
