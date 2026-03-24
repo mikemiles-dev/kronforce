@@ -249,6 +249,9 @@ pub struct Event {
     pub message: String,
     pub job_id: Option<Uuid>,
     pub agent_id: Option<Uuid>,
+    pub api_key_id: Option<Uuid>,
+    pub api_key_name: Option<String>,
+    pub details: Option<String>,
     pub timestamp: DateTime<Utc>,
 }
 

@@ -218,6 +218,7 @@ async fn list_jobs(
 
 async fn create_job(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreateJobRequest>,
 ) -> Result<(axum::http::StatusCode, Json<JobResponse>), AppError> {
     // Validate cron expression
@@ -266,8 +267,9 @@ async fn create_job(
     let db_log = state.db.clone();
     let job_name = job.name.clone();
     let job_id_log = job.id;
+    let auth2 = auth.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("job.created", EventSeverity::Info, &format!("Job '{}' created", job_name), Some(job_id_log), None)
+        auth2.log_audit(&db_log, "job.created", &format!("Job '{}' created", job_name), Some(job_id_log), None, None)
     }).await;
 
     let db2 = state.db.clone();
@@ -297,6 +299,7 @@ async fn get_job(
 async fn update_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
     Json(req): Json<UpdateJobRequest>,
 ) -> Result<Json<JobResponse>, AppError> {
     let db = state.db.clone();
@@ -353,6 +356,14 @@ async fn update_job(
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
+    let db_log = state.db.clone();
+    let job_name = job.name.clone();
+    let job_id = job.id;
+    let auth2 = auth.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        auth2.log_audit(&db_log, "job.updated", &format!("Job '{}' updated", job_name), Some(job_id), None, None)
+    }).await;
+
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
         .await
@@ -363,6 +374,7 @@ async fn update_job(
 async fn delete_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || db.delete_job(id))
@@ -372,7 +384,7 @@ async fn delete_job(
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
     let db_log = state.db.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("job.deleted", EventSeverity::Warning, &format!("Job deleted ({})", id), Some(id), None)
+        auth.log_audit(&db_log, "job.deleted", &format!("Job deleted ({})", id), Some(id), None, None)
     }).await;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
@@ -380,8 +392,8 @@ async fn delete_job(
 async fn trigger_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
 ) -> Result<Json<TriggerResponse>, AppError> {
-    // Verify job exists
     let db = state.db.clone();
     let _ = tokio::task::spawn_blocking(move || db.get_job(id))
         .await
@@ -396,7 +408,7 @@ async fn trigger_job(
 
     let db_log = state.db.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("job.triggered", EventSeverity::Info, &format!("Job manually triggered ({})", id), Some(id), None)
+        auth.log_audit(&db_log, "job.triggered", &format!("Job manually triggered ({})", id), Some(id), None, None)
     }).await;
 
     Ok(Json(TriggerResponse {
@@ -822,6 +834,31 @@ async fn auth_middleware(
             Ok(next.run(req).await)
         }
         None => Err(AppError::Unauthorized("invalid API key".into())),
+    }
+}
+
+/// Extractor for the authenticated API key. Returns None if auth is disabled.
+#[derive(Clone)]
+struct AuthUser(Option<ApiKey>);
+
+impl<S: Send + Sync> axum::extract::FromRequestParts<S> for AuthUser {
+    type Rejection = std::convert::Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(AuthUser(parts.extensions.get::<ApiKey>().cloned()))
+    }
+}
+
+impl AuthUser {
+    fn log_audit(&self, db: &Db, kind: &str, message: &str, job_id: Option<Uuid>, agent_id: Option<Uuid>, details: Option<String>) {
+        if let Some(ref key) = self.0 {
+            let _ = db.log_audit(kind, message, job_id, agent_id, key, details);
+        } else {
+            let _ = db.log_event(kind, EventSeverity::Info, message, job_id, agent_id);
+        }
     }
 }
 

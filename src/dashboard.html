@@ -4294,7 +4294,8 @@ async function fetchEvents() {
         if (eventSearchTerm) {
             events = events.filter(e =>
                 e.message.toLowerCase().includes(eventSearchTerm) ||
-                e.kind.toLowerCase().includes(eventSearchTerm)
+                e.kind.toLowerCase().includes(eventSearchTerm) ||
+                (e.api_key_name && e.api_key_name.toLowerCase().includes(eventSearchTerm))
             );
         }
 
@@ -4331,8 +4332,10 @@ function renderEvents(events) {
         html += '<div class="event-message">' + esc(e.message) + '</div>';
         html += '<div class="event-meta">';
         html += '<span class="event-kind">' + e.kind + '</span>';
+        if (e.api_key_name) html += '<span class="event-kind" title="API Key: ' + (e.api_key_id || '') + '">&#128100; ' + esc(e.api_key_name) + '</span>';
         if (jobLink) html += jobLink;
         if (agentLink) html += agentLink;
+        if (e.details) html += '<span class="event-kind" title="' + esc(e.details) + '">details</span>';
         html += '</div>';
         html += '</div>';
         html += '<div class="event-time">' + fmtDate(e.timestamp) + '</div>';
