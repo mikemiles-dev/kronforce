@@ -24,14 +24,16 @@ struct RunningJob {
 pub struct Executor {
     db: Db,
     agent_client: AgentClient,
+    scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
 }
 
 impl Executor {
-    pub fn new(db: Db, agent_client: AgentClient) -> Self {
+    pub fn new(db: Db, agent_client: AgentClient, scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>) -> Self {
         Self {
             db,
             agent_client,
+            scheduler_tx,
             running: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -73,6 +75,7 @@ impl Executor {
             id: exec_id,
             job_id: job.id,
             agent_id: None,
+            task_snapshot: Some(job.task.clone()),
             status: ExecutionStatus::Running,
             exit_code: None,
             stdout: String::new(),
@@ -99,6 +102,7 @@ impl Executor {
         let timeout_secs = job.timeout_secs;
         let db = self.db.clone();
         let running = self.running.clone();
+        let sched_tx = self.scheduler_tx.clone();
 
         tokio::spawn(async move {
             let result = run_task(&task, run_as.as_deref(), timeout_secs, cancel_rx).await;
@@ -107,6 +111,7 @@ impl Executor {
                 id: exec_id,
                 job_id: rec.job_id,
                 agent_id: None,
+                task_snapshot: rec.task_snapshot.clone(),
                 status: result.status,
                 exit_code: result.exit_code,
                 stdout: result.stdout.text,
@@ -134,18 +139,22 @@ impl Executor {
                 ExecutionStatus::Cancelled => EventSeverity::Warning,
                 _ => EventSeverity::Info,
             };
+            let event = Event {
+                id: Uuid::new_v4(),
+                kind: "execution.completed".to_string(),
+                severity,
+                message: format!("Execution {} finished: {:?}", exec_id, updated.status),
+                job_id: Some(updated.job_id),
+                agent_id: None,
+                api_key_id: None,
+                api_key_name: None,
+                details: None,
+                timestamp: chrono::Utc::now(),
+            };
             let db3 = db.clone();
-            let job_id = updated.job_id;
-            let status_str = format!("{:?}", updated.status);
-            let _ = tokio::task::spawn_blocking(move || {
-                db3.log_event(
-                    "execution.completed",
-                    severity,
-                    &format!("Execution {} finished: {}", exec_id, status_str),
-                    Some(job_id),
-                    None,
-                )
-            }).await;
+            let event2 = event.clone();
+            let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
+            let _ = sched_tx.send(crate::scheduler::SchedulerCommand::EventOccurred(event)).await;
         });
 
         Ok(exec_id)
@@ -283,6 +292,7 @@ impl Executor {
             id: exec_id,
             job_id: job.id,
             agent_id: Some(agent.id),
+            task_snapshot: Some(job.task.clone()),
             status: ExecutionStatus::Pending,
             exit_code: None,
             stdout: String::new(),

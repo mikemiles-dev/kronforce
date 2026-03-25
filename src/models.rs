@@ -14,6 +14,14 @@ pub enum ScheduleKind {
     OneShot(DateTime<Utc>),
     #[serde(alias = "manual")]
     OnDemand,
+    Event(EventTriggerConfig),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventTriggerConfig {
+    pub kind_pattern: String,
+    pub severity: Option<EventSeverity>,
+    pub job_name_filter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -223,6 +231,7 @@ pub enum TriggerSource {
     Scheduler,
     Api,
     Dependency { parent_execution_id: Uuid },
+    Event { event_id: Uuid },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,6 +239,7 @@ pub struct ExecutionRecord {
     pub id: Uuid,
     pub job_id: Uuid,
     pub agent_id: Option<Uuid>,
+    pub task_snapshot: Option<TaskType>,
     pub status: ExecutionStatus,
     pub exit_code: Option<i32>,
     pub stdout: String,

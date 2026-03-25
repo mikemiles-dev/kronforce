@@ -12,11 +12,11 @@ use crate::db::Db;
 use crate::executor::Executor;
 use crate::models::*;
 
-#[derive(Debug)]
 pub enum SchedulerCommand {
     Reload,
     TriggerNow(Uuid),
     CancelExecution(Uuid),
+    EventOccurred(Event),
 }
 
 pub struct Scheduler {
@@ -101,7 +101,7 @@ impl Scheduler {
                         self.invalidate_cache();
                     }
                 }
-                ScheduleKind::OnDemand => {}
+                ScheduleKind::OnDemand | ScheduleKind::Event(_) => {}
             }
         }
     }
@@ -232,6 +232,42 @@ impl Scheduler {
 
                 tracing::warn!("cancel: execution {} not found or not running", exec_id);
             }
+            SchedulerCommand::EventOccurred(event) => {
+                self.handle_event(event).await;
+            }
+        }
+    }
+
+    async fn handle_event(&mut self, event: Event) {
+        // Load jobs if not cached
+        if self.jobs_cache.is_none() {
+            self.reload_jobs().await;
+        }
+
+        let jobs = match &self.jobs_cache {
+            Some(jobs) => jobs.clone(),
+            None => return,
+        };
+
+        for job in &jobs {
+            if job.status != JobStatus::Scheduled {
+                continue;
+            }
+
+            if let ScheduleKind::Event(ref config) = job.schedule {
+                if !event_matches(&event, config) {
+                    continue;
+                }
+
+                // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
+                // (events from TriggerSource::Event executions)
+                tracing::info!(
+                    "event '{}' matched job '{}', firing",
+                    event.kind,
+                    job.name
+                );
+                self.fire_job(job, TriggerSource::Event { event_id: event.id }).await;
+            }
         }
     }
 
@@ -255,4 +291,43 @@ impl Scheduler {
         self.jobs_cache = None;
         self.next_fire_times.clear();
     }
+}
+
+fn event_matches(event: &Event, config: &EventTriggerConfig) -> bool {
+    // Match kind pattern
+    if !pattern_matches(&config.kind_pattern, &event.kind) {
+        return false;
+    }
+
+    // Match severity filter
+    if let Some(ref sev) = config.severity {
+        if event.severity != *sev {
+            return false;
+        }
+    }
+
+    // Match job name filter (prefix match on the event message or related job)
+    if let Some(ref name_filter) = config.job_name_filter {
+        // Check if the event message contains the job name
+        if !event.message.to_lowercase().contains(&name_filter.to_lowercase()) {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn pattern_matches(pattern: &str, value: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    if pattern.ends_with(".*") {
+        let prefix = &pattern[..pattern.len() - 2];
+        return value.starts_with(prefix) && value.len() > prefix.len() && value.as_bytes()[prefix.len()] == b'.';
+    }
+    if pattern.ends_with('*') {
+        let prefix = &pattern[..pattern.len() - 1];
+        return value.starts_with(prefix);
+    }
+    pattern == value
 }

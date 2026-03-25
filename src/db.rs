@@ -114,6 +114,7 @@ impl Db {
         let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN api_key_id TEXT;");
         let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN api_key_name TEXT;");
         let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN details TEXT;");
+        let _ = conn.execute_batch("ALTER TABLE executions ADD COLUMN task_snapshot_json TEXT;");
         let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN task_json TEXT;");
 
         // Migrate command -> task_json for existing jobs
@@ -406,12 +407,13 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let triggered_by_json = serde_json::to_string(&rec.triggered_by).unwrap();
         conn.execute(
-            "INSERT INTO executions (id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO executions (id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 rec.id.to_string(),
                 rec.job_id.to_string(),
                 rec.agent_id.map(|a| a.to_string()),
+                rec.task_snapshot.as_ref().map(|t| serde_json::to_string(t).unwrap()),
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
@@ -451,7 +453,7 @@ impl Db {
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_execution(row)))
@@ -481,7 +483,7 @@ impl Db {
     ) -> Result<Vec<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string(), limit, offset], |row| {
@@ -493,6 +495,61 @@ impl Db {
             recs.push(row.map_err(AppError::Db)?);
         }
         Ok(recs)
+    }
+
+    /// Get execution counts bucketed by minute for the last N minutes.
+    /// Returns Vec<(minute_timestamp, succeeded, failed, other)>
+    pub fn get_execution_timeline(
+        &self,
+        job_id: Option<Uuid>,
+        minutes: u32,
+    ) -> Result<Vec<(String, u32, u32, u32)>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::minutes(minutes as i64)).to_rfc3339();
+
+        let (sql, params_vec): (String, Vec<String>) = match job_id {
+            Some(id) => (
+                "SELECT strftime('%Y-%m-%dT%H:%M', started_at) as bucket, status, COUNT(*) as cnt FROM executions WHERE started_at > ?1 AND job_id = ?2 GROUP BY bucket, status ORDER BY bucket".to_string(),
+                vec![cutoff, id.to_string()],
+            ),
+            None => (
+                "SELECT strftime('%Y-%m-%dT%H:%M', started_at) as bucket, status, COUNT(*) as cnt FROM executions WHERE started_at > ?1 GROUP BY bucket, status ORDER BY bucket".to_string(),
+                vec![cutoff],
+            ),
+        };
+
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            params_vec.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let rows = stmt.query_map(params.as_slice(), |row| {
+            let bucket: Option<String> = row.get(0)?;
+            let status: String = row.get(1)?;
+            let count: u32 = row.get(2)?;
+            Ok((bucket.unwrap_or_default(), status, count))
+        }).map_err(AppError::Db)?;
+
+        // Aggregate into buckets
+        let mut bucket_map: std::collections::BTreeMap<String, (u32, u32, u32)> = std::collections::BTreeMap::new();
+
+        // Pre-fill all minute buckets
+        let now = Utc::now();
+        for i in 0..minutes {
+            let t = now - chrono::Duration::minutes(i as i64);
+            let key = t.format("%Y-%m-%dT%H:%M").to_string();
+            bucket_map.entry(key).or_insert((0, 0, 0));
+        }
+
+        for row in rows {
+            let (bucket, status, count) = row.map_err(AppError::Db)?;
+            let entry = bucket_map.entry(bucket).or_insert((0, 0, 0));
+            match status.as_str() {
+                "succeeded" => entry.0 += count,
+                "failed" | "timed_out" => entry.1 += count,
+                _ => entry.2 += count,
+            }
+        }
+
+        Ok(bucket_map.into_iter().map(|(k, (s, f, o))| (k, s, f, o)).collect())
     }
 
     pub fn get_latest_execution_for_job(
@@ -854,25 +911,29 @@ fn row_to_job(row: &rusqlite::Row) -> Job {
     }
 }
 
+// Columns: id(0), job_id(1), agent_id(2), task_snapshot_json(3), status(4), exit_code(5),
+//          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12)
 fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
     let id_str: String = row.get(0).unwrap();
     let job_id_str: String = row.get(1).unwrap();
     let agent_id_str: Option<String> = row.get(2).unwrap();
-    let status_str: String = row.get(3).unwrap();
-    let stdout_trunc: i32 = row.get(7).unwrap();
-    let stderr_trunc: i32 = row.get(8).unwrap();
-    let started_str: Option<String> = row.get(9).unwrap();
-    let finished_str: Option<String> = row.get(10).unwrap();
-    let triggered_json: String = row.get(11).unwrap();
+    let task_snap_json: Option<String> = row.get(3).unwrap();
+    let status_str: String = row.get(4).unwrap();
+    let stdout_trunc: i32 = row.get(8).unwrap();
+    let stderr_trunc: i32 = row.get(9).unwrap();
+    let started_str: Option<String> = row.get(10).unwrap();
+    let finished_str: Option<String> = row.get(11).unwrap();
+    let triggered_json: String = row.get(12).unwrap();
 
     ExecutionRecord {
         id: Uuid::parse_str(&id_str).unwrap(),
         job_id: Uuid::parse_str(&job_id_str).unwrap(),
         agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
+        task_snapshot: task_snap_json.and_then(|s| serde_json::from_str(&s).ok()),
         status: ExecutionStatus::from_str(&status_str).unwrap(),
-        exit_code: row.get(4).unwrap(),
-        stdout: row.get(5).unwrap(),
-        stderr: row.get(6).unwrap(),
+        exit_code: row.get(5).unwrap(),
+        stdout: row.get(6).unwrap(),
+        stderr: row.get(7).unwrap(),
         stdout_truncated: stdout_trunc != 0,
         stderr_truncated: stderr_trunc != 0,
         started_at: started_str.map(|s| {

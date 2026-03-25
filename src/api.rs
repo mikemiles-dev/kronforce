@@ -45,6 +45,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agents", get(list_agents))
         .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
         .route("/api/events", get(list_events))
+        .route("/api/timeline", get(get_timeline))
+        .route("/api/timeline/{job_id}", get(get_job_timeline))
         .route("/api/keys", get(list_api_keys).post(create_api_key))
         .route("/api/keys/{id}", delete(revoke_api_key))
         .route("/api/auth/me", get(auth_me))
@@ -264,13 +266,8 @@ async fn create_job(
     // Tell scheduler to reload
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
-    let db_log = state.db.clone();
-    let job_name = job.name.clone();
-    let job_id_log = job.id;
-    let auth2 = auth.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        auth2.log_audit(&db_log, "job.created", &format!("Job '{}' created", job_name), Some(job_id_log), None, None)
-    }).await;
+    log_and_notify(&state.db, &state.scheduler_tx, "job.created", EventSeverity::Info,
+        &format!("Job '{}' created", job.name), Some(job.id), None, &auth, None).await;
 
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
@@ -307,6 +304,12 @@ async fn update_job(
         .await
         .unwrap()?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
+
+    // Snapshot before changes for audit diff
+    let old_task = serde_json::to_string(&job.task).unwrap_or_default();
+    let old_schedule = serde_json::to_string(&job.schedule).unwrap_or_default();
+    let old_status = job.status.as_str().to_string();
+    let old_run_as = job.run_as.clone();
 
     if let Some(name) = req.name {
         job.name = name;
@@ -356,13 +359,18 @@ async fn update_job(
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
-    let db_log = state.db.clone();
-    let job_name = job.name.clone();
-    let job_id = job.id;
-    let auth2 = auth.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        auth2.log_audit(&db_log, "job.updated", &format!("Job '{}' updated", job_name), Some(job_id), None, None)
-    }).await;
+    // Build audit diff
+    let mut changes = Vec::new();
+    let new_task = serde_json::to_string(&job.task).unwrap_or_default();
+    let new_schedule = serde_json::to_string(&job.schedule).unwrap_or_default();
+    if old_task != new_task { changes.push(format!("task: {} -> {}", old_task, new_task)); }
+    if old_schedule != new_schedule { changes.push(format!("schedule: {} -> {}", old_schedule, new_schedule)); }
+    if old_status != job.status.as_str() { changes.push(format!("status: {} -> {}", old_status, job.status.as_str())); }
+    if old_run_as != job.run_as { changes.push(format!("run_as: {:?} -> {:?}", old_run_as, job.run_as)); }
+    let details = if changes.is_empty() { None } else { Some(changes.join("; ")) };
+
+    log_and_notify(&state.db, &state.scheduler_tx, "job.updated", EventSeverity::Info,
+        &format!("Job '{}' updated", job.name), Some(job.id), None, &auth, details).await;
 
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
@@ -382,10 +390,8 @@ async fn delete_job(
         .unwrap()?;
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
-    let db_log = state.db.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        auth.log_audit(&db_log, "job.deleted", &format!("Job deleted ({})", id), Some(id), None, None)
-    }).await;
+    log_and_notify(&state.db, &state.scheduler_tx, "job.deleted", EventSeverity::Warning,
+        &format!("Job deleted ({})", id), Some(id), None, &auth, None).await;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -406,10 +412,8 @@ async fn trigger_job(
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 
-    let db_log = state.db.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        auth.log_audit(&db_log, "job.triggered", &format!("Job manually triggered ({})", id), Some(id), None, None)
-    }).await;
+    log_and_notify(&state.db, &state.scheduler_tx, "job.triggered", EventSeverity::Info,
+        &format!("Job manually triggered ({})", id), Some(id), None, &auth, None).await;
 
     Ok(Json(TriggerResponse {
         message: "job triggered".to_string(),
@@ -486,7 +490,7 @@ fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
                 None
             }
         }
-        ScheduleKind::OnDemand => None,
+        ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
     }
 }
 
@@ -681,6 +685,7 @@ async fn execution_result_callback(
         .await
         .unwrap()?;
 
+    let task_snap = existing.as_ref().and_then(|e| e.task_snapshot.clone());
     let triggered_by = existing
         .map(|e| e.triggered_by)
         .unwrap_or(TriggerSource::Scheduler);
@@ -689,6 +694,7 @@ async fn execution_result_callback(
         id: result.execution_id,
         job_id: result.job_id,
         agent_id: Some(result.agent_id),
+        task_snapshot: task_snap,
         status: result.status,
         exit_code: result.exit_code,
         stdout: result.stdout,
@@ -710,19 +716,11 @@ async fn execution_result_callback(
         ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
         _ => EventSeverity::Info,
     };
-    let db_log = state.db.clone();
-    let exec_id = result.execution_id;
-    let job_id = result.job_id;
-    let agent_id = result.agent_id;
-    let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event(
-            "execution.completed",
-            severity,
-            &format!("Execution {} finished: {:?}", exec_id, status),
-            Some(job_id),
-            Some(agent_id),
-        )
-    }).await;
+    // Log event and notify scheduler for event-triggered jobs
+    let no_auth = AuthUser(None);
+    let msg = format!("Execution {} finished: {:?}", result.execution_id, status);
+    log_and_notify(&state.db, &state.scheduler_tx, "execution.completed", severity,
+        &msg, Some(result.job_id), Some(result.agent_id), &no_auth, None).await;
 
     tracing::info!(
         "received execution result {} from agent {}: {:?}",
@@ -767,6 +765,46 @@ async fn list_events(
         per_page,
         total_pages,
     }))
+}
+
+// --- Timeline ---
+
+#[derive(Deserialize)]
+struct TimelineQuery {
+    minutes: Option<u32>,
+}
+
+#[derive(Serialize)]
+struct TimelineBucket {
+    time: String,
+    succeeded: u32,
+    failed: u32,
+    other: u32,
+}
+
+async fn get_timeline(
+    State(state): State<AppState>,
+    Query(query): Query<TimelineQuery>,
+) -> Result<Json<Vec<TimelineBucket>>, AppError> {
+    let minutes = query.minutes.unwrap_or(15);
+    let db = state.db.clone();
+    let data = tokio::task::spawn_blocking(move || db.get_execution_timeline(None, minutes))
+        .await
+        .unwrap()?;
+    Ok(Json(data.into_iter().map(|(t, s, f, o)| TimelineBucket { time: t, succeeded: s, failed: f, other: o }).collect()))
+}
+
+async fn get_job_timeline(
+    State(state): State<AppState>,
+    Path(job_id): Path<Uuid>,
+    Query(query): Query<TimelineQuery>,
+) -> Result<Json<Vec<TimelineBucket>>, AppError> {
+    let minutes = query.minutes.unwrap_or(60);
+    let db = state.db.clone();
+    let data = tokio::task::spawn_blocking(move || db.get_execution_timeline(Some(job_id), minutes))
+        .await
+        .unwrap()?;
+    Ok(Json(data.into_iter().map(|(t, s, f, o)| TimelineBucket { time: t, succeeded: s, failed: f, other: o }).collect()))
 }
 
 // --- Auth ---
@@ -860,6 +898,36 @@ impl AuthUser {
             let _ = db.log_event(kind, EventSeverity::Info, message, job_id, agent_id);
         }
     }
+}
+
+/// Log an event and notify the scheduler for event-triggered jobs
+async fn log_and_notify(
+    db: &Db,
+    scheduler_tx: &mpsc::Sender<SchedulerCommand>,
+    kind: &str,
+    severity: EventSeverity,
+    message: &str,
+    job_id: Option<Uuid>,
+    agent_id: Option<Uuid>,
+    auth: &AuthUser,
+    details: Option<String>,
+) {
+    let event = Event {
+        id: Uuid::new_v4(),
+        kind: kind.to_string(),
+        severity,
+        message: message.to_string(),
+        job_id,
+        agent_id,
+        api_key_id: auth.0.as_ref().map(|k| k.id),
+        api_key_name: auth.0.as_ref().map(|k| k.name.clone()),
+        details,
+        timestamp: chrono::Utc::now(),
+    };
+    let db2 = db.clone();
+    let event2 = event.clone();
+    let _ = tokio::task::spawn_blocking(move || db2.insert_event(&event2)).await;
+    let _ = scheduler_tx.send(SchedulerCommand::EventOccurred(event)).await;
 }
 
 fn require_write(req: &Request) -> Result<(), AppError> {

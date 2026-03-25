@@ -122,6 +122,12 @@ All URLs are shareable — opening a link goes directly to that view.
 - **Pagination** — jobs, executions, and events are paginated
 - **Output viewer** — execution output with Text/JSON/HTML view tabs (HTML rendered in sandboxed iframe)
 - **Mini dependency map** — job detail page shows a focused DAG of related jobs
+- **Cron builder** — visual schedule builder with interval/unit picker, day-of-week buttons, and live preview
+- **Event-triggered jobs** — fire jobs reactively when system events occur (failures, agent changes, etc.)
+- **Audit trail** — all user actions tracked with API key identity in the events feed, job edits show before/after diffs
+- **Dependency status** — "waiting" indicator shows which dependencies are blocking a job, click to see details
+- **Execution timeline** — Kibana-style bar charts showing execution counts over time (dashboard: 15 min, job detail: 1 hour)
+- **Task snapshots** — each execution captures the exact task config at the time it ran
 
 ## API
 
@@ -197,6 +203,74 @@ curl -X DELETE http://localhost:8080/api/jobs/{id}
 | One-shot | `{"type": "one_shot", "value": "2026-04-01T00:00:00Z"}` | Fires once at the specified time, then becomes unscheduled |
 | Cron | `{"type": "cron", "value": "0 * * * * *"}` | Fires on a recurring cron schedule |
 | On-demand | `{"type": "on_demand"}` | Never fires automatically, triggered via API/UI only |
+| Event | `{"type": "event", "value": {...}}` | Fires when a matching system event occurs |
+
+### Event-Triggered Jobs
+
+Jobs can be triggered reactively when system events occur, such as executions completing, agents registering, or other jobs being created/deleted.
+
+```bash
+# Run cleanup when any execution fails
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "failure-cleanup",
+    "task": {"type": "shell", "command": "/opt/scripts/cleanup.sh"},
+    "schedule": {"type": "event", "value": {
+      "kind_pattern": "execution.completed",
+      "severity": "error"
+    }}
+  }'
+
+# Provision a new agent when it registers
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "provision-agent",
+    "task": {"type": "shell", "command": "/opt/scripts/provision.sh"},
+    "schedule": {"type": "event", "value": {
+      "kind_pattern": "agent.registered"
+    }},
+    "target": {"type": "any"}
+  }'
+
+# Run security audit when API keys change
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "security-audit",
+    "task": {"type": "shell", "command": "/opt/security/audit.sh"},
+    "schedule": {"type": "event", "value": {
+      "kind_pattern": "key.*"
+    }}
+  }'
+```
+
+**Event trigger config:**
+
+| Field | Description |
+|---|---|
+| `kind_pattern` | Event kind to match. Supports exact (`agent.registered`), wildcard (`job.*`), or all (`*`) |
+| `severity` | Optional. Only trigger on events with this severity: `success`, `error`, `warning`, `info` |
+| `job_name_filter` | Optional. Only trigger on events whose message contains this text |
+
+**Available event kinds:**
+
+| Kind | When it fires |
+|---|---|
+| `job.created` | A job is created |
+| `job.updated` | A job is edited |
+| `job.deleted` | A job is deleted |
+| `job.triggered` | A job is manually triggered |
+| `execution.completed` | A job execution finishes (success or failure) |
+| `agent.registered` | An agent registers with the controller |
+| `agent.offline` | An agent's heartbeat times out |
+| `agent.unpaired` | An agent is removed |
+| `key.created` | An API key is created |
+| `key.revoked` | An API key is revoked |
 
 ### Job Targeting
 

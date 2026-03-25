@@ -1227,6 +1227,79 @@ th .job-checkbox { margin: 0; }
 .stat-card.warning .stat-value { color: var(--warning); }
 .stat-card.neutral .stat-value { color: var(--text-primary); }
 
+.timeline-chart {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    padding: 0;
+}
+
+.timeline-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+}
+
+.timeline-bar {
+    min-height: 0;
+    transition: height 0.2s;
+}
+
+.timeline-bar.succeeded { background: var(--success); opacity: 0.8; }
+.timeline-bar.failed { background: var(--danger); opacity: 0.8; }
+.timeline-bar.other { background: var(--info); opacity: 0.6; }
+
+.timeline-bar-group:hover .timeline-bar { opacity: 1; }
+
+.timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding: 0 2px;
+}
+
+.timeline-container {
+    padding: 8px 0;
+}
+
+.timeline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.timeline-header h4 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.timeline-legend {
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.timeline-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.timeline-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+}
+
 .dash-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1707,6 +1780,10 @@ th .job-checkbox { margin: 0; }
 <main>
     <section id="dashboard-view">
         <div class="dash-stats" id="dash-stats"></div>
+        <div class="card" style="margin-bottom:16px">
+            <div class="card-header"><h3>Execution Timeline (15 min)</h3></div>
+            <div id="dash-timeline"></div>
+        </div>
         <div class="dash-grid">
             <div class="card">
                 <div class="card-header"><h3>Recent Executions</h3></div>
@@ -1748,6 +1825,10 @@ th .job-checkbox { margin: 0; }
     <section id="detail-view" style="display:none">
         <div class="back-link" onclick="showJobsList()">&larr; Back to Jobs</div>
         <div id="detail-card"></div>
+        <div class="card" id="job-timeline-card">
+            <div class="card-header"><h3>Timeline (1 hour)</h3></div>
+            <div id="job-timeline"></div>
+        </div>
         <div class="card">
             <div class="card-header">
                 <h3>Execution History</h3>
@@ -1958,6 +2039,7 @@ th .job-checkbox { margin: 0; }
                 <label><input type="radio" name="sched-type" value="one_shot" checked onchange="updateSchedFields()"> One-Shot</label>
                 <label><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> Cron</label>
                 <label><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> On-Demand</label>
+                <label><input type="radio" name="sched-type" value="event" onchange="updateSchedFields()"> Event</label>
             </div>
         </div>
         <div class="form-group" id="oneshot-field">
@@ -2022,6 +2104,42 @@ th .job-checkbox { margin: 0; }
                 <div class="form-group" style="margin-bottom:0">
                     <input id="f-cron" type="text" placeholder="0 * * * * *" style="font-family:var(--font-mono)" oninput="updateCronPreviewFromRaw()">
                     <div class="form-hint" style="margin-top:4px">Format: sec min hour day_of_month month day_of_week</div>
+                </div>
+            </div>
+        </div>
+        <div id="event-field" style="display:none">
+            <div class="form-group">
+                <label>Event Kind Pattern</label>
+                <select id="f-event-kind" style="width:100%">
+                    <option value="*">All events (*)</option>
+                    <option value="job.*">Any job event (job.*)</option>
+                    <option value="job.created">Job created</option>
+                    <option value="job.updated">Job updated</option>
+                    <option value="job.deleted">Job deleted</option>
+                    <option value="job.triggered">Job triggered</option>
+                    <option value="execution.completed">Execution completed</option>
+                    <option value="agent.*">Any agent event (agent.*)</option>
+                    <option value="agent.registered">Agent registered</option>
+                    <option value="agent.offline">Agent went offline</option>
+                    <option value="agent.unpaired">Agent unpaired</option>
+                    <option value="key.*">Any key event (key.*)</option>
+                </select>
+                <div class="form-hint" style="margin-top:4px">Use * for wildcards: "job.*" matches all job events</div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Severity Filter (optional)</label>
+                    <select id="f-event-severity">
+                        <option value="">Any severity</option>
+                        <option value="success">Success</option>
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <div style="flex:1">
+                    <label>Job Name Filter (optional)</label>
+                    <input id="f-event-job-filter" type="text" placeholder="e.g. etl-pipeline">
                 </div>
             </div>
         </div>
@@ -2328,6 +2446,7 @@ async function showJobDetail(id) {
         const job = await api('GET', '/api/jobs/' + id);
         renderJobDetail(job);
         renderMiniMap(job);
+        fetchJobTimeline(id);
         await fetchExecutions(id, true);
     } catch (e) {
         toast(e.message, 'error');
@@ -2368,7 +2487,7 @@ function renderJobDetail(job) {
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
-        field('Schedule', fmtSchedule(job.schedule)) +
+        field('Schedule', fmtScheduleDetail(job.schedule)) +
         field('Description', job.description || '-') +
         field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : 'Default') +
         field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : 'None') +
@@ -2439,6 +2558,7 @@ async function showExecDetail(id) {
             execField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local') +
             execField('Trigger', fmtTrigger(e.triggered_by)) +
             '</div>' +
+            (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(e.task_snapshot, null, 2)) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated);
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
@@ -2801,6 +2921,10 @@ async function openEditModal(id) {
         } else if (schedType === 'one_shot') {
             const dt = new Date(job.schedule.value);
             document.getElementById('f-oneshot').value = toLocalDatetimeString(dt);
+        } else if (schedType === 'event' && job.schedule.value) {
+            document.getElementById('f-event-kind').value = job.schedule.value.kind_pattern || '*';
+            document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
+            document.getElementById('f-event-job-filter').value = job.schedule.value.job_name_filter || '';
         }
 
         // Set target
@@ -3041,6 +3165,7 @@ function updateSchedFields() {
     const type = document.querySelector('input[name="sched-type"]:checked').value;
     document.getElementById('cron-field').style.display = type === 'cron' ? '' : 'none';
     document.getElementById('oneshot-field').style.display = type === 'one_shot' ? '' : 'none';
+    document.getElementById('event-field').style.display = type === 'event' ? '' : 'none';
 }
 
 function updateTargetFields() {
@@ -3174,6 +3299,14 @@ async function submitJobForm() {
         const dt = document.getElementById('f-oneshot').value;
         if (!dt) { toast('Date/time is required', 'error'); return; }
         schedule = { type: 'one_shot', value: new Date(dt).toISOString() };
+    } else if (schedType === 'event') {
+        const kindPattern = document.getElementById('f-event-kind').value;
+        const config = { kind_pattern: kindPattern };
+        const sev = document.getElementById('f-event-severity').value;
+        if (sev) config.severity = sev;
+        const jobFilter = document.getElementById('f-event-job-filter').value.trim();
+        if (jobFilter) config.job_name_filter = jobFilter;
+        schedule = { type: 'event', value: config };
     } else {
         schedule = { type: 'on_demand' };
     }
@@ -3269,9 +3402,26 @@ function fmtTarget(t) {
     return t.type;
 }
 
+function fmtScheduleDetail(s) {
+    if (s.type === 'event' && s.value) {
+        let html = '<span class="badge badge-running">\u26A1 event trigger</span> ';
+        html += '<code>' + esc(s.value.kind_pattern) + '</code>';
+        if (s.value.severity) html += ' <span class="badge badge-' + s.value.severity + '">' + s.value.severity + '</span>';
+        if (s.value.job_name_filter) html += ' <span class="time-text">filter: ' + esc(s.value.job_name_filter) + '</span>';
+        return html;
+    }
+    return fmtSchedule(s);
+}
+
 function fmtSchedule(s) {
     if (s.type === 'cron') return describeCron(s.value);
     if (s.type === 'one_shot') return 'once: ' + fmtDate(s.value);
+    if (s.type === 'event' && s.value) {
+        let desc = 'on ' + s.value.kind_pattern;
+        if (s.value.severity) desc += ' (' + s.value.severity + ')';
+        if (s.value.job_name_filter) desc += ' [' + s.value.job_name_filter + ']';
+        return desc;
+    }
     return 'on-demand';
 }
 
@@ -3384,6 +3534,7 @@ function fmtTrigger(t) {
     if (t.type === 'scheduler') return 'scheduler';
     if (t.type === 'api') return 'api';
     if (t.type === 'dependency') return 'dep';
+    if (t.type === 'event') return '\u26A1 event';
     return t.type;
 }
 
@@ -3720,6 +3871,31 @@ async function renderMap() {
         }
     }
 
+    // Draw event trigger edges (dashed)
+    for (const j of jobs) {
+        if (j.schedule.type !== 'event' || !j.schedule.value) continue;
+        const to = positions[j.id];
+        if (!to) continue;
+        const filter = j.schedule.value.job_name_filter;
+        const kindPattern = j.schedule.value.kind_pattern;
+        // Find source jobs that this event trigger listens to
+        for (const src of jobs) {
+            if (src.id === j.id) continue;
+            // Match if filter matches job name, or if kind matches execution/job events
+            const nameMatch = filter && src.name.toLowerCase().includes(filter.toLowerCase());
+            const kindMatch = !filter && (kindPattern.startsWith('execution') || kindPattern.startsWith('job'));
+            if (nameMatch || kindMatch) {
+                const from = positions[src.id];
+                if (!from) continue;
+                const x1 = from.x + nodeW, y1 = from.y + nodeH / 2;
+                const x2 = to.x, y2 = to.y + nodeH / 2;
+                const cx1 = x1 + (x2 - x1) * 0.4, cx2 = x2 - (x2 - x1) * 0.4;
+                svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" marker-end="url(#arrow)"/>';
+                svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + ((y1+y2)/2 - 8) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + kindPattern + '</text>';
+            }
+        }
+    }
+
     // Draw nodes
     for (const j of jobs) {
         const pos = positions[j.id];
@@ -3748,6 +3924,7 @@ async function renderMap() {
         // Schedule icon
         let schedIcon = '\u23F0'; // alarm clock - cron
         if (j.schedule.type === 'on_demand') schedIcon = '\u270B'; // hand - on-demand
+        else if (j.schedule.type === 'event') schedIcon = '\u26A1'; // lightning - event
         else if (j.schedule.type === 'one_shot') schedIcon = '\u26A1'; // lightning - one-shot
 
         // Target icon
@@ -4026,6 +4203,74 @@ function renderMiniMap(job) {
     svg.innerHTML = svgHtml;
 }
 
+// --- Timeline Chart ---
+
+function renderTimelineChart(containerId, data) {
+    const container = document.getElementById(containerId);
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:20px;font-size:12px">No executions in this time window</div>';
+        return;
+    }
+
+    const maxVal = Math.max(1, ...data.map(d => d.succeeded + d.failed + d.other));
+    const chartHeight = 80;
+
+    let html = '<div class="timeline-container">';
+    html += '<div class="timeline-header">';
+    html += '<div class="timeline-legend">';
+    html += '<div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--success)"></div>Succeeded</div>';
+    html += '<div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--danger)"></div>Failed</div>';
+    html += '<div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--info)"></div>Other</div>';
+    html += '</div></div>';
+    html += '<div class="timeline-chart" style="height:' + chartHeight + 'px">';
+
+    for (const d of data) {
+        const total = d.succeeded + d.failed + d.other;
+        const sH = Math.round((d.succeeded / maxVal) * chartHeight);
+        const fH = Math.round((d.failed / maxVal) * chartHeight);
+        const oH = Math.round((d.other / maxVal) * chartHeight);
+        const time = d.time.slice(11); // HH:MM
+
+        html += '<div class="timeline-bar-group" title="' + time + '  \u2714' + d.succeeded + ' \u2718' + d.failed + ' \u25CB' + d.other + '">';
+        if (oH > 0) html += '<div class="timeline-bar other" style="height:' + oH + 'px"></div>';
+        if (fH > 0) html += '<div class="timeline-bar failed" style="height:' + fH + 'px"></div>';
+        if (sH > 0) html += '<div class="timeline-bar succeeded" style="height:' + sH + 'px"></div>';
+        if (total === 0) html += '<div class="timeline-bar" style="height:1px;background:var(--border)"></div>';
+        html += '</div>';
+    }
+
+    html += '</div>';
+
+    // Time labels
+    if (data.length > 0) {
+        const first = data[0].time.slice(11);
+        const last = data[data.length - 1].time.slice(11);
+        const mid = data[Math.floor(data.length / 2)].time.slice(11);
+        html += '<div class="timeline-labels"><span>' + first + '</span><span>' + mid + '</span><span>' + last + '</span></div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function fetchDashTimeline() {
+    try {
+        const data = await api('GET', '/api/timeline?minutes=15');
+        renderTimelineChart('dash-timeline', data);
+    } catch (e) {
+        console.error('fetchDashTimeline:', e);
+    }
+}
+
+async function fetchJobTimeline(jobId) {
+    try {
+        const data = await api('GET', '/api/timeline/' + jobId + '?minutes=60');
+        renderTimelineChart('job-timeline', data);
+    } catch (e) {
+        console.error('fetchJobTimeline:', e);
+    }
+}
+
 // --- Dashboard Home ---
 
 async function renderDashboard() {
@@ -4130,6 +4375,7 @@ async function renderDashboard() {
 
         // Mini map
         renderDashMap(jobs);
+        fetchDashTimeline();
 
     } catch (e) {
         console.error('renderDashboard:', e);
