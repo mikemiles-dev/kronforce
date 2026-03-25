@@ -465,6 +465,91 @@ impl Db {
         }
     }
 
+    pub fn list_all_executions(
+        &self,
+        status_filter: Option<&str>,
+        search: Option<&str>,
+        since: Option<&str>,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<ExecutionRecord>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut where_clauses = Vec::new();
+        let mut param_values: Vec<String> = Vec::new();
+
+        if let Some(s) = status_filter {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("e.status = ?{}", param_values.len()));
+        }
+        if let Some(q) = search {
+            let like = format!("%{}%", q);
+            param_values.push(like);
+            let idx = param_values.len();
+            where_clauses.push(format!("(j.name LIKE ?{} OR e.stdout LIKE ?{})", idx, idx));
+        }
+        if let Some(s) = since {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("e.started_at >= ?{}", param_values.len()));
+        }
+
+        param_values.push(limit.to_string());
+        let limit_idx = param_values.len();
+        param_values.push(offset.to_string());
+        let offset_idx = param_values.len();
+
+        let where_sql = if where_clauses.is_empty() { String::new() } else { format!("WHERE {}", where_clauses.join(" AND ")) };
+        let sql = format!(
+            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
+            where_sql, limit_idx, offset_idx
+        );
+
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let rows = stmt
+            .query_map(params.as_slice(), |row| Ok(row_to_execution(row)))
+            .map_err(AppError::Db)?;
+        let mut recs = Vec::new();
+        for row in rows {
+            recs.push(row.map_err(AppError::Db)?);
+        }
+        Ok(recs)
+    }
+
+    pub fn count_all_executions(
+        &self,
+        status_filter: Option<&str>,
+        search: Option<&str>,
+        since: Option<&str>,
+    ) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut where_clauses = Vec::new();
+        let mut param_values: Vec<String> = Vec::new();
+
+        if let Some(s) = status_filter {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("e.status = ?{}", param_values.len()));
+        }
+        if let Some(q) = search {
+            let like = format!("%{}%", q);
+            param_values.push(like);
+            let idx = param_values.len();
+            where_clauses.push(format!("(j.name LIKE ?{} OR e.stdout LIKE ?{})", idx, idx));
+        }
+        if let Some(s) = since {
+            param_values.push(s.to_string());
+            where_clauses.push(format!("e.started_at >= ?{}", param_values.len()));
+        }
+
+        let where_sql = if where_clauses.is_empty() { String::new() } else { format!("WHERE {}", where_clauses.join(" AND ")) };
+        let sql = format!("SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {}", where_sql);
+
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> =
+            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        stmt.query_row(params.as_slice(), |row| row.get(0)).map_err(AppError::Db)
+    }
+
     pub fn count_executions_for_job(&self, job_id: Uuid) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
@@ -794,13 +879,20 @@ impl Db {
         Ok(())
     }
 
-    pub fn list_events(&self, limit: u32, offset: u32) -> Result<Vec<Event>, AppError> {
+    pub fn list_events(&self, since: Option<&str>, limit: u32, offset: u32) -> Result<Vec<Event>, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn
-            .prepare("SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2")
-            .map_err(AppError::Db)?;
+        let sql = match since {
+            Some(_) => "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events WHERE timestamp >= ?3 ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2",
+            None => "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2",
+        };
+        let mut stmt = conn.prepare(sql).map_err(AppError::Db)?;
         let rows = stmt
-            .query_map(params![limit, offset], |row| {
+            .query_map(
+                match since {
+                    Some(s) => rusqlite::params_from_iter(vec![limit.to_string(), offset.to_string(), s.to_string()]),
+                    None => rusqlite::params_from_iter(vec![limit.to_string(), offset.to_string()]),
+                },
+                |row| {
                 let id_str: String = row.get(0)?;
                 let severity_str: String = row.get(2)?;
                 let job_id_str: Option<String> = row.get(4)?;
@@ -830,10 +922,12 @@ impl Db {
         Ok(events)
     }
 
-    pub fn count_events(&self) -> Result<u32, AppError> {
+    pub fn count_events(&self, since: Option<&str>) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0))
-            .map_err(AppError::Db)
+        match since {
+            Some(s) => conn.query_row("SELECT COUNT(*) FROM events WHERE timestamp >= ?1", params![s], |row| row.get(0)),
+            None => conn.query_row("SELECT COUNT(*) FROM events", [], |row| row.get(0)),
+        }.map_err(AppError::Db)
     }
 
     pub fn log_event(

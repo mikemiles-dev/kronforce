@@ -1028,6 +1028,105 @@ th .job-checkbox { margin: 0; }
 
 .refresh-now:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 
+.time-range-trigger {
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.time-range-trigger:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.time-range-trigger .tr-icon { font-size: 12px; }
+.time-range-trigger .tr-label { font-weight: 500; }
+
+.time-range-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 200;
+    min-width: 280px;
+    padding: 12px;
+}
+
+.time-range-popup .tr-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 10px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.time-range-popup .tr-tab {
+    flex: 1;
+    padding: 5px 0;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.time-range-popup .tr-tab.active { background: var(--accent); color: #fff; }
+
+.tr-quick-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.tr-quick-btn {
+    padding: 6px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.tr-quick-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.tr-quick-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.tr-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tr-custom label {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.tr-custom input {
+    font-size: 12px;
+}
+
+.tr-custom .tr-apply {
+    margin-top: 4px;
+}
+
+.time-range-wrap { position: relative; }
+
 .agents-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1252,6 +1351,7 @@ th .job-checkbox { margin: 0; }
     border-radius: 8px;
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    transition: all 0.15s;
 }
 
 .stat-value {
@@ -1273,6 +1373,7 @@ th .job-checkbox { margin: 0; }
 .stat-card.info .stat-value { color: var(--info); }
 .stat-card.warning .stat-value { color: var(--warning); }
 .stat-card.neutral .stat-value { color: var(--text-primary); }
+.stat-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 
 .timeline-chart {
     width: 100%;
@@ -1420,46 +1521,48 @@ th .job-checkbox { margin: 0; }
     line-height: 1.5;
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    overflow: hidden;
+    min-height: 300px;
 }
 
 .script-textarea {
-    position: relative;
-    z-index: 2;
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
     min-height: 300px;
     padding: 12px;
     background: transparent;
-    color: var(--text-primary);
+    color: transparent;
     caret-color: var(--text-primary);
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
     border: none;
     outline: none;
-    resize: vertical;
+    resize: none;
     white-space: pre;
     overflow-wrap: normal;
     overflow-x: auto;
     tab-size: 4;
+    z-index: 2;
 }
 
 .script-highlight {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    position: relative;
     z-index: 1;
     padding: 12px;
+    min-height: 300px;
     background: var(--bg-primary);
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
     white-space: pre;
-    overflow: hidden;
+    overflow: auto;
     pointer-events: none;
-    color: transparent;
+    color: var(--text-primary);
+    word-wrap: normal;
+    tab-size: 4;
 }
 
 .script-highlight .kw { color: #c678dd; }
@@ -1515,6 +1618,54 @@ th .job-checkbox { margin: 0; }
     overflow: hidden;
     white-space: pre;
     text-overflow: ellipsis;
+}
+
+.script-reference {
+    margin-top: 8px;
+    padding: 12px 16px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+}
+
+.script-reference label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.script-reference ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+}
+
+.script-reference li {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.script-reference li::before {
+    content: '\2022  ';
+    color: var(--accent);
+}
+
+.script-reference code {
+    background: var(--bg-secondary);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--accent);
 }
 
 .scripts-grid {
@@ -1874,6 +2025,7 @@ th .job-checkbox { margin: 0; }
     <nav class="sidebar-nav">
         <button class="nav-tab active" id="tab-dashboard" onclick="showPage('dashboard')"><span class="tab-icon">&#9632;</span> Dashboard</button>
         <button class="nav-tab" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
+        <button class="nav-tab" id="tab-executions" onclick="showPage('executions')"><span class="tab-icon">&#9654;</span> Executions</button>
         <button class="nav-tab" id="tab-map" onclick="showPage('map')"><span class="tab-icon">&#9741;</span> Map</button>
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
         <button class="nav-tab" id="tab-scripts" onclick="showPage('scripts')"><span class="tab-icon">&#128220;</span> Scripts</button>
@@ -1918,6 +2070,14 @@ th .job-checkbox { margin: 0; }
                     <option value="60">60s</option>
                 </select>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('jobs',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-jobs">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-jobs" style="display:none"></div>
             </div>
         </div>
     </div>
@@ -1974,6 +2134,50 @@ th .job-checkbox { margin: 0; }
                 </button>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('events',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-events">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-events" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-bar" id="executions-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="exec-search-input" type="text" placeholder="Search executions..." oninput="onExecSearch()">
+                <button id="exec-search-clear" class="search-clear" onclick="clearExecSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="exec-status-filters">
+                <button class="status-btn active" onclick="setExecStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="setExecStatusFilter(this, 'succeeded')">Succeeded</button>
+                <button class="status-btn s-danger" onclick="setExecStatusFilter(this, 'failed')">Failed</button>
+                <button class="status-btn s-paused" onclick="setExecStatusFilter(this, 'timed_out')">Timed Out</button>
+                <button class="status-btn s-completed" onclick="setExecStatusFilter(this, 'running')">Running</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('execs',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-execs">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-execs" style="display:none"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1983,16 +2187,16 @@ th .job-checkbox { margin: 0; }
     <section id="dashboard-view">
         <div class="dash-stats" id="dash-stats"></div>
         <div class="card" style="margin-bottom:16px">
-            <div class="card-header"><h3>Execution Timeline (15 min)</h3></div>
+            <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Execution Timeline (15 min) <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
             <div id="dash-timeline"></div>
         </div>
         <div class="dash-grid">
             <div class="card">
-                <div class="card-header"><h3>Recent Executions</h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-recent-execs"></div>
             </div>
             <div class="card">
-                <div class="card-header"><h3>Dependency Map</h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('map')"><h3>Dependency Map <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div class="mini-map-container" style="max-height:350px">
                     <svg id="dash-map-svg"></svg>
                 </div>
@@ -2000,11 +2204,11 @@ th .job-checkbox { margin: 0; }
         </div>
         <div class="dash-grid">
             <div class="card">
-                <div class="card-header"><h3>Recent Events</h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-recent-events"></div>
             </div>
             <div class="card">
-                <div class="card-header"><h3>Agents</h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('agents')"><h3>Agents <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-agents"></div>
             </div>
         </div>
@@ -2058,6 +2262,11 @@ th .job-checkbox { margin: 0; }
         <div id="agents-table-wrap"></div>
     </section>
 
+    <section id="executions-view" style="display:none">
+        <div id="all-execs-table-wrap"></div>
+        <div id="all-execs-pagination" class="pagination"></div>
+    </section>
+
     <section id="scripts-view" style="display:none">
         <div style="display:flex;gap:12px;margin-bottom:16px">
             <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
@@ -2079,11 +2288,22 @@ th .job-checkbox { margin: 0; }
                 </div>
                 <div class="form-group">
                     <label>Code</label>
-                    <div class="form-hint">Available: <code>print(msg)</code> <code>http_get(url)</code> <code>http_post(url,body)</code> <code>shell_exec(cmd)</code> <code>env_var(name)</code> <code>sleep_ms(ms)</code> <code>fail(msg)</code></div>
                     <div class="script-editor-wrap">
                         <div class="script-highlight" id="script-highlight"></div>
                         <textarea id="script-code" class="script-textarea" spellcheck="false" oninput="highlightScript()" onscroll="syncScriptScroll()"></textarea>
                     </div>
+                </div>
+                <div class="script-reference">
+                    <label>Available Functions</label>
+                    <ul>
+                        <li><code>print(msg)</code> — append to job output</li>
+                        <li><code>http_get(url)</code> — returns <code>#{status, body}</code></li>
+                        <li><code>http_post(url, body)</code> — returns <code>#{status, body}</code></li>
+                        <li><code>shell_exec(cmd)</code> — returns <code>#{exit_code, stdout, stderr}</code></li>
+                        <li><code>env_var(name)</code> — read environment variable</li>
+                        <li><code>sleep_ms(ms)</code> — pause execution</li>
+                        <li><code>fail(msg)</code> — mark execution as failed</li>
+                    </ul>
                 </div>
             </div>
         </div>
@@ -2449,6 +2669,140 @@ let editingJobId = null;
 let currentExecId = null;
 let pollTimer = null;
 let jobsPage = 1;
+
+// Time range state
+const timeRanges = { jobs: '', execs: '', events: '' };
+const timeRangeCustom = { jobs: { from: '', to: '' }, execs: { from: '', to: '' }, events: { from: '', to: '' } };
+let activePopup = null;
+
+const quickRanges = [
+    { label: 'Last 15m', value: '15' },
+    { label: 'Last 1h', value: '60' },
+    { label: 'Last 6h', value: '360' },
+    { label: 'Last 12h', value: '720' },
+    { label: 'Last 24h', value: '1440' },
+    { label: 'Last 7d', value: '10080' },
+    { label: 'Last 30d', value: '43200' },
+    { label: 'Today', value: 'today' },
+    { label: 'All time', value: '' },
+];
+
+function toggleTimeRangePopup(scope, e) {
+    if (e) e.stopPropagation();
+    const popup = document.getElementById('tr-popup-' + scope);
+    if (popup.style.display !== 'none') {
+        popup.style.display = 'none';
+        activePopup = null;
+        return;
+    }
+    document.querySelectorAll('.time-range-popup').forEach(p => p.style.display = 'none');
+    renderTimeRangePopup(scope);
+    popup.style.display = '';
+    activePopup = scope;
+    // Prevent closing immediately
+    popup.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
+}
+
+function renderTimeRangePopup(scope) {
+    const popup = document.getElementById('tr-popup-' + scope);
+    const currentTab = popup.dataset.tab || 'quick';
+
+    let html = '<div class="tr-tabs">';
+    html += '<button class="tr-tab' + (currentTab === 'quick' ? ' active' : '') + '" onclick="switchTrTab(\'' + scope + '\',\'quick\')">Quick</button>';
+    html += '<button class="tr-tab' + (currentTab === 'custom' ? ' active' : '') + '" onclick="switchTrTab(\'' + scope + '\',\'custom\')">Custom</button>';
+    html += '</div>';
+
+    if (currentTab === 'quick') {
+        html += '<div class="tr-quick-buttons">';
+        for (const r of quickRanges) {
+            const active = timeRanges[scope] === r.value ? ' active' : '';
+            html += '<button class="tr-quick-btn' + active + '" onclick="applyQuickRange(\'' + scope + '\',\'' + r.value + '\')">' + r.label + '</button>';
+        }
+        html += '</div>';
+    } else {
+        const cust = timeRangeCustom[scope];
+        html += '<div class="tr-custom">';
+        html += '<div><label>From</label><input type="datetime-local" id="tr-from-' + scope + '" value="' + (cust.from || '') + '"></div>';
+        html += '<div><label>To</label><input type="datetime-local" id="tr-to-' + scope + '" value="' + (cust.to || '') + '"></div>';
+        html += '<button class="btn btn-primary btn-sm tr-apply" onclick="applyCustomRange(\'' + scope + '\')">Apply</button>';
+        html += '</div>';
+    }
+
+    popup.innerHTML = html;
+}
+
+function switchTrTab(scope, tab) {
+    const popup = document.getElementById('tr-popup-' + scope);
+    popup.dataset.tab = tab;
+    renderTimeRangePopup(scope);
+}
+
+function applyQuickRange(scope, value) {
+    if (value === 'today') {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        timeRanges[scope] = ((now - start) / 60000).toString();
+    } else {
+        timeRanges[scope] = value;
+    }
+    timeRangeCustom[scope] = { from: '', to: '' };
+    updateTrLabel(scope);
+    closeTimeRangePopup();
+    refreshForScope(scope);
+}
+
+function applyCustomRange(scope) {
+    const from = document.getElementById('tr-from-' + scope).value;
+    const to = document.getElementById('tr-to-' + scope).value;
+    if (!from) { toast('Select a start date', 'error'); return; }
+    timeRangeCustom[scope] = { from, to };
+    // Calculate minutes from now to 'from'
+    const fromDate = new Date(from);
+    const toDate = to ? new Date(to) : new Date();
+    const minutes = Math.ceil((toDate - fromDate) / 60000);
+    timeRanges[scope] = minutes.toString();
+    updateTrLabel(scope);
+    closeTimeRangePopup();
+    refreshForScope(scope);
+}
+
+function updateTrLabel(scope) {
+    const label = document.getElementById('tr-label-' + scope);
+    const val = timeRanges[scope];
+    const cust = timeRangeCustom[scope];
+    if (cust.from) {
+        const from = cust.from.replace('T', ' ').slice(5);
+        const to = cust.to ? cust.to.replace('T', ' ').slice(5) : 'now';
+        label.textContent = from + ' \u2192 ' + to;
+    } else {
+        const r = quickRanges.find(r => r.value === val);
+        label.textContent = r ? r.label : 'All time';
+    }
+}
+
+function closeTimeRangePopup() {
+    document.querySelectorAll('.time-range-popup').forEach(p => p.style.display = 'none');
+    activePopup = null;
+}
+
+function refreshForScope(scope) {
+    if (scope === 'jobs') { jobsPage = 1; fetchJobs(true); }
+    else if (scope === 'execs') { allExecsPage = 1; fetchAllExecutions(); }
+    else if (scope === 'events') { eventsPage = 1; fetchEvents(); }
+}
+
+function getSinceISO(minutes) {
+    if (!minutes) return '';
+    const d = new Date(Date.now() - parseInt(minutes) * 60000);
+    return d.toISOString();
+}
+
+// Close popup on outside click
+document.addEventListener('mousedown', function(e) {
+    if (activePopup && !e.target.closest('.time-range-wrap')) {
+        closeTimeRangePopup();
+    }
+});
 let jobsTotalPages = 1;
 let jobsTotal = 0;
 let execsPage = 1;
@@ -2548,11 +2902,19 @@ async function fetchJobs(resetPage) {
             // Waiting = has deps that aren't satisfied
             allJobs = allJobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
         } else if (filter === 'unscheduled') {
-            // Unscheduled should exclude waiting jobs (those are really scheduled, just blocked)
             allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
         }
-        jobsTotalPages = isClientFilter ? 1 : res.total_pages;
-        jobsTotal = isClientFilter ? allJobs.length : res.total;
+        // Time range filter (client-side for jobs - filter by last execution time)
+        if (timeRanges.jobs) {
+            const since = new Date(Date.now() - parseInt(timeRanges.jobs) * 60000);
+            allJobs = allJobs.filter(j => {
+                if (!j.last_execution || !j.last_execution.finished_at) return false;
+                return new Date(j.last_execution.finished_at) >= since;
+            });
+        }
+        const isTimeFiltered = !!timeRanges.jobs;
+        jobsTotalPages = (isClientFilter || isTimeFiltered) ? 1 : res.total_pages;
+        jobsTotal = (isClientFilter || isTimeFiltered) ? allJobs.length : res.total;
         renderJobsTable();
         renderPagination('jobs-pagination', jobsPage, jobsTotalPages, jobsTotal, goToJobsPage);
     } catch (e) {
@@ -2670,11 +3032,13 @@ async function showJobDetail(id) {
     document.getElementById('jobs-view').style.display = 'none';
     document.getElementById('map-view').style.display = 'none';
     document.getElementById('agents-view').style.display = 'none';
+    document.getElementById('executions-view').style.display = 'none';
     document.getElementById('scripts-view').style.display = 'none';
     document.getElementById('events-view').style.display = 'none';
     document.getElementById('settings-view').style.display = 'none';
     document.getElementById('jobs-action-bar').style.display = 'none';
     document.getElementById('agents-action-bar').style.display = 'none';
+    document.getElementById('executions-action-bar').style.display = 'none';
     document.getElementById('events-action-bar').style.display = 'none';
     document.getElementById('detail-view').style.display = '';
 
@@ -3838,12 +4202,14 @@ function showPage(page) {
     document.getElementById('detail-view').style.display = 'none';
     document.getElementById('map-view').style.display = page === 'map' ? '' : 'none';
     document.getElementById('agents-view').style.display = page === 'agents' ? '' : 'none';
+    document.getElementById('executions-view').style.display = page === 'executions' ? '' : 'none';
     document.getElementById('scripts-view').style.display = page === 'scripts' ? '' : 'none';
     document.getElementById('events-view').style.display = page === 'events' ? '' : 'none';
     document.getElementById('settings-view').style.display = page === 'settings' ? '' : 'none';
 
     document.getElementById('jobs-action-bar').style.display = page === 'jobs' ? '' : 'none';
     document.getElementById('agents-action-bar').style.display = page === 'agents' ? '' : 'none';
+    document.getElementById('executions-action-bar').style.display = page === 'executions' ? '' : 'none';
     document.getElementById('events-action-bar').style.display = page === 'events' ? '' : 'none';
 
     if (page === 'dashboard') {
@@ -3855,6 +4221,8 @@ function showPage(page) {
         fetchJobs();
     } else if (page === 'map') {
         renderMap();
+    } else if (page === 'executions') {
+        fetchAllExecutions();
     } else if (page === 'scripts') {
         fetchScripts();
     } else if (page === 'events') {
@@ -4247,6 +4615,8 @@ async function refreshNow() {
         await renderDashboard();
     } else if (currentPage === 'agents') {
         renderAgents();
+    } else if (currentPage === 'executions') {
+        await fetchAllExecutions();
     } else if (currentPage === 'events') {
         await fetchEvents();
     } else if (currentJobId) {
@@ -4284,6 +4654,8 @@ async function doRefreshTick() {
         await renderDashboard();
     } else if (currentPage === 'agents') {
         renderAgents();
+    } else if (currentPage === 'executions') {
+        await fetchAllExecutions();
     } else if (currentPage === 'events') {
         await fetchEvents();
     } else if (currentJobId) {
@@ -4463,6 +4835,83 @@ function renderMiniMap(job) {
     svg.innerHTML = svgHtml;
 }
 
+// --- All Executions ---
+
+let allExecsPage = 1;
+let execStatusFilter = '';
+let execSearchTerm = '';
+let execSearchDebounce2 = null;
+
+function onExecSearch() {
+    const val = document.getElementById('exec-search-input').value;
+    document.getElementById('exec-search-clear').style.display = val ? '' : 'none';
+    clearTimeout(execSearchDebounce2);
+    execSearchDebounce2 = setTimeout(() => {
+        execSearchTerm = val.trim();
+        allExecsPage = 1;
+        fetchAllExecutions();
+    }, 250);
+}
+
+function clearExecSearch() {
+    document.getElementById('exec-search-input').value = '';
+    document.getElementById('exec-search-clear').style.display = 'none';
+    execSearchTerm = '';
+    allExecsPage = 1;
+    fetchAllExecutions();
+}
+
+function setExecStatusFilter(btn, status) {
+    execStatusFilter = status;
+    document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    allExecsPage = 1;
+    fetchAllExecutions();
+}
+
+async function fetchAllExecutions() {
+    try {
+        let qs = '?page=' + allExecsPage + '&per_page=' + PER_PAGE;
+        if (execStatusFilter) qs += '&status=' + execStatusFilter;
+        if (execSearchTerm) qs += '&search=' + encodeURIComponent(execSearchTerm);
+        if (timeRanges.execs) qs += '&since=' + encodeURIComponent(getSinceISO(timeRanges.execs));
+        const res = await api('GET', '/api/executions' + qs);
+        renderAllExecsTable(res.data);
+        renderPagination('all-execs-pagination', allExecsPage, res.total_pages, res.total, goToAllExecsPage);
+    } catch (e) {
+        console.error('fetchAllExecutions:', e);
+    }
+}
+
+function goToAllExecsPage(p) {
+    allExecsPage = p;
+    fetchAllExecutions();
+}
+
+function renderAllExecsTable(execs) {
+    const wrap = document.getElementById('all-execs-table-wrap');
+    if (execs.length === 0) {
+        wrap.innerHTML = '<div class="empty-state"><p>No executions found</p></div>';
+        return;
+    }
+    let html = '<table><thead><tr><th>ID</th><th>Job</th><th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
+    for (const e of execs) {
+        const jobName = resolveJobName(e.job_id);
+        html += '<tr style="cursor:pointer" onclick="showExecDetail(\'' + e.id + '\')">';
+        html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + '</span></td>';
+        html += '<td><span class="job-name" onclick="event.stopPropagation();showJobDetail(\'' + e.job_id + '\')">' + esc(jobName) + '</span></td>';
+        html += '<td>' + badge(e.status) + '</td>';
+        html += '<td>' + (e.exit_code !== null ? e.exit_code : '-') + '</td>';
+        html += '<td><span class="time-text">' + (e.started_at ? fmtDate(e.started_at) : '-') + '</span></td>';
+        html += '<td><span class="time-text">' + fmtDuration(e.started_at, e.finished_at) + '</span></td>';
+        html += '<td>' + (e.agent_id ? fmtAgentLink(e.agent_id) : '<span class="time-text">local</span>') + '</td>';
+        html += '<td><span class="time-text">' + fmtTrigger(e.triggered_by) + '</span></td>';
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
 // --- Scripts ---
 
 let allScripts = [];
@@ -4586,14 +5035,69 @@ function syncScriptScroll() {
 }
 
 function syntaxHighlight(code) {
-    // Simple regex-based Rhai syntax highlighting
-    return esc(code)
-        .replace(/\/\/.*/g, '<span class="cmt">$&</span>')
-        .replace(/\b(let|if|else|while|for|in|fn|return|true|false|loop|break|continue|throw|try|catch)\b/g, '<span class="kw">$&</span>')
-        .replace(/\b(print|http_get|http_post|shell_exec|env_var|sleep_ms|fail|parse_int|parse_json|to_string)\b/g, '<span class="fn">$&</span>')
-        .replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span class="str">$&</span>')
-        .replace(/\b(\d+)\b/g, '<span class="num">$&</span>')
-        .replace(/(!=|==|&gt;=|&lt;=|&amp;&amp;|\|\||&gt;|&lt;)/g, '<span class="op">$&</span>');
+    // Tokenize then highlight — avoids HTML entity issues
+    let result = '';
+    let i = 0;
+    while (i < code.length) {
+        // Comments
+        if (code[i] === '/' && code[i+1] === '/') {
+            let end = code.indexOf('\n', i);
+            if (end === -1) end = code.length;
+            result += '<span class="cmt">' + esc(code.slice(i, end)) + '</span>';
+            i = end;
+            continue;
+        }
+        // Strings
+        if (code[i] === '"') {
+            let end = i + 1;
+            while (end < code.length && code[end] !== '"') { if (code[end] === '\\') end++; end++; }
+            end = Math.min(end + 1, code.length);
+            result += '<span class="str">' + esc(code.slice(i, end)) + '</span>';
+            i = end;
+            continue;
+        }
+        // Backtick strings
+        if (code[i] === '`') {
+            let end = code.indexOf('`', i + 1);
+            if (end === -1) end = code.length - 1;
+            end++;
+            result += '<span class="str">' + esc(code.slice(i, end)) + '</span>';
+            i = end;
+            continue;
+        }
+        // Words (keywords, functions, numbers)
+        if (/[a-zA-Z_]/.test(code[i])) {
+            let end = i;
+            while (end < code.length && /[a-zA-Z0-9_]/.test(code[end])) end++;
+            const word = code.slice(i, end);
+            const keywords = ['let','if','else','while','for','in','fn','return','true','false','loop','break','continue','throw','try','catch','switch','is'];
+            const fns = ['print','http_get','http_post','shell_exec','env_var','sleep_ms','fail','parse_int','parse_json','to_string','type_of','len'];
+            if (keywords.includes(word)) result += '<span class="kw">' + word + '</span>';
+            else if (fns.includes(word)) result += '<span class="fn">' + word + '</span>';
+            else result += esc(word);
+            i = end;
+            continue;
+        }
+        // Numbers
+        if (/[0-9]/.test(code[i])) {
+            let end = i;
+            while (end < code.length && /[0-9.]/.test(code[end])) end++;
+            result += '<span class="num">' + esc(code.slice(i, end)) + '</span>';
+            i = end;
+            continue;
+        }
+        // Operators
+        if ('!=<>&|'.includes(code[i])) {
+            let op = code[i];
+            if (i + 1 < code.length && '=&|>'.includes(code[i+1])) { op += code[i+1]; i++; }
+            result += '<span class="op">' + esc(op) + '</span>';
+            i++;
+            continue;
+        }
+        result += esc(code[i]);
+        i++;
+    }
+    return result;
 }
 
 // --- Timeline Chart ---
@@ -4777,14 +5281,14 @@ async function renderDashboard() {
 
         // Render stats cards
         document.getElementById('dash-stats').innerHTML =
-            statCard(totalJobs, 'Total Jobs', 'neutral') +
-            statCard(scheduled, 'Scheduled', 'info') +
-            statCard(waiting, 'Waiting', 'warning') +
-            statCard(paused, 'Paused', 'neutral') +
-            statCard(totalSucceeded, 'Succeeded', 'success') +
-            statCard(totalFailed, 'Failed', 'danger') +
-            statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral') +
-            statCard(totalExecs, 'Total Runs', 'neutral');
+            statCard(totalJobs, 'Total Jobs', 'neutral', "showPage('jobs')") +
+            statCard(scheduled, 'Scheduled', 'info', "navJobsFiltered('scheduled')") +
+            statCard(waiting, 'Waiting', 'warning', "navJobsFiltered('blocked')") +
+            statCard(paused, 'Paused', 'neutral', "navJobsFiltered('paused')") +
+            statCard(totalSucceeded, 'Succeeded', 'success', "navExecsFiltered('succeeded')") +
+            statCard(totalFailed, 'Failed', 'danger', "navExecsFiltered('failed')") +
+            statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral', "showPage('agents')") +
+            statCard(totalExecs, 'Total Runs', 'neutral', "showPage('executions')");
 
         // Recent executions - collect from all jobs
         let recentExecs = [];
@@ -4857,8 +5361,28 @@ async function renderDashboard() {
     }
 }
 
-function statCard(value, label, cls) {
-    return '<div class="stat-card ' + cls + '"><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div>';
+function navJobsFiltered(filter) {
+    currentStatusFilter = filter;
+    showPage('jobs');
+    // Set the active filter button
+    document.querySelectorAll('#status-filters .status-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.status === filter || (!filter && b.dataset.status === ''));
+    });
+    fetchJobs(true);
+}
+
+function navExecsFiltered(status) {
+    execStatusFilter = status;
+    showPage('executions');
+    document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.toLowerCase() === status || (!status && b.textContent === 'All'));
+    });
+    fetchAllExecutions();
+}
+
+function statCard(value, label, cls, onclick) {
+    const click = onclick ? ' onclick="' + onclick + '" style="cursor:pointer"' : '';
+    return '<div class="stat-card ' + cls + '"' + click + '><div class="stat-value">' + value + '</div><div class="stat-label">' + label + '</div></div>';
 }
 
 function renderDashMap(jobs) {
@@ -5006,7 +5530,9 @@ function setEventTypeFilter(btn, type) {
 async function fetchEvents() {
     try {
         const fetchSize = (eventSearchTerm || eventTypeFilter) ? 200 : 50;
-        const res = await api('GET', '/api/events?page=' + eventsPage + '&per_page=' + fetchSize);
+        let eventsQs = '?page=' + eventsPage + '&per_page=' + fetchSize;
+        if (timeRanges.events) eventsQs += '&since=' + encodeURIComponent(getSinceISO(timeRanges.events));
+        const res = await api('GET', '/api/events' + eventsQs);
         let events = res.data;
 
         if (eventTypeFilter) {
@@ -5280,10 +5806,9 @@ applyTheme();
 // --- Routing ---
 
 function updateHash() {
-    if (currentJobId) {
-        history.replaceState(null, '', '#/jobs/' + currentJobId);
-    } else {
-        history.replaceState(null, '', '#/' + currentPage);
+    const newHash = currentJobId ? '#/jobs/' + currentJobId : '#/' + currentPage;
+    if (location.hash !== newHash) {
+        history.pushState(null, '', newHash);
     }
 }
 
@@ -5301,7 +5826,7 @@ function handleRoute() {
     }
 
     const page = parts[0] || 'jobs';
-    if (['dashboard', 'jobs', 'map', 'agents', 'scripts', 'events', 'settings'].includes(page)) {
+    if (['dashboard', 'jobs', 'map', 'agents', 'executions', 'scripts', 'events', 'settings'].includes(page)) {
         showPage(page);
     } else {
         showPage('jobs');
@@ -5328,6 +5853,7 @@ showJobsList = function() {
 };
 
 window.addEventListener('hashchange', handleRoute);
+window.addEventListener('popstate', handleRoute);
 
 // --- Init ---
 fetchHealth();

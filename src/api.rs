@@ -41,6 +41,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/jobs/{id}/trigger", post(trigger_job))
         .route("/api/jobs/{id}/executions", get(list_executions))
+        .route("/api/executions", get(list_all_executions))
         .route("/api/executions/{id}", get(get_execution))
         .route("/api/executions/{id}/cancel", post(cancel_execution))
         .route("/api/agents", get(list_agents))
@@ -456,6 +457,50 @@ async fn list_executions(
     }))
 }
 
+#[derive(Deserialize)]
+struct ListAllExecsQuery {
+    status: Option<String>,
+    search: Option<String>,
+    since: Option<String>,
+    page: Option<u32>,
+    per_page: Option<u32>,
+}
+
+async fn list_all_executions(
+    State(state): State<AppState>,
+    Query(query): Query<ListAllExecsQuery>,
+) -> Result<Json<PaginatedResponse<Vec<ExecutionRecord>>>, AppError> {
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(20).min(100);
+    let offset = (page - 1) * per_page;
+    let status = query.status.clone();
+    let search = query.search.clone();
+    let since = query.since.clone();
+
+    let db = state.db.clone();
+    let s2 = status.clone();
+    let q2 = search.clone();
+    let t2 = since.clone();
+    let total = tokio::task::spawn_blocking(move || db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref()))
+        .await
+        .unwrap()?;
+
+    let db = state.db.clone();
+    let recs = tokio::task::spawn_blocking(move || db.list_all_executions(status.as_deref(), search.as_deref(), since.as_deref(), per_page, offset))
+        .await
+        .unwrap()?;
+
+    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+
+    Ok(Json(PaginatedResponse {
+        data: recs,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }))
+}
+
 async fn get_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -740,6 +785,7 @@ async fn execution_result_callback(
 struct ListEventsQuery {
     page: Option<u32>,
     per_page: Option<u32>,
+    since: Option<String>,
 }
 
 async fn list_events(
@@ -749,14 +795,16 @@ async fn list_events(
     let page = query.page.unwrap_or(1).max(1);
     let per_page = query.per_page.unwrap_or(50).min(100);
     let offset = (page - 1) * per_page;
+    let since = query.since.clone();
 
     let db = state.db.clone();
-    let total = tokio::task::spawn_blocking(move || db.count_events())
+    let t2 = since.clone();
+    let total = tokio::task::spawn_blocking(move || db.count_events(t2.as_deref()))
         .await
         .unwrap()?;
 
     let db = state.db.clone();
-    let events = tokio::task::spawn_blocking(move || db.list_events(per_page, offset))
+    let events = tokio::task::spawn_blocking(move || db.list_events(since.as_deref(), per_page, offset))
         .await
         .unwrap()?;
 
