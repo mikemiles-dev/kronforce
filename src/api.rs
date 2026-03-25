@@ -47,6 +47,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/events", get(list_events))
         .route("/api/timeline", get(get_timeline))
         .route("/api/timeline/{job_id}", get(get_job_timeline))
+        .route("/api/timeline-detail/{bucket}", get(get_timeline_detail))
         .route("/api/keys", get(list_api_keys).post(create_api_key))
         .route("/api/keys/{id}", delete(revoke_api_key))
         .route("/api/auth/me", get(auth_me))
@@ -805,6 +806,24 @@ async fn get_job_timeline(
         .await
         .unwrap()?;
     Ok(Json(data.into_iter().map(|(t, s, f, o)| TimelineBucket { time: t, succeeded: s, failed: f, other: o }).collect()))
+}
+
+#[derive(Serialize)]
+struct TimelineDetailEntry {
+    job_name: String,
+    status: String,
+    count: u32,
+}
+
+async fn get_timeline_detail(
+    State(state): State<AppState>,
+    Path(bucket): Path<String>,
+) -> Result<Json<Vec<TimelineDetailEntry>>, AppError> {
+    let db = state.db.clone();
+    let data = tokio::task::spawn_blocking(move || db.get_timeline_detail(&bucket))
+        .await
+        .unwrap()?;
+    Ok(Json(data.into_iter().map(|(name, status, count)| TimelineDetailEntry { job_name: name, status, count }).collect()))
 }
 
 // --- Auth ---

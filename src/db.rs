@@ -552,6 +552,27 @@ impl Db {
         Ok(bucket_map.into_iter().map(|(k, (s, f, o))| (k, s, f, o)).collect())
     }
 
+    /// Get per-job execution counts for a specific minute bucket
+    pub fn get_timeline_detail(
+        &self,
+        bucket: &str,
+    ) -> Result<Vec<(String, String, u32)>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let bucket_start = format!("{}:00", bucket);
+        let bucket_end = format!("{}:59", bucket);
+        let mut stmt = conn.prepare(
+            "SELECT j.name, e.status, COUNT(*) as cnt FROM executions e JOIN jobs j ON e.job_id = j.id WHERE e.started_at >= ?1 AND e.started_at <= ?2 GROUP BY j.name, e.status ORDER BY cnt DESC"
+        ).map_err(AppError::Db)?;
+        let rows = stmt.query_map(params![bucket_start, bucket_end], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, u32>(2)?))
+        }).map_err(AppError::Db)?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(AppError::Db)?);
+        }
+        Ok(result)
+    }
+
     pub fn get_latest_execution_for_job(
         &self,
         job_id: Uuid,

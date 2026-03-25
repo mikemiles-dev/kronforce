@@ -1104,6 +1104,38 @@ th .job-checkbox { margin: 0; }
 .agent-status-dot.offline { background: var(--danger); }
 .agent-status-dot.draining { background: var(--warning); }
 
+.pair-command {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.pair-command code {
+    display: inline-block;
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    user-select: all;
+    margin-left: 4px;
+}
+
+.pair-label {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.unpair-btn:hover {
+    background: var(--danger) !important;
+    color: white !important;
+    border-color: var(--danger) !important;
+}
+
 .agents-empty {
     text-align: center;
     padding: 60px 0;
@@ -1299,6 +1331,50 @@ th .job-checkbox { margin: 0; }
     height: 8px;
     border-radius: 2px;
 }
+
+.timeline-tooltip {
+    position: fixed;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    z-index: 300;
+    pointer-events: none;
+    min-width: 180px;
+    max-width: 280px;
+}
+
+.timeline-tooltip .tt-time {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.timeline-tooltip .tt-summary {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.timeline-tooltip .tt-jobs {
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    font-size: 11px;
+}
+
+.timeline-tooltip .tt-job {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    color: var(--text-secondary);
+}
+
+.timeline-tooltip .tt-job-name { color: var(--text-primary); }
+.timeline-tooltip .tt-loading { color: var(--text-muted); font-style: italic; }
 
 .dash-grid {
     display: grid;
@@ -3650,8 +3726,10 @@ async function fetchAgents() {
 function renderAgents() {
     const wrap = document.getElementById('agents-table-wrap');
 
+    let html = '<div class="pair-command"><span class="pair-label">Pair an agent:</span> <code>KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code></div>';
+
     if (allAgents.length === 0) {
-        wrap.innerHTML = '<div class="agents-empty"><p>No agents registered</p><p>Start an agent with:</p><code>KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code></div>';
+        wrap.innerHTML = html + '<div class="agents-empty"><p>No agents registered</p></div>';
         return;
     }
 
@@ -3674,7 +3752,7 @@ function renderAgents() {
     const offline = allAgents.filter(a => a.status === 'offline').length;
     const draining = allAgents.filter(a => a.status === 'draining').length;
 
-    let html = '<div class="agents-summary">';
+    html += '<div class="agents-summary">';
     html += '<div class="agents-summary-item"><span class="agent-status-dot online"></span>' + online + ' online</div>';
     if (offline > 0) html += '<div class="agents-summary-item"><span class="agent-status-dot offline"></span>' + offline + ' offline</div>';
     if (draining > 0) html += '<div class="agents-summary-item"><span class="agent-status-dot draining"></span>' + draining + ' draining</div>';
@@ -3696,7 +3774,7 @@ function renderAgents() {
         html += '<div class="agent-card-header">';
         html += '<span class="agent-name"><span class="agent-icon">&#128421;</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
         html += '<div style="display:flex;align-items:center;gap:6px">' + badge(a.status);
-        html += '<button class="btn btn-danger btn-sm" onclick="unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
+        html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
         html += '</div></div>';
         html += '<div class="agent-meta">';
         html += agentMeta('Hostname', esc(a.hostname));
@@ -4231,7 +4309,7 @@ function renderTimelineChart(containerId, data) {
         const oH = Math.round((d.other / maxVal) * chartHeight);
         const time = d.time.slice(11); // HH:MM
 
-        html += '<div class="timeline-bar-group" title="' + time + '  \u2714' + d.succeeded + ' \u2718' + d.failed + ' \u25CB' + d.other + '">';
+        html += '<div class="timeline-bar-group" data-bucket="' + d.time + '" onmouseenter="showTimelineTooltip(event,\'' + d.time + '\',\'' + time + '\',' + d.succeeded + ',' + d.failed + ',' + d.other + ')" onmouseleave="hideTimelineTooltip()">';
         if (oH > 0) html += '<div class="timeline-bar other" style="height:' + oH + 'px"></div>';
         if (fH > 0) html += '<div class="timeline-bar failed" style="height:' + fH + 'px"></div>';
         if (sH > 0) html += '<div class="timeline-bar succeeded" style="height:' + sH + 'px"></div>';
@@ -4251,6 +4329,88 @@ function renderTimelineChart(containerId, data) {
 
     html += '</div>';
     container.innerHTML = html;
+}
+
+let tooltipEl = null;
+let tooltipFetchController = null;
+
+function showTimelineTooltip(event, bucket, time, succeeded, failed, other) {
+    hideTimelineTooltip();
+
+    const total = succeeded + failed + other;
+    if (total === 0) return;
+
+    const el = document.createElement('div');
+    el.className = 'timeline-tooltip';
+
+    let html = '<div class="tt-time">' + time + '</div>';
+    html += '<div class="tt-summary">';
+    html += '<span>\u2714 ' + succeeded + '</span>';
+    html += '<span>\u2718 ' + failed + '</span>';
+    if (other > 0) html += '<span>\u25CB ' + other + '</span>';
+    html += '</div>';
+    html += '<div class="tt-jobs"><span class="tt-loading">Loading jobs...</span></div>';
+    el.innerHTML = html;
+
+    document.body.appendChild(el);
+    tooltipEl = el;
+
+    // Position near the bar
+    const rect = event.target.closest('.timeline-bar-group').getBoundingClientRect();
+    el.style.left = Math.min(rect.left, window.innerWidth - 290) + 'px';
+    el.style.top = (rect.top - el.offsetHeight - 8) + 'px';
+    if (parseInt(el.style.top) < 0) {
+        el.style.top = (rect.bottom + 8) + 'px';
+    }
+
+    // Fetch job detail
+    api('GET', '/api/timeline-detail/' + encodeURIComponent(bucket))
+        .then(data => {
+            if (!tooltipEl) return;
+            const jobsDiv = el.querySelector('.tt-jobs');
+            if (!data || data.length === 0) {
+                jobsDiv.innerHTML = '<span class="tt-loading">No job details</span>';
+                return;
+            }
+            // Aggregate by job name
+            const byJob = {};
+            for (const d of data) {
+                if (!byJob[d.job_name]) byJob[d.job_name] = { succeeded: 0, failed: 0, other: 0 };
+                if (d.status === 'succeeded') byJob[d.job_name].succeeded += d.count;
+                else if (d.status === 'failed' || d.status === 'timed_out') byJob[d.job_name].failed += d.count;
+                else byJob[d.job_name].other += d.count;
+            }
+            let jobHtml = '';
+            const sorted = Object.entries(byJob).sort((a, b) => {
+                const ta = a[1].succeeded + a[1].failed + a[1].other;
+                const tb = b[1].succeeded + b[1].failed + b[1].other;
+                return tb - ta;
+            }).slice(0, 5);
+            for (const [name, counts] of sorted) {
+                let statusParts = [];
+                if (counts.succeeded > 0) statusParts.push('\u2714' + counts.succeeded);
+                if (counts.failed > 0) statusParts.push('\u2718' + counts.failed);
+                if (counts.other > 0) statusParts.push('\u25CB' + counts.other);
+                jobHtml += '<div class="tt-job"><span class="tt-job-name">' + esc(name) + '</span><span>' + statusParts.join(' ') + '</span></div>';
+            }
+            if (Object.keys(byJob).length > 5) {
+                jobHtml += '<div class="tt-job" style="color:var(--text-muted)">...and ' + (Object.keys(byJob).length - 5) + ' more</div>';
+            }
+            jobsDiv.innerHTML = jobHtml;
+        })
+        .catch(() => {
+            if (tooltipEl) {
+                const jobsDiv = el.querySelector('.tt-jobs');
+                if (jobsDiv) jobsDiv.innerHTML = '';
+            }
+        });
+}
+
+function hideTimelineTooltip() {
+    if (tooltipEl) {
+        tooltipEl.remove();
+        tooltipEl = null;
+    }
 }
 
 async function fetchDashTimeline() {
@@ -4692,9 +4852,11 @@ async function createKey() {
     try {
         const res = await api('POST', '/api/keys', { name, role });
         document.getElementById('new-key-display').style.display = '';
+        const rawKey = res.raw_key;
         document.getElementById('new-key-display').innerHTML =
             '<strong>Key created!</strong> Copy it now — it won\'t be shown again.' +
-            '<code>' + esc(res.raw_key) + '</code>';
+            '<code id="new-key-value">' + esc(rawKey) + '</code>' +
+            '<button class="btn btn-ghost btn-sm" onclick="copyKey()" style="margin-top:4px">&#128203; Copy to Clipboard</button>';
         document.getElementById('new-key-name').value = '';
         fetchKeys();
     } catch (e) {
@@ -4733,6 +4895,24 @@ function renderKeys(keys) {
         html += '</div>';
     }
     list.innerHTML = html;
+}
+
+function copyKey() {
+    const el = document.getElementById('new-key-value');
+    if (el) {
+        navigator.clipboard.writeText(el.textContent).then(() => {
+            toast('Key copied to clipboard');
+        }).catch(() => {
+            // Fallback for non-HTTPS
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('copy');
+            toast('Key copied to clipboard');
+        });
+    }
 }
 
 async function revokeKey(id, name) {
