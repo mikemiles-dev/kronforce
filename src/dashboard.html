@@ -2013,6 +2013,7 @@ th .job-checkbox { margin: 0; }
                 <label><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> HTTP</label>
                 <label><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> SQL</label>
                 <label><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> FTP</label>
+                <label><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> Script</label>
             </div>
         </div>
         <div id="task-shell-fields">
@@ -2099,6 +2100,17 @@ th .job-checkbox { margin: 0; }
                     <label>Local Path</label>
                     <input id="f-ftp-local" type="text" placeholder="/data/file.csv">
                 </div>
+            </div>
+        </div>
+        <div id="task-script-fields" style="display:none">
+            <div class="form-group">
+                <label>Rhai Script</label>
+                <div class="form-hint">Available functions: <code>print(msg)</code>, <code>http_get(url)</code>, <code>http_post(url, body)</code>, <code>shell_exec(cmd)</code>, <code>env_var(name)</code>, <code>sleep_ms(ms)</code>, <code>fail(msg)</code></div>
+                <textarea id="f-script" placeholder='let resp = http_get("https://api.example.com/health");
+if resp.status != 200 {
+    fail("Health check failed: " + resp.status);
+}
+print("OK: " + resp.body);' style="font-family:var(--font-mono);min-height:150px;font-size:12px"></textarea>
             </div>
         </div>
         <div class="form-group">
@@ -3037,6 +3049,7 @@ function updateTaskFields() {
     document.getElementById('task-http-fields').style.display = type === 'http' ? '' : 'none';
     document.getElementById('task-sql-fields').style.display = type === 'sql' ? '' : 'none';
     document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
+    document.getElementById('task-script-fields').style.display = type === 'script' ? '' : 'none';
 }
 
 function buildTaskFromForm() {
@@ -3080,6 +3093,11 @@ function buildTaskFromForm() {
             remote_path: remote, local_path: local,
         };
     }
+    if (type === 'script') {
+        const code = document.getElementById('f-script').value.trim();
+        if (!code) return null;
+        return { type: 'script', code };
+    }
     return null;
 }
 
@@ -3110,6 +3128,8 @@ function populateTaskForm(task) {
         document.getElementById('f-ftp-pass').value = task.password || '';
         document.getElementById('f-ftp-remote').value = task.remote_path || '';
         document.getElementById('f-ftp-local').value = task.local_path || '';
+    } else if (type === 'script') {
+        document.getElementById('f-script').value = task.code || '';
     }
 }
 
@@ -3442,6 +3462,7 @@ function fmtTaskBadge(task) {
     if (t === 'http') return '<span class="badge badge-running">http</span>';
     if (t === 'sql') return '<span class="badge badge-paused">sql</span>';
     if (t === 'ftp') return '<span class="badge badge-disabled">ftp</span>';
+    if (t === 'script') return '<span class="badge badge-paused">script</span>';
     return '<span class="badge">' + t + '</span>';
 }
 
@@ -3451,6 +3472,7 @@ function fmtTaskDetail(task) {
     if (task.type === 'http') return fmtTaskBadge(task) + ' <code>' + esc(task.method.toUpperCase() + ' ' + task.url) + '</code>';
     if (task.type === 'sql') return fmtTaskBadge(task) + ' <code>' + esc(task.driver + ': ' + task.query.slice(0, 80)) + '</code>';
     if (task.type === 'ftp') return fmtTaskBadge(task) + ' <code>' + esc(task.direction + ' ' + task.protocol + '://' + task.host + task.remote_path) + '</code>';
+    if (task.type === 'script') return fmtTaskBadge(task) + ' <code>' + esc(task.code.slice(0, 80) + (task.code.length > 80 ? '...' : '')) + '</code>';
     return task.type;
 }
 

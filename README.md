@@ -331,8 +331,99 @@ Events are logged for: job created/deleted/triggered, execution completed (succe
 | `http` | In-process HTTP request via reqwest | `method`, `url`, `headers`, `body`, `expect_status` |
 | `sql` | Shells out to `psql`/`mysql`/`sqlite3` | `driver`, `connection_string`, `query` |
 | `ftp` | Uses `curl` for FTP/FTPS/SFTP transfers | `protocol`, `host`, `port`, `username`, `password`, `direction`, `remote_path`, `local_path` |
+| `script` | Rhai scripting engine with built-in APIs | `code` |
 
 All task types capture output and errors. HTTP returns the response body as output and the status code as exit code. SQL returns query results as output. FTP returns the transfer log.
+
+### Custom Scripts (Rhai)
+
+The `script` task type lets you write custom job logic using [Rhai](https://rhai.rs), a lightweight scripting language embedded in the Rust binary. No external runtime needed.
+
+```bash
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "health-and-notify",
+    "task": {"type": "script", "code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 {\n    http_post(\"https://hooks.slack.com/xxx\", \"{\\\"text\\\":\\\"API down!\\\"}\");\n    fail(\"Health check failed: \" + resp.status);\n}\nprint(\"API healthy: \" + resp.body);"},
+    "schedule": {"type": "cron", "value": "0 */5 * * * *"}
+  }'
+```
+
+#### Available Functions
+
+| Function | Returns | Description |
+|---|---|---|
+| `print(msg)` | — | Appends to job output |
+| `http_get(url)` | `#{status, body}` | Makes an HTTP GET request |
+| `http_post(url, body)` | `#{status, body}` | Makes an HTTP POST request |
+| `shell_exec(cmd)` | `#{exit_code, stdout, stderr}` | Runs a shell command |
+| `env_var(name)` | `string` | Reads an environment variable |
+| `sleep_ms(ms)` | — | Sleeps for N milliseconds |
+| `fail(msg)` | — | Marks the execution as failed |
+
+#### Script Examples
+
+**Health check with Slack notification:**
+```javascript
+let resp = http_get("https://api.example.com/health");
+if resp.status != 200 {
+    http_post("https://hooks.slack.com/services/T00/B00/xxx",
+        `{"text": "API is DOWN! Status: ${resp.status}"}`);
+    fail("Health check failed");
+}
+print("API is healthy");
+```
+
+**Run a command and parse the output:**
+```javascript
+let result = shell_exec("df -h / | tail -1 | awk '{print $5}'");
+let usage = result.stdout;
+print("Disk usage: " + usage);
+
+if parse_int(usage.replace("%", "")) > 90 {
+    fail("Disk usage critical: " + usage);
+}
+```
+
+**Chain multiple API calls:**
+```javascript
+let data = http_get("https://api.example.com/orders/today");
+let orders = parse_json(data.body);
+print("Orders today: " + orders.len());
+
+let report = http_post("https://reports.internal/generate", data.body);
+if report.status != 200 {
+    fail("Report generation failed");
+}
+print("Report generated: " + report.body);
+```
+
+**Conditional deployment:**
+```javascript
+let tests = shell_exec("cd /app && cargo test 2>&1");
+if tests.exit_code != 0 {
+    print("Tests failed:");
+    print(tests.stderr);
+    fail("Cannot deploy: tests failed");
+}
+
+let deploy = shell_exec("/opt/deploy/prod.sh");
+print(deploy.stdout);
+if deploy.exit_code != 0 {
+    fail("Deployment failed");
+}
+print("Deployment successful");
+```
+
+#### Sandboxing
+
+Scripts run with these limits:
+- **1,000,000 operations** max (prevents infinite loops)
+- **256KB string size** max
+- **Timeout** enforced by the job's `timeout_secs` setting (default 60s)
+- No direct file system access (use `shell_exec` for controlled file operations)
+- No network access except through `http_get`/`http_post`
 
 ## Cron Expressions
 

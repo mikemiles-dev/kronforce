@@ -58,6 +58,9 @@ pub enum TaskType {
         body: Option<String>,
         expect_status: Option<u16>,
     },
+    Script {
+        code: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
