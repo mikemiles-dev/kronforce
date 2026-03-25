@@ -59,7 +59,7 @@ pub enum TaskType {
         expect_status: Option<u16>,
     },
     Script {
-        code: String,
+        script_name: String,
     },
 }
 

@@ -26,6 +26,7 @@ pub struct AppState {
     pub scheduler_tx: mpsc::Sender<SchedulerCommand>,
     pub agent_client: AgentClient,
     pub callback_base_url: String,
+    pub script_store: crate::scripts::ScriptStore,
 }
 
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
@@ -51,6 +52,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/keys", get(list_api_keys).post(create_api_key))
         .route("/api/keys/{id}", delete(revoke_api_key))
         .route("/api/auth/me", get(auth_me))
+        .route("/api/scripts", get(list_scripts))
+        .route("/api/scripts/{name}", get(get_script).put(save_script).delete(delete_script))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state.clone());
 
@@ -766,6 +769,70 @@ async fn list_events(
         per_page,
         total_pages,
     }))
+}
+
+// --- Scripts ---
+
+async fn list_scripts(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<crate::scripts::ScriptInfo>>, AppError> {
+    let store = state.script_store.clone();
+    let scripts = tokio::task::spawn_blocking(move || store.list())
+        .await
+        .unwrap()?;
+    Ok(Json(scripts))
+}
+
+async fn get_script(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<crate::scripts::ScriptFull>, AppError> {
+    let store = state.script_store.clone();
+    let script = tokio::task::spawn_blocking(move || store.get(&name))
+        .await
+        .unwrap()?;
+    Ok(Json(script))
+}
+
+#[derive(Deserialize)]
+struct SaveScriptRequest {
+    code: String,
+}
+
+async fn save_script(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<SaveScriptRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let store = state.script_store.clone();
+    let name2 = name.clone();
+    let code = req.code.clone();
+    tokio::task::spawn_blocking(move || store.save(&name2, &code))
+        .await
+        .unwrap()?;
+
+    log_and_notify(&state.db, &state.scheduler_tx, "script.saved", EventSeverity::Info,
+        &format!("Script '{}' saved", name), None, None, &auth, None).await;
+
+    Ok(Json(serde_json::json!({"status": "ok", "name": name})))
+}
+
+async fn delete_script(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    auth: AuthUser,
+) -> Result<axum::http::StatusCode, AppError> {
+    let store = state.script_store.clone();
+    let name2 = name.clone();
+    tokio::task::spawn_blocking(move || store.delete(&name2))
+        .await
+        .unwrap()?;
+
+    log_and_notify(&state.db, &state.scheduler_tx, "script.deleted", EventSeverity::Warning,
+        &format!("Script '{}' deleted", name), None, None, &auth, None).await;
+
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 // --- Timeline ---

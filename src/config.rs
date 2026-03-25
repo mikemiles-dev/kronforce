@@ -6,6 +6,7 @@ pub struct ControllerConfig {
     pub tick_interval: Duration,
     pub agent_heartbeat_timeout: Duration,
     pub callback_base_url: String,
+    pub scripts_dir: String,
 }
 
 impl ControllerConfig {
@@ -31,6 +32,8 @@ impl ControllerConfig {
                     .unwrap_or(30),
             ),
             callback_base_url,
+            scripts_dir: std::env::var("KRONFORCE_SCRIPTS_DIR")
+                .unwrap_or_else(|_| "./scripts".to_string()),
         }
     }
 }

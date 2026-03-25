@@ -25,15 +25,17 @@ pub struct Executor {
     db: Db,
     agent_client: AgentClient,
     scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>,
+    script_store: crate::scripts::ScriptStore,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
 }
 
 impl Executor {
-    pub fn new(db: Db, agent_client: AgentClient, scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>) -> Self {
+    pub fn new(db: Db, agent_client: AgentClient, scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>, script_store: crate::scripts::ScriptStore) -> Self {
         Self {
             db,
             agent_client,
             scheduler_tx,
+            script_store,
             running: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -103,9 +105,10 @@ impl Executor {
         let db = self.db.clone();
         let running = self.running.clone();
         let sched_tx = self.scheduler_tx.clone();
+        let script_store = self.script_store.clone();
 
         tokio::spawn(async move {
-            let result = run_task(&task, run_as.as_deref(), timeout_secs, cancel_rx).await;
+            let result = run_task(&task, run_as.as_deref(), timeout_secs, Some(&script_store), cancel_rx).await;
             let finished_at = Utc::now();
             let updated = ExecutionRecord {
                 id: exec_id,
@@ -369,6 +372,7 @@ pub async fn run_task(
     task: &TaskType,
     run_as: Option<&str>,
     timeout_secs: Option<u64>,
+    script_store: Option<&crate::scripts::ScriptStore>,
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     match task {
@@ -400,8 +404,26 @@ pub async fn run_task(
         TaskType::Http { method, url, headers, body, expect_status } => {
             run_http(method, url, headers.as_ref(), body.as_deref(), *expect_status, timeout_secs, cancel_rx).await
         }
-        TaskType::Script { code } => {
-            run_script(code, timeout_secs, cancel_rx).await
+        TaskType::Script { script_name } => {
+            let store = match script_store {
+                Some(s) => s,
+                None => return CommandResult {
+                    status: ExecutionStatus::Failed,
+                    exit_code: None,
+                    stdout: CapturedOutput { text: String::new(), truncated: false },
+                    stderr: CapturedOutput { text: "script store not available on agent".to_string(), truncated: false },
+                },
+            };
+            let code = match store.read_code(script_name) {
+                Ok(c) => c,
+                Err(e) => return CommandResult {
+                    status: ExecutionStatus::Failed,
+                    exit_code: None,
+                    stdout: CapturedOutput { text: String::new(), truncated: false },
+                    stderr: CapturedOutput { text: format!("script error: {e}"), truncated: false },
+                },
+            };
+            run_script(&code, timeout_secs, cancel_rx).await
         }
     }
 }

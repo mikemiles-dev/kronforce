@@ -78,6 +78,21 @@
     background: var(--bg-tertiary);
 }
 
+[data-theme="light"] .badge-active,
+[data-theme="light"] .badge-enabled,
+[data-theme="light"] .badge-scheduled { background: rgba(26,106,191,0.12); color: #1a6abf; }
+[data-theme="light"] .badge-succeeded { background: rgba(21,128,61,0.12); color: #15803d; }
+[data-theme="light"] .badge-running,
+[data-theme="light"] .badge-pending { background: rgba(26,106,191,0.12); color: #1a6abf; }
+[data-theme="light"] .badge-paused { background: rgba(154,109,0,0.12); color: #7a5600; }
+[data-theme="light"] .badge-failed,
+[data-theme="light"] .badge-timed_out { background: rgba(185,28,28,0.12); color: #b91c1c; }
+[data-theme="light"] .badge-cancelled,
+[data-theme="light"] .badge-skipped,
+[data-theme="light"] .badge-disabled { background: rgba(90,96,112,0.12); color: #4a4f5e; }
+[data-theme="light"] .badge-completed,
+[data-theme="light"] .badge-unscheduled { background: rgba(90,96,112,0.12); color: #4a4f5e; }
+
 [data-theme="light"] .status-btn.s-active { color: #1a6abf; border-color: rgba(26,106,191,0.4); }
 [data-theme="light"] .status-btn.s-active.active { background: rgba(26,106,191,0.1); color: #1a6abf; border-color: #1a6abf; }
 [data-theme="light"] .status-btn.s-paused { color: #9a6d00; border-color: rgba(154,109,0,0.4); }
@@ -1398,6 +1413,116 @@ th .job-checkbox { margin: 0; }
 
 .dash-mini-table tr:last-child td { border-bottom: none; }
 
+.script-editor-wrap {
+    position: relative;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.script-textarea {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: 300px;
+    padding: 12px;
+    background: transparent;
+    color: var(--text-primary);
+    caret-color: var(--text-primary);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    border: none;
+    outline: none;
+    resize: vertical;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: auto;
+    tab-size: 4;
+}
+
+.script-highlight {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    padding: 12px;
+    background: var(--bg-primary);
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+    color: transparent;
+}
+
+.script-highlight .kw { color: #c678dd; }
+.script-highlight .fn { color: #61afef; }
+.script-highlight .str { color: #98c379; }
+.script-highlight .num { color: #d19a66; }
+.script-highlight .cmt { color: #5c6370; font-style: italic; }
+.script-highlight .op { color: #e06c75; }
+
+[data-theme="light"] .script-highlight { background: var(--bg-tertiary); }
+[data-theme="light"] .script-highlight .kw { color: #8839cc; }
+[data-theme="light"] .script-highlight .fn { color: #2970e6; }
+[data-theme="light"] .script-highlight .str { color: #1a7a2e; }
+[data-theme="light"] .script-highlight .num { color: #b35900; }
+[data-theme="light"] .script-highlight .cmt { color: #8b90a0; }
+[data-theme="light"] .script-highlight .op { color: #cc3a3a; }
+
+.script-card {
+    background: var(--bg-secondary);
+    border: 1px solid rgba(42,47,61,0.5);
+    border-radius: 8px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.script-card:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+
+.script-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.script-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.script-card-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.script-card-preview {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-height: 60px;
+    overflow: hidden;
+    white-space: pre;
+    text-overflow: ellipsis;
+}
+
+.scripts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+
 .cron-builder-grid {
     display: flex;
     flex-direction: column;
@@ -1751,6 +1876,7 @@ th .job-checkbox { margin: 0; }
         <button class="nav-tab" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
         <button class="nav-tab" id="tab-map" onclick="showPage('map')"><span class="tab-icon">&#9741;</span> Map</button>
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
+        <button class="nav-tab" id="tab-scripts" onclick="showPage('scripts')"><span class="tab-icon">&#128220;</span> Scripts</button>
         <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
         <button class="nav-tab" id="tab-settings" onclick="showPage('settings')"><span class="tab-icon">&#9881;</span> Settings</button>
     </nav>
@@ -1932,6 +2058,37 @@ th .job-checkbox { margin: 0; }
         <div id="agents-table-wrap"></div>
     </section>
 
+    <section id="scripts-view" style="display:none">
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+            <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
+        </div>
+        <div id="scripts-list-wrap"></div>
+        <div id="script-editor" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <h3 id="script-editor-title">New Script</h3>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-primary btn-sm" onclick="saveCurrentScript()">Save</button>
+                        <button class="btn btn-ghost btn-sm" onclick="closeScriptEditor()">Cancel</button>
+                    </div>
+                </div>
+                <div class="form-group" id="script-name-group">
+                    <label>Name</label>
+                    <input id="script-name" type="text" placeholder="my-health-check">
+                    <div class="form-hint">Alphanumeric, dashes, and underscores only. Saved as {name}.rhai</div>
+                </div>
+                <div class="form-group">
+                    <label>Code</label>
+                    <div class="form-hint">Available: <code>print(msg)</code> <code>http_get(url)</code> <code>http_post(url,body)</code> <code>shell_exec(cmd)</code> <code>env_var(name)</code> <code>sleep_ms(ms)</code> <code>fail(msg)</code></div>
+                    <div class="script-editor-wrap">
+                        <div class="script-highlight" id="script-highlight"></div>
+                        <textarea id="script-code" class="script-textarea" spellcheck="false" oninput="highlightScript()" onscroll="syncScriptScroll()"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section id="events-view" style="display:none">
         <div id="events-list-wrap"></div>
         <div id="events-pagination" class="pagination"></div>
@@ -2104,13 +2261,11 @@ th .job-checkbox { margin: 0; }
         </div>
         <div id="task-script-fields" style="display:none">
             <div class="form-group">
-                <label>Rhai Script</label>
-                <div class="form-hint">Available functions: <code>print(msg)</code>, <code>http_get(url)</code>, <code>http_post(url, body)</code>, <code>shell_exec(cmd)</code>, <code>env_var(name)</code>, <code>sleep_ms(ms)</code>, <code>fail(msg)</code></div>
-                <textarea id="f-script" placeholder='let resp = http_get("https://api.example.com/health");
-if resp.status != 200 {
-    fail("Health check failed: " + resp.status);
-}
-print("OK: " + resp.body);' style="font-family:var(--font-mono);min-height:150px;font-size:12px"></textarea>
+                <label>Script</label>
+                <select id="f-script-name" style="width:100%">
+                    <option value="">Select a script...</option>
+                </select>
+                <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
             </div>
         </div>
         <div class="form-group">
@@ -2515,6 +2670,7 @@ async function showJobDetail(id) {
     document.getElementById('jobs-view').style.display = 'none';
     document.getElementById('map-view').style.display = 'none';
     document.getElementById('agents-view').style.display = 'none';
+    document.getElementById('scripts-view').style.display = 'none';
     document.getElementById('events-view').style.display = 'none';
     document.getElementById('settings-view').style.display = 'none';
     document.getElementById('jobs-action-bar').style.display = 'none';
@@ -3050,6 +3206,7 @@ function updateTaskFields() {
     document.getElementById('task-sql-fields').style.display = type === 'sql' ? '' : 'none';
     document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
     document.getElementById('task-script-fields').style.display = type === 'script' ? '' : 'none';
+    if (type === 'script') populateScriptDropdown();
 }
 
 function buildTaskFromForm() {
@@ -3094,9 +3251,9 @@ function buildTaskFromForm() {
         };
     }
     if (type === 'script') {
-        const code = document.getElementById('f-script').value.trim();
-        if (!code) return null;
-        return { type: 'script', code };
+        const scriptName = document.getElementById('f-script-name').value;
+        if (!scriptName) return null;
+        return { type: 'script', script_name: scriptName };
     }
     return null;
 }
@@ -3129,7 +3286,7 @@ function populateTaskForm(task) {
         document.getElementById('f-ftp-remote').value = task.remote_path || '';
         document.getElementById('f-ftp-local').value = task.local_path || '';
     } else if (type === 'script') {
-        document.getElementById('f-script').value = task.code || '';
+        populateScriptDropdown(task.script_name);
     }
 }
 
@@ -3472,7 +3629,7 @@ function fmtTaskDetail(task) {
     if (task.type === 'http') return fmtTaskBadge(task) + ' <code>' + esc(task.method.toUpperCase() + ' ' + task.url) + '</code>';
     if (task.type === 'sql') return fmtTaskBadge(task) + ' <code>' + esc(task.driver + ': ' + task.query.slice(0, 80)) + '</code>';
     if (task.type === 'ftp') return fmtTaskBadge(task) + ' <code>' + esc(task.direction + ' ' + task.protocol + '://' + task.host + task.remote_path) + '</code>';
-    if (task.type === 'script') return fmtTaskBadge(task) + ' <code>' + esc(task.code.slice(0, 80) + (task.code.length > 80 ? '...' : '')) + '</code>';
+    if (task.type === 'script') return fmtTaskBadge(task) + ' <span class="job-name" onclick="showPage(\'scripts\')" style="cursor:pointer">' + esc(task.script_name) + '</span>';
     return task.type;
 }
 
@@ -3681,6 +3838,7 @@ function showPage(page) {
     document.getElementById('detail-view').style.display = 'none';
     document.getElementById('map-view').style.display = page === 'map' ? '' : 'none';
     document.getElementById('agents-view').style.display = page === 'agents' ? '' : 'none';
+    document.getElementById('scripts-view').style.display = page === 'scripts' ? '' : 'none';
     document.getElementById('events-view').style.display = page === 'events' ? '' : 'none';
     document.getElementById('settings-view').style.display = page === 'settings' ? '' : 'none';
 
@@ -3697,6 +3855,8 @@ function showPage(page) {
         fetchJobs();
     } else if (page === 'map') {
         renderMap();
+    } else if (page === 'scripts') {
+        fetchScripts();
     } else if (page === 'events') {
         fetchEvents();
     } else if (page === 'settings') {
@@ -4301,6 +4461,139 @@ function renderMiniMap(job) {
     }
 
     svg.innerHTML = svgHtml;
+}
+
+// --- Scripts ---
+
+let allScripts = [];
+let editingScript = null;
+
+async function fetchScripts() {
+    try {
+        allScripts = await api('GET', '/api/scripts');
+        renderScriptsList();
+    } catch (e) {
+        console.error('fetchScripts:', e);
+    }
+}
+
+function renderScriptsList() {
+    const wrap = document.getElementById('scripts-list-wrap');
+    if (allScripts.length === 0) {
+        wrap.innerHTML = '<div class="empty-state"><p>No scripts yet</p><p style="font-size:12px;color:var(--text-muted)">Scripts are saved as .rhai files in the scripts directory.</p></div>';
+        return;
+    }
+    let html = '<div class="scripts-grid">';
+    for (const s of allScripts) {
+        html += '<div class="script-card" onclick="editScript(\'' + esc(s.name) + '\')">';
+        html += '<div class="script-card-header">';
+        html += '<span class="script-card-name">&#128220; ' + esc(s.name) + '</span>';
+        html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="event.stopPropagation();deleteScriptUI(\'' + esc(s.name) + '\')">Delete</button>';
+        html += '</div>';
+        html += '<div class="script-card-meta">' + s.size + ' bytes' + (s.modified ? ' \u2022 ' + fmtDate(s.modified) : '') + '</div>';
+        html += '</div>';
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+}
+
+function showCreateScript() {
+    editingScript = null;
+    document.getElementById('script-editor-title').textContent = 'New Script';
+    document.getElementById('script-name').value = '';
+    document.getElementById('script-name').disabled = false;
+    document.getElementById('script-name-group').style.display = '';
+    document.getElementById('script-code').value = '// Your script here\nlet resp = http_get("https://example.com/health");\nprint("Status: " + resp.status);\nif resp.status != 200 {\n    fail("Health check failed");\n}';
+    document.getElementById('script-editor').style.display = '';
+    document.getElementById('scripts-list-wrap').style.display = 'none';
+    highlightScript();
+}
+
+async function editScript(name) {
+    try {
+        const script = await api('GET', '/api/scripts/' + encodeURIComponent(name));
+        editingScript = name;
+        document.getElementById('script-editor-title').textContent = 'Edit: ' + name;
+        document.getElementById('script-name').value = name;
+        document.getElementById('script-name').disabled = true;
+        document.getElementById('script-code').value = script.code;
+        document.getElementById('script-editor').style.display = '';
+        document.getElementById('scripts-list-wrap').style.display = 'none';
+        highlightScript();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+function closeScriptEditor() {
+    document.getElementById('script-editor').style.display = 'none';
+    document.getElementById('scripts-list-wrap').style.display = '';
+    editingScript = null;
+}
+
+async function saveCurrentScript() {
+    const name = editingScript || document.getElementById('script-name').value.trim();
+    const code = document.getElementById('script-code').value;
+    if (!name) { toast('Script name is required', 'error'); return; }
+    if (!code.trim()) { toast('Script code is required', 'error'); return; }
+    try {
+        await api('PUT', '/api/scripts/' + encodeURIComponent(name), { code });
+        toast('Script "' + name + '" saved');
+        closeScriptEditor();
+        fetchScripts();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function deleteScriptUI(name) {
+    if (!confirm('Delete script "' + name + '"?')) return;
+    try {
+        await api('DELETE', '/api/scripts/' + encodeURIComponent(name));
+        toast('Script deleted');
+        fetchScripts();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function populateScriptDropdown(selected) {
+    const select = document.getElementById('f-script-name');
+    try {
+        const scripts = await api('GET', '/api/scripts');
+        select.innerHTML = '<option value="">Select a script...</option>';
+        for (const s of scripts) {
+            const sel = s.name === selected ? ' selected' : '';
+            select.innerHTML += '<option value="' + esc(s.name) + '"' + sel + '>' + esc(s.name) + '</option>';
+        }
+    } catch (e) {
+        select.innerHTML = '<option value="">Failed to load scripts</option>';
+    }
+}
+
+// Syntax highlighting
+function highlightScript() {
+    const code = document.getElementById('script-code').value;
+    const highlighted = syntaxHighlight(code);
+    document.getElementById('script-highlight').innerHTML = highlighted + '\n';
+}
+
+function syncScriptScroll() {
+    const ta = document.getElementById('script-code');
+    const hl = document.getElementById('script-highlight');
+    hl.scrollTop = ta.scrollTop;
+    hl.scrollLeft = ta.scrollLeft;
+}
+
+function syntaxHighlight(code) {
+    // Simple regex-based Rhai syntax highlighting
+    return esc(code)
+        .replace(/\/\/.*/g, '<span class="cmt">$&</span>')
+        .replace(/\b(let|if|else|while|for|in|fn|return|true|false|loop|break|continue|throw|try|catch)\b/g, '<span class="kw">$&</span>')
+        .replace(/\b(print|http_get|http_post|shell_exec|env_var|sleep_ms|fail|parse_int|parse_json|to_string)\b/g, '<span class="fn">$&</span>')
+        .replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span class="str">$&</span>')
+        .replace(/\b(\d+)\b/g, '<span class="num">$&</span>')
+        .replace(/(!=|==|&gt;=|&lt;=|&amp;&amp;|\|\||&gt;|&lt;)/g, '<span class="op">$&</span>');
 }
 
 // --- Timeline Chart ---
@@ -5008,7 +5301,7 @@ function handleRoute() {
     }
 
     const page = parts[0] || 'jobs';
-    if (['dashboard', 'jobs', 'map', 'agents', 'events', 'settings'].includes(page)) {
+    if (['dashboard', 'jobs', 'map', 'agents', 'scripts', 'events', 'settings'].includes(page)) {
         showPage(page);
     } else {
         showPage('jobs');

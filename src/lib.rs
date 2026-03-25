@@ -10,3 +10,4 @@ pub mod protocol;
 pub mod agent_client;
 pub mod agent_server;
 pub mod scheduler;
+pub mod scripts;

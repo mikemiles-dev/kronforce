@@ -45,7 +45,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
 
     let agent_client = AgentClient::new();
-    let executor = Executor::new(db.clone(), agent_client.clone(), scheduler_tx.clone());
+    let script_store = kronforce::scripts::ScriptStore::new(&config.scripts_dir)?;
+    tracing::info!("scripts directory: {}", config.scripts_dir);
+    let executor = Executor::new(db.clone(), agent_client.clone(), scheduler_tx.clone(), script_store.clone());
     let dag = DagResolver::new(db.clone());
     let scheduler = Scheduler::new(
         db.clone(),
@@ -100,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scheduler_tx,
         agent_client,
         callback_base_url: config.callback_base_url.clone(),
+        script_store: script_store.clone(),
     };
     let app = kronforce::api::router(state);
 

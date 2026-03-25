@@ -54,7 +54,7 @@ async fn execute_job(
     tokio::spawn(async move {
         let started_at = Utc::now();
 
-        let result = run_task(&req.task, req.run_as.as_deref(), req.timeout_secs, cancel_rx).await;
+        let result = run_task(&req.task, req.run_as.as_deref(), req.timeout_secs, None, cancel_rx).await;
 
         let finished_at = Utc::now();
 

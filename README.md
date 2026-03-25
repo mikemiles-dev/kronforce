@@ -39,6 +39,7 @@ The agent registers with the controller, sends heartbeats, and executes jobs dis
 | `KRONFORCE_TICK_SECS` | `1` | Scheduler tick interval |
 | `KRONFORCE_CALLBACK_URL` | `http://{BIND}` | URL agents use to report results back |
 | `KRONFORCE_HEARTBEAT_TIMEOUT_SECS` | `30` | Seconds before marking an agent offline |
+| `KRONFORCE_SCRIPTS_DIR` | `./scripts` | Directory for Rhai script files |
 
 #### Agent
 
@@ -105,6 +106,7 @@ The dashboard is embedded in the controller binary (no separate build step). Nav
 | Jobs | `/#/jobs` | Job list with search, filters, bulk actions, sortable columns |
 | Map | `/#/map` | Visual dependency graph showing all jobs and their relationships |
 | Agents | `/#/agents` | Registered agents with status, tags, heartbeat info |
+| Scripts | `/#/scripts` | Manage Rhai scripts with syntax-highlighted editor |
 | Events | `/#/events` | Activity feed — job triggers, completions, agent status changes |
 | Settings | `/#/settings` | Theme toggle, API key management, sign out |
 | Job Detail | `/#/jobs/{id}` | Job info, execution history, output viewer, mini dependency map |
@@ -337,15 +339,37 @@ All task types capture output and errors. HTTP returns the response body as outp
 
 ### Custom Scripts (Rhai)
 
-The `script` task type lets you write custom job logic using [Rhai](https://rhai.rs), a lightweight scripting language embedded in the Rust binary. No external runtime needed.
+The `script` task type runs custom logic written in [Rhai](https://rhai.rs), a lightweight scripting language embedded in the Rust binary. Scripts are stored as `.rhai` files in the scripts directory (default `./scripts/`).
+
+#### Managing Scripts
+
+Scripts can be managed via the **Scripts** page in the dashboard (with syntax highlighting editor), the API, or by placing `.rhai` files directly in the scripts directory (auto-discovered on startup).
+
+```bash
+# Create/update a script via API
+curl -X PUT http://localhost:8080/api/scripts/health-check \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 {\n    fail(\"down\");\n}\nprint(\"OK\");"}'
+
+# List all scripts
+curl -H "Authorization: Bearer kf_your_key" http://localhost:8080/api/scripts
+
+# Or just drop a file in the scripts directory
+echo 'print("hello from file");' > ./scripts/hello.rhai
+```
+
+#### Using Scripts in Jobs
+
+Jobs reference scripts by name — select from a dropdown in the UI:
 
 ```bash
 curl -X POST http://localhost:8080/api/jobs \
   -H "Authorization: Bearer kf_your_key" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "health-and-notify",
-    "task": {"type": "script", "code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 {\n    http_post(\"https://hooks.slack.com/xxx\", \"{\\\"text\\\":\\\"API down!\\\"}\");\n    fail(\"Health check failed: \" + resp.status);\n}\nprint(\"API healthy: \" + resp.body);"},
+    "name": "health-monitor",
+    "task": {"type": "script", "script_name": "health-check"},
     "schedule": {"type": "cron", "value": "0 */5 * * * *"}
   }'
 ```
