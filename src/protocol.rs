@@ -11,6 +11,7 @@ pub struct AgentRegistration {
     pub hostname: String,
     pub address: String,
     pub port: u16,
+    pub agent_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -24,103 +24,156 @@ impl Db {
 
     pub fn migrate(&self) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
+
+        // Schema versioning table
         conn.execute_batch(
-            "
-            CREATE TABLE IF NOT EXISTS jobs (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                description TEXT,
-                command TEXT,
-                schedule_json TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'active',
-                timeout_secs INTEGER,
-                depends_on_json TEXT NOT NULL DEFAULT '[]',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS executions (
-                id TEXT PRIMARY KEY,
-                job_id TEXT NOT NULL REFERENCES jobs(id),
-                status TEXT NOT NULL,
-                exit_code INTEGER,
-                stdout TEXT NOT NULL DEFAULT '',
-                stderr TEXT NOT NULL DEFAULT '',
-                stdout_truncated INTEGER NOT NULL DEFAULT 0,
-                stderr_truncated INTEGER NOT NULL DEFAULT 0,
-                started_at TEXT,
-                finished_at TEXT,
-                triggered_by_json TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_executions_job_id ON executions(job_id);
-            CREATE INDEX IF NOT EXISTS idx_executions_status ON executions(status);
-            CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions(started_at);
-
-            CREATE TABLE IF NOT EXISTS agents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL UNIQUE,
-                tags_json TEXT NOT NULL DEFAULT '[]',
-                hostname TEXT NOT NULL,
-                address TEXT NOT NULL,
-                port INTEGER NOT NULL,
-                status TEXT NOT NULL DEFAULT 'online',
-                last_heartbeat TEXT,
-                registered_at TEXT NOT NULL
-            );
-            ",
-        )
-        .map_err(AppError::Db)?;
-
-        // Migrations for new columns (safe to re-run)
-        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN target_json TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE executions ADD COLUMN agent_id TEXT;");
-
-        // Migrate old status names
-        let _ = conn.execute_batch("UPDATE jobs SET status = 'scheduled' WHERE status IN ('active', 'enabled');");
-        let _ = conn.execute_batch("UPDATE jobs SET status = 'paused' WHERE status = 'disabled';");
-        let _ = conn.execute_batch("UPDATE jobs SET status = 'unscheduled' WHERE status = 'completed';");
-
-        // Events table
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS events (
-                id TEXT PRIMARY KEY,
-                kind TEXT NOT NULL,
-                severity TEXT NOT NULL DEFAULT 'info',
-                message TEXT NOT NULL,
-                job_id TEXT,
-                agent_id TEXT,
-                timestamp TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
-
-            CREATE TABLE IF NOT EXISTS api_keys (
-                id TEXT PRIMARY KEY,
-                key_prefix TEXT NOT NULL,
-                key_hash TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                role TEXT NOT NULL DEFAULT 'viewer',
-                created_at TEXT NOT NULL,
-                last_used_at TEXT,
-                active INTEGER NOT NULL DEFAULT 1
-            );
-            "
+            "CREATE TABLE IF NOT EXISTS schema_version (
+                version INTEGER PRIMARY KEY,
+                applied_at TEXT NOT NULL,
+                description TEXT NOT NULL
+            );"
         ).map_err(AppError::Db)?;
 
-        // New column migrations
-        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN run_as TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN created_by TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN api_key_id TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN api_key_name TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE events ADD COLUMN details TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE executions ADD COLUMN task_snapshot_json TEXT;");
-        let _ = conn.execute_batch("ALTER TABLE jobs ADD COLUMN task_json TEXT;");
+        let current_version: i64 = conn
+            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| row.get(0))
+            .unwrap_or(0);
 
-        // Migrate command -> task_json for existing jobs
-        let _ = conn.execute_batch(
-            "UPDATE jobs SET task_json = json_object('type', 'shell', 'command', command) WHERE task_json IS NULL AND command IS NOT NULL;"
-        );
+        tracing::info!("database schema version: {}", current_version);
+
+        let migrations: Vec<(i64, &str, &str)> = vec![
+            (1, "Initial schema: jobs, executions, agents", "
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    command TEXT,
+                    schedule_json TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'scheduled',
+                    timeout_secs INTEGER,
+                    depends_on_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS executions (
+                    id TEXT PRIMARY KEY,
+                    job_id TEXT NOT NULL REFERENCES jobs(id),
+                    status TEXT NOT NULL,
+                    exit_code INTEGER,
+                    stdout TEXT NOT NULL DEFAULT '',
+                    stderr TEXT NOT NULL DEFAULT '',
+                    stdout_truncated INTEGER NOT NULL DEFAULT 0,
+                    stderr_truncated INTEGER NOT NULL DEFAULT 0,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    triggered_by_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE INDEX IF NOT EXISTS idx_executions_job_id ON executions(job_id);
+                CREATE INDEX IF NOT EXISTS idx_executions_status ON executions(status);
+                CREATE INDEX IF NOT EXISTS idx_executions_started_at ON executions(started_at);
+                CREATE TABLE IF NOT EXISTS agents (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    tags_json TEXT NOT NULL DEFAULT '[]',
+                    hostname TEXT NOT NULL,
+                    address TEXT NOT NULL,
+                    port INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'online',
+                    last_heartbeat TEXT,
+                    registered_at TEXT NOT NULL
+                );
+            "),
+            (2, "Add job targeting and agent dispatch", "
+                ALTER TABLE jobs ADD COLUMN target_json TEXT;
+                ALTER TABLE executions ADD COLUMN agent_id TEXT;
+            "),
+            (3, "Migrate status names", "
+                UPDATE jobs SET status = 'scheduled' WHERE status IN ('active', 'enabled');
+                UPDATE jobs SET status = 'paused' WHERE status = 'disabled';
+                UPDATE jobs SET status = 'unscheduled' WHERE status = 'completed';
+            "),
+            (4, "Add events and API keys", "
+                CREATE TABLE IF NOT EXISTS events (
+                    id TEXT PRIMARY KEY,
+                    kind TEXT NOT NULL,
+                    severity TEXT NOT NULL DEFAULT 'info',
+                    message TEXT NOT NULL,
+                    job_id TEXT,
+                    agent_id TEXT,
+                    timestamp TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id TEXT PRIMARY KEY,
+                    key_prefix TEXT NOT NULL,
+                    key_hash TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'viewer',
+                    created_at TEXT NOT NULL,
+                    last_used_at TEXT,
+                    active INTEGER NOT NULL DEFAULT 1
+                );
+            "),
+            (5, "Add run_as, audit fields, task snapshots", "
+                ALTER TABLE jobs ADD COLUMN run_as TEXT;
+                ALTER TABLE jobs ADD COLUMN created_by TEXT;
+                ALTER TABLE events ADD COLUMN api_key_id TEXT;
+                ALTER TABLE events ADD COLUMN api_key_name TEXT;
+                ALTER TABLE events ADD COLUMN details TEXT;
+                ALTER TABLE executions ADD COLUMN task_snapshot_json TEXT;
+            "),
+            (6, "Add task types (replace command with task_json)", "
+                ALTER TABLE jobs ADD COLUMN task_json TEXT;
+                UPDATE jobs SET task_json = json_object('type', 'shell', 'command', command) WHERE task_json IS NULL AND command IS NOT NULL;
+            "),
+            (7, "Add custom agents and job queue", "
+                ALTER TABLE agents ADD COLUMN agent_type TEXT DEFAULT 'standard';
+                CREATE TABLE IF NOT EXISTS job_queue (
+                    id TEXT PRIMARY KEY,
+                    execution_id TEXT NOT NULL,
+                    agent_id TEXT NOT NULL,
+                    task_json TEXT NOT NULL,
+                    run_as TEXT,
+                    timeout_secs INTEGER,
+                    callback_url TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL,
+                    claimed_at TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_job_queue_agent ON job_queue(agent_id, status);
+            "),
+        ];
+
+        for (version, description, sql) in &migrations {
+            if *version <= current_version {
+                continue;
+            }
+            tracing::info!("applying migration v{}: {}", version, description);
+            // Execute each statement separately (ALTER TABLE can't be batched with others that might fail)
+            for stmt in sql.split(';') {
+                let stmt = stmt.trim();
+                if stmt.is_empty() { continue; }
+                if let Err(e) = conn.execute_batch(stmt) {
+                    // Ignore "duplicate column" errors for idempotency
+                    let err_str = e.to_string();
+                    if err_str.contains("duplicate column") || err_str.contains("already exists") {
+                        tracing::debug!("migration v{}: skipping (already applied): {}", version, err_str);
+                    } else {
+                        tracing::error!("migration v{} failed: {}", version, e);
+                        return Err(AppError::Db(e));
+                    }
+                }
+            }
+            conn.execute(
+                "INSERT INTO schema_version (version, applied_at, description) VALUES (?1, ?2, ?3)",
+                params![version, Utc::now().to_rfc3339(), description],
+            ).map_err(AppError::Db)?;
+            tracing::info!("migration v{} applied", version);
+        }
+
+        if current_version < migrations.len() as i64 {
+            tracing::info!("database migrated to v{}", migrations.len());
+        }
 
         Ok(())
     }
@@ -672,12 +725,12 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let tags_json = serde_json::to_string(&agent.tags).unwrap();
         conn.execute(
-            "INSERT INTO agents (id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+            "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
              ON CONFLICT(name) DO UPDATE SET
                tags_json=excluded.tags_json, hostname=excluded.hostname, address=excluded.address,
-               port=excluded.port, status=excluded.status, last_heartbeat=excluded.last_heartbeat,
-               registered_at=excluded.registered_at",
+               port=excluded.port, agent_type=excluded.agent_type, status=excluded.status,
+               last_heartbeat=excluded.last_heartbeat, registered_at=excluded.registered_at",
             params![
                 agent.id.to_string(),
                 agent.name,
@@ -685,6 +738,7 @@ impl Db {
                 agent.hostname,
                 agent.address,
                 agent.port as i64,
+                agent.agent_type.as_str(),
                 agent.status.as_str(),
                 agent.last_heartbeat.map(|t| t.to_rfc3339()),
                 agent.registered_at.to_rfc3339(),
@@ -697,7 +751,7 @@ impl Db {
     pub fn get_agent(&self, id: Uuid) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents WHERE id = ?1")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_agent(row)))
@@ -712,7 +766,7 @@ impl Db {
     pub fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents WHERE name = ?1")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents WHERE name = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![name], |row| Ok(row_to_agent(row)))
@@ -727,7 +781,7 @@ impl Db {
     pub fn list_agents(&self) -> Result<Vec<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, status, last_heartbeat, registered_at FROM agents ORDER BY name")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents ORDER BY name")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| Ok(row_to_agent(row)))
@@ -781,6 +835,93 @@ impl Db {
         )
         .map_err(AppError::Db)?;
         Ok(())
+    }
+
+    // --- Job Queue (Custom Agents) ---
+
+    pub fn enqueue_job(
+        &self,
+        id: Uuid,
+        execution_id: Uuid,
+        agent_id: Uuid,
+        task: &TaskType,
+        run_as: Option<&str>,
+        timeout_secs: Option<u64>,
+        callback_url: &str,
+    ) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO job_queue (id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', ?8)",
+            params![
+                id.to_string(),
+                execution_id.to_string(),
+                agent_id.to_string(),
+                serde_json::to_string(task).unwrap(),
+                run_as,
+                timeout_secs.map(|t| t as i64),
+                callback_url,
+                Utc::now().to_rfc3339(),
+            ],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn dequeue_job(&self, agent_id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url FROM job_queue WHERE agent_id = ?1 AND status = 'pending' ORDER BY created_at ASC LIMIT 1")
+            .map_err(AppError::Db)?;
+        let result = stmt.query_row(params![agent_id.to_string()], |row| {
+            let id: String = row.get(0)?;
+            let exec_id: String = row.get(1)?;
+            let agent: String = row.get(2)?;
+            let task_json: String = row.get(3)?;
+            let run_as: Option<String> = row.get(4)?;
+            let timeout: Option<i64> = row.get(5)?;
+            let callback: String = row.get(6)?;
+            Ok((id, exec_id, agent, task_json, run_as, timeout, callback))
+        });
+
+        match result {
+            Ok((id, exec_id, _agent, task_json, run_as, timeout, callback)) => {
+                // Mark as claimed
+                conn.execute(
+                    "UPDATE job_queue SET status = 'claimed', claimed_at = ?1 WHERE id = ?2",
+                    params![Utc::now().to_rfc3339(), id],
+                ).map_err(AppError::Db)?;
+
+                let task: serde_json::Value = serde_json::from_str(&task_json).unwrap_or_default();
+                Ok(Some(serde_json::json!({
+                    "queue_id": id,
+                    "execution_id": exec_id,
+                    "agent_id": agent_id.to_string(),
+                    "task": task,
+                    "run_as": run_as,
+                    "timeout_secs": timeout,
+                    "callback_url": callback,
+                })))
+            }
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(AppError::Db(e)),
+        }
+    }
+
+    pub fn complete_queue_item(&self, execution_id: Uuid) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE job_queue SET status = 'completed' WHERE execution_id = ?1",
+            params![execution_id.to_string()],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn queue_depth(&self, agent_id: Uuid) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM job_queue WHERE agent_id = ?1 AND status = 'pending'",
+            params![agent_id.to_string()],
+            |row| row.get(0),
+        ).map_err(AppError::Db)
     }
 
     // --- API Keys ---
@@ -1068,9 +1209,10 @@ fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
 fn row_to_agent(row: &rusqlite::Row) -> Agent {
     let id_str: String = row.get(0).unwrap();
     let tags_json: String = row.get(2).unwrap();
-    let status_str: String = row.get(6).unwrap();
-    let hb_str: Option<String> = row.get(7).unwrap();
-    let reg_str: String = row.get(8).unwrap();
+    let agent_type_str: String = row.get(6).unwrap_or_else(|_| "standard".to_string());
+    let status_str: String = row.get(7).unwrap();
+    let hb_str: Option<String> = row.get(8).unwrap();
+    let reg_str: String = row.get(9).unwrap();
 
     Agent {
         id: Uuid::parse_str(&id_str).unwrap(),
@@ -1082,6 +1224,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
             let p: i64 = row.get(5).unwrap();
             p as u16
         },
+        agent_type: AgentType::from_str(&agent_type_str),
         status: AgentStatus::from_str(&status_str).unwrap_or(AgentStatus::Offline),
         last_heartbeat: hb_str.map(|s| {
             DateTime::parse_from_rfc3339(&s)

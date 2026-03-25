@@ -1218,6 +1218,19 @@ th .job-checkbox { margin: 0; }
 .agent-status-dot.offline { background: var(--danger); }
 .agent-status-dot.draining { background: var(--warning); }
 
+.share-btn {
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.share-btn:hover { color: var(--accent); border-color: var(--accent); }
+
 .pair-command {
     padding: 10px 14px;
     background: var(--bg-secondary);
@@ -1242,6 +1255,44 @@ th .job-checkbox { margin: 0; }
 .pair-label {
     font-weight: 500;
     color: var(--text-primary);
+}
+
+.custom-agent-docs {
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-secondary);
+}
+
+.custom-agent-docs summary {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+}
+
+.custom-agent-docs summary:hover { color: var(--accent-hover); }
+
+.custom-agent-content {
+    padding: 0 14px 14px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.custom-agent-content h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 12px 0 4px;
+}
+
+.custom-agent-content p { margin-bottom: 8px; }
+
+.custom-agent-content .output-pre {
+    font-size: 11px;
+    margin-bottom: 8px;
 }
 
 .unpair-btn:hover {
@@ -2071,6 +2122,7 @@ th .job-checkbox { margin: 0; }
                 </select>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
             <div class="time-range-wrap">
                 <button class="time-range-trigger" onclick="toggleTimeRangePopup('jobs',event)">
                     <span class="tr-icon">&#128339;</span>
@@ -2106,6 +2158,7 @@ th .job-checkbox { margin: 0; }
                 </button>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
         </div>
     </div>
 </div>
@@ -2134,6 +2187,7 @@ th .job-checkbox { margin: 0; }
                 </button>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
             <div class="time-range-wrap">
                 <button class="time-range-trigger" onclick="toggleTimeRangePopup('events',event)">
                     <span class="tr-icon">&#128339;</span>
@@ -2170,6 +2224,7 @@ th .job-checkbox { margin: 0; }
                 </button>
                 <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
             </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
             <div class="time-range-wrap">
                 <button class="time-range-trigger" onclick="toggleTimeRangePopup('execs',event)">
                     <span class="tr-icon">&#128339;</span>
@@ -2253,6 +2308,7 @@ th .job-checkbox { margin: 0; }
     </section>
 
     <section id="map-view" style="display:none">
+        <div style="margin-bottom:8px;text-align:right"><button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button></div>
         <div class="map-container" id="map-container">
             <svg id="map-svg"></svg>
         </div>
@@ -2268,8 +2324,9 @@ th .job-checkbox { margin: 0; }
     </section>
 
     <section id="scripts-view" style="display:none">
-        <div style="display:flex;gap:12px;margin-bottom:16px">
+        <div style="display:flex;gap:12px;margin-bottom:16px;justify-content:space-between">
             <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
         </div>
         <div id="scripts-list-wrap"></div>
         <div id="script-editor" style="display:none">
@@ -2303,6 +2360,12 @@ th .job-checkbox { margin: 0; }
                         <li><code>env_var(name)</code> — read environment variable</li>
                         <li><code>sleep_ms(ms)</code> — pause execution</li>
                         <li><code>fail(msg)</code> — mark execution as failed</li>
+                        <li><code>udp_send(addr, data)</code> — returns <code>#{sent, error}</code></li>
+                        <li><code>tcp_send(addr, data)</code> — returns <code>#{response, error}</code></li>
+                        <li><code>udp_send_hex(addr, hex)</code> — send raw bytes via UDP</li>
+                        <li><code>tcp_send_hex(addr, hex)</code> — returns <code>#{response_hex, response, error}</code></li>
+                        <li><code>hex_encode(string)</code> — string to hex</li>
+                        <li><code>hex_decode(hex)</code> — hex to string</li>
                     </ul>
                 </div>
             </div>
@@ -2370,6 +2433,68 @@ th .job-checkbox { margin: 0; }
             <div id="new-key-display" style="display:none" class="new-key-display"></div>
             <div id="keys-list"></div>
         </div>
+        <details class="custom-agent-docs">
+            <summary>&#128218; Custom Agent Developer Guide</summary>
+            <div class="custom-agent-content">
+                <p>Custom agents use a <strong>pull-based</strong> model — poll the controller for work, execute it however you want, post the result back. Build agents in any language with just an HTTP client.</p>
+                <h4>1. Register</h4>
+                <pre class="output-pre">curl -X POST http://localhost:8080/api/agents/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-agent","tags":["python","ml"],
+      "hostname":"ml-box","address":"0.0.0.0","port":0,
+      "agent_type":"custom"}'</pre>
+                <h4>2. Poll for work</h4>
+                <pre class="output-pre">curl http://localhost:8080/api/agent-queue/{agent_id}/next
+# Returns 204 if no work, or a job JSON object</pre>
+                <h4>3. Post result</h4>
+                <pre class="output-pre">curl -X POST {callback_url} \
+  -H "Content-Type: application/json" \
+  -d '{"execution_id":"...","job_id":"...","agent_id":"...",
+      "status":"succeeded","exit_code":0,
+      "stdout":"output here","stderr":"",
+      "stdout_truncated":false,"stderr_truncated":false,
+      "started_at":"...","finished_at":"..."}'</pre>
+                <h4>Python Example</h4>
+                <pre class="output-pre">import requests, time, datetime
+
+# Register
+resp = requests.post("http://localhost:8080/api/agents/register", json={
+    "name": "python-agent", "tags": ["python"],
+    "hostname": "my-box", "address": "0.0.0.0", "port": 0,
+    "agent_type": "custom"
+})
+agent_id = resp.json()["agent_id"]
+
+# Poll loop
+while True:
+    r = requests.get(f"http://localhost:8080/api/agent-queue/{agent_id}/next")
+    if r.status_code == 204:
+        time.sleep(5)
+        continue
+    job = r.json()
+    started = datetime.datetime.utcnow().isoformat() + "Z"
+
+    # Do your work here
+    try:
+        result = do_work(job["task"])
+        status, stdout = "succeeded", str(result)
+    except Exception as e:
+        status, stdout = "failed", str(e)
+
+    # Report back
+    requests.post(job["callback_url"], json={
+        "execution_id": job["execution_id"],
+        "job_id": job.get("job_id", ""),
+        "agent_id": agent_id,
+        "status": status, "exit_code": 0,
+        "stdout": stdout, "stderr": "",
+        "stdout_truncated": False, "stderr_truncated": False,
+        "started_at": started,
+        "finished_at": datetime.datetime.utcnow().isoformat() + "Z"
+    })</pre>
+                <p style="margin-top:12px">A complete working example is available at <code>examples/custom_agent.py</code> in the repository.</p>
+            </div>
+        </details>
     </section>
 </main>
 </div><!-- scrollable -->
@@ -2378,7 +2503,13 @@ th .job-checkbox { margin: 0; }
 
 <div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeCreateModal()">
     <div class="modal-card">
-        <h3 id="modal-title">Create Job</h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <h3 id="modal-title" style="margin:0">Create Job</h3>
+            <div style="display:flex;gap:6px">
+                <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="submitJobForm()">Save</button>
+            </div>
+        </div>
         <div class="form-group">
             <label>Name</label>
             <input id="f-name" type="text" placeholder="my-job">
@@ -2789,6 +2920,22 @@ function refreshForScope(scope) {
     if (scope === 'jobs') { jobsPage = 1; fetchJobs(true); }
     else if (scope === 'execs') { allExecsPage = 1; fetchAllExecutions(); }
     else if (scope === 'events') { eventsPage = 1; fetchEvents(); }
+}
+
+function shareCurrentPage() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+        toast('Link copied to clipboard');
+    }).catch(() => {
+        // Fallback
+        const input = document.createElement('input');
+        input.value = url;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        toast('Link copied to clipboard');
+    });
 }
 
 function getSinceISO(minutes) {
@@ -4276,7 +4423,7 @@ async function fetchAgents() {
 function renderAgents() {
     const wrap = document.getElementById('agents-table-wrap');
 
-    let html = '<div class="pair-command"><span class="pair-label">Pair an agent:</span> <code>KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code></div>';
+    let html = '<div class="pair-command"><span class="pair-label">Standard agent:</span> <code id="pair-cmd-text">KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code> <button class="share-btn" onclick="copyPairCommand()" title="Copy command" style="margin-left:6px">&#128203; Copy</button></div>';
 
     if (allAgents.length === 0) {
         wrap.innerHTML = html + '<div class="agents-empty"><p>No agents registered</p></div>';
@@ -4323,7 +4470,8 @@ function renderAgents() {
         html += '<div class="agent-card ' + a.status + '">';
         html += '<div class="agent-card-header">';
         html += '<span class="agent-name"><span class="agent-icon">&#128421;</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
-        html += '<div style="display:flex;align-items:center;gap:6px">' + badge(a.status);
+        const typeBadge = a.agent_type === 'custom' ? '<span class="badge badge-paused">custom</span> ' : '<span class="badge badge-scheduled">standard</span> ';
+        html += '<div style="display:flex;align-items:center;gap:6px">' + typeBadge + badge(a.status);
         html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
         html += '</div></div>';
         html += '<div class="agent-meta">';
@@ -5071,7 +5219,7 @@ function syntaxHighlight(code) {
             while (end < code.length && /[a-zA-Z0-9_]/.test(code[end])) end++;
             const word = code.slice(i, end);
             const keywords = ['let','if','else','while','for','in','fn','return','true','false','loop','break','continue','throw','try','catch','switch','is'];
-            const fns = ['print','http_get','http_post','shell_exec','env_var','sleep_ms','fail','parse_int','parse_json','to_string','type_of','len'];
+            const fns = ['print','http_get','http_post','shell_exec','env_var','sleep_ms','fail','parse_int','parse_json','to_string','type_of','len','udp_send','tcp_send','udp_send_hex','tcp_send_hex','hex_encode','hex_decode'];
             if (keywords.includes(word)) result += '<span class="kw">' + word + '</span>';
             else if (fns.includes(word)) result += '<span class="fn">' + word + '</span>';
             else result += esc(word);
@@ -5736,6 +5884,23 @@ function renderKeys(keys) {
         html += '</div>';
     }
     list.innerHTML = html;
+}
+
+function copyPairCommand() {
+    const el = document.getElementById('pair-cmd-text');
+    if (el) {
+        navigator.clipboard.writeText(el.textContent).then(() => {
+            toast('Command copied to clipboard');
+        }).catch(() => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            document.execCommand('copy');
+            toast('Command copied to clipboard');
+        });
+    }
 }
 
 function copyKey() {

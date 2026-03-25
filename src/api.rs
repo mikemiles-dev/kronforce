@@ -1,6 +1,6 @@
 use axum::extract::{Path, Query, Request, State};
 use axum::middleware::{self, Next};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, delete};
 use axum::response::Html;
 use axum::{Json, Router};
@@ -63,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(dashboard))
         .route("/api/health", get(health))
         .route("/api/agents/register", post(register_agent))
+        .route("/api/agent-queue/{agent_id}/next", get(poll_agent_queue))
         .route("/api/agents/{id}/heartbeat", post(agent_heartbeat))
         .route("/api/callbacks/execution-result", post(execution_result_callback))
         .with_state(state);
@@ -621,6 +622,8 @@ async fn register_agent(
     let agent_id = existing.as_ref().map(|a| a.id).unwrap_or_else(Uuid::new_v4);
     let now = Utc::now();
 
+    let agent_type = req.agent_type.as_deref().map(AgentType::from_str).unwrap_or(AgentType::Standard);
+
     let agent = Agent {
         id: agent_id,
         name: req.name,
@@ -628,6 +631,7 @@ async fn register_agent(
         hostname: req.hostname,
         address: req.address,
         port: req.port,
+        agent_type,
         status: AgentStatus::Online,
         last_heartbeat: Some(now),
         registered_at: existing.map(|a| a.registered_at).unwrap_or(now),
@@ -721,6 +725,27 @@ async fn deregister_agent(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+async fn poll_agent_queue(
+    State(state): State<AppState>,
+    Path(agent_id): Path<Uuid>,
+) -> Result<Response, AppError> {
+    // Also update heartbeat
+    let db = state.db.clone();
+    let now = Utc::now();
+    let aid = agent_id;
+    let _ = tokio::task::spawn_blocking(move || db.update_agent_heartbeat(aid, now)).await;
+
+    let db = state.db.clone();
+    let job = tokio::task::spawn_blocking(move || db.dequeue_job(agent_id))
+        .await
+        .unwrap()?;
+
+    match job {
+        Some(j) => Ok(Json(j).into_response()),
+        None => Ok(axum::http::StatusCode::NO_CONTENT.into_response()),
+    }
+}
+
 async fn execution_result_callback(
     State(state): State<AppState>,
     Json(result): Json<ExecutionResultReport>,
@@ -768,6 +793,11 @@ async fn execution_result_callback(
     // Log event and notify scheduler for event-triggered jobs
     let no_auth = AuthUser(None);
     let msg = format!("Execution {} finished: {:?}", result.execution_id, status);
+    // Mark queue item complete (for custom agents)
+    let db_q = state.db.clone();
+    let eid = result.execution_id;
+    let _ = tokio::task::spawn_blocking(move || db_q.complete_queue_item(eid)).await;
+
     log_and_notify(&state.db, &state.scheduler_tx, "execution.completed", severity,
         &msg, Some(result.job_id), Some(result.agent_id), &no_auth, None).await;
 

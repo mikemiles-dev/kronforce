@@ -311,13 +311,35 @@ impl Executor {
         let rec_clone = rec.clone();
         tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone)).await.unwrap()?;
 
+        let callback_url = format!("{}/api/callbacks/execution-result", callback_base_url);
+
+        // Custom agents use pull-based queue
+        if agent.agent_type == AgentType::Custom {
+            let db = self.db.clone();
+            let queue_id = Uuid::new_v4();
+            let task = job.task.clone();
+            let run_as = job.run_as.clone();
+            let timeout = job.timeout_secs;
+            let agent_id = agent.id;
+            let cb = callback_url.clone();
+            tokio::task::spawn_blocking(move || {
+                db.enqueue_job(queue_id, exec_id, agent_id, &task, run_as.as_deref(), timeout, &cb)
+            }).await.unwrap()?;
+            tracing::info!(
+                "queued job {} for custom agent {} -> execution {}",
+                job.name, agent.name, exec_id
+            );
+            return Ok(exec_id);
+        }
+
+        // Standard agents use push
         let dispatch = JobDispatchRequest {
             execution_id: exec_id,
             job_id: job.id,
             task: job.task.clone(),
             run_as: job.run_as.clone(),
             timeout_secs: job.timeout_secs,
-            callback_url: format!("{}/api/callbacks/execution-result", callback_base_url),
+            callback_url,
         };
 
         match self.agent_client.dispatch_job(&agent.address, agent.port, &dispatch).await {
@@ -509,6 +531,19 @@ async fn run_http(
     }
 }
 
+fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
+    let hex = hex.replace(' ', "");
+    if hex.len() % 2 != 0 { return Err("odd length".into()); }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i+2], 16).map_err(|e| format!("{e}")))
+        .collect()
+}
+
+fn bytes_to_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 async fn run_script(
     code: &str,
     timeout_secs: Option<u64>,
@@ -649,6 +684,159 @@ async fn run_script(
         // Register env_var(name) -> string
         engine.register_fn("env_var", |name: &str| -> String {
             std::env::var(name).unwrap_or_default()
+        });
+
+        // Register udp_send(addr, data) -> #{sent, error}
+        engine.register_fn("udp_send", |addr: &str, data: &str| -> rhai::Dynamic {
+            use std::net::UdpSocket;
+            let mut map = rhai::Map::new();
+            match UdpSocket::bind("0.0.0.0:0") {
+                Ok(socket) => {
+                    let _ = socket.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+                    match socket.send_to(data.as_bytes(), addr) {
+                        Ok(n) => {
+                            map.insert("sent".into(), rhai::Dynamic::from(n as i64));
+                            map.insert("error".into(), rhai::Dynamic::from("".to_string()));
+                        }
+                        Err(e) => {
+                            map.insert("sent".into(), rhai::Dynamic::from(0_i64));
+                            map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                        }
+                    }
+                }
+                Err(e) => {
+                    map.insert("sent".into(), rhai::Dynamic::from(0_i64));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                }
+            }
+            rhai::Dynamic::from(map)
+        });
+
+        // Register tcp_send(addr, data) -> #{response, error}
+        engine.register_fn("tcp_send", |addr: &str, data: &str| -> rhai::Dynamic {
+            use std::io::{Read, Write};
+            use std::net::TcpStream;
+            let mut map = rhai::Map::new();
+            match TcpStream::connect_timeout(
+                &addr.parse().unwrap_or_else(|_| std::net::SocketAddr::from(([127,0,0,1], 0))),
+                std::time::Duration::from_secs(5),
+            ) {
+                Ok(mut stream) => {
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+                    let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+                    match stream.write_all(data.as_bytes()) {
+                        Ok(_) => {
+                            let _ = stream.shutdown(std::net::Shutdown::Write);
+                            let mut buf = Vec::new();
+                            let _ = stream.read_to_end(&mut buf);
+                            map.insert("response".into(), rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()));
+                            map.insert("error".into(), rhai::Dynamic::from("".to_string()));
+                        }
+                        Err(e) => {
+                            map.insert("response".into(), rhai::Dynamic::from("".to_string()));
+                            map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                        }
+                    }
+                }
+                Err(e) => {
+                    map.insert("response".into(), rhai::Dynamic::from("".to_string()));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                }
+            }
+            rhai::Dynamic::from(map)
+        });
+
+        // Register udp_send_hex(addr, hex_string) -> #{sent, error}
+        engine.register_fn("udp_send_hex", |addr: &str, hex: &str| -> rhai::Dynamic {
+            use std::net::UdpSocket;
+            let mut map = rhai::Map::new();
+            let bytes = match hex_to_bytes(hex) {
+                Ok(b) => b,
+                Err(e) => {
+                    map.insert("sent".into(), rhai::Dynamic::from(0_i64));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("bad hex: {e}")));
+                    return rhai::Dynamic::from(map);
+                }
+            };
+            match UdpSocket::bind("0.0.0.0:0") {
+                Ok(socket) => {
+                    let _ = socket.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+                    match socket.send_to(&bytes, addr) {
+                        Ok(n) => {
+                            map.insert("sent".into(), rhai::Dynamic::from(n as i64));
+                            map.insert("error".into(), rhai::Dynamic::from("".to_string()));
+                        }
+                        Err(e) => {
+                            map.insert("sent".into(), rhai::Dynamic::from(0_i64));
+                            map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                        }
+                    }
+                }
+                Err(e) => {
+                    map.insert("sent".into(), rhai::Dynamic::from(0_i64));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                }
+            }
+            rhai::Dynamic::from(map)
+        });
+
+        // Register tcp_send_hex(addr, hex_string) -> #{response_hex, response, error}
+        engine.register_fn("tcp_send_hex", |addr: &str, hex: &str| -> rhai::Dynamic {
+            use std::io::{Read, Write};
+            use std::net::TcpStream;
+            let mut map = rhai::Map::new();
+            let bytes = match hex_to_bytes(hex) {
+                Ok(b) => b,
+                Err(e) => {
+                    map.insert("response_hex".into(), rhai::Dynamic::from("".to_string()));
+                    map.insert("response".into(), rhai::Dynamic::from("".to_string()));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("bad hex: {e}")));
+                    return rhai::Dynamic::from(map);
+                }
+            };
+            match TcpStream::connect_timeout(
+                &addr.parse().unwrap_or_else(|_| std::net::SocketAddr::from(([127,0,0,1], 0))),
+                std::time::Duration::from_secs(5),
+            ) {
+                Ok(mut stream) => {
+                    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(5)));
+                    let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(5)));
+                    match stream.write_all(&bytes) {
+                        Ok(_) => {
+                            let _ = stream.shutdown(std::net::Shutdown::Write);
+                            let mut buf = Vec::new();
+                            let _ = stream.read_to_end(&mut buf);
+                            map.insert("response_hex".into(), rhai::Dynamic::from(bytes_to_hex(&buf)));
+                            map.insert("response".into(), rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()));
+                            map.insert("error".into(), rhai::Dynamic::from("".to_string()));
+                        }
+                        Err(e) => {
+                            map.insert("response_hex".into(), rhai::Dynamic::from("".to_string()));
+                            map.insert("response".into(), rhai::Dynamic::from("".to_string()));
+                            map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                        }
+                    }
+                }
+                Err(e) => {
+                    map.insert("response_hex".into(), rhai::Dynamic::from("".to_string()));
+                    map.insert("response".into(), rhai::Dynamic::from("".to_string()));
+                    map.insert("error".into(), rhai::Dynamic::from(format!("{e}")));
+                }
+            }
+            rhai::Dynamic::from(map)
+        });
+
+        // Register hex_encode(string) -> hex_string
+        engine.register_fn("hex_encode", |data: &str| -> String {
+            bytes_to_hex(data.as_bytes())
+        });
+
+        // Register hex_decode(hex_string) -> string
+        engine.register_fn("hex_decode", |hex: &str| -> String {
+            match hex_to_bytes(hex) {
+                Ok(bytes) => String::from_utf8_lossy(&bytes).to_string(),
+                Err(_) => String::new(),
+            }
         });
 
         // Register fail(message) - marks execution as failed

@@ -157,6 +157,29 @@ pub enum AgentStatus {
     Draining,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentType {
+    Standard,
+    Custom,
+}
+
+impl AgentType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AgentType::Standard => "standard",
+            AgentType::Custom => "custom",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "custom" => AgentType::Custom,
+            _ => AgentType::Standard,
+        }
+    }
+}
+
 impl AgentStatus {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -184,6 +207,7 @@ pub struct Agent {
     pub hostname: String,
     pub address: String,
     pub port: u16,
+    pub agent_type: AgentType,
     pub status: AgentStatus,
     pub last_heartbeat: Option<DateTime<Utc>>,
     pub registered_at: DateTime<Utc>,
