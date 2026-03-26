@@ -84,6 +84,7 @@
 [data-theme="light"] .badge-succeeded { background: rgba(21,128,61,0.12); color: #15803d; }
 [data-theme="light"] .badge-running,
 [data-theme="light"] .badge-pending { background: rgba(26,106,191,0.12); color: #1a6abf; }
+[data-theme="light"] .badge-queued { background: rgba(154,109,0,0.12); color: #7a5600; }
 [data-theme="light"] .badge-paused { background: rgba(154,109,0,0.12); color: #7a5600; }
 [data-theme="light"] .badge-failed,
 [data-theme="light"] .badge-timed_out { background: rgba(185,28,28,0.12); color: #b91c1c; }
@@ -416,6 +417,7 @@ main {
 .badge-active, .badge-enabled, .badge-scheduled { background: rgba(100,180,255,0.12); color: #64b4ff; }
 .badge-succeeded { background: rgba(46,204,113,0.12); color: var(--success); }
 .badge-running, .badge-pending { background: rgba(62,139,255,0.12); color: var(--info); }
+.badge-queued { background: rgba(230,168,23,0.12); color: var(--warning); }
 .badge-paused { background: rgba(230,168,23,0.12); color: var(--warning); }
 .badge-failed, .badge-timed_out { background: rgba(224,82,82,0.12); color: var(--danger); }
 .badge-cancelled, .badge-skipped, .badge-disabled { background: rgba(124,130,152,0.12); color: var(--text-secondary); }
@@ -1205,6 +1207,46 @@ th .job-checkbox { margin: 0; }
 .agent-card.online { border-left: 3px solid var(--success); }
 .agent-card.offline { border-left: 3px solid var(--danger); opacity: 0.6; }
 .agent-card.draining { border-left: 3px solid var(--warning); }
+
+.agent-task-types { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.agent-task-type-item { margin-bottom: 6px; }
+.agent-task-type-item:last-child { margin-bottom: 0; }
+
+.agent-config-panel { margin-top: 8px; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.agent-config-panel .tt-section { margin-bottom: 12px; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.agent-config-panel .tt-section:last-of-type { margin-bottom: 8px; }
+.agent-config-panel .tt-header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.agent-config-panel .tt-header input { flex: 1; min-width: 0; }
+.agent-config-panel .tt-field-row { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
+.agent-config-panel .tt-field-row input, .agent-config-panel .tt-field-row select { font-size: 12px; padding: 4px 6px; min-width: 0; }
+.agent-config-panel .tt-field-row input[type="text"] { width: 80px; flex-shrink: 1; }
+.agent-config-panel .tt-field-row select { width: 80px; flex-shrink: 0; }
+.agent-config-panel .tt-field-row input[type="checkbox"] { width: auto; flex-shrink: 0; }
+.agent-config-panel label.tt-label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
+.agent-card.custom-clickable { cursor: pointer; }
+.agent-card.custom-clickable:hover .agent-card-header .agent-name { color: var(--accent); }
+
+.docs-layout { display: flex; gap: 0; min-height: calc(100vh - 80px); }
+.docs-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; align-self: flex-start; }
+.docs-topic { display: block; padding: 8px 20px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 3px solid transparent; }
+.docs-topic:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+.docs-topic.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg-tertiary); font-weight: 600; }
+.docs-content { flex: 1; padding: 20px 32px; max-width: 800px; overflow-y: auto; }
+.docs-content h2 { margin-top: 0; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); font-size: 18px; }
+.docs-content h3 { margin-top: 20px; margin-bottom: 8px; font-size: 14px; color: var(--text-primary); }
+.docs-content h4 { margin-top: 16px; margin-bottom: 6px; font-size: 13px; color: var(--text-secondary); }
+.docs-content p { margin: 8px 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.docs-content pre { background: var(--bg-tertiary); padding: 12px; border-radius: var(--radius); font-size: 12px; overflow-x: auto; margin: 8px 0; border: 1px solid var(--border); }
+.docs-content code { background: var(--bg-tertiary); padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: var(--font-mono); }
+.docs-content pre code { background: none; padding: 0; }
+.docs-content table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 12px; }
+.docs-content th, .docs-content td { padding: 6px 10px; border: 1px solid var(--border); text-align: left; }
+.docs-content th { background: var(--bg-tertiary); font-weight: 600; }
+.docs-content ul, .docs-content ol { margin: 8px 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); }
+.docs-content li { margin-bottom: 4px; line-height: 1.5; }
+.docs-content strong { color: var(--text-primary); }
+.docs-section { margin-bottom: 40px; padding-top: 4px; }
+@media (max-width: 768px) { .docs-sidebar { display: none; } .docs-content { padding: 12px 16px; } }
 
 .agent-status-dot {
     width: 8px;
@@ -2081,6 +2123,7 @@ th .job-checkbox { margin: 0; }
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
         <button class="nav-tab" id="tab-scripts" onclick="showPage('scripts')"><span class="tab-icon">&#128220;</span> Scripts</button>
         <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
+        <button class="nav-tab" id="tab-docs" onclick="showPage('docs')"><span class="tab-icon">&#128218;</span> Docs</button>
         <button class="nav-tab" id="tab-settings" onclick="showPage('settings')"><span class="tab-icon">&#9881;</span> Settings</button>
     </nav>
     <div class="sidebar-footer">
@@ -2095,15 +2138,15 @@ th .job-checkbox { margin: 0; }
         <div class="action-bar-left">
             <div class="search-wrap">
                 <span class="search-icon">&#128269;</span>
-                <input id="search-input" type="text" placeholder="Search jobs..." oninput="onSearch()">
-                <button id="search-clear" class="search-clear" onclick="clearSearch()" style="display:none">&times;</button>
+                <input id="search-input" type="text" placeholder="Search jobs..." oninput="jobSearch.onSearch()">
+                <button id="search-clear" class="search-clear" onclick="jobSearch.clearSearch()" style="display:none">&times;</button>
             </div>
             <div class="status-filters" id="status-filters">
-                <button class="status-btn active" data-status="" onclick="setStatusFilter(this, '')">All</button>
-                <button class="status-btn s-active" data-status="scheduled" onclick="setStatusFilter(this, 'scheduled')">Scheduled</button>
-                <button class="status-btn s-paused" data-status="paused" onclick="setStatusFilter(this, 'paused')">Paused</button>
-                <button class="status-btn s-completed" data-status="unscheduled" onclick="setStatusFilter(this, 'unscheduled')">Unscheduled</button>
-                <button class="status-btn s-paused" data-status="blocked" onclick="setStatusFilter(this, 'blocked')">Waiting</button>
+                <button class="status-btn active" data-status="" onclick="jobSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" data-status="scheduled" onclick="jobSearch.setStatusFilter(this, 'scheduled')">Scheduled</button>
+                <button class="status-btn s-paused" data-status="paused" onclick="jobSearch.setStatusFilter(this, 'paused')">Paused</button>
+                <button class="status-btn s-completed" data-status="unscheduled" onclick="jobSearch.setStatusFilter(this, 'unscheduled')">Unscheduled</button>
+                <button class="status-btn s-paused" data-status="blocked" onclick="jobSearch.setStatusFilter(this, 'blocked')">Waiting</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -2140,14 +2183,14 @@ th .job-checkbox { margin: 0; }
         <div class="action-bar-left">
             <div class="search-wrap">
                 <span class="search-icon">&#128269;</span>
-                <input id="agent-search-input" type="text" placeholder="Search agents..." oninput="onAgentSearch()">
-                <button id="agent-search-clear" class="search-clear" onclick="clearAgentSearch()" style="display:none">&times;</button>
+                <input id="agent-search-input" type="text" placeholder="Search agents..." oninput="agentSearch.onSearch()">
+                <button id="agent-search-clear" class="search-clear" onclick="agentSearch.clearSearch()" style="display:none">&times;</button>
             </div>
             <div class="status-filters" id="agent-status-filters">
-                <button class="status-btn active" onclick="setAgentStatusFilter(this, '')">All</button>
-                <button class="status-btn s-active" onclick="setAgentStatusFilter(this, 'online')">Online</button>
-                <button class="status-btn s-danger" onclick="setAgentStatusFilter(this, 'offline')">Offline</button>
-                <button class="status-btn s-paused" onclick="setAgentStatusFilter(this, 'draining')">Draining</button>
+                <button class="status-btn active" onclick="agentSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="agentSearch.setStatusFilter(this, 'online')">Online</button>
+                <button class="status-btn s-danger" onclick="agentSearch.setStatusFilter(this, 'offline')">Offline</button>
+                <button class="status-btn s-paused" onclick="agentSearch.setStatusFilter(this, 'draining')">Draining</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -2168,15 +2211,15 @@ th .job-checkbox { margin: 0; }
         <div class="action-bar-left">
             <div class="search-wrap">
                 <span class="search-icon">&#128269;</span>
-                <input id="event-search-input" type="text" placeholder="Search events..." oninput="onEventSearch()">
-                <button id="event-search-clear" class="search-clear" onclick="clearEventSearch()" style="display:none">&times;</button>
+                <input id="event-search-input" type="text" placeholder="Search events..." oninput="eventSearch.onSearch()">
+                <button id="event-search-clear" class="search-clear" onclick="eventSearch.clearSearch()" style="display:none">&times;</button>
             </div>
             <div class="status-filters" id="event-type-filters">
-                <button class="status-btn active" onclick="setEventTypeFilter(this, '')">All</button>
-                <button class="status-btn s-active" onclick="setEventTypeFilter(this, 'success')">Success</button>
-                <button class="status-btn s-danger" onclick="setEventTypeFilter(this, 'error')">Error</button>
-                <button class="status-btn s-paused" onclick="setEventTypeFilter(this, 'warning')">Warning</button>
-                <button class="status-btn s-completed" onclick="setEventTypeFilter(this, 'info')">Info</button>
+                <button class="status-btn active" onclick="eventSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="eventSearch.setStatusFilter(this, 'success')">Success</button>
+                <button class="status-btn s-danger" onclick="eventSearch.setStatusFilter(this, 'error')">Error</button>
+                <button class="status-btn s-paused" onclick="eventSearch.setStatusFilter(this, 'warning')">Warning</button>
+                <button class="status-btn s-completed" onclick="eventSearch.setStatusFilter(this, 'info')">Info</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -2205,15 +2248,16 @@ th .job-checkbox { margin: 0; }
         <div class="action-bar-left">
             <div class="search-wrap">
                 <span class="search-icon">&#128269;</span>
-                <input id="exec-search-input" type="text" placeholder="Search executions..." oninput="onExecSearch()">
-                <button id="exec-search-clear" class="search-clear" onclick="clearExecSearch()" style="display:none">&times;</button>
+                <input id="exec-search-input" type="text" placeholder="Search executions..." oninput="execSearch.onSearch()">
+                <button id="exec-search-clear" class="search-clear" onclick="execSearch.clearSearch()" style="display:none">&times;</button>
             </div>
             <div class="status-filters" id="exec-status-filters">
-                <button class="status-btn active" onclick="setExecStatusFilter(this, '')">All</button>
-                <button class="status-btn s-active" onclick="setExecStatusFilter(this, 'succeeded')">Succeeded</button>
-                <button class="status-btn s-danger" onclick="setExecStatusFilter(this, 'failed')">Failed</button>
-                <button class="status-btn s-paused" onclick="setExecStatusFilter(this, 'timed_out')">Timed Out</button>
-                <button class="status-btn s-completed" onclick="setExecStatusFilter(this, 'running')">Running</button>
+                <button class="status-btn active" onclick="execSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="execSearch.setStatusFilter(this, 'succeeded')">Succeeded</button>
+                <button class="status-btn s-danger" onclick="execSearch.setStatusFilter(this, 'failed')">Failed</button>
+                <button class="status-btn s-paused" onclick="execSearch.setStatusFilter(this, 'timed_out')">Timed Out</button>
+                <button class="status-btn s-completed" onclick="execSearch.setStatusFilter(this, 'running')">Running</button>
+                <button class="status-btn s-paused" onclick="execSearch.setStatusFilter(this, 'pending')">Pending</button>
             </div>
         </div>
         <div class="action-bar-right">
@@ -2377,6 +2421,341 @@ th .job-checkbox { margin: 0; }
         <div id="events-pagination" class="pagination"></div>
     </section>
 
+    <section id="docs-view" style="display:none">
+        <div class="docs-layout">
+            <nav class="docs-sidebar">
+                <button class="docs-topic active" onclick="scrollToDocTopic('doc-custom-agents')">Custom Agents</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting (Rhai)</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
+            </nav>
+            <div class="docs-content" id="docs-content">
+
+                <div class="docs-section" id="doc-custom-agents">
+                    <h2>Custom Agents</h2>
+                    <p>Custom agents use a <strong>pull-based</strong> model &mdash; they poll the controller for work, execute it however they want, and post the result back. Build agents in any language with just an HTTP client. No server needed.</p>
+
+                    <h3>How It Works</h3>
+                    <p>Custom agents separate <strong>workflow definition</strong> from <strong>implementation</strong>:</p>
+                    <ul>
+                        <li><strong>The UI defines the workflow</strong> &mdash; admins configure task types (name, description, form fields) on the agent card in the dashboard</li>
+                        <li><strong>The agent code defines the implementation</strong> &mdash; the agent handles whatever task data it receives</li>
+                    </ul>
+                    <p>This means you can reconfigure task types without restarting the agent, and non-developers can set up workflows through the dashboard.</p>
+
+                    <h3>Setup</h3>
+                    <ol>
+                        <li><strong>Start the agent</strong> &mdash; it registers with <code>agent_type: "custom"</code> and begins polling</li>
+                        <li><strong>Configure task types in the UI</strong> &mdash; go to Agents page, click the custom agent card, add task types with field definitions, and save</li>
+                        <li><strong>Create a job</strong> &mdash; select "Custom Agent" execution mode, pick your agent, fill in the dynamic form, and trigger</li>
+                    </ol>
+
+                    <h3>Protocol</h3>
+                    <p>All agent endpoints require <strong>no API key</strong>.</p>
+
+                    <h4>1. Register</h4>
+<pre><code>POST /api/agents/register
+{
+    "name": "my-python-agent",
+    "tags": ["python", "ml"],
+    "hostname": "ml-box",
+    "address": "0.0.0.0",
+    "port": 0,
+    "agent_type": "custom"
+}
+// Returns: {"agent_id": "uuid", "heartbeat_interval_secs": 10}</code></pre>
+
+                    <h4>2. Discover Task Types (optional)</h4>
+<pre><code>GET /api/agents/{agent_id}/task-types
+// Returns: [{"name": "python", "fields": [...]}, ...]</code></pre>
+                    <p>Useful for logging on startup or validating that your agent handles the configured types.</p>
+
+                    <h4>3. Poll for Work</h4>
+<pre><code>GET /api/agent-queue/{agent_id}/next
+// Returns 204 if no work, or 200 with job JSON:</code></pre>
+<pre><code>{
+    "queue_id": "uuid",
+    "execution_id": "uuid",
+    "job_id": "uuid",
+    "agent_id": "uuid",
+    "task": {
+        "type": "custom",
+        "agent_task_type": "python",
+        "data": {"script": "print('hello')", "args": "--verbose"}
+    },
+    "callback_url": "http://controller:8080/api/callbacks/execution-result"
+}</code></pre>
+                    <p>Your agent switches on <code>task.agent_task_type</code> and reads field values from <code>task.data</code>.</p>
+
+                    <h4>4. Report Result</h4>
+<pre><code>POST {callback_url}
+{
+    "execution_id": "...", "job_id": "...", "agent_id": "...",
+    "status": "succeeded", "exit_code": 0,
+    "stdout": "output", "stderr": "",
+    "stdout_truncated": false, "stderr_truncated": false,
+    "started_at": "2026-03-25T10:00:00Z",
+    "finished_at": "2026-03-25T10:00:05Z"
+}</code></pre>
+
+                    <h3>Task Type Definitions</h3>
+                    <p>Configured per-agent in the UI. Each definition has a name, optional description, and a fields array:</p>
+<pre><code>{
+    "name": "python",
+    "description": "Run a Python script",
+    "fields": [
+        {"name": "script", "label": "Script", "field_type": "textarea", "required": true},
+        {"name": "args", "label": "Arguments", "field_type": "text", "required": false}
+    ]
+}</code></pre>
+                    <p><strong>Supported field types:</strong> <code>text</code>, <code>textarea</code>, <code>number</code>, <code>select</code>, <code>password</code></p>
+                    <p>Select fields include an <code>options</code> array with <code>value</code>/<code>label</code> pairs.</p>
+                    <p>Task types can also be managed via the API: <code>GET/PUT /api/agents/{id}/task-types</code></p>
+
+                    <h3>Queue Behavior</h3>
+                    <ul>
+                        <li>Jobs are <strong>queued</strong> in the controller database until the agent polls</li>
+                        <li>Unclaimed jobs are failed after <strong>5 minutes</strong></li>
+                        <li>Claimed but unreported jobs are failed after <strong>10 minutes</strong></li>
+                        <li>The UI shows a "queued" badge (amber) for pending custom agent jobs</li>
+                        <li>Polling also acts as a heartbeat &mdash; no separate call needed</li>
+                    </ul>
+
+                    <h3>Execution Modes</h3>
+                    <table>
+                        <tr><th>Mode</th><th>Task Types</th><th>Targets</th></tr>
+                        <tr><td>Standard</td><td>Shell, HTTP, SQL, FTP, Script</td><td>Local / Specific Agent / Any / All</td></tr>
+                        <tr><td>Custom Agent</td><td>Defined per agent in UI</td><td>Specific custom agent</td></tr>
+                    </table>
+
+                    <h3>Python Example</h3>
+                    <p>A complete working example is at <code>examples/custom_agent.py</code>:</p>
+<pre><code>pip install requests
+python3 examples/custom_agent.py
+
+# Configure with:
+KRONFORCE_URL=http://controller:8080 \
+AGENT_NAME=my-agent \
+AGENT_TAGS=python,ml \
+python3 examples/custom_agent.py</code></pre>
+                </div>
+
+                <div class="docs-section" id="doc-scripting">
+                    <h2>Scripting (Rhai)</h2>
+                    <p>The <code>script</code> task type runs custom logic written in <a href="https://rhai.rs" style="color:var(--accent)">Rhai</a>, a lightweight scripting language embedded in the Rust binary. Scripts are stored as <code>.rhai</code> files in the scripts directory.</p>
+
+                    <h3>Managing Scripts</h3>
+                    <p>Use the <strong>Scripts</strong> page in the dashboard (with syntax-highlighted editor), the API, or drop <code>.rhai</code> files in the scripts directory.</p>
+<pre><code># Create/update via API
+curl -X PUT http://localhost:8080/api/scripts/health-check \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 { fail(\"down\"); }\nprint(\"OK\");"}'
+
+# Or drop a file
+echo 'print("hello");' &gt; ./scripts/hello.rhai</code></pre>
+
+                    <h3>Available Functions</h3>
+                    <table>
+                        <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+                        <tr><td><code>print(msg)</code></td><td>&mdash;</td><td>Appends to job output</td></tr>
+                        <tr><td><code>http_get(url)</code></td><td><code>#{status, body}</code></td><td>HTTP GET request</td></tr>
+                        <tr><td><code>http_post(url, body)</code></td><td><code>#{status, body}</code></td><td>HTTP POST request</td></tr>
+                        <tr><td><code>shell_exec(cmd)</code></td><td><code>#{exit_code, stdout, stderr}</code></td><td>Run a shell command</td></tr>
+                        <tr><td><code>env_var(name)</code></td><td><code>string</code></td><td>Read environment variable</td></tr>
+                        <tr><td><code>sleep_ms(ms)</code></td><td>&mdash;</td><td>Sleep for N milliseconds</td></tr>
+                        <tr><td><code>fail(msg)</code></td><td>&mdash;</td><td>Mark execution as failed</td></tr>
+                        <tr><td><code>udp_send(addr, data)</code></td><td><code>#{sent, error}</code></td><td>Send string via UDP</td></tr>
+                        <tr><td><code>tcp_send(addr, data)</code></td><td><code>#{response, error}</code></td><td>Send string via TCP</td></tr>
+                        <tr><td><code>udp_send_hex(addr, hex)</code></td><td><code>#{sent, error}</code></td><td>Send raw bytes via UDP</td></tr>
+                        <tr><td><code>tcp_send_hex(addr, hex)</code></td><td><code>#{response_hex, response, error}</code></td><td>Send raw bytes via TCP</td></tr>
+                        <tr><td><code>hex_encode(s)</code></td><td><code>string</code></td><td>String to hex</td></tr>
+                        <tr><td><code>hex_decode(hex)</code></td><td><code>string</code></td><td>Hex to string</td></tr>
+                    </table>
+
+                    <h3>Examples</h3>
+                    <h4>Health check with Slack notification</h4>
+<pre><code>let resp = http_get("https://api.example.com/health");
+if resp.status != 200 {
+    http_post("https://hooks.slack.com/services/T00/B00/xxx",
+        `{"text": "API is DOWN! Status: ${resp.status}"}`);
+    fail("Health check failed");
+}
+print("API is healthy");</code></pre>
+
+                    <h4>Run command and check output</h4>
+<pre><code>let result = shell_exec("df -h / | tail -1 | awk '{print $5}'");
+print("Disk usage: " + result.stdout);
+if parse_int(result.stdout.replace("%", "")) &gt; 90 {
+    fail("Disk usage critical");
+}</code></pre>
+
+                    <h4>TCP protocol check</h4>
+<pre><code>let result = tcp_send("192.168.1.10:6379", "PING\r\n");
+if result.error != "" {
+    fail("Redis unreachable: " + result.error);
+}
+print("Redis: " + result.response);</code></pre>
+
+                    <h3>Sandboxing</h3>
+                    <ul>
+                        <li><strong>1,000,000 operations</strong> max (prevents infinite loops)</li>
+                        <li><strong>256KB string size</strong> max</li>
+                        <li><strong>Timeout</strong> enforced by the job's <code>timeout_secs</code> setting</li>
+                        <li>No direct file system access (use <code>shell_exec</code>)</li>
+                    </ul>
+                </div>
+
+                <div class="docs-section" id="doc-task-types">
+                    <h2>Task Types</h2>
+                    <table>
+                        <tr><th>Type</th><th>Execution</th><th>Config Fields</th></tr>
+                        <tr><td><code>shell</code></td><td>Runs <code>sh -c</code> (or <code>sudo -n -u</code> with run_as)</td><td>command</td></tr>
+                        <tr><td><code>http</code></td><td>In-process HTTP request via reqwest</td><td>method, url, headers, body, expect_status</td></tr>
+                        <tr><td><code>sql</code></td><td>Shells out to psql/mysql/sqlite3</td><td>driver, connection_string, query</td></tr>
+                        <tr><td><code>ftp</code></td><td>Uses curl for FTP/FTPS/SFTP</td><td>protocol, host, port, username, password, direction, remote_path, local_path</td></tr>
+                        <tr><td><code>script</code></td><td>Rhai scripting engine</td><td>script_name</td></tr>
+                        <tr><td><code>custom</code></td><td>Dispatched to custom agent</td><td>agent_task_type, data (fields defined per agent in UI)</td></tr>
+                    </table>
+                    <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents &mdash; task type definitions are configured per agent in the dashboard.</p>
+
+                    <h3>Shell</h3>
+                    <p>Runs a command via <code>sh -c</code>. Supports <code>run_as</code> for sudo execution.</p>
+<pre><code>{"type": "shell", "command": "echo hello"}</code></pre>
+
+                    <h3>HTTP</h3>
+                    <p>Makes an in-process HTTP request. Response body is captured as stdout, status code as exit code.</p>
+<pre><code>{"type": "http", "method": "get", "url": "https://api.example.com/health", "expect_status": 200}</code></pre>
+
+                    <h3>SQL</h3>
+                    <p>Executes a query via psql, mysql, or sqlite3 CLI tools. Query results are captured as output.</p>
+<pre><code>{"type": "sql", "driver": "postgres", "connection_string": "postgresql://user:pass@host/db", "query": "SELECT count(*) FROM orders"}</code></pre>
+
+                    <h3>FTP/SFTP</h3>
+                    <p>File transfers via curl. Supports FTP, FTPS, and SFTP protocols.</p>
+<pre><code>{"type": "ftp", "protocol": "sftp", "host": "ftp.example.com", "username": "user", "password": "pass", "direction": "upload", "local_path": "/data/report.csv", "remote_path": "/uploads/report.csv"}</code></pre>
+
+                    <h3>Custom</h3>
+                    <p>Dispatched to a custom agent. Task types and fields are defined per-agent in the UI. Cannot run locally.</p>
+<pre><code>{"type": "custom", "agent_task_type": "python", "data": {"script": "print('hello')", "args": "--verbose"}}</code></pre>
+                </div>
+
+                <div class="docs-section" id="doc-api">
+                    <h2>API Reference</h2>
+                    <p>All <code>/api/*</code> endpoints (except health, agent registration, polling, and callbacks) require an API key via the <code>Authorization: Bearer kf_...</code> header.</p>
+
+                    <h3>Jobs</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs</code></td><td>List all jobs (paginated, filterable by status, searchable)</td></tr>
+                        <tr><td>POST</td><td><code>/api/jobs</code></td><td>Create a job</td></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/{id}</code></td><td>Get job details</td></tr>
+                        <tr><td>PUT</td><td><code>/api/jobs/{id}</code></td><td>Update a job</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/jobs/{id}</code></td><td>Delete a job</td></tr>
+                        <tr><td>POST</td><td><code>/api/jobs/{id}/trigger</code></td><td>Trigger a job now</td></tr>
+                    </table>
+
+                    <h3>Executions</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/{id}/executions</code></td><td>List executions for a job</td></tr>
+                        <tr><td>GET</td><td><code>/api/executions</code></td><td>List all executions (filterable, searchable)</td></tr>
+                        <tr><td>GET</td><td><code>/api/executions/{id}</code></td><td>Get execution details with output</td></tr>
+                        <tr><td>POST</td><td><code>/api/executions/{id}/cancel</code></td><td>Cancel a running execution</td></tr>
+                    </table>
+
+                    <h3>Agents</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/agents</code></td><td>Yes</td><td>List all agents</td></tr>
+                        <tr><td>GET</td><td><code>/api/agents/{id}</code></td><td>Yes</td><td>Get agent details</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/agents/{id}</code></td><td>Yes</td><td>Deregister an agent</td></tr>
+                        <tr><td>PUT</td><td><code>/api/agents/{id}/task-types</code></td><td>Yes</td><td>Update custom agent task type definitions</td></tr>
+                        <tr><td>GET</td><td><code>/api/agents/{id}/task-types</code></td><td>No</td><td>Get task type definitions (for agent discovery)</td></tr>
+                        <tr><td>POST</td><td><code>/api/agents/register</code></td><td>No</td><td>Register an agent</td></tr>
+                        <tr><td>GET</td><td><code>/api/agent-queue/{id}/next</code></td><td>No</td><td>Poll for work (custom agents)</td></tr>
+                        <tr><td>POST</td><td><code>/api/agents/{id}/heartbeat</code></td><td>No</td><td>Agent heartbeat</td></tr>
+                        <tr><td>POST</td><td><code>/api/callbacks/execution-result</code></td><td>No</td><td>Report execution result</td></tr>
+                    </table>
+
+                    <h3>Events</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/events</code></td><td>List events (paginated)</td></tr>
+                    </table>
+
+                    <h3>Scripts</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/scripts</code></td><td>List all scripts</td></tr>
+                        <tr><td>GET</td><td><code>/api/scripts/{name}</code></td><td>Get script code</td></tr>
+                        <tr><td>PUT</td><td><code>/api/scripts/{name}</code></td><td>Create or update script</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/scripts/{name}</code></td><td>Delete a script</td></tr>
+                    </table>
+
+                    <h3>API Keys</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/keys</code></td><td>List API keys</td></tr>
+                        <tr><td>POST</td><td><code>/api/keys</code></td><td>Create a key (name, role: admin/operator/viewer)</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/keys/{id}</code></td><td>Revoke a key</td></tr>
+                    </table>
+
+                    <h3>Other</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/health</code></td><td>Health check (no auth)</td></tr>
+                        <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current key info</td></tr>
+                    </table>
+                </div>
+
+                <div class="docs-section" id="doc-cron">
+                    <h2>Cron Expressions</h2>
+                    <p>6-field cron with second-level precision: <code>sec min hour dom month dow</code></p>
+                    <table>
+                        <tr><th>Expression</th><th>Description</th></tr>
+                        <tr><td><code>* * * * * *</code></td><td>Every second</td></tr>
+                        <tr><td><code>0 * * * * *</code></td><td>Every minute</td></tr>
+                        <tr><td><code>0 0 * * * *</code></td><td>Every hour</td></tr>
+                        <tr><td><code>0 0 9 * * *</code></td><td>Daily at 9:00 AM</td></tr>
+                        <tr><td><code>0 0 9 * * 1-5</code></td><td>Weekdays at 9:00 AM</td></tr>
+                        <tr><td><code>0 */5 * * * *</code></td><td>Every 5 minutes</td></tr>
+                        <tr><td><code>*/30 * * * * *</code></td><td>Every 30 seconds</td></tr>
+                    </table>
+                    <p>Supports: <code>*</code>, ranges (<code>1-5</code>), lists (<code>1,3,5</code>), steps (<code>*/5</code>, <code>1-30/5</code>).</p>
+
+                    <h3>Schedule Types</h3>
+                    <table>
+                        <tr><th>Type</th><th>JSON</th><th>Description</th></tr>
+                        <tr><td>One-shot</td><td><code>{"type": "one_shot", "value": "2026-04-01T00:00:00Z"}</code></td><td>Fires once</td></tr>
+                        <tr><td>Cron</td><td><code>{"type": "cron", "value": "0 * * * * *"}</code></td><td>Recurring schedule</td></tr>
+                        <tr><td>On-demand</td><td><code>{"type": "on_demand"}</code></td><td>Triggered manually only</td></tr>
+                        <tr><td>Event</td><td><code>{"type": "event", "value": {...}}</code></td><td>Fires on system events</td></tr>
+                    </table>
+
+                    <h3>Event Triggers</h3>
+                    <p>Jobs can fire reactively when system events occur.</p>
+                    <table>
+                        <tr><th>Kind</th><th>When it fires</th></tr>
+                        <tr><td><code>job.created</code></td><td>A job is created</td></tr>
+                        <tr><td><code>job.updated</code></td><td>A job is edited</td></tr>
+                        <tr><td><code>job.deleted</code></td><td>A job is deleted</td></tr>
+                        <tr><td><code>job.triggered</code></td><td>A job is manually triggered</td></tr>
+                        <tr><td><code>execution.completed</code></td><td>A job execution finishes</td></tr>
+                        <tr><td><code>agent.registered</code></td><td>An agent registers</td></tr>
+                        <tr><td><code>agent.offline</code></td><td>An agent heartbeat times out</td></tr>
+                        <tr><td><code>agent.unpaired</code></td><td>An agent is removed</td></tr>
+                        <tr><td><code>key.created</code></td><td>An API key is created</td></tr>
+                        <tr><td><code>key.revoked</code></td><td>An API key is revoked</td></tr>
+                    </table>
+                    <p>Use <code>kind_pattern</code> with wildcards: <code>job.*</code> matches all job events. Optional <code>severity</code> and <code>job_name_filter</code> fields for further filtering.</p>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
     <section id="settings-view" style="display:none">
         <div class="card">
             <div class="card-header"><h3>Appearance</h3></div>
@@ -2433,75 +2812,34 @@ th .job-checkbox { margin: 0; }
             <div id="new-key-display" style="display:none" class="new-key-display"></div>
             <div id="keys-list"></div>
         </div>
-        <details class="custom-agent-docs">
-            <summary>&#128218; Custom Agent Developer Guide</summary>
-            <div class="custom-agent-content">
-                <p>Custom agents use a <strong>pull-based</strong> model — poll the controller for work, execute it however you want, post the result back. Build agents in any language with just an HTTP client.</p>
-                <h4>1. Register</h4>
-                <pre class="output-pre">curl -X POST http://localhost:8080/api/agents/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"my-agent","tags":["python","ml"],
-      "hostname":"ml-box","address":"0.0.0.0","port":0,
-      "agent_type":"custom"}'</pre>
-                <h4>2. Poll for work</h4>
-                <pre class="output-pre">curl http://localhost:8080/api/agent-queue/{agent_id}/next
-# Returns 204 if no work, or a job JSON object</pre>
-                <h4>3. Post result</h4>
-                <pre class="output-pre">curl -X POST {callback_url} \
-  -H "Content-Type: application/json" \
-  -d '{"execution_id":"...","job_id":"...","agent_id":"...",
-      "status":"succeeded","exit_code":0,
-      "stdout":"output here","stderr":"",
-      "stdout_truncated":false,"stderr_truncated":false,
-      "started_at":"...","finished_at":"..."}'</pre>
-                <h4>Python Example</h4>
-                <pre class="output-pre">import requests, time, datetime
-
-# Register
-resp = requests.post("http://localhost:8080/api/agents/register", json={
-    "name": "python-agent", "tags": ["python"],
-    "hostname": "my-box", "address": "0.0.0.0", "port": 0,
-    "agent_type": "custom"
-})
-agent_id = resp.json()["agent_id"]
-
-# Poll loop
-while True:
-    r = requests.get(f"http://localhost:8080/api/agent-queue/{agent_id}/next")
-    if r.status_code == 204:
-        time.sleep(5)
-        continue
-    job = r.json()
-    started = datetime.datetime.utcnow().isoformat() + "Z"
-
-    # Do your work here
-    try:
-        result = do_work(job["task"])
-        status, stdout = "succeeded", str(result)
-    except Exception as e:
-        status, stdout = "failed", str(e)
-
-    # Report back
-    requests.post(job["callback_url"], json={
-        "execution_id": job["execution_id"],
-        "job_id": job.get("job_id", ""),
-        "agent_id": agent_id,
-        "status": status, "exit_code": 0,
-        "stdout": stdout, "stderr": "",
-        "stdout_truncated": False, "stderr_truncated": False,
-        "started_at": started,
-        "finished_at": datetime.datetime.utcnow().isoformat() + "Z"
-    })</pre>
-                <p style="margin-top:12px">A complete working example is available at <code>examples/custom_agent.py</code> in the repository.</p>
+        <div class="card">
+            <div class="card-header"><h3>Data Retention</h3></div>
+            <div class="settings-group">
+                <label class="settings-label">Auto-purge executions and events older than</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <select id="retention-days" onchange="saveRetention()" style="width:160px">
+                        <option value="1">1 day</option>
+                        <option value="3">3 days</option>
+                        <option value="7">7 days</option>
+                        <option value="14">14 days</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="0">Never (keep all)</option>
+                    </select>
+                    <span id="retention-status" style="font-size:11px;color:var(--text-muted)"></span>
+                </div>
+                <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
             </div>
-        </details>
+        </div>
+        <p style="color:var(--text-muted);font-size:12px;margin-top:12px">For custom agent setup, scripting, and API documentation, see the <a href="#" onclick="showPage('docs');return false" style="color:var(--accent)">Docs</a> page.</p>
     </section>
 </main>
 </div><!-- scrollable -->
 </div><!-- content-area -->
 </div><!-- app-layout -->
 
-<div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeCreateModal()">
+<div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('create-modal')">
     <div class="modal-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
             <h3 id="modal-title" style="margin:0">Create Job</h3>
@@ -2514,6 +2852,25 @@ while True:
             <label>Name</label>
             <input id="f-name" type="text" placeholder="my-job">
         </div>
+        <div class="form-group">
+            <label>Execution Mode</label>
+            <div class="radio-group">
+                <label><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> Standard</label>
+                <label><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> Custom Agent</label>
+            </div>
+        </div>
+        <div id="custom-agent-section" style="display:none">
+            <div class="form-group">
+                <label>Custom Agent</label>
+                <select id="f-custom-agent" onchange="onCustomAgentSelected()"><option value="">Select a custom agent...</option></select>
+            </div>
+            <div class="form-group" id="custom-task-type-group" style="display:none">
+                <label>Task Type</label>
+                <div class="radio-group" id="custom-task-types"></div>
+            </div>
+            <div id="custom-task-fields"></div>
+        </div>
+        <div id="builtin-task-section">
         <div class="form-group">
             <label>Task Type</label>
             <div class="radio-group">
@@ -2619,6 +2976,7 @@ while True:
                 <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
             </div>
         </div>
+        </div><!-- end builtin-task-section -->
         <div class="form-group">
             <label>Run As (optional)</label>
             <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
@@ -2741,6 +3099,7 @@ while True:
             <label>Timeout (seconds, optional)</label>
             <input id="f-timeout" type="number" min="1" placeholder="300">
         </div>
+        <div id="standard-target-section">
         <div class="form-group">
             <label>Target</label>
             <div class="radio-group">
@@ -2754,6 +3113,7 @@ while True:
             <label>Agent</label>
             <select id="f-agent"><option value="">Loading agents...</option></select>
         </div>
+        </div><!-- end standard-target-section -->
         <div class="form-group">
             <label>Dependencies</label>
             <div class="form-hint">This job will only run if the selected jobs completed successfully within the specified time window. Leave the window empty for no time limit.</div>
@@ -2769,7 +3129,7 @@ while True:
     </div>
 </div>
 
-<div id="exec-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeExecModal()">
+<div id="exec-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('exec-modal')">
     <div class="modal-card exec-modal-card">
         <h3>Execution Details</h3>
         <div id="exec-detail-content"></div>
@@ -2780,7 +3140,7 @@ while True:
     </div>
 </div>
 
-<div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeWaitingModal()">
+<div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('waiting-modal')">
     <div class="modal-card">
         <h3>Waiting on Dependencies</h3>
         <div id="waiting-detail-content"></div>
@@ -2800,6 +3160,10 @@ let editingJobId = null;
 let currentExecId = null;
 let pollTimer = null;
 let jobsPage = 1;
+
+// View registry for page management
+const ALL_VIEWS = ['dashboard','jobs','detail','map','agents','executions','scripts','events','settings','docs'];
+const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
 // Time range state
 const timeRanges = { jobs: '', execs: '', events: '' };
@@ -3007,36 +3371,45 @@ async function fetchHealth() {
     }
 }
 
-let searchDebounce = null;
-let currentStatusFilter = '';
-
-function setStatusFilter(btn, status) {
-    currentStatusFilter = status;
-    document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    fetchJobs(true);
+// Search/filter factory
+function createSearchFilter({ inputId, clearBtnId, filterContainerId, debounceMs, onUpdate }) {
+    let debounceTimer = null;
+    let statusFilter = '';
+    let searchTerm = '';
+    return {
+        get searchTerm() { return searchTerm; },
+        get statusFilter() { return statusFilter; },
+        set statusFilter(val) { statusFilter = val; },
+        onSearch() {
+            const val = document.getElementById(inputId).value;
+            document.getElementById(clearBtnId).style.display = val ? '' : 'none';
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { searchTerm = val.trim().toLowerCase(); onUpdate(); }, debounceMs || 250);
+        },
+        clearSearch() {
+            document.getElementById(inputId).value = '';
+            document.getElementById(clearBtnId).style.display = 'none';
+            searchTerm = '';
+            onUpdate();
+        },
+        setStatusFilter(btn, status) {
+            statusFilter = status;
+            document.querySelectorAll('#' + filterContainerId + ' .status-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            onUpdate();
+        }
+    };
 }
 
-function onSearch() {
-    const val = document.getElementById('search-input').value;
-    document.getElementById('search-clear').style.display = val ? '' : 'none';
-    clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => fetchJobs(true), 250);
-}
-
-function clearSearch() {
-    document.getElementById('search-input').value = '';
-    document.getElementById('search-clear').style.display = 'none';
-    fetchJobs(true);
-}
+const jobSearch = createSearchFilter({ inputId: 'search-input', clearBtnId: 'search-clear', filterContainerId: 'status-filters', onUpdate: () => fetchJobs(true) });
 
 // --- Jobs List ---
 async function fetchJobs(resetPage) {
     if (resetPage) jobsPage = 1;
     try {
-        const filter = currentStatusFilter;
+        const filter = jobSearch.statusFilter;
         const isClientFilter = filter === 'blocked';
-        const search = document.getElementById('search-input').value.trim();
+        const search = jobSearch.searchTerm;
         // "scheduled" filter should include waiting (scheduled) jobs, so send scheduled to API
         // "blocked" is client-side only, fetch all
         const apiFilter = filter === 'scheduled' ? 'scheduled' : (isClientFilter ? '' : filter);
@@ -3105,7 +3478,7 @@ function getSortValue(job, col) {
 function renderJobsTable() {
     const wrap = document.getElementById('jobs-table-wrap');
     if (allJobs.length === 0) {
-        wrap.innerHTML = '<div class="empty-state"><p>No jobs yet</p><button class="btn btn-primary" onclick="openCreateModal()">Create your first job</button></div>';
+        wrap.innerHTML = emptyState('No jobs yet', { label: 'Create your first job', onclick: 'openCreateModal()' });
         return;
     }
 
@@ -3175,19 +3548,12 @@ async function showJobDetail(id) {
     detailReturnTo = currentPage;
     currentJobId = id;
     execsPage = 1;
-    document.getElementById('dashboard-view').style.display = 'none';
-    document.getElementById('jobs-view').style.display = 'none';
-    document.getElementById('map-view').style.display = 'none';
-    document.getElementById('agents-view').style.display = 'none';
-    document.getElementById('executions-view').style.display = 'none';
-    document.getElementById('scripts-view').style.display = 'none';
-    document.getElementById('events-view').style.display = 'none';
-    document.getElementById('settings-view').style.display = 'none';
-    document.getElementById('jobs-action-bar').style.display = 'none';
-    document.getElementById('agents-action-bar').style.display = 'none';
-    document.getElementById('executions-action-bar').style.display = 'none';
-    document.getElementById('events-action-bar').style.display = 'none';
-    document.getElementById('detail-view').style.display = '';
+    for (const v of ALL_VIEWS) {
+        document.getElementById(v + '-view').style.display = v === 'detail' ? '' : 'none';
+    }
+    for (const barId of Object.values(VIEW_ACTION_BARS)) {
+        document.getElementById(barId).style.display = 'none';
+    }
 
     // Update back button text
     const backLink = document.querySelector('.back-link');
@@ -3277,17 +3643,21 @@ function goToExecsPage(p) {
     if (currentJobId) fetchExecutions(currentJobId);
 }
 
-function renderExecTable(execs) {
-    const wrap = document.getElementById('exec-table-wrap');
+function renderExecTable(execs, { wrapId, showJobColumn, emptyMessage } = {}) {
+    const wrap = document.getElementById(wrapId || 'exec-table-wrap');
     if (execs.length === 0) {
-        wrap.innerHTML = '<div class="empty-state"><p>No executions yet</p></div>';
+        wrap.innerHTML = '<div class="empty-state"><p>' + (emptyMessage || 'No executions yet') + '</p></div>';
         return;
     }
-    let html = '<table><thead><tr><th>ID</th><th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>ID</th>' + (showJobColumn ? '<th>Job</th>' : '') + '<th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
     for (const e of execs) {
         html += '<tr style="cursor:pointer" onclick="showExecDetail(\'' + e.id + '\')">';
         html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + '</span></td>';
-        html += '<td>' + badge(e.status) + '</td>';
+        if (showJobColumn) {
+            const jobName = resolveJobName(e.job_id);
+            html += '<td><span class="job-name" onclick="event.stopPropagation();showJobDetail(\'' + e.job_id + '\')">' + esc(jobName) + '</span></td>';
+        }
+        html += '<td>' + execBadge(e.status, e.agent_id) + '</td>';
         html += '<td>' + (e.exit_code !== null ? e.exit_code : '-') + '</td>';
         html += '<td><span class="time-text">' + (e.started_at ? fmtDate(e.started_at) : '-') + '</span></td>';
         html += '<td><span class="time-text">' + fmtDuration(e.started_at, e.finished_at) + '</span></td>';
@@ -3306,18 +3676,18 @@ async function showExecDetail(id) {
         const content = document.getElementById('exec-detail-content');
         content.innerHTML =
             '<div class="exec-info">' +
-            execField('Status', badge(e.status)) +
-            execField('Exit Code', e.exit_code !== null ? e.exit_code : '-') +
-            execField('Started', e.started_at ? fmtDate(e.started_at) : '-') +
-            execField('Duration', fmtDuration(e.started_at, e.finished_at)) +
-            execField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local') +
-            execField('Trigger', fmtTrigger(e.triggered_by)) +
+            infoField('Status', execBadge(e.status, e.agent_id), 'exec-info-item') +
+            infoField('Exit Code', e.exit_code !== null ? e.exit_code : '-', 'exec-info-item') +
+            infoField('Started', e.started_at ? fmtDate(e.started_at) : '-', 'exec-info-item') +
+            infoField('Duration', fmtDuration(e.started_at, e.finished_at), 'exec-info-item') +
+            infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local', 'exec-info-item') +
+            infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
             (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(e.task_snapshot, null, 2)) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated);
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
-        document.getElementById('exec-modal').style.display = '';
+        openModal('exec-modal');
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -3395,12 +3765,12 @@ function switchOutputView(id, mode, btn) {
     }
 }
 
-function execField(label, value) {
-    return '<div class="exec-info-item"><label>' + label + '</label><div class="value">' + value + '</div></div>';
+function infoField(label, value, className) {
+    return '<div class="' + className + '"><label>' + label + '</label><div class="value">' + value + '</div></div>';
 }
 
 function closeExecModal() {
-    document.getElementById('exec-modal').style.display = 'none';
+    closeModal('exec-modal');
     currentExecId = null;
 }
 
@@ -3434,14 +3804,53 @@ async function showWaitingDetail(jobId) {
             content.innerHTML = html;
         }
 
-        document.getElementById('waiting-modal').style.display = '';
+        openModal('waiting-modal');
     } catch (e) {
         toast(e.message, 'error');
     }
 }
 
+function formField({ type, id, label, placeholder, hint, style, options }) {
+    let html = '<div class="form-group">';
+    html += '<label>' + label + '</label>';
+    if (type === 'textarea') {
+        html += '<textarea id="' + id + '" placeholder="' + (placeholder || '') + '"' + (style ? ' style="' + style + '"' : '') + '></textarea>';
+    } else if (type === 'select') {
+        html += '<select id="' + id + '"' + (style ? ' style="' + style + '"' : '') + '>';
+        for (const o of (options || [])) {
+            html += '<option value="' + (o.value !== undefined ? o.value : o.label) + '">' + o.label + '</option>';
+        }
+        html += '</select>';
+    } else {
+        html += '<input id="' + id + '" type="' + (type || 'text') + '" placeholder="' + (placeholder || '') + '"' + (style ? ' style="' + style + '"' : '') + '>';
+    }
+    if (hint) html += '<div class="form-hint">' + hint + '</div>';
+    html += '</div>';
+    return html;
+}
+
+function emptyState(message, action) {
+    let html = '<div class="empty-state"><p>' + message + '</p>';
+    if (action && action.label) {
+        html += '<button class="btn btn-primary" onclick="' + action.onclick + '">' + action.label + '</button>';
+    }
+    if (action && action.sub) {
+        html += '<p style="font-size:12px;color:var(--text-muted)">' + action.sub + '</p>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function openModal(id) {
+    document.getElementById(id).style.display = '';
+}
+
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
 function closeWaitingModal() {
-    document.getElementById('waiting-modal').style.display = 'none';
+    closeModal('waiting-modal');
 }
 
 async function cancelExec() {
@@ -3648,10 +4057,13 @@ function openCreateModal() {
     document.querySelector('input[name="sched-type"][value="one_shot"]').checked = true;
     document.getElementById('f-oneshot').value = toLocalDatetimeString(new Date());
     updateSchedFields();
+    document.querySelector('input[name="exec-mode"][value="standard"]').checked = true;
+    currentExecMode = 'standard';
     document.querySelector('input[name="target-type"][value="local"]').checked = true;
+    updateExecutionMode();
     updateTargetFields();
     populateDeps(null);
-    document.getElementById('create-modal').style.display = '';
+    openModal('create-modal');
 }
 
 async function openEditModal(id) {
@@ -3660,7 +4072,35 @@ async function openEditModal(id) {
         editingJobId = id;
         document.getElementById('modal-title').textContent = 'Edit Job';
         document.getElementById('f-name').value = job.name;
-        populateTaskForm(job.task);
+
+        // Determine execution mode from task type
+        if (job.task.type === 'custom') {
+            document.querySelector('input[name="exec-mode"][value="custom"]').checked = true;
+            currentExecMode = 'custom';
+            updateExecutionMode();
+            // Populate custom agent and task type
+            await populateCustomAgentSelect();
+            if (job.target && job.target.agent_id) {
+                document.getElementById('f-custom-agent').value = job.target.agent_id;
+                await onCustomAgentSelected();
+                // Select the right custom task type
+                const radio = document.querySelector('input[name="custom-task-type"][value="' + job.task.agent_task_type + '"]');
+                if (radio) { radio.checked = true; onCustomTaskTypeSelected(); }
+                // Fill in field values
+                if (job.task.data) {
+                    for (const [key, val] of Object.entries(job.task.data)) {
+                        const el = document.getElementById('f-custom-' + key);
+                        if (el) el.value = val;
+                    }
+                }
+            }
+        } else {
+            document.querySelector('input[name="exec-mode"][value="standard"]').checked = true;
+            currentExecMode = 'standard';
+            updateExecutionMode();
+            populateTaskForm(job.task);
+        }
+
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-desc').value = job.description || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
@@ -3700,14 +4140,14 @@ async function openEditModal(id) {
         }
 
         populateDeps(id, job.depends_on);
-        document.getElementById('create-modal').style.display = '';
+        openModal('create-modal');
     } catch (e) {
         toast(e.message, 'error');
     }
 }
 
 function closeCreateModal() {
-    document.getElementById('create-modal').style.display = 'none';
+    closeModal('create-modal');
 }
 
 function updateTaskFields() {
@@ -3767,6 +4207,24 @@ function buildTaskFromForm() {
         return { type: 'script', script_name: scriptName };
     }
     return null;
+}
+
+function buildCustomTaskFromForm() {
+    if (!selectedCustomAgentData) return null;
+    const typeName = document.querySelector('input[name="custom-task-type"]:checked')?.value;
+    if (!typeName) return null;
+    const taskDef = selectedCustomAgentData.task_types.find(t => t.name === typeName);
+    if (!taskDef) return null;
+    const data = {};
+    for (const f of taskDef.fields) {
+        const el = document.getElementById('f-custom-' + f.name);
+        if (el) {
+            const val = el.value.trim();
+            if (f.required && !val) { toast(f.label + ' is required', 'error'); return null; }
+            if (val) data[f.name] = f.field_type === 'number' ? parseFloat(val) : val;
+        }
+    }
+    return { type: 'custom', agent_task_type: typeName, data };
 }
 
 function populateTaskForm(task) {
@@ -3932,28 +4390,143 @@ function updateSchedFields() {
     document.getElementById('event-field').style.display = type === 'event' ? '' : 'none';
 }
 
+let currentExecMode = 'standard';
+let selectedCustomAgentData = null;
+
+function updateExecutionMode() {
+    currentExecMode = document.querySelector('input[name="exec-mode"]:checked').value;
+    const isCustom = currentExecMode === 'custom';
+    document.getElementById('builtin-task-section').style.display = isCustom ? 'none' : '';
+    document.getElementById('custom-agent-section').style.display = isCustom ? '' : 'none';
+    document.getElementById('standard-target-section').style.display = isCustom ? 'none' : '';
+    if (isCustom) {
+        populateCustomAgentSelect();
+    }
+}
+
+async function populateCustomAgentSelect() {
+    const select = document.getElementById('f-custom-agent');
+    try {
+        const agents = await api('GET', '/api/agents');
+        const custom = agents.filter(a => a.status === 'online' && a.agent_type === 'custom');
+        if (custom.length === 0) {
+            select.innerHTML = '<option value="">No online custom agents</option>';
+        } else {
+            select.innerHTML = '<option value="">Select a custom agent...</option>' + custom.map(a =>
+                '<option value="' + a.id + '">' + esc(a.name) + ' (' + a.hostname + ')' + '</option>'
+            ).join('');
+        }
+        document.getElementById('custom-task-type-group').style.display = 'none';
+        document.getElementById('custom-task-fields').innerHTML = '';
+        selectedCustomAgentData = null;
+    } catch (e) {
+        select.innerHTML = '<option value="">Failed to load agents</option>';
+    }
+}
+
+async function onCustomAgentSelected() {
+    const agentId = document.getElementById('f-custom-agent').value;
+    const taskTypeGroup = document.getElementById('custom-task-type-group');
+    const fieldsDiv = document.getElementById('custom-task-fields');
+    if (!agentId) {
+        taskTypeGroup.style.display = 'none';
+        fieldsDiv.innerHTML = '';
+        selectedCustomAgentData = null;
+        return;
+    }
+    // Find agent in cached list or fetch
+    try {
+        const agents = await api('GET', '/api/agents');
+        const agent = agents.find(a => a.id === agentId);
+        if (!agent || !agent.task_types || agent.task_types.length === 0) {
+            taskTypeGroup.style.display = 'none';
+            fieldsDiv.innerHTML = '<div class="form-hint">This agent has no registered task types</div>';
+            selectedCustomAgentData = null;
+            return;
+        }
+        selectedCustomAgentData = agent;
+        // Render task type radio buttons
+        let html = '';
+        agent.task_types.forEach((tt, i) => {
+            html += '<label><input type="radio" name="custom-task-type" value="' + esc(tt.name) + '"' + (i === 0 ? ' checked' : '') + ' onchange="onCustomTaskTypeSelected()"> ' + esc(tt.name) + (tt.description ? ' <span style="color:var(--text-muted);font-size:11px">(' + esc(tt.description) + ')</span>' : '') + '</label>';
+        });
+        document.getElementById('custom-task-types').innerHTML = html;
+        taskTypeGroup.style.display = '';
+        onCustomTaskTypeSelected();
+    } catch (e) {
+        fieldsDiv.innerHTML = '<div class="form-hint" style="color:var(--danger)">Failed to load agent details</div>';
+    }
+}
+
+function onCustomTaskTypeSelected() {
+    const fieldsDiv = document.getElementById('custom-task-fields');
+    if (!selectedCustomAgentData) { fieldsDiv.innerHTML = ''; return; }
+    const typeName = document.querySelector('input[name="custom-task-type"]:checked')?.value;
+    if (!typeName) { fieldsDiv.innerHTML = ''; return; }
+    const taskDef = selectedCustomAgentData.task_types.find(t => t.name === typeName);
+    if (!taskDef || !taskDef.fields || taskDef.fields.length === 0) {
+        fieldsDiv.innerHTML = '<div class="form-hint">No fields defined for this task type</div>';
+        return;
+    }
+    let html = '';
+    for (const f of taskDef.fields) {
+        html += formField({
+            type: f.field_type || 'text',
+            id: 'f-custom-' + f.name,
+            label: f.label + (f.required ? ' *' : ''),
+            placeholder: f.placeholder || '',
+            options: f.options ? f.options.map(o => ({ value: o.value, label: o.label })) : undefined
+        });
+    }
+    fieldsDiv.innerHTML = html;
+}
+
 function updateTargetFields() {
     const type = document.querySelector('input[name="target-type"]:checked').value;
     document.getElementById('agent-select-field').style.display = type === 'agent' ? '' : 'none';
     if (type === 'agent') {
-        populateAgentSelect();
+        populateAgentSelect('standard');
     }
 }
 
-async function populateAgentSelect() {
+async function populateAgentSelect(filterType) {
     const select = document.getElementById('f-agent');
     try {
         const agents = await api('GET', '/api/agents');
-        const online = agents.filter(a => a.status === 'online');
-        if (online.length === 0) {
-            select.innerHTML = '<option value="">No online agents</option>';
-        } else {
-            select.innerHTML = online.map(a =>
-                '<option value="' + a.id + '">' + esc(a.name) + ' (' + a.hostname + ')' + (a.tags.length ? ' [' + a.tags.join(', ') + ']' : '') + '</option>'
-            ).join('');
+        let online = agents.filter(a => a.status === 'online');
+        if (filterType) {
+            online = online.filter(a => (a.agent_type || 'standard') === filterType);
         }
+        if (online.length === 0) {
+            select.innerHTML = '<option value="">No online ' + (filterType || '') + ' agents</option>';
+        } else {
+            select.innerHTML = online.map(a => {
+                const typeLabel = a.agent_type === 'custom' ? ' \u2022 custom' : '';
+                return '<option value="' + a.id + '" data-agent-type="' + (a.agent_type || 'standard') + '">' + esc(a.name) + ' (' + a.hostname + typeLabel + ')' + (a.tags.length ? ' [' + a.tags.join(', ') + ']' : '') + '</option>';
+            }).join('');
+        }
+        select.onchange = updateAgentHint;
+        updateAgentHint();
     } catch (e) {
         select.innerHTML = '<option value="">Failed to load agents</option>';
+    }
+}
+
+function updateAgentHint() {
+    const select = document.getElementById('f-agent');
+    let hint = document.getElementById('agent-type-hint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'agent-type-hint';
+        hint.className = 'form-hint';
+        select.parentElement.appendChild(hint);
+    }
+    const selected = select.options[select.selectedIndex];
+    if (selected && selected.dataset.agentType === 'custom') {
+        hint.innerHTML = 'Custom agent \u2014 job will be <strong>queued</strong> until the agent polls for work';
+        hint.style.display = '';
+    } else {
+        hint.style.display = 'none';
     }
 }
 
@@ -4050,7 +4623,12 @@ function getDepEntries() {
 async function submitJobForm() {
     const name = document.getElementById('f-name').value.trim();
     if (!name) { toast('Name is required', 'error'); return; }
-    const task = buildTaskFromForm();
+    let task;
+    if (currentExecMode === 'custom') {
+        task = buildCustomTaskFromForm();
+    } else {
+        task = buildTaskFromForm();
+    }
     if (!task) { toast('Task configuration is incomplete', 'error'); return; }
 
     const schedType = document.querySelector('input[name="sched-type"]:checked').value;
@@ -4081,16 +4659,22 @@ async function submitJobForm() {
     const depends_on = getDepEntries();
 
     // Build target
-    const targetType = document.querySelector('input[name="target-type"]:checked').value;
     let target = null;
-    if (targetType === 'agent') {
-        const agentId = document.getElementById('f-agent').value;
-        if (!agentId) { toast('Select an agent', 'error'); return; }
-        target = { type: 'agent', agent_id: agentId };
-    } else if (targetType === 'any') {
-        target = { type: 'any' };
-    } else if (targetType === 'all') {
-        target = { type: 'all' };
+    if (currentExecMode === 'custom') {
+        const customAgentId = document.getElementById('f-custom-agent').value;
+        if (!customAgentId) { toast('Select a custom agent', 'error'); return; }
+        target = { type: 'agent', agent_id: customAgentId };
+    } else {
+        const targetType = document.querySelector('input[name="target-type"]:checked').value;
+        if (targetType === 'agent') {
+            const agentId = document.getElementById('f-agent').value;
+            if (!agentId) { toast('Select an agent', 'error'); return; }
+            target = { type: 'agent', agent_id: agentId };
+        } else if (targetType === 'any') {
+            target = { type: 'any' };
+        } else if (targetType === 'all') {
+            target = { type: 'all' };
+        }
     }
 
     const body = { name, task, schedule, timeout_secs, depends_on, target };
@@ -4121,6 +4705,19 @@ async function submitJobForm() {
 // --- Formatting ---
 function badge(status) {
     return '<span class="badge badge-' + status + '">' + status.replace('_', ' ') + '</span>';
+}
+
+function execBadge(status, agentId) {
+    if (status === 'pending' && agentId && isCustomAgent(agentId)) {
+        return '<span class="badge badge-queued">queued</span>';
+    }
+    return badge(status);
+}
+
+function isCustomAgent(agentId) {
+    if (!allAgents || allAgents.length === 0) return false;
+    const agent = allAgents.find(a => a.id === agentId);
+    return agent && agent.agent_type === 'custom';
 }
 
 function fmtTaskBadge(task) {
@@ -4157,7 +4754,10 @@ function fmtAgentLink(agentId) {
     const agent = allAgents.find(a => a.id === agentId);
     const name = agent ? agent.name : (agentNameCache[agentId] || agentId.slice(0, 8));
     if (agent) agentNameCache[agentId] = agent.name;
-    return '<span class="badge badge-running" style="cursor:pointer" onclick="showPage(\'agents\')" title="View agents">&#128421; ' + esc(name) + '</span>';
+    const isCustom = agent && agent.agent_type === 'custom';
+    const badgeClass = isCustom ? 'badge-paused' : 'badge-running';
+    const icon = isCustom ? '&#9881;' : '&#128421;';
+    return '<span class="badge ' + badgeClass + '" style="cursor:pointer" onclick="showPage(\'agents\')" title="' + (isCustom ? 'Custom agent' : 'Standard agent') + '">' + icon + ' ' + esc(name) + '</span>';
 }
 
 function fmtTarget(t) {
@@ -4344,20 +4944,12 @@ function showPage(page) {
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + page).classList.add('active');
 
-    document.getElementById('dashboard-view').style.display = page === 'dashboard' ? '' : 'none';
-    document.getElementById('jobs-view').style.display = page === 'jobs' ? '' : 'none';
-    document.getElementById('detail-view').style.display = 'none';
-    document.getElementById('map-view').style.display = page === 'map' ? '' : 'none';
-    document.getElementById('agents-view').style.display = page === 'agents' ? '' : 'none';
-    document.getElementById('executions-view').style.display = page === 'executions' ? '' : 'none';
-    document.getElementById('scripts-view').style.display = page === 'scripts' ? '' : 'none';
-    document.getElementById('events-view').style.display = page === 'events' ? '' : 'none';
-    document.getElementById('settings-view').style.display = page === 'settings' ? '' : 'none';
-
-    document.getElementById('jobs-action-bar').style.display = page === 'jobs' ? '' : 'none';
-    document.getElementById('agents-action-bar').style.display = page === 'agents' ? '' : 'none';
-    document.getElementById('executions-action-bar').style.display = page === 'executions' ? '' : 'none';
-    document.getElementById('events-action-bar').style.display = page === 'events' ? '' : 'none';
+    for (const v of ALL_VIEWS) {
+        document.getElementById(v + '-view').style.display = v === page ? '' : 'none';
+    }
+    for (const [p, barId] of Object.entries(VIEW_ACTION_BARS)) {
+        document.getElementById(barId).style.display = p === page ? '' : 'none';
+    }
 
     if (page === 'dashboard') {
         renderDashboard();
@@ -4377,38 +4969,23 @@ function showPage(page) {
     } else if (page === 'settings') {
         updateThemeButtons();
         renderSettingsAuth();
+        loadRetention();
     }
+}
+
+function scrollToDocTopic(topicId) {
+    const el = document.getElementById(topicId);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    document.querySelectorAll('.docs-topic').forEach(t => t.classList.remove('active'));
+    const btn = document.querySelector('.docs-topic[onclick*="' + topicId + '"]');
+    if (btn) btn.classList.add('active');
 }
 
 // --- Agents ---
 let allAgents = [];
-let agentSearchTerm = '';
-let agentStatusFilter = '';
-let agentSearchDebounce = null;
-
-function onAgentSearch() {
-    const val = document.getElementById('agent-search-input').value;
-    document.getElementById('agent-search-clear').style.display = val ? '' : 'none';
-    clearTimeout(agentSearchDebounce);
-    agentSearchDebounce = setTimeout(() => {
-        agentSearchTerm = val.trim().toLowerCase();
-        renderAgents();
-    }, 200);
-}
-
-function clearAgentSearch() {
-    document.getElementById('agent-search-input').value = '';
-    document.getElementById('agent-search-clear').style.display = 'none';
-    agentSearchTerm = '';
-    renderAgents();
-}
-
-function setAgentStatusFilter(btn, status) {
-    agentStatusFilter = status;
-    document.querySelectorAll('#agent-status-filters .status-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderAgents();
-}
+const agentSearch = createSearchFilter({ inputId: 'agent-search-input', clearBtnId: 'agent-search-clear', filterContainerId: 'agent-status-filters', debounceMs: 200, onUpdate: renderAgents });
 
 async function fetchAgents() {
     try {
@@ -4432,15 +5009,15 @@ function renderAgents() {
 
     // Filter
     let filtered = allAgents;
-    if (agentStatusFilter) {
-        filtered = filtered.filter(a => a.status === agentStatusFilter);
+    if (agentSearch.statusFilter) {
+        filtered = filtered.filter(a => a.status === agentSearch.statusFilter);
     }
-    if (agentSearchTerm) {
+    if (agentSearch.searchTerm) {
         filtered = filtered.filter(a =>
-            a.name.toLowerCase().includes(agentSearchTerm) ||
-            a.hostname.toLowerCase().includes(agentSearchTerm) ||
-            a.address.toLowerCase().includes(agentSearchTerm) ||
-            a.tags.some(t => t.toLowerCase().includes(agentSearchTerm))
+            a.name.toLowerCase().includes(agentSearch.searchTerm) ||
+            a.hostname.toLowerCase().includes(agentSearch.searchTerm) ||
+            a.address.toLowerCase().includes(agentSearch.searchTerm) ||
+            a.tags.some(t => t.toLowerCase().includes(agentSearch.searchTerm))
         );
     }
 
@@ -4467,18 +5044,19 @@ function renderAgents() {
 
     html += '<div class="agents-grid">';
     for (const a of filtered) {
-        html += '<div class="agent-card ' + a.status + '">';
+        const isCustom = a.agent_type === 'custom';
+        html += '<div class="agent-card ' + a.status + (isCustom ? ' custom-clickable' : '') + '"' + (isCustom ? ' onclick="toggleAgentConfig(\'' + a.id + '\', event)"' : '') + '>';
         html += '<div class="agent-card-header">';
-        html += '<span class="agent-name"><span class="agent-icon">&#128421;</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
-        const typeBadge = a.agent_type === 'custom' ? '<span class="badge badge-paused">custom</span> ' : '<span class="badge badge-scheduled">standard</span> ';
+        html += '<span class="agent-name"><span class="agent-icon">' + (isCustom ? '&#9881;' : '&#128421;') + '</span><span class="agent-status-dot ' + a.status + '"></span>' + esc(a.name) + '</span>';
+        const typeBadge = isCustom ? '<span class="badge badge-paused">custom</span> ' : '<span class="badge badge-scheduled">standard</span> ';
         html += '<div style="display:flex;align-items:center;gap:6px">' + typeBadge + badge(a.status);
-        html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
+        html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="event.stopPropagation();unpairAgent(\'' + a.id + '\',\'' + esc(a.name) + '\')" title="Remove agent">Unpair</button>';
         html += '</div></div>';
         html += '<div class="agent-meta">';
-        html += agentMeta('Hostname', esc(a.hostname));
-        html += agentMeta('Address', esc(a.address) + ':' + a.port);
-        html += agentMeta('Last Heartbeat', a.last_heartbeat ? fmtDate(a.last_heartbeat) : 'never');
-        html += agentMeta('Registered', fmtDate(a.registered_at));
+        html += infoField('Hostname', esc(a.hostname), 'agent-meta-item');
+        html += infoField('Address', esc(a.address) + ':' + a.port, 'agent-meta-item');
+        html += infoField('Last Heartbeat', a.last_heartbeat ? fmtDate(a.last_heartbeat) : 'never', 'agent-meta-item');
+        html += infoField('Registered', fmtDate(a.registered_at), 'agent-meta-item');
         html += '</div>';
         if (a.tags.length > 0) {
             html += '<div class="agent-tags">';
@@ -4487,11 +5065,31 @@ function renderAgents() {
             }
             html += '</div>';
         }
+        if (isCustom) {
+            const ttCount = (a.task_types && a.task_types.length) || 0;
+            html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary)">';
+            html += '&#9881; ' + ttCount + ' task type' + (ttCount !== 1 ? 's' : '') + ' configured <span style="color:var(--accent);font-size:10px">(click to edit)</span>';
+            html += '</div>';
+            html += '<div id="agent-config-' + a.id + '" class="agent-config-panel" style="display:none" onclick="event.stopPropagation()"></div>';
+        }
         html += '</div>';
     }
     html += '</div>';
 
     wrap.innerHTML = html;
+
+    // Restore open config panel after re-render
+    if (openAgentConfigId) {
+        const panel = document.getElementById('agent-config-' + openAgentConfigId);
+        if (panel) {
+            panel.style.display = '';
+            if (!editingAgentTaskTypes[openAgentConfigId]) {
+                const agent = allAgents.find(a => a.id === openAgentConfigId);
+                editingAgentTaskTypes[openAgentConfigId] = JSON.parse(JSON.stringify(agent?.task_types || []));
+            }
+            renderTaskTypeEditor(openAgentConfigId);
+        }
+    }
 }
 
 async function unpairAgent(id, name) {
@@ -4505,8 +5103,110 @@ async function unpairAgent(id, name) {
     }
 }
 
-function agentMeta(label, value) {
-    return '<div class="agent-meta-item"><label>' + label + '</label><div class="value">' + value + '</div></div>';
+let editingAgentTaskTypes = {};
+let openAgentConfigId = null;
+
+function toggleAgentConfig(agentId, event) {
+    if (event.target.closest('.unpair-btn')) return;
+    const panel = document.getElementById('agent-config-' + agentId);
+    if (!panel) return;
+    if (panel.style.display !== 'none') {
+        panel.style.display = 'none';
+        openAgentConfigId = null;
+        return;
+    }
+    // Close other panels
+    document.querySelectorAll('.agent-config-panel').forEach(p => p.style.display = 'none');
+    panel.style.display = '';
+    openAgentConfigId = agentId;
+    // Only reset editing state if not already editing this agent
+    if (!editingAgentTaskTypes[agentId]) {
+        const agent = allAgents.find(a => a.id === agentId);
+        editingAgentTaskTypes[agentId] = JSON.parse(JSON.stringify(agent.task_types || []));
+    }
+    renderTaskTypeEditor(agentId);
+}
+
+function renderTaskTypeEditor(agentId) {
+    const panel = document.getElementById('agent-config-' + agentId);
+    const taskTypes = editingAgentTaskTypes[agentId] || [];
+    let html = '<label class="tt-label">Task Type Definitions</label>';
+    taskTypes.forEach((tt, ti) => {
+        html += '<div class="tt-section">';
+        html += '<div class="tt-header">';
+        html += '<input type="text" value="' + esc(tt.name || '') + '" placeholder="Task type name" onchange="ttUpdateName(\'' + agentId + '\',' + ti + ',this.value)" style="font-weight:600">';
+        html += '<input type="text" value="' + esc(tt.description || '') + '" placeholder="Description (optional)" onchange="ttUpdateDesc(\'' + agentId + '\',' + ti + ',this.value)" style="flex:2">';
+        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="ttRemoveType(\'' + agentId + '\',' + ti + ')">Remove</button>';
+        html += '</div>';
+        html += '<label class="tt-label" style="margin-top:4px">Fields</label>';
+        (tt.fields || []).forEach((f, fi) => {
+            html += '<div class="tt-field-row">';
+            html += '<input type="text" value="' + esc(f.name || '') + '" placeholder="name" style="width:80px" onchange="ttUpdateField(\'' + agentId + '\',' + ti + ',' + fi + ',\'name\',this.value)">';
+            html += '<input type="text" value="' + esc(f.label || '') + '" placeholder="Label" style="width:100px" onchange="ttUpdateField(\'' + agentId + '\',' + ti + ',' + fi + ',\'label\',this.value)">';
+            html += '<select onchange="ttUpdateField(\'' + agentId + '\',' + ti + ',' + fi + ',\'field_type\',this.value);renderTaskTypeEditor(\'' + agentId + '\')" style="width:90px">';
+            for (const ft of ['text','textarea','number','select','password']) {
+                html += '<option value="' + ft + '"' + (f.field_type === ft ? ' selected' : '') + '>' + ft + '</option>';
+            }
+            html += '</select>';
+            html += '<label style="font-size:11px;display:flex;align-items:center;gap:3px"><input type="checkbox"' + (f.required ? ' checked' : '') + ' onchange="ttUpdateField(\'' + agentId + '\',' + ti + ',' + fi + ',\'required\',this.checked)"> Req</label>';
+            html += '<input type="text" value="' + esc(f.placeholder || '') + '" placeholder="placeholder" style="width:100px" onchange="ttUpdateField(\'' + agentId + '\',' + ti + ',' + fi + ',\'placeholder\',this.value)">';
+            html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="ttRemoveField(\'' + agentId + '\',' + ti + ',' + fi + ')">&times;</button>';
+            html += '</div>';
+            if (f.field_type === 'select') {
+                const optStr = (f.options || []).map(o => o.value + ':' + o.label).join('\n');
+                html += '<div style="margin-left:80px;margin-bottom:6px"><textarea placeholder="value:label (one per line)" style="font-size:11px;width:250px;height:50px" onchange="ttUpdateFieldOptions(\'' + agentId + '\',' + ti + ',' + fi + ',this.value)">' + esc(optStr) + '</textarea></div>';
+            }
+        });
+        html += '<button class="btn btn-ghost btn-sm" onclick="ttAddField(\'' + agentId + '\',' + ti + ')" style="font-size:11px">+ Add Field</button>';
+        html += '</div>';
+    });
+    html += '<div style="display:flex;gap:8px;margin-top:8px">';
+    html += '<button class="btn btn-ghost btn-sm" onclick="ttAddType(\'' + agentId + '\')">+ Add Task Type</button>';
+    html += '<div style="flex:1"></div>';
+    html += '<button class="btn btn-primary btn-sm" onclick="ttSave(\'' + agentId + '\')">Save</button>';
+    html += '</div>';
+    panel.innerHTML = html;
+}
+
+function ttUpdateName(agentId, ti, val) { editingAgentTaskTypes[agentId][ti].name = val; }
+function ttUpdateDesc(agentId, ti, val) { editingAgentTaskTypes[agentId][ti].description = val; }
+function ttUpdateField(agentId, ti, fi, prop, val) { editingAgentTaskTypes[agentId][ti].fields[fi][prop] = val; }
+function ttUpdateFieldOptions(agentId, ti, fi, val) {
+    editingAgentTaskTypes[agentId][ti].fields[fi].options = val.trim().split('\n').filter(l => l.includes(':')).map(l => {
+        const [v, ...rest] = l.split(':');
+        return { value: v.trim(), label: rest.join(':').trim() };
+    });
+}
+function ttAddType(agentId) {
+    editingAgentTaskTypes[agentId].push({ name: '', description: '', fields: [] });
+    renderTaskTypeEditor(agentId);
+}
+function ttRemoveType(agentId, ti) {
+    editingAgentTaskTypes[agentId].splice(ti, 1);
+    renderTaskTypeEditor(agentId);
+}
+function ttAddField(agentId, ti) {
+    editingAgentTaskTypes[agentId][ti].fields.push({ name: '', label: '', field_type: 'text', required: false, placeholder: '' });
+    renderTaskTypeEditor(agentId);
+}
+function ttRemoveField(agentId, ti, fi) {
+    editingAgentTaskTypes[agentId][ti].fields.splice(fi, 1);
+    renderTaskTypeEditor(agentId);
+}
+async function ttSave(agentId) {
+    const taskTypes = editingAgentTaskTypes[agentId] || [];
+    for (let i = 0; i < taskTypes.length; i++) {
+        if (!taskTypes[i].name.trim()) { toast('Task type ' + (i + 1) + ' needs a name', 'error'); return; }
+    }
+    try {
+        await api('PUT', '/api/agents/' + agentId + '/task-types', { task_types: taskTypes });
+        toast('Task types saved');
+        // Clear editing state so re-render picks up saved data
+        delete editingAgentTaskTypes[agentId];
+        fetchAgents();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 // --- Dependency Map ---
@@ -4986,45 +5686,16 @@ function renderMiniMap(job) {
 // --- All Executions ---
 
 let allExecsPage = 1;
-let execStatusFilter = '';
-let execSearchTerm = '';
-let execSearchDebounce2 = null;
-
-function onExecSearch() {
-    const val = document.getElementById('exec-search-input').value;
-    document.getElementById('exec-search-clear').style.display = val ? '' : 'none';
-    clearTimeout(execSearchDebounce2);
-    execSearchDebounce2 = setTimeout(() => {
-        execSearchTerm = val.trim();
-        allExecsPage = 1;
-        fetchAllExecutions();
-    }, 250);
-}
-
-function clearExecSearch() {
-    document.getElementById('exec-search-input').value = '';
-    document.getElementById('exec-search-clear').style.display = 'none';
-    execSearchTerm = '';
-    allExecsPage = 1;
-    fetchAllExecutions();
-}
-
-function setExecStatusFilter(btn, status) {
-    execStatusFilter = status;
-    document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    allExecsPage = 1;
-    fetchAllExecutions();
-}
+const execSearch = createSearchFilter({ inputId: 'exec-search-input', clearBtnId: 'exec-search-clear', filterContainerId: 'exec-status-filters', onUpdate: () => { allExecsPage = 1; fetchAllExecutions(); } });
 
 async function fetchAllExecutions() {
     try {
         let qs = '?page=' + allExecsPage + '&per_page=' + PER_PAGE;
-        if (execStatusFilter) qs += '&status=' + execStatusFilter;
-        if (execSearchTerm) qs += '&search=' + encodeURIComponent(execSearchTerm);
+        if (execSearch.statusFilter) qs += '&status=' + execSearch.statusFilter;
+        if (execSearch.searchTerm) qs += '&search=' + encodeURIComponent(execSearch.searchTerm);
         if (timeRanges.execs) qs += '&since=' + encodeURIComponent(getSinceISO(timeRanges.execs));
         const res = await api('GET', '/api/executions' + qs);
-        renderAllExecsTable(res.data);
+        renderExecTable(res.data, { wrapId: 'all-execs-table-wrap', showJobColumn: true, emptyMessage: 'No executions found' });
         renderPagination('all-execs-pagination', allExecsPage, res.total_pages, res.total, goToAllExecsPage);
     } catch (e) {
         console.error('fetchAllExecutions:', e);
@@ -5034,30 +5705,6 @@ async function fetchAllExecutions() {
 function goToAllExecsPage(p) {
     allExecsPage = p;
     fetchAllExecutions();
-}
-
-function renderAllExecsTable(execs) {
-    const wrap = document.getElementById('all-execs-table-wrap');
-    if (execs.length === 0) {
-        wrap.innerHTML = '<div class="empty-state"><p>No executions found</p></div>';
-        return;
-    }
-    let html = '<table><thead><tr><th>ID</th><th>Job</th><th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
-    for (const e of execs) {
-        const jobName = resolveJobName(e.job_id);
-        html += '<tr style="cursor:pointer" onclick="showExecDetail(\'' + e.id + '\')">';
-        html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + '</span></td>';
-        html += '<td><span class="job-name" onclick="event.stopPropagation();showJobDetail(\'' + e.job_id + '\')">' + esc(jobName) + '</span></td>';
-        html += '<td>' + badge(e.status) + '</td>';
-        html += '<td>' + (e.exit_code !== null ? e.exit_code : '-') + '</td>';
-        html += '<td><span class="time-text">' + (e.started_at ? fmtDate(e.started_at) : '-') + '</span></td>';
-        html += '<td><span class="time-text">' + fmtDuration(e.started_at, e.finished_at) + '</span></td>';
-        html += '<td>' + (e.agent_id ? fmtAgentLink(e.agent_id) : '<span class="time-text">local</span>') + '</td>';
-        html += '<td><span class="time-text">' + fmtTrigger(e.triggered_by) + '</span></td>';
-        html += '</tr>';
-    }
-    html += '</tbody></table>';
-    wrap.innerHTML = html;
 }
 
 // --- Scripts ---
@@ -5077,7 +5724,7 @@ async function fetchScripts() {
 function renderScriptsList() {
     const wrap = document.getElementById('scripts-list-wrap');
     if (allScripts.length === 0) {
-        wrap.innerHTML = '<div class="empty-state"><p>No scripts yet</p><p style="font-size:12px;color:var(--text-muted)">Scripts are saved as .rhai files in the scripts directory.</p></div>';
+        wrap.innerHTML = emptyState('No scripts yet', { sub: 'Scripts are saved as .rhai files in the scripts directory.' });
         return;
     }
     let html = '<div class="scripts-grid">';
@@ -5510,7 +6157,7 @@ async function renderDashboard() {
 }
 
 function navJobsFiltered(filter) {
-    currentStatusFilter = filter;
+    jobSearch.statusFilter = filter;
     showPage('jobs');
     // Set the active filter button
     document.querySelectorAll('#status-filters .status-btn').forEach(b => {
@@ -5520,7 +6167,7 @@ function navJobsFiltered(filter) {
 }
 
 function navExecsFiltered(status) {
-    execStatusFilter = status;
+    execSearch.statusFilter = status;
     showPage('executions');
     document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
         b.classList.toggle('active', b.textContent.toLowerCase() === status || (!status && b.textContent === 'All'));
@@ -5644,59 +6291,30 @@ function renderDashMap(jobs) {
 
 // --- Events ---
 let eventsPage = 1;
-let eventSearchTerm = '';
-let eventTypeFilter = '';
-let eventSearchDebounce = null;
-
-function onEventSearch() {
-    const val = document.getElementById('event-search-input').value;
-    document.getElementById('event-search-clear').style.display = val ? '' : 'none';
-    clearTimeout(eventSearchDebounce);
-    eventSearchDebounce = setTimeout(() => {
-        eventSearchTerm = val.trim().toLowerCase();
-        eventsPage = 1;
-        fetchEvents();
-    }, 250);
-}
-
-function clearEventSearch() {
-    document.getElementById('event-search-input').value = '';
-    document.getElementById('event-search-clear').style.display = 'none';
-    eventSearchTerm = '';
-    eventsPage = 1;
-    fetchEvents();
-}
-
-function setEventTypeFilter(btn, type) {
-    eventTypeFilter = type;
-    document.querySelectorAll('#event-type-filters .status-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    eventsPage = 1;
-    fetchEvents();
-}
+const eventSearch = createSearchFilter({ inputId: 'event-search-input', clearBtnId: 'event-search-clear', filterContainerId: 'event-type-filters', onUpdate: () => { eventsPage = 1; fetchEvents(); } });
 
 async function fetchEvents() {
     try {
-        const fetchSize = (eventSearchTerm || eventTypeFilter) ? 200 : 50;
+        const fetchSize = (eventSearch.searchTerm || eventSearch.statusFilter) ? 200 : 50;
         let eventsQs = '?page=' + eventsPage + '&per_page=' + fetchSize;
         if (timeRanges.events) eventsQs += '&since=' + encodeURIComponent(getSinceISO(timeRanges.events));
         const res = await api('GET', '/api/events' + eventsQs);
         let events = res.data;
 
-        if (eventTypeFilter) {
-            events = events.filter(e => e.severity === eventTypeFilter);
+        if (eventSearch.statusFilter) {
+            events = events.filter(e => e.severity === eventSearch.statusFilter);
         }
-        if (eventSearchTerm) {
+        if (eventSearch.searchTerm) {
             events = events.filter(e =>
-                e.message.toLowerCase().includes(eventSearchTerm) ||
-                e.kind.toLowerCase().includes(eventSearchTerm) ||
-                (e.api_key_name && e.api_key_name.toLowerCase().includes(eventSearchTerm))
+                e.message.toLowerCase().includes(eventSearch.searchTerm) ||
+                e.kind.toLowerCase().includes(eventSearch.searchTerm) ||
+                (e.api_key_name && e.api_key_name.toLowerCase().includes(eventSearch.searchTerm))
             );
         }
 
         renderEvents(events);
-        const total = (eventSearchTerm || eventTypeFilter) ? events.length : res.total;
-        const pages = (eventSearchTerm || eventTypeFilter) ? 1 : res.total_pages;
+        const total = (eventSearch.searchTerm || eventSearch.statusFilter) ? events.length : res.total;
+        const pages = (eventSearch.searchTerm || eventSearch.statusFilter) ? 1 : res.total_pages;
         renderPagination('events-pagination', eventsPage, pages, total, goToEventsPage);
     } catch (e) {
         console.error('fetchEvents:', e);
@@ -5821,6 +6439,30 @@ function renderSettingsAuth() {
     } else {
         info.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">No API keys configured. Authentication is disabled.</div>';
         document.getElementById('keys-card').style.display = 'none';
+    }
+}
+
+async function loadRetention() {
+    try {
+        const settings = await api('GET', '/api/settings');
+        const val = settings.retention_days || '7';
+        document.getElementById('retention-days').value = val;
+    } catch (e) {
+        // Settings may not be available if auth is disabled during first setup
+    }
+}
+
+async function saveRetention() {
+    const val = document.getElementById('retention-days').value;
+    const status = document.getElementById('retention-status');
+    try {
+        await api('PUT', '/api/settings', { retention_days: val });
+        status.textContent = 'Saved';
+        status.style.color = 'var(--success)';
+        setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.style.color = 'var(--danger)';
     }
 }
 

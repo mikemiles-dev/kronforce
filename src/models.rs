@@ -5,6 +5,30 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldOption {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskFieldDefinition {
+    pub name: String,
+    pub label: String,
+    pub field_type: String,
+    #[serde(default)]
+    pub required: Option<bool>,
+    pub placeholder: Option<String>,
+    pub options: Option<Vec<FieldOption>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskTypeDefinition {
+    pub name: String,
+    pub description: Option<String>,
+    pub fields: Vec<TaskFieldDefinition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CronExpr(pub String);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +84,10 @@ pub enum TaskType {
     },
     Script {
         script_name: String,
+    },
+    Custom {
+        agent_task_type: String,
+        data: serde_json::Value,
     },
 }
 
@@ -211,6 +239,8 @@ pub struct Agent {
     pub status: AgentStatus,
     pub last_heartbeat: Option<DateTime<Utc>>,
     pub registered_at: DateTime<Utc>,
+    #[serde(default)]
+    pub task_types: Vec<TaskTypeDefinition>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

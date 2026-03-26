@@ -36,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         address: config.address.clone(),
         port: config.port,
         agent_type: Some("standard".to_string()),
+        task_types: None,
     };
 
     tracing::info!(

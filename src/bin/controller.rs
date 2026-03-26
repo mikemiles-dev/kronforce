@@ -91,6 +91,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 }
+                // Clean up stale custom agent queue items
+                let _ = db.fail_stale_pending_queue_items(300); // 5 minutes
+                let _ = db.fail_stale_claimed_queue_items(600); // 10 minutes
+
+                // Purge old data based on retention setting
+                if let Ok(Some(days_str)) = db.get_setting("retention_days") {
+                    if let Ok(days) = days_str.parse::<i64>() {
+                        if days > 0 {
+                            let _ = db.purge_old_executions(days);
+                            let _ = db.purge_old_events(days);
+                            let _ = db.purge_old_queue_items(days);
+                        }
+                    }
+                }
                 Ok::<(), kronforce::error::AppError>(())
             }).await;
         }

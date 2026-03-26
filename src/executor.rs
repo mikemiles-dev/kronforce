@@ -197,14 +197,18 @@ impl Executor {
         let db = self.db.clone();
         let tag_owned = tag.to_string();
         let tag_for_err = tag_owned.clone();
-        let agents = tokio::task::spawn_blocking(move || db.get_online_agents_by_tag(&tag_owned))
+        let required_type = Self::required_agent_type(&job.task);
+        let agents: Vec<_> = tokio::task::spawn_blocking(move || db.get_online_agents_by_tag(&tag_owned))
             .await
-            .unwrap()?;
+            .unwrap()?
+            .into_iter()
+            .filter(|a| a.agent_type == required_type)
+            .collect();
 
         if agents.is_empty() {
             return Err(AppError::AgentUnavailable(format!(
-                "no online agents with tag '{}'",
-                tag_for_err
+                "no online {} agents with tag '{}'",
+                required_type.as_str(), tag_for_err
             )));
         }
 
@@ -215,6 +219,13 @@ impl Executor {
         self.dispatch_to_specific_agent(agent, job, trigger, callback_base_url).await
     }
 
+    fn required_agent_type(task: &TaskType) -> AgentType {
+        match task {
+            TaskType::Custom { .. } => AgentType::Custom,
+            _ => AgentType::Standard,
+        }
+    }
+
     async fn dispatch_to_any(
         &self,
         job: &Job,
@@ -222,13 +233,14 @@ impl Executor {
         callback_base_url: &str,
     ) -> Result<Uuid, AppError> {
         let db = self.db.clone();
-        let agents = tokio::task::spawn_blocking(move || db.get_online_agents())
+        let required_type = Self::required_agent_type(&job.task);
+        let agents = tokio::task::spawn_blocking(move || db.get_online_agents_by_type(required_type))
             .await
             .unwrap()?;
 
         if agents.is_empty() {
             return Err(AppError::AgentUnavailable(
-                "no online agents available".to_string(),
+                format!("no online {} agents available", required_type.as_str()),
             ));
         }
 
@@ -245,13 +257,14 @@ impl Executor {
         callback_base_url: &str,
     ) -> Result<Uuid, AppError> {
         let db = self.db.clone();
-        let agents = tokio::task::spawn_blocking(move || db.get_online_agents())
+        let required_type = Self::required_agent_type(&job.task);
+        let agents = tokio::task::spawn_blocking(move || db.get_online_agents_by_type(required_type))
             .await
             .unwrap()?;
 
         if agents.is_empty() {
             return Err(AppError::AgentUnavailable(
-                "no online agents available".to_string(),
+                format!("no online {} agents available", required_type.as_str()),
             ));
         }
 
@@ -317,13 +330,14 @@ impl Executor {
         if agent.agent_type == AgentType::Custom {
             let db = self.db.clone();
             let queue_id = Uuid::new_v4();
+            let job_id = job.id;
             let task = job.task.clone();
             let run_as = job.run_as.clone();
             let timeout = job.timeout_secs;
             let agent_id = agent.id;
             let cb = callback_url.clone();
             tokio::task::spawn_blocking(move || {
-                db.enqueue_job(queue_id, exec_id, agent_id, &task, run_as.as_deref(), timeout, &cb)
+                db.enqueue_job(queue_id, exec_id, agent_id, job_id, &task, run_as.as_deref(), timeout, &cb)
             }).await.unwrap()?;
             tracing::info!(
                 "queued job {} for custom agent {} -> execution {}",
@@ -446,6 +460,14 @@ pub async fn run_task(
                 },
             };
             run_script(&code, timeout_secs, cancel_rx).await
+        }
+        TaskType::Custom { .. } => {
+            CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput { text: "custom tasks require a custom agent — cannot run locally".to_string(), truncated: false },
+            }
         }
     }
 }

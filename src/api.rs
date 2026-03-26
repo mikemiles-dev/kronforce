@@ -1,7 +1,7 @@
 use axum::extract::{Path, Query, Request, State};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, delete};
+use axum::routing::{get, post, put, delete};
 use axum::response::Html;
 use axum::{Json, Router};
 use chrono::Utc;
@@ -46,6 +46,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/executions/{id}/cancel", post(cancel_execution))
         .route("/api/agents", get(list_agents))
         .route("/api/agents/{id}", get(get_agent_handler).delete(deregister_agent))
+        .route("/api/agents/{id}/task-types", put(update_agent_task_types))
         .route("/api/events", get(list_events))
         .route("/api/timeline", get(get_timeline))
         .route("/api/timeline/{job_id}", get(get_job_timeline))
@@ -55,6 +56,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/auth/me", get(auth_me))
         .route("/api/scripts", get(list_scripts))
         .route("/api/scripts/{name}", get(get_script).put(save_script).delete(delete_script))
+        .route("/api/settings", get(get_settings).put(update_settings))
         .route_layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
         .with_state(state.clone());
 
@@ -66,6 +68,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agent-queue/{agent_id}/next", get(poll_agent_queue))
         .route("/api/agents/{id}/heartbeat", post(agent_heartbeat))
         .route("/api/callbacks/execution-result", post(execution_result_callback))
+        .route("/api/agents/{id}/task-types", get(get_agent_task_types))
         .with_state(state);
 
     public.merge(authed)
@@ -624,6 +627,9 @@ async fn register_agent(
 
     let agent_type = req.agent_type.as_deref().map(AgentType::from_str).unwrap_or(AgentType::Standard);
 
+    // Preserve existing UI-managed task types on re-registration
+    let task_types = existing.as_ref().map(|a| a.task_types.clone()).unwrap_or_default();
+
     let agent = Agent {
         id: agent_id,
         name: req.name,
@@ -635,6 +641,7 @@ async fn register_agent(
         status: AgentStatus::Online,
         last_heartbeat: Some(now),
         registered_at: existing.map(|a| a.registered_at).unwrap_or(now),
+        task_types,
     };
 
     let db2 = db.clone();
@@ -723,6 +730,37 @@ async fn deregister_agent(
     }
 
     Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+async fn get_agent_task_types(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<crate::models::TaskTypeDefinition>>, AppError> {
+    let db = state.db.clone();
+    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
+        .await
+        .unwrap()?;
+    match agent {
+        Some(a) => Ok(Json(a.task_types)),
+        None => Err(AppError::NotFound("agent not found".into())),
+    }
+}
+
+async fn update_agent_task_types(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let task_types: Vec<crate::models::TaskTypeDefinition> = serde_json::from_value(
+        body.get("task_types").cloned().unwrap_or(serde_json::Value::Array(vec![]))
+    ).map_err(|e| AppError::BadRequest(format!("invalid task_types: {e}")))?;
+
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || db.update_agent_task_types(id, &task_types))
+        .await
+        .unwrap()?;
+
+    Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
 async fn poll_agent_queue(
@@ -1133,6 +1171,32 @@ async fn auth_me(req: Request) -> Json<serde_json::Value> {
             "message": "no API keys configured, auth disabled",
         }))
     }
+}
+
+async fn get_settings(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    let settings = tokio::task::spawn_blocking(move || db.get_all_settings())
+        .await
+        .unwrap()?;
+    Ok(Json(serde_json::json!(settings)))
+}
+
+async fn update_settings(
+    State(state): State<AppState>,
+    Json(body): Json<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        for (key, value) in &body {
+            db.set_setting(key, value)?;
+        }
+        Ok::<(), AppError>(())
+    })
+    .await
+    .unwrap()?;
+    Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
 #[derive(Deserialize)]

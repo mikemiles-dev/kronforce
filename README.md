@@ -108,6 +108,7 @@ The dashboard is embedded in the controller binary (no separate build step). Nav
 | Agents | `/#/agents` | Registered agents with status, tags, heartbeat info |
 | Scripts | `/#/scripts` | Manage Rhai scripts with syntax-highlighted editor |
 | Events | `/#/events` | Activity feed — job triggers, completions, agent status changes |
+| Docs | `/#/docs` | Custom agents, scripting, task types, API reference, cron docs |
 | Settings | `/#/settings` | Theme toggle, API key management, sign out |
 | Job Detail | `/#/jobs/{id}` | Job info, execution history, output viewer, mini dependency map |
 
@@ -115,7 +116,9 @@ All URLs are shareable — opening a link goes directly to that view.
 
 ### Features
 
-- **Task types** — Shell, HTTP, SQL, and FTP/SFTP job types with type-specific configuration forms
+- **Task types** — Shell, HTTP, SQL, FTP/SFTP, Script, and Custom agent task types with type-specific configuration forms
+- **Custom agents** — pull-based agents in any language with UI-managed task type definitions and dynamic form rendering
+- **Execution modes** — Local, Standard Agent, or Custom Agent mode selector in job creation
 - **Search and filter** — search jobs by name/task, filter by state; search agents by name/hostname/tag, filter by status
 - **Bulk actions** — select multiple jobs to schedule or delete at once
 - **Sortable columns** — click any column header to sort ascending/descending
@@ -333,154 +336,36 @@ Events are logged for: job created/deleted/triggered, execution completed (succe
 | `http` | In-process HTTP request via reqwest | `method`, `url`, `headers`, `body`, `expect_status` |
 | `sql` | Shells out to `psql`/`mysql`/`sqlite3` | `driver`, `connection_string`, `query` |
 | `ftp` | Uses `curl` for FTP/FTPS/SFTP transfers | `protocol`, `host`, `port`, `username`, `password`, `direction`, `remote_path`, `local_path` |
-| `script` | Rhai scripting engine with built-in APIs | `code` |
+| `script` | Rhai scripting engine with built-in APIs | `script_name` |
+| `custom` | Dispatched to a custom agent | `agent_task_type`, `data` (fields defined per agent in UI) |
 
-All task types capture output and errors. HTTP returns the response body as output and the status code as exit code. SQL returns query results as output. FTP returns the transfer log.
+See the **Docs** page in the dashboard for detailed documentation on each task type, scripting, and the custom agent protocol.
 
-### Custom Scripts (Rhai)
+## Custom Agents
 
-The `script` task type runs custom logic written in [Rhai](https://rhai.rs), a lightweight scripting language embedded in the Rust binary. Scripts are stored as `.rhai` files in the scripts directory (default `./scripts/`).
+Custom agents use a pull-based model — build agents in any language that poll for work, execute tasks, and report results back. Task type definitions are managed in the dashboard UI; agent code handles the implementation.
 
-#### Managing Scripts
+Quick start:
+1. Run `python3 examples/custom_agent.py` to start a sample agent
+2. In the dashboard, go to **Agents** and click the custom agent card to configure task types
+3. Create a job using **Custom Agent** execution mode
 
-Scripts can be managed via the **Scripts** page in the dashboard (with syntax highlighting editor), the API, or by placing `.rhai` files directly in the scripts directory (auto-discovered on startup).
+See the **Docs** page in the dashboard for the full custom agent protocol, task type schema, and Python example.
 
-```bash
-# Create/update a script via API
-curl -X PUT http://localhost:8080/api/scripts/health-check \
-  -H "Authorization: Bearer kf_your_key" \
-  -H "Content-Type: application/json" \
-  -d '{"code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 {\n    fail(\"down\");\n}\nprint(\"OK\");"}'
+## Scripting (Rhai)
 
-# List all scripts
-curl -H "Authorization: Bearer kf_your_key" http://localhost:8080/api/scripts
+The `script` task type runs custom logic in [Rhai](https://rhai.rs), embedded in the binary. Manage scripts via the **Scripts** page or drop `.rhai` files in the scripts directory.
 
-# Or just drop a file in the scripts directory
-echo 'print("hello from file");' > ./scripts/hello.rhai
-```
+See the **Docs** page in the dashboard for available functions, examples, and sandboxing details.
 
-#### Using Scripts in Jobs
+## More Documentation
 
-Jobs reference scripts by name — select from a dropdown in the UI:
-
-```bash
-curl -X POST http://localhost:8080/api/jobs \
-  -H "Authorization: Bearer kf_your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "health-monitor",
-    "task": {"type": "script", "script_name": "health-check"},
-    "schedule": {"type": "cron", "value": "0 */5 * * * *"}
-  }'
-```
-
-#### Available Functions
-
-| Function | Returns | Description |
-|---|---|---|
-| `print(msg)` | — | Appends to job output |
-| `http_get(url)` | `#{status, body}` | Makes an HTTP GET request |
-| `http_post(url, body)` | `#{status, body}` | Makes an HTTP POST request |
-| `shell_exec(cmd)` | `#{exit_code, stdout, stderr}` | Runs a shell command |
-| `env_var(name)` | `string` | Reads an environment variable |
-| `sleep_ms(ms)` | — | Sleeps for N milliseconds |
-| `fail(msg)` | — | Marks the execution as failed |
-| `udp_send(addr, data)` | `#{sent, error}` | Sends string data via UDP |
-| `tcp_send(addr, data)` | `#{response, error}` | Sends string data via TCP, reads response |
-| `udp_send_hex(addr, hex)` | `#{sent, error}` | Sends raw bytes (hex-encoded) via UDP |
-| `tcp_send_hex(addr, hex)` | `#{response_hex, response, error}` | Sends raw bytes via TCP, returns hex + string response |
-| `hex_encode(string)` | `string` | Converts string to hex |
-| `hex_decode(hex)` | `string` | Converts hex to string |
-
-#### Script Examples
-
-**Health check with Slack notification:**
-```javascript
-let resp = http_get("https://api.example.com/health");
-if resp.status != 200 {
-    http_post("https://hooks.slack.com/services/T00/B00/xxx",
-        `{"text": "API is DOWN! Status: ${resp.status}"}`);
-    fail("Health check failed");
-}
-print("API is healthy");
-```
-
-**Run a command and parse the output:**
-```javascript
-let result = shell_exec("df -h / | tail -1 | awk '{print $5}'");
-let usage = result.stdout;
-print("Disk usage: " + usage);
-
-if parse_int(usage.replace("%", "")) > 90 {
-    fail("Disk usage critical: " + usage);
-}
-```
-
-**Chain multiple API calls:**
-```javascript
-let data = http_get("https://api.example.com/orders/today");
-let orders = parse_json(data.body);
-print("Orders today: " + orders.len());
-
-let report = http_post("https://reports.internal/generate", data.body);
-if report.status != 200 {
-    fail("Report generation failed");
-}
-print("Report generated: " + report.body);
-```
-
-**Conditional deployment:**
-```javascript
-let tests = shell_exec("cd /app && cargo test 2>&1");
-if tests.exit_code != 0 {
-    print("Tests failed:");
-    print(tests.stderr);
-    fail("Cannot deploy: tests failed");
-}
-
-let deploy = shell_exec("/opt/deploy/prod.sh");
-print(deploy.stdout);
-if deploy.exit_code != 0 {
-    fail("Deployment failed");
-}
-print("Deployment successful");
-```
-
-**Network protocol check (TCP):**
-```javascript
-let result = tcp_send("192.168.1.10:6379", "PING\r\n");
-if result.error != "" {
-    fail("Redis unreachable: " + result.error);
-}
-print("Redis response: " + result.response);
-```
-
-**Send raw bytes via Modbus TCP:**
-```javascript
-let resp = tcp_send_hex("192.168.1.50:502", "0001000000060103000a0001");
-if resp.error != "" {
-    fail("Modbus device unreachable");
-}
-print("Response hex: " + resp.response_hex);
-print("Response raw: " + resp.response);
-```
-
-**UDP syslog message:**
-```javascript
-let result = udp_send("syslog.internal:514", "<14>kronforce: job completed successfully");
-if result.error != "" {
-    print("Warning: syslog send failed: " + result.error);
-}
-```
-
-#### Sandboxing
-
-Scripts run with these limits:
-- **1,000,000 operations** max (prevents infinite loops)
-- **256KB string size** max
-- **Timeout** enforced by the job's `timeout_secs` setting (default 60s)
-- No direct file system access (use `shell_exec` for controlled file operations)
-- No network access except through `http_get`/`http_post`
+The dashboard includes a **Docs** page (accessible from the sidebar) with comprehensive documentation:
+- **Custom Agents** — setup, protocol, task type definitions, queue behavior
+- **Scripting** — Rhai functions, examples, sandboxing
+- **Task Types** — all built-in and custom types with JSON examples
+- **API Reference** — complete endpoint listing with auth requirements
+- **Cron Expressions** — format, examples, event triggers
 
 ## Cron Expressions
 
@@ -488,329 +373,16 @@ Scripts run with these limits:
 
 | Expression | Description |
 |---|---|
-| `* * * * * *` | Every second |
 | `0 * * * * *` | Every minute |
-| `0 0 * * * *` | Every hour |
 | `0 0 9 * * *` | Daily at 9:00 AM |
 | `0 0 9 * * 1-5` | Weekdays at 9:00 AM |
 | `0 */5 * * * *` | Every 5 minutes |
-| `*/30 * * * * *` | Every 30 seconds |
-
-Supports: `*`, ranges (`1-5`), lists (`1,3,5`), steps (`*/5`, `1-30/5`).
-
-## Dependencies
-
-Jobs can declare dependencies with optional time windows. A job only runs when all dependencies have a successful execution within the specified window. Circular dependencies are rejected at creation time.
-
-```bash
-# Job that depends on "extract" completing successfully within the last 2 hours
-curl -X POST http://localhost:8080/api/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "transform",
-    "task": {"type": "shell", "command": "transform.sh"},
-    "schedule": {"type": "cron", "value": "0 0 3 * * *"},
-    "depends_on": [
-      {"job_id": "<extract-job-id>", "within_secs": 7200}
-    ]
-  }'
-
-# Job with a dependency but no time window (any past success counts)
-curl -X POST http://localhost:8080/api/jobs \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "name": "load",
-    "task": {"type": "shell", "command": "load.sh"},
-    "schedule": {"type": "cron", "value": "0 0 4 * * *"},
-    "depends_on": [
-      {"job_id": "<transform-job-id>", "within_secs": null}
-    ]
-  }'
-```
-
-## Job States
-
-| State | Description |
-|---|---|
-| `enabled` | Scheduled and will run automatically |
-| `paused` | Won't be scheduled until resumed |
-| `disabled` | Permanently disabled |
-| `unscheduled` | No future schedule (one-shot that has fired), can still be triggered manually |
-
-## Execution Statuses
-
-| Status | Description |
-|---|---|
-| `pending` | Dispatched to agent, waiting to start |
-| `running` | Currently executing |
-| `succeeded` | Completed with exit code 0 |
-| `failed` | Completed with non-zero exit code |
-| `timed_out` | Killed after exceeding `timeout_secs` |
-| `cancelled` | Cancelled via API |
-| `skipped` | Skipped due to failed dependency |
-
-## Output Capture
-
-Stdout and stderr are captured and stored in the database. Each stream is capped at **256KB** — output beyond that is truncated from the front (keeps the tail). Truncated output is prefixed with `[...truncated N bytes...]` and flagged in the API response.
-
-## Custom Agents
-
-![Custom Agent](custom_agent.png)
-
-Custom agents use a **pull-based** model — they poll the controller for work, execute it however they want, and post the result back. Build agents in any language with just an HTTP client. No server needed.
-
-### Agent Types
-
-| Type | Model | Description |
-|---|---|---|
-| `standard` | Push | Controller POSTs jobs to agent's HTTP server. Built-in kronforce-agent binary. |
-| `custom` | Pull | Agent polls controller for work. Build in any language. |
-
-### Custom Agent Protocol
-
-**1. Register** — tell the controller you exist:
-
-```bash
-curl -X POST http://localhost:8080/api/agents/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "my-python-agent",
-    "tags": ["python", "ml"],
-    "hostname": "ml-box",
-    "address": "0.0.0.0",
-    "port": 0,
-    "agent_type": "custom"
-  }'
-# Returns: {"agent_id": "uuid", "heartbeat_interval_secs": 10}
-```
-
-**2. Poll for work** — call this in a loop:
-
-```bash
-curl http://localhost:8080/api/agent-queue/{agent_id}/next
-# Returns 204 if no work available
-# Returns 200 with job JSON if work is available
-```
-
-Response when work is available:
-```json
-{
-    "queue_id": "uuid",
-    "execution_id": "uuid",
-    "agent_id": "uuid",
-    "task": {"type": "shell", "command": "echo hello"},
-    "run_as": null,
-    "timeout_secs": 300,
-    "callback_url": "http://controller:8080/api/callbacks/execution-result"
-}
-```
-
-**3. Post result** — when done, report back:
-
-```bash
-curl -X POST {callback_url} \
-  -H "Content-Type: application/json" \
-  -d '{
-    "execution_id": "...",
-    "job_id": "...",
-    "agent_id": "...",
-    "status": "succeeded",
-    "exit_code": 0,
-    "stdout": "output here",
-    "stderr": "",
-    "stdout_truncated": false,
-    "stderr_truncated": false,
-    "started_at": "2026-03-25T10:00:00Z",
-    "finished_at": "2026-03-25T10:00:05Z"
-  }'
-```
-
-### Python Custom Agent Example
-
-```python
-import requests, time, datetime
-
-# 1. Register
-resp = requests.post("http://localhost:8080/api/agents/register", json={
-    "name": "python-ml-agent",
-    "tags": ["python", "ml"],
-    "hostname": "ml-box",
-    "address": "0.0.0.0",
-    "port": 0,
-    "agent_type": "custom"
-})
-agent_id = resp.json()["agent_id"]
-print(f"Registered as {agent_id}")
-
-# 2. Poll loop
-while True:
-    r = requests.get(f"http://localhost:8080/api/agent-queue/{agent_id}/next")
-    if r.status_code == 204:
-        time.sleep(5)  # No work, wait
-        continue
-
-    job = r.json()
-    started = datetime.datetime.utcnow().isoformat() + "Z"
-    print(f"Got job: {job['task']}")
-
-    # 3. Do your work
-    try:
-        result = process_task(job["task"])
-        status, stdout = "succeeded", str(result)
-    except Exception as e:
-        status, stdout = "failed", str(e)
-
-    # 4. Report back
-    requests.post(job["callback_url"], json={
-        "execution_id": job["execution_id"],
-        "job_id": job.get("job_id", ""),
-        "agent_id": agent_id,
-        "status": status,
-        "exit_code": 0 if status == "succeeded" else 1,
-        "stdout": stdout,
-        "stderr": "",
-        "stdout_truncated": False,
-        "stderr_truncated": False,
-        "started_at": started,
-        "finished_at": datetime.datetime.utcnow().isoformat() + "Z"
-    })
-```
-
-### Running the Example Custom Agent
-
-A complete working example is included at `examples/custom_agent.py`:
-
-```bash
-# Install dependency
-pip install requests
-
-# Start the controller
-cargo run --bin kronforce
-
-# In another terminal, start the custom agent
-python3 examples/custom_agent.py
-```
-
-The example agent:
-- Registers as `python-agent` with tags `python`, `custom`
-- Polls every 5 seconds for work
-- Handles `shell` and `http` task types
-- Reports results back to the controller
-- Truncates output to 256KB
-
-Configure with environment variables:
-
-```bash
-KRONFORCE_URL=http://controller:8080 \
-AGENT_NAME=my-ml-agent \
-AGENT_TAGS=python,ml,gpu \
-POLL_INTERVAL=2 \
-python3 examples/custom_agent.py
-```
-
-To test it:
-1. Open `http://localhost:8080` and go to the Agents page — you should see `python-agent` with a "custom" badge
-2. Create a job with target set to the custom agent (or tagged `python`)
-3. Trigger the job — the Python agent will pick it up, execute it, and report back
-
-### Building Your Own Custom Agent
-
-You can build a custom agent in any language. The protocol is just 3 HTTP calls:
-
-1. **Register** — `POST /api/agents/register` with `"agent_type": "custom"`
-2. **Poll** — `GET /api/agent-queue/{agent_id}/next` in a loop (also heartbeats)
-3. **Report** — `POST {callback_url}` with the execution result
-
-The `task` field in the job contains the full task config. Your agent decides how to handle each type. You can:
-- Only handle specific task types and reject others
-- Add custom task type handling for your domain (ML training, video processing, etc.)
-- Run on specialized hardware (GPUs, FPGAs, IoT devices)
-
-### Notes
-
-- Polling `GET /api/agent-queue/{id}/next` also acts as a heartbeat — no separate heartbeat call needed
-- The `task` field contains the full task config (shell command, HTTP request, SQL query, etc.) — your agent decides how to handle it
-- Use `status`: `succeeded`, `failed`, `timed_out`, or `cancelled` in the result
-- Custom agents show with an amber "custom" badge in the dashboard
-- The developer guide is also available in the dashboard on the Agents page (expanded by default)
 
 ## Authentication
 
-Kronforce uses API keys for authentication. All `/api/*` endpoints (except health and agent callbacks) require a valid key.
+API keys required for dashboard endpoints. On first startup, a bootstrap admin key is printed to the console. Agent endpoints (register, poll, callback) require no key.
 
-### Bootstrap Key
-
-On first startup with a fresh database, an admin API key is automatically generated and printed to the console:
-
-```
-INFO kronforce: =============================================================
-INFO kronforce:   No API keys found. Bootstrap admin key created:
-INFO kronforce:   kf_rlpzh75R60xG9w8QtLhxyNAqvA-q_K7NKB3mFT9uH1g
-INFO kronforce:   Save this key — it will not be shown again.
-INFO kronforce: =============================================================
-```
-
-Copy this key immediately — it's only shown once.
-
-### Using API Keys
-
-Pass the key via the `Authorization` header:
-
-```bash
-curl -H "Authorization: Bearer kf_your_key_here" http://localhost:8080/api/jobs
-```
-
-In the web dashboard, you'll see a login screen where you paste your key. It's stored in your browser's localStorage.
-
-### Roles
-
-| Role | Permissions |
-|---|---|
-| `admin` | Full access: manage jobs, agents, API keys |
-| `operator` | Create/edit/trigger/delete jobs, view agents. Cannot manage keys |
-| `viewer` | Read-only: view jobs, executions, agents, events |
-
-### Managing Keys
-
-Admins can create and revoke keys via the API or the Settings page in the dashboard.
-
-```bash
-# Create a new key
-curl -X POST http://localhost:8080/api/keys \
-  -H "Authorization: Bearer kf_admin_key" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "CI pipeline", "role": "operator"}'
-
-# List all keys
-curl -H "Authorization: Bearer kf_admin_key" http://localhost:8080/api/keys
-
-# Revoke a key
-curl -X DELETE -H "Authorization: Bearer kf_admin_key" http://localhost:8080/api/keys/{id}
-```
-
-If no API keys exist in the database, authentication is disabled and all endpoints are open. This allows initial setup without needing a key first.
-
-## Run-As User
-
-Jobs can specify a system user to execute as. This uses `sudo -n -u <user>` (non-interactive) on the controller or agent.
-
-```bash
-curl -X POST http://localhost:8080/api/jobs \
-  -H "Authorization: Bearer kf_your_key" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "db-backup",
-    "task": {"type": "shell", "command": "pg_dump mydb > /backups/mydb.sql"},
-    "run_as": "postgres",
-    "schedule": {"type": "cron", "value": "0 0 2 * * *"}
-  }'
-```
-
-The controller/agent process must have passwordless sudo access for the target user. Configure via `/etc/sudoers`:
-
-```
-kronforce ALL=(postgres) NOPASSWD: ALL
-```
+Roles: `admin` (full access), `operator` (jobs + agents), `viewer` (read-only).
 
 ## Development
 

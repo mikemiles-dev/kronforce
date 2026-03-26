@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{ExecutionStatus, TaskType};
+use crate::models::{ExecutionStatus, TaskType, TaskTypeDefinition};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistration {
@@ -12,6 +12,7 @@ pub struct AgentRegistration {
     pub address: String,
     pub port: u16,
     pub agent_type: Option<String>,
+    pub task_types: Option<Vec<TaskTypeDefinition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

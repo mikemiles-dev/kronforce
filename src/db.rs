@@ -142,6 +142,19 @@ impl Db {
                 );
                 CREATE INDEX IF NOT EXISTS idx_job_queue_agent ON job_queue(agent_id, status);
             "),
+            (8, "Add job_id to job_queue", "
+                ALTER TABLE job_queue ADD COLUMN job_id TEXT;
+            "),
+            (9, "Add task_types to agents", "
+                ALTER TABLE agents ADD COLUMN task_types_json TEXT;
+            "),
+            (10, "Add settings table", "
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO settings (key, value) VALUES ('retention_days', '7');
+            "),
         ];
 
         for (version, description, sql) in &migrations {
@@ -724,13 +737,15 @@ impl Db {
     pub fn upsert_agent(&self, agent: &Agent) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let tags_json = serde_json::to_string(&agent.tags).unwrap();
+        let task_types_json = if agent.task_types.is_empty() { None } else { Some(serde_json::to_string(&agent.task_types).unwrap()) };
         conn.execute(
-            "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
              ON CONFLICT(name) DO UPDATE SET
                tags_json=excluded.tags_json, hostname=excluded.hostname, address=excluded.address,
                port=excluded.port, agent_type=excluded.agent_type, status=excluded.status,
-               last_heartbeat=excluded.last_heartbeat, registered_at=excluded.registered_at",
+               last_heartbeat=excluded.last_heartbeat, registered_at=excluded.registered_at,
+               task_types_json=excluded.task_types_json",
             params![
                 agent.id.to_string(),
                 agent.name,
@@ -742,6 +757,7 @@ impl Db {
                 agent.status.as_str(),
                 agent.last_heartbeat.map(|t| t.to_rfc3339()),
                 agent.registered_at.to_rfc3339(),
+                task_types_json,
             ],
         )
         .map_err(AppError::Db)?;
@@ -751,7 +767,7 @@ impl Db {
     pub fn get_agent(&self, id: Uuid) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents WHERE id = ?1")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_agent(row)))
@@ -766,7 +782,7 @@ impl Db {
     pub fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents WHERE name = ?1")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE name = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![name], |row| Ok(row_to_agent(row)))
@@ -781,7 +797,7 @@ impl Db {
     pub fn list_agents(&self) -> Result<Vec<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at FROM agents ORDER BY name")
+            .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents ORDER BY name")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| Ok(row_to_agent(row)))
@@ -809,6 +825,14 @@ impl Db {
             .collect())
     }
 
+    pub fn get_online_agents_by_type(&self, agent_type: AgentType) -> Result<Vec<Agent>, AppError> {
+        let agents = self.list_agents()?;
+        Ok(agents
+            .into_iter()
+            .filter(|a| a.status == AgentStatus::Online && a.agent_type == agent_type)
+            .collect())
+    }
+
     pub fn update_agent_heartbeat(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -823,6 +847,16 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM agents WHERE id = ?1", params![id.to_string()])
             .map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn update_agent_task_types(&self, id: Uuid, task_types: &[crate::models::TaskTypeDefinition]) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        let json = if task_types.is_empty() { None } else { Some(serde_json::to_string(task_types).unwrap()) };
+        conn.execute(
+            "UPDATE agents SET task_types_json = ?1 WHERE id = ?2",
+            params![json, id.to_string()],
+        ).map_err(AppError::Db)?;
         Ok(())
     }
 
@@ -844,6 +878,7 @@ impl Db {
         id: Uuid,
         execution_id: Uuid,
         agent_id: Uuid,
+        job_id: Uuid,
         task: &TaskType,
         run_as: Option<&str>,
         timeout_secs: Option<u64>,
@@ -851,11 +886,12 @@ impl Db {
     ) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO job_queue (id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'pending', ?8)",
+            "INSERT INTO job_queue (id, execution_id, agent_id, job_id, task_json, run_as, timeout_secs, callback_url, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', ?9)",
             params![
                 id.to_string(),
                 execution_id.to_string(),
                 agent_id.to_string(),
+                job_id.to_string(),
                 serde_json::to_string(task).unwrap(),
                 run_as,
                 timeout_secs.map(|t| t as i64),
@@ -869,7 +905,7 @@ impl Db {
     pub fn dequeue_job(&self, agent_id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url FROM job_queue WHERE agent_id = ?1 AND status = 'pending' ORDER BY created_at ASC LIMIT 1")
+            .prepare("SELECT id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url, job_id FROM job_queue WHERE agent_id = ?1 AND status = 'pending' ORDER BY created_at ASC LIMIT 1")
             .map_err(AppError::Db)?;
         let result = stmt.query_row(params![agent_id.to_string()], |row| {
             let id: String = row.get(0)?;
@@ -879,11 +915,12 @@ impl Db {
             let run_as: Option<String> = row.get(4)?;
             let timeout: Option<i64> = row.get(5)?;
             let callback: String = row.get(6)?;
-            Ok((id, exec_id, agent, task_json, run_as, timeout, callback))
+            let job_id: Option<String> = row.get(7)?;
+            Ok((id, exec_id, agent, task_json, run_as, timeout, callback, job_id))
         });
 
         match result {
-            Ok((id, exec_id, _agent, task_json, run_as, timeout, callback)) => {
+            Ok((id, exec_id, _agent, task_json, run_as, timeout, callback, job_id)) => {
                 // Mark as claimed
                 conn.execute(
                     "UPDATE job_queue SET status = 'claimed', claimed_at = ?1 WHERE id = ?2",
@@ -894,6 +931,7 @@ impl Db {
                 Ok(Some(serde_json::json!({
                     "queue_id": id,
                     "execution_id": exec_id,
+                    "job_id": job_id,
                     "agent_id": agent_id.to_string(),
                     "task": task,
                     "run_as": run_as,
@@ -922,6 +960,56 @@ impl Db {
             params![agent_id.to_string()],
             |row| row.get(0),
         ).map_err(AppError::Db)
+    }
+
+    pub fn fail_stale_pending_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
+        let mut stmt = conn.prepare(
+            "SELECT id, execution_id FROM job_queue WHERE status = 'pending' AND created_at < ?1"
+        ).map_err(AppError::Db)?;
+        let rows: Vec<(String, String)> = stmt.query_map(params![cutoff], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).map_err(AppError::Db)?.filter_map(|r| r.ok()).collect();
+
+        let count = rows.len() as u32;
+        for (queue_id, exec_id) in &rows {
+            let _ = conn.execute(
+                "UPDATE job_queue SET status = 'completed' WHERE id = ?1",
+                params![queue_id],
+            );
+            let now = Utc::now().to_rfc3339();
+            let _ = conn.execute(
+                "UPDATE executions SET status = 'failed', stderr = 'queued for custom agent but never claimed (timeout)', finished_at = ?1 WHERE id = ?2 AND status = 'pending'",
+                params![now, exec_id],
+            );
+        }
+        Ok(count)
+    }
+
+    pub fn fail_stale_claimed_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
+        let mut stmt = conn.prepare(
+            "SELECT id, execution_id FROM job_queue WHERE status = 'claimed' AND claimed_at < ?1"
+        ).map_err(AppError::Db)?;
+        let rows: Vec<(String, String)> = stmt.query_map(params![cutoff], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        }).map_err(AppError::Db)?.filter_map(|r| r.ok()).collect();
+
+        let count = rows.len() as u32;
+        for (queue_id, exec_id) in &rows {
+            let _ = conn.execute(
+                "UPDATE job_queue SET status = 'completed' WHERE id = ?1",
+                params![queue_id],
+            );
+            let now = Utc::now().to_rfc3339();
+            let _ = conn.execute(
+                "UPDATE executions SET status = 'failed', stderr = 'custom agent claimed job but never reported result (timeout)', finished_at = ?1 WHERE id = ?2 AND (status = 'pending' OR status = 'running')",
+                params![now, exec_id],
+            );
+        }
+        Ok(count)
     }
 
     // --- API Keys ---
@@ -1128,6 +1216,75 @@ impl Db {
         };
         self.insert_event(&event)
     }
+
+    // --- Settings ---
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let result = conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        );
+        match result {
+            Ok(val) => Ok(Some(val)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(AppError::Db(e)),
+        }
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
+    pub fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT key, value FROM settings").map_err(AppError::Db)?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        }).map_err(AppError::Db)?;
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (k, v) = row.map_err(AppError::Db)?;
+            map.insert(k, v);
+        }
+        Ok(map)
+    }
+
+    pub fn purge_old_executions(&self, retention_days: i64) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
+        let deleted = conn.execute(
+            "DELETE FROM executions WHERE finished_at IS NOT NULL AND finished_at < ?1",
+            params![cutoff],
+        ).map_err(AppError::Db)?;
+        Ok(deleted as u32)
+    }
+
+    pub fn purge_old_events(&self, retention_days: i64) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
+        let deleted = conn.execute(
+            "DELETE FROM events WHERE timestamp < ?1",
+            params![cutoff],
+        ).map_err(AppError::Db)?;
+        Ok(deleted as u32)
+    }
+
+    pub fn purge_old_queue_items(&self, retention_days: i64) -> Result<u32, AppError> {
+        let conn = self.conn.lock().unwrap();
+        let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
+        let deleted = conn.execute(
+            "DELETE FROM job_queue WHERE status = 'completed' AND created_at < ?1",
+            params![cutoff],
+        ).map_err(AppError::Db)?;
+        Ok(deleted as u32)
+    }
 }
 
 // Columns: id(0), name(1), description(2), command(3), run_as(4), schedule_json(5), status(6),
@@ -1213,6 +1370,7 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
     let status_str: String = row.get(7).unwrap();
     let hb_str: Option<String> = row.get(8).unwrap();
     let reg_str: String = row.get(9).unwrap();
+    let task_types_str: Option<String> = row.get(10).unwrap_or(None);
 
     Agent {
         id: Uuid::parse_str(&id_str).unwrap(),
@@ -1234,6 +1392,9 @@ fn row_to_agent(row: &rusqlite::Row) -> Agent {
         registered_at: DateTime::parse_from_rfc3339(&reg_str)
             .unwrap()
             .with_timezone(&Utc),
+        task_types: task_types_str
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
     }
 }
 

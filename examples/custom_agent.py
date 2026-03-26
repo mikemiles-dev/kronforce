@@ -32,6 +32,7 @@ POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
 def register():
     """Register this agent with the controller."""
     print(f"Registering with {CONTROLLER_URL} as '{AGENT_NAME}'...")
+    # Task types are configured in the UI, not in registration
     resp = requests.post(f"{CONTROLLER_URL}/api/agents/register", json={
         "name": AGENT_NAME,
         "tags": [t.strip() for t in AGENT_TAGS],
@@ -47,6 +48,22 @@ def register():
     return agent_id
 
 
+def discover_task_types(agent_id):
+    """Fetch configured task types from the controller."""
+    try:
+        resp = requests.get(f"{CONTROLLER_URL}/api/agents/{agent_id}/task-types")
+        resp.raise_for_status()
+        task_types = resp.json()
+        if task_types:
+            print(f"Configured task types: {', '.join(tt['name'] for tt in task_types)}")
+        else:
+            print("No task types configured yet (configure via the dashboard)")
+        return task_types
+    except Exception as e:
+        print(f"Could not fetch task types: {e}")
+        return []
+
+
 def poll_for_work(agent_id):
     """Poll the controller for a job to execute."""
     resp = requests.get(f"{CONTROLLER_URL}/api/agent-queue/{agent_id}/next")
@@ -60,8 +77,48 @@ def execute_task(task):
     """Execute a task and return (status, exit_code, stdout, stderr)."""
     task_type = task.get("type", "unknown")
 
-    if task_type == "shell":
-        # Run shell command
+    if task_type == "custom":
+        # Custom task type — dispatch by agent_task_type
+        agent_task_type = task.get("agent_task_type", "")
+        data = task.get("data", {})
+        print(f"  Custom task: {agent_task_type}")
+
+        if agent_task_type == "python":
+            script = data.get("script", "print('no script')")
+            args = data.get("args", "")
+            print(f"  Running Python script")
+            try:
+                cmd = ["python3", "-c", script]
+                if args:
+                    cmd.extend(args.split())
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                status = "succeeded" if result.returncode == 0 else "failed"
+                return status, result.returncode, result.stdout, result.stderr
+            except subprocess.TimeoutExpired:
+                return "timed_out", -1, "", "script timed out"
+            except Exception as e:
+                return "failed", -1, "", str(e)
+
+        elif agent_task_type == "shell":
+            command = data.get("command", "echo 'no command'")
+            print(f"  Running shell: {command}")
+            try:
+                result = subprocess.run(
+                    ["sh", "-c", command],
+                    capture_output=True, text=True, timeout=300
+                )
+                status = "succeeded" if result.returncode == 0 else "failed"
+                return status, result.returncode, result.stdout, result.stderr
+            except subprocess.TimeoutExpired:
+                return "timed_out", -1, "", "command timed out"
+            except Exception as e:
+                return "failed", -1, "", str(e)
+
+        else:
+            return "failed", -1, "", f"unsupported custom task type: {agent_task_type}"
+
+    elif task_type == "shell":
+        # Run shell command (legacy built-in type)
         command = task.get("command", "echo 'no command'")
         print(f"  Running shell: {command}")
         try:
@@ -96,7 +153,7 @@ def execute_task(task):
             return "failed", -1, "", str(e)
 
     else:
-        # Unknown task type — you can add your own handlers here!
+        # Unknown task type
         print(f"  Unknown task type: {task_type}")
         return "failed", -1, "", f"unsupported task type: {task_type}"
 
@@ -106,7 +163,7 @@ def report_result(job, status, exit_code, stdout, stderr, started_at):
     finished_at = datetime.datetime.utcnow().isoformat() + "Z"
     payload = {
         "execution_id": job["execution_id"],
-        "job_id": job.get("job_id", ""),
+        "job_id": job.get("job_id") or "",
         "agent_id": job["agent_id"],
         "status": status,
         "exit_code": exit_code,
@@ -136,6 +193,9 @@ def main():
     except Exception as e:
         print(f"ERROR: Failed to register: {e}")
         sys.exit(1)
+
+    # Discover configured task types
+    discover_task_types(agent_id)
 
     # Poll loop
     print(f"Polling for work every {POLL_INTERVAL}s...")
