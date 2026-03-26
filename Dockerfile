@@ -1,16 +1,15 @@
-FROM rust:1.83 AS builder
+FROM rust:latest AS builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src/ src/
 COPY examples/ examples/
 COPY scripts/ scripts/
-# Create scripts dir if empty
 RUN mkdir -p scripts
 
 RUN cargo build --release
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y ca-certificates libssl3 curl && rm -rf /var/lib/apt/lists/*
 

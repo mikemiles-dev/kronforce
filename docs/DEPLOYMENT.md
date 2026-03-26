@@ -1,5 +1,101 @@
 # Deployment
 
+## Download Pre-Built Binaries
+
+Pre-built binaries are available on the [GitHub Releases](https://github.com/mikemiles-dev/kronforce/releases) page for tagged versions.
+
+| Platform | Controller | Agent |
+|---|---|---|
+| Linux x86_64 | `kronforce-linux-amd64` | `kronforce-agent-linux-amd64` |
+| Linux ARM64 | `kronforce-linux-arm64` | `kronforce-agent-linux-arm64` |
+| macOS x86_64 | `kronforce-darwin-amd64` | `kronforce-agent-darwin-amd64` |
+| macOS ARM64 (Apple Silicon) | `kronforce-darwin-arm64` | `kronforce-agent-darwin-arm64` |
+
+### Install from Release
+
+```bash
+# Download (replace VERSION and PLATFORM)
+curl -L -o kronforce https://github.com/mikemiles-dev/kronforce/releases/download/VERSION/kronforce-PLATFORM
+curl -L -o kronforce-agent https://github.com/mikemiles-dev/kronforce/releases/download/VERSION/kronforce-agent-PLATFORM
+chmod +x kronforce kronforce-agent
+
+# Example: latest release on Linux x86_64
+VERSION=$(curl -s https://api.github.com/repos/mikemiles-dev/kronforce/releases/latest | grep tag_name | cut -d'"' -f4)
+curl -L -o kronforce https://github.com/mikemiles-dev/kronforce/releases/download/$VERSION/kronforce-linux-amd64
+curl -L -o kronforce-agent https://github.com/mikemiles-dev/kronforce/releases/download/$VERSION/kronforce-agent-linux-amd64
+chmod +x kronforce kronforce-agent
+```
+
+### Run the Controller
+
+```bash
+./kronforce
+```
+
+First startup prints bootstrap API keys to the console. Save the admin key (for dashboard login) and agent key (for connecting agents).
+
+### Run an Agent
+
+```bash
+KRONFORCE_AGENT_KEY=kf_your_agent_key \
+KRONFORCE_CONTROLLER_URL=http://controller-host:8080 \
+  ./kronforce-agent
+```
+
+### Run as a systemd Service
+
+```ini
+# /etc/systemd/system/kronforce.service
+[Unit]
+Description=Kronforce Controller
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/kronforce
+Environment=KRONFORCE_DB=/var/lib/kronforce/kronforce.db
+Environment=KRONFORCE_BIND=0.0.0.0:8080
+Environment=KRONFORCE_SCRIPTS_DIR=/var/lib/kronforce/scripts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```ini
+# /etc/systemd/system/kronforce-agent.service
+[Unit]
+Description=Kronforce Agent
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/kronforce-agent
+Environment=KRONFORCE_CONTROLLER_URL=http://controller-host:8080
+Environment=KRONFORCE_AGENT_KEY=kf_your_agent_key
+Environment=KRONFORCE_AGENT_NAME=%H
+Environment=KRONFORCE_AGENT_TAGS=linux,prod
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl enable --now kronforce
+sudo systemctl enable --now kronforce-agent
+```
+
+### Verify Checksums
+
+Each release includes a `checksums-sha256.txt` file:
+
+```bash
+sha256sum -c checksums-sha256.txt
+```
+
 ## Quick Start (Docker Compose)
 
 ### Local Development — Full Stack
