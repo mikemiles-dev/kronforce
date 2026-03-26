@@ -1,4 +1,4 @@
-use kronforce::agent_client::AgentClient;
+use kronforce::agent::AgentClient;
 use kronforce::config::ControllerConfig;
 use kronforce::dag::DagResolver;
 use kronforce::db::Db;
@@ -69,44 +69,58 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             interval.tick().await;
             let db = health_db.clone();
             let timeout = timeout;
-            let _ = tokio::task::spawn_blocking(move || {
-                // Get online agents before expire
-                let before: Vec<_> = db.list_agents()?.into_iter()
+            let db_tick = db.clone();
+            let offline_agents: Vec<(String, String)> = tokio::task::spawn_blocking(move || {
+                let before: Vec<_> = db_tick.list_agents().unwrap_or_default().into_iter()
                     .filter(|a| a.status == kronforce::models::AgentStatus::Online)
                     .map(|a| (a.id, a.name.clone()))
                     .collect();
-                db.expire_agents(timeout)?;
-                // Check which went offline
-                let after = db.list_agents()?;
+                let _ = db_tick.expire_agents(timeout);
+                let after = db_tick.list_agents().unwrap_or_default();
+                let mut went_offline = Vec::new();
                 for (id, name) in &before {
                     if let Some(a) = after.iter().find(|a| a.id == *id) {
                         if a.status == kronforce::models::AgentStatus::Offline {
-                            let _ = db.log_event(
+                            let _ = db_tick.log_event(
                                 "agent.offline",
                                 kronforce::models::EventSeverity::Warning,
                                 &format!("Agent '{}' went offline (heartbeat timeout)", name),
                                 None,
                                 Some(*id),
                             );
+                            went_offline.push((name.clone(), a.hostname.clone()));
                         }
                     }
                 }
-                // Clean up stale custom agent queue items
-                let _ = db.fail_stale_pending_queue_items(300); // 5 minutes
-                let _ = db.fail_stale_claimed_queue_items(600); // 10 minutes
-
-                // Purge old data based on retention setting
-                if let Ok(Some(days_str)) = db.get_setting("retention_days") {
+                let _ = db_tick.fail_stale_pending_queue_items(300);
+                let _ = db_tick.fail_stale_claimed_queue_items(600);
+                if let Ok(Some(days_str)) = db_tick.get_setting("retention_days") {
                     if let Ok(days) = days_str.parse::<i64>() {
                         if days > 0 {
-                            let _ = db.purge_old_executions(days);
-                            let _ = db.purge_old_events(days);
-                            let _ = db.purge_old_queue_items(days);
+                            let _ = db_tick.purge_old_executions(days);
+                            let _ = db_tick.purge_old_events(days);
+                            let _ = db_tick.purge_old_queue_items(days);
                         }
                     }
                 }
-                Ok::<(), kronforce::error::AppError>(())
-            }).await;
+                went_offline
+            }).await.unwrap_or_default();
+
+            // Send notifications for agents that went offline
+            if !offline_agents.is_empty() {
+                let db_notif = health_db.clone();
+                let alerts = kronforce::notifications::load_system_alerts(&db_notif);
+                if alerts.agent_offline {
+                    for (name, hostname) in &offline_agents {
+                        let subject = format!("[Kronforce] Agent '{}' went offline", name);
+                        let body = format!(
+                            "Agent: {}\nHostname: {}\nTime: {}\n\nThe agent's heartbeat timed out.",
+                            name, hostname, chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+                        );
+                        kronforce::notifications::send_notification(&db_notif, &subject, &body, None).await;
+                    }
+                }
+            }
         }
     });
 

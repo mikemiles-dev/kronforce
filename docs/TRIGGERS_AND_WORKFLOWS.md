@@ -51,9 +51,11 @@ Event-triggered jobs fire automatically when a matching system event occurs. Con
 
 | Field | Required | Description |
 |---|---|---|
-| `kind_pattern` | Yes | Event kind to match. Supports exact (`agent.registered`), prefix wildcard (`job.*`), or all (`*`) |
+| `kind_pattern` | Yes | Event kind to match. Supports exact (`output.matched`), prefix wildcard (`job.*`), or all (`*`) |
 | `severity` | No | Only trigger on events with this severity: `success`, `error`, `warning`, `info` |
-| `job_name_filter` | No | Only trigger when the event message contains this text (case-insensitive) |
+| `job_name_filter` | No | **Source job filter.** Only trigger when the event came from a job with this name (substring match, case-insensitive). In the UI this is labeled "From source job". |
+
+**How `job_name_filter` works:** When an event is emitted, its message includes the source job name (e.g., `"Output pattern matched: 'ERROR' in job 'health-check'"`). The `job_name_filter` does a case-insensitive substring match against this message. So setting `job_name_filter: "health-check"` means "only fire when the event came from a job named health-check".
 
 ## Output Intelligence
 

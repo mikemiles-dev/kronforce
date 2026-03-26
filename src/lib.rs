@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod api;
 pub mod config;
 pub mod cron_parser;
@@ -6,9 +7,8 @@ pub mod db;
 pub mod error;
 pub mod executor;
 pub mod models;
+pub mod output_rules;
 pub mod protocol;
-pub mod agent_client;
-pub mod agent_server;
 pub mod scheduler;
 pub mod scripts;
-pub mod output_rules;
+pub mod notifications;

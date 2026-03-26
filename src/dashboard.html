@@ -2796,21 +2796,45 @@ print("Redis: " + result.response);</code></pre>
                     </table>
 
                     <h3>Event Triggers</h3>
-                    <p>Jobs can fire reactively when system events occur.</p>
+                    <p>Jobs can fire reactively when system events occur. Set a job's schedule to "Event" and configure what to listen for.</p>
+
+                    <h4>Available Event Kinds</h4>
                     <table>
                         <tr><th>Kind</th><th>When it fires</th></tr>
                         <tr><td><code>job.created</code></td><td>A job is created</td></tr>
                         <tr><td><code>job.updated</code></td><td>A job is edited</td></tr>
                         <tr><td><code>job.deleted</code></td><td>A job is deleted</td></tr>
                         <tr><td><code>job.triggered</code></td><td>A job is manually triggered</td></tr>
-                        <tr><td><code>execution.completed</code></td><td>A job execution finishes</td></tr>
+                        <tr><td><code>execution.completed</code></td><td>A job execution finishes (success or failure)</td></tr>
+                        <tr><td><code>output.matched</code></td><td>An output trigger pattern matched stdout/stderr</td></tr>
                         <tr><td><code>agent.registered</code></td><td>An agent registers</td></tr>
                         <tr><td><code>agent.offline</code></td><td>An agent heartbeat times out</td></tr>
                         <tr><td><code>agent.unpaired</code></td><td>An agent is removed</td></tr>
                         <tr><td><code>key.created</code></td><td>An API key is created</td></tr>
                         <tr><td><code>key.revoked</code></td><td>An API key is revoked</td></tr>
                     </table>
-                    <p>Use <code>kind_pattern</code> with wildcards: <code>job.*</code> matches all job events. Optional <code>severity</code> and <code>job_name_filter</code> fields for further filtering.</p>
+
+                    <h4>Trigger Configuration</h4>
+                    <table>
+                        <tr><th>Field</th><th>Description</th></tr>
+                        <tr><td><strong>Event Kind</strong></td><td>Which event to listen for. Use wildcards: <code>output.*</code>, <code>job.*</code>, or <code>*</code> for all.</td></tr>
+                        <tr><td><strong>Severity</strong></td><td>Optional. Only trigger on events with this severity (error, warning, info, success).</td></tr>
+                        <tr><td><strong>Source Job</strong></td><td>Optional. Only trigger when the event came from a job with this name. Matches as a substring.</td></tr>
+                    </table>
+
+                    <h4>Example: React to Output Patterns</h4>
+                    <p>This is the most powerful pattern &mdash; chain jobs based on what another job outputs:</p>
+                    <ol>
+                        <li><strong>Job A</strong> ("health-check"): In the Advanced section, add an <strong>Output Trigger</strong> with pattern <code>ERROR</code> and severity <code>error</code></li>
+                        <li><strong>Job B</strong> ("restart-service"): Set schedule to <strong>Event</strong>, pick <code>output.matched</code>, set severity to <code>error</code>, set Source Job to <code>health-check</code></li>
+                        <li>When Job A runs and its output contains "ERROR", Job B fires automatically</li>
+                    </ol>
+
+                    <h4>Example: React to Job Failures</h4>
+                    <ol>
+                        <li><strong>Job B</strong> ("cleanup"): Set schedule to <strong>Event</strong>, pick <code>execution.completed</code>, set severity to <code>error</code>, set Source Job to <code>etl-pipeline</code></li>
+                        <li>Whenever "etl-pipeline" fails, "cleanup" fires automatically</li>
+                    </ol>
                 </div>
 
             </div>
@@ -2893,6 +2917,61 @@ print("Redis: " + result.response);</code></pre>
                 <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
             </div>
         </div>
+        <div class="card">
+            <div class="card-header"><h3>Notifications</h3></div>
+            <div class="settings-group">
+                <label class="settings-label">Email (SMTP)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-email-enabled"> Enabled</label>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                    <input id="notif-smtp-host" type="text" placeholder="smtp.gmail.com" style="flex:1">
+                    <input id="notif-smtp-port" type="number" placeholder="587" style="width:70px">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                    <input id="notif-smtp-user" type="text" placeholder="username" style="flex:1">
+                    <input id="notif-smtp-pass" type="password" placeholder="password" style="flex:1">
+                </div>
+                <div style="display:flex;gap:8px;margin-top:4px">
+                    <input id="notif-smtp-from" type="text" placeholder="alerts@example.com" style="flex:1">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-smtp-tls" checked> TLS</label>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">SMS (Webhook)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-sms-enabled"> Enabled</label>
+                </div>
+                <input id="notif-sms-url" type="text" placeholder="https://api.twilio.com/..." style="width:100%;margin-top:6px">
+                <div style="display:flex;gap:8px;margin-top:4px">
+                    <input id="notif-sms-user" type="text" placeholder="auth user (optional)" style="flex:1">
+                    <input id="notif-sms-pass" type="password" placeholder="auth pass (optional)" style="flex:1">
+                    <input id="notif-sms-from" type="text" placeholder="from number" style="width:120px">
+                </div>
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Recipients</label>
+                <div style="display:flex;gap:8px">
+                    <div style="flex:1">
+                        <label style="font-size:11px;color:var(--text-muted)">Email addresses (one per line)</label>
+                        <textarea id="notif-emails" rows="3" style="width:100%;font-size:12px" placeholder="ops@example.com&#10;oncall@example.com"></textarea>
+                    </div>
+                    <div style="flex:1">
+                        <label style="font-size:11px;color:var(--text-muted)">Phone numbers (one per line)</label>
+                        <textarea id="notif-phones" rows="3" style="width:100%;font-size:12px" placeholder="+12345678900"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">System Alerts</label>
+                <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-alert-agent-offline"> Agent went offline</label>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+                <button class="btn btn-primary btn-sm" onclick="saveNotificationSettings()">Save</button>
+                <button class="btn btn-ghost btn-sm" onclick="testNotification()">Send Test</button>
+                <span id="notif-status" style="font-size:11px;color:var(--text-muted);align-self:center"></span>
+            </div>
+        </div>
         <p style="color:var(--text-muted);font-size:12px;margin-top:12px">For custom agent setup, scripting, and API documentation, see the <a href="#" onclick="showPage('docs');return false" style="color:var(--accent)">Docs</a> page.</p>
     </section>
 </main>
@@ -2904,10 +2983,6 @@ print("Redis: " + result.response);</code></pre>
     <div class="modal-card">
         <div class="modal-header">
             <h3 id="modal-title">Create Job</h3>
-            <div style="display:flex;gap:6px">
-                <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()">Cancel</button>
-                <button class="btn btn-primary btn-sm" onclick="submitJobForm()">Save</button>
-            </div>
         </div>
         <div class="modal-body">
         <div class="form-section">
@@ -3122,27 +3197,53 @@ print("Redis: " + result.response);</code></pre>
             </div>
         </div>
         <div id="event-field" style="display:none">
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--text-secondary);line-height:1.5">
+                <strong style="color:var(--text-primary)">How event triggers work:</strong> This job fires automatically when a matching system event occurs.
+                Events are emitted when jobs complete, output patterns match, agents change status, etc.
+                <br><br>
+                <strong>Example:</strong> To react when job "health-check" outputs an error pattern:<br>
+                &bull; On "health-check", add an <em>Output Trigger</em> with pattern "ERROR" and severity "error"<br>
+                &bull; On <em>this</em> job, set Event Kind to <code>output.matched</code>, Severity to <code>error</code>, Source Job to <code>health-check</code>
+            </div>
             <div class="form-group">
-                <label>Event Kind Pattern</label>
-                <select id="f-event-kind" style="width:100%">
+                <label>When this event occurs</label>
+                <select id="f-event-kind-select" style="width:100%" onchange="onEventKindSelect()">
                     <option value="*">All events (*)</option>
-                    <option value="job.*">Any job event (job.*)</option>
-                    <option value="job.created">Job created</option>
-                    <option value="job.updated">Job updated</option>
-                    <option value="job.deleted">Job deleted</option>
-                    <option value="job.triggered">Job triggered</option>
-                    <option value="execution.completed">Execution completed</option>
-                    <option value="agent.*">Any agent event (agent.*)</option>
-                    <option value="agent.registered">Agent registered</option>
-                    <option value="agent.offline">Agent went offline</option>
-                    <option value="agent.unpaired">Agent unpaired</option>
-                    <option value="key.*">Any key event (key.*)</option>
+                    <optgroup label="Job Events">
+                        <option value="job.*">Any job event (job.*)</option>
+                        <option value="job.created">Job created</option>
+                        <option value="job.updated">Job updated</option>
+                        <option value="job.deleted">Job deleted</option>
+                        <option value="job.triggered">Job triggered</option>
+                    </optgroup>
+                    <optgroup label="Execution Events">
+                        <option value="execution.*">Any execution event (execution.*)</option>
+                        <option value="execution.completed">Execution completed</option>
+                    </optgroup>
+                    <optgroup label="Output Events">
+                        <option value="output.*">Any output event (output.*)</option>
+                        <option value="output.matched">Output pattern matched</option>
+                    </optgroup>
+                    <optgroup label="Agent Events">
+                        <option value="agent.*">Any agent event (agent.*)</option>
+                        <option value="agent.registered">Agent registered</option>
+                        <option value="agent.offline">Agent went offline</option>
+                        <option value="agent.unpaired">Agent unpaired</option>
+                    </optgroup>
+                    <optgroup label="Key Events">
+                        <option value="key.*">Any key event (key.*)</option>
+                        <option value="key.created">Key created</option>
+                        <option value="key.revoked">Key revoked</option>
+                    </optgroup>
+                    <option value="__custom__">Custom pattern...</option>
                 </select>
-                <div class="form-hint" style="margin-top:4px">Use * for wildcards: "job.*" matches all job events</div>
+                <input id="f-event-kind-custom" type="text" style="display:none;margin-top:4px" placeholder="e.g. output.matched, my.custom.event">
+                <input type="hidden" id="f-event-kind" value="*">
+                <div class="form-hint" style="margin-top:4px">Use * for wildcards: "output.*" matches all output events</div>
             </div>
             <div class="form-group" style="display:flex;gap:8px">
                 <div style="flex:1">
-                    <label>Severity Filter (optional)</label>
+                    <label>With severity (optional)</label>
                     <select id="f-event-severity">
                         <option value="">Any severity</option>
                         <option value="success">Success</option>
@@ -3150,10 +3251,12 @@ print("Redis: " + result.response);</code></pre>
                         <option value="warning">Warning</option>
                         <option value="info">Info</option>
                     </select>
+                    <div class="form-hint">Only trigger when the event has this severity level</div>
                 </div>
                 <div style="flex:1">
-                    <label>Job Name Filter (optional)</label>
-                    <input id="f-event-job-filter" type="text" placeholder="e.g. etl-pipeline">
+                    <label>From source job (optional)</label>
+                    <input id="f-event-job-filter" type="text" placeholder="e.g. health-check">
+                    <div class="form-hint">Only trigger when the event came from a job with this name</div>
                 </div>
             </div>
         </div>
@@ -3207,6 +3310,22 @@ print("Redis: " + result.response);</code></pre>
                 <div class="form-hint">Emit events when output matches a pattern. Use with event-triggered jobs to react to output.</div>
                 <div id="triggers-container"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addTriggerRow()" style="margin-top:4px">+ Add Trigger</button>
+            </div>
+            <div class="form-group">
+                <label>Output Assertions</label>
+                <div class="form-hint">Fail the execution if expected patterns are NOT found in stdout. Only checked on successful runs.</div>
+                <div id="assertions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addAssertionRow()" style="margin-top:4px">+ Add Assertion</button>
+            </div>
+            <div class="form-group">
+                <label>Notifications</label>
+                <div class="form-hint">Send email/SMS alerts when this job's executions match these conditions.</div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-failure"> On failure</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-success"> On success</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-assertion"> On assertion failure</label>
+                </div>
+                <input id="f-notif-emails" type="text" placeholder="Override recipients (comma-separated emails, optional)" style="margin-top:4px">
             </div>
         </div>
         </div><!-- end modal-body -->
@@ -4264,6 +4383,7 @@ function openCreateModal() {
     updateTargetFields();
     populateDeps(null);
     populateOutputRules(null);
+    populateJobNotifications(null);
     openModal('create-modal');
 }
 
@@ -4318,7 +4438,7 @@ async function openEditModal(id) {
             const dt = new Date(job.schedule.value);
             document.getElementById('f-oneshot').value = toLocalDatetimeString(dt);
         } else if (schedType === 'event' && job.schedule.value) {
-            document.getElementById('f-event-kind').value = job.schedule.value.kind_pattern || '*';
+            setEventKindValue(job.schedule.value.kind_pattern || '*');
             document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
             document.getElementById('f-event-job-filter').value = job.schedule.value.job_name_filter || '';
         }
@@ -4342,6 +4462,7 @@ async function openEditModal(id) {
 
         populateDeps(id, job.depends_on);
         populateOutputRules(job.output_rules);
+        populateJobNotifications(job.notifications);
         openModal('create-modal');
     } catch (e) {
         toast(e.message, 'error');
@@ -4583,6 +4704,38 @@ function updateCronPreviewFromRaw() {
 
 function getCronValue() {
     return document.getElementById('f-cron').value.trim() || document.getElementById('cb-preview').textContent;
+}
+
+function onEventKindSelect() {
+    const select = document.getElementById('f-event-kind-select');
+    const custom = document.getElementById('f-event-kind-custom');
+    const hidden = document.getElementById('f-event-kind');
+    if (select.value === '__custom__') {
+        custom.style.display = '';
+        custom.focus();
+        hidden.value = custom.value || '';
+        custom.oninput = () => { hidden.value = custom.value; };
+    } else {
+        custom.style.display = 'none';
+        hidden.value = select.value;
+    }
+}
+
+function setEventKindValue(val) {
+    const select = document.getElementById('f-event-kind-select');
+    const custom = document.getElementById('f-event-kind-custom');
+    const hidden = document.getElementById('f-event-kind');
+    hidden.value = val;
+    // Check if val matches a dropdown option
+    const option = Array.from(select.options).find(o => o.value === val && o.value !== '__custom__');
+    if (option) {
+        select.value = val;
+        custom.style.display = 'none';
+    } else {
+        select.value = '__custom__';
+        custom.value = val;
+        custom.style.display = '';
+    }
 }
 
 function updateSchedFields() {
@@ -4850,6 +5003,17 @@ function addTriggerRow(pattern, severity) {
     container.appendChild(row);
 }
 
+function addAssertionRow(pattern, message) {
+    const container = document.getElementById('assertions-container');
+    const row = document.createElement('div');
+    row.className = 'tt-field-row';
+    row.innerHTML =
+        '<input type="text" value="' + esc(pattern || '') + '" placeholder="pattern that MUST appear in output" style="flex:1;min-width:150px" class="assert-pattern">' +
+        '<input type="text" value="' + esc(message || '') + '" placeholder="failure message (optional)" style="flex:1;min-width:120px" class="assert-message">' +
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="this.parentElement.remove()">&times;</button>';
+    container.appendChild(row);
+}
+
 function collectOutputRules() {
     const extractions = [];
     document.querySelectorAll('#extractions-container .tt-field-row').forEach(row => {
@@ -4864,16 +5028,24 @@ function collectOutputRules() {
         const severity = row.querySelector('.trig-severity').value;
         if (pattern) triggers.push({ pattern, severity });
     });
-    if (extractions.length === 0 && triggers.length === 0) return null;
-    return { extractions, triggers };
+    const assertions = [];
+    document.querySelectorAll('#assertions-container .tt-field-row').forEach(row => {
+        const pattern = row.querySelector('.assert-pattern').value.trim();
+        const message = row.querySelector('.assert-message').value.trim();
+        if (pattern) assertions.push({ pattern, message: message || null });
+    });
+    if (extractions.length === 0 && triggers.length === 0 && assertions.length === 0) return null;
+    return { extractions, triggers, assertions };
 }
 
 function populateOutputRules(rules) {
     document.getElementById('extractions-container').innerHTML = '';
     document.getElementById('triggers-container').innerHTML = '';
+    document.getElementById('assertions-container').innerHTML = '';
     if (!rules) return;
     (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type));
     (rules.triggers || []).forEach(t => addTriggerRow(t.pattern, t.severity));
+    (rules.assertions || []).forEach(a => addAssertionRow(a.pattern, a.message));
 }
 
 async function submitJobForm() {
@@ -4934,7 +5106,8 @@ async function submitJobForm() {
     }
 
     const output_rules = collectOutputRules();
-    const body = { name, task, schedule, timeout_secs, depends_on, target, output_rules };
+    const notifications = collectJobNotifications();
+    const body = { name, task, schedule, timeout_secs, depends_on, target, output_rules, notifications };
     const run_as = document.getElementById('f-run-as').value.trim();
     if (run_as) body.run_as = run_as;
     const desc = document.getElementById('f-desc').value.trim();
@@ -5227,6 +5400,7 @@ function showPage(page) {
         updateThemeButtons();
         renderSettingsAuth();
         loadRetention();
+        loadNotificationSettings();
     }
 }
 
@@ -6755,6 +6929,107 @@ async function saveRetention() {
         status.textContent = 'Error: ' + e.message;
         status.style.color = 'var(--danger)';
     }
+}
+
+async function loadNotificationSettings() {
+    try {
+        const settings = await api('GET', '/api/settings');
+        const email = settings.notification_email ? JSON.parse(settings.notification_email) : {};
+        document.getElementById('notif-email-enabled').checked = email.enabled || false;
+        document.getElementById('notif-smtp-host').value = email.smtp_host || '';
+        document.getElementById('notif-smtp-port').value = email.smtp_port || '';
+        document.getElementById('notif-smtp-user').value = email.username || '';
+        document.getElementById('notif-smtp-pass').value = email.password || '';
+        document.getElementById('notif-smtp-from').value = email.from || '';
+        document.getElementById('notif-smtp-tls').checked = email.tls !== false;
+
+        const sms = settings.notification_sms ? JSON.parse(settings.notification_sms) : {};
+        document.getElementById('notif-sms-enabled').checked = sms.enabled || false;
+        document.getElementById('notif-sms-url').value = sms.webhook_url || '';
+        document.getElementById('notif-sms-user').value = sms.auth_user || '';
+        document.getElementById('notif-sms-pass').value = sms.auth_pass || '';
+        document.getElementById('notif-sms-from').value = sms.from_number || '';
+
+        const recipients = settings.notification_recipients ? JSON.parse(settings.notification_recipients) : {};
+        document.getElementById('notif-emails').value = (recipients.emails || []).join('\n');
+        document.getElementById('notif-phones').value = (recipients.phones || []).join('\n');
+
+        const alerts = settings.notification_system_alerts ? JSON.parse(settings.notification_system_alerts) : {};
+        document.getElementById('notif-alert-agent-offline').checked = alerts.agent_offline || false;
+    } catch (e) { /* settings may not be loaded yet */ }
+}
+
+async function saveNotificationSettings() {
+    const status = document.getElementById('notif-status');
+    try {
+        const settings = {};
+        settings.notification_email = JSON.stringify({
+            enabled: document.getElementById('notif-email-enabled').checked,
+            smtp_host: document.getElementById('notif-smtp-host').value.trim(),
+            smtp_port: parseInt(document.getElementById('notif-smtp-port').value) || 587,
+            username: document.getElementById('notif-smtp-user').value.trim(),
+            password: document.getElementById('notif-smtp-pass').value,
+            from: document.getElementById('notif-smtp-from').value.trim(),
+            tls: document.getElementById('notif-smtp-tls').checked,
+        });
+        settings.notification_sms = JSON.stringify({
+            enabled: document.getElementById('notif-sms-enabled').checked,
+            webhook_url: document.getElementById('notif-sms-url').value.trim(),
+            auth_user: document.getElementById('notif-sms-user').value.trim() || null,
+            auth_pass: document.getElementById('notif-sms-pass').value || null,
+            from_number: document.getElementById('notif-sms-from').value.trim() || null,
+        });
+        settings.notification_recipients = JSON.stringify({
+            emails: document.getElementById('notif-emails').value.split('\n').map(s => s.trim()).filter(Boolean),
+            phones: document.getElementById('notif-phones').value.split('\n').map(s => s.trim()).filter(Boolean),
+        });
+        settings.notification_system_alerts = JSON.stringify({
+            agent_offline: document.getElementById('notif-alert-agent-offline').checked,
+        });
+        await api('PUT', '/api/settings', settings);
+        status.textContent = 'Saved';
+        status.style.color = 'var(--success)';
+        setTimeout(() => { status.textContent = ''; }, 2000);
+    } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.style.color = 'var(--danger)';
+    }
+}
+
+async function testNotification() {
+    const status = document.getElementById('notif-status');
+    status.textContent = 'Sending...';
+    status.style.color = 'var(--text-muted)';
+    try {
+        const res = await api('POST', '/api/notifications/test');
+        status.textContent = res.message || 'Done';
+        status.style.color = res.status === 'ok' ? 'var(--success)' : 'var(--danger)';
+        setTimeout(() => { status.textContent = ''; }, 5000);
+    } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.style.color = 'var(--danger)';
+    }
+}
+
+function collectJobNotifications() {
+    const onFailure = document.getElementById('f-notif-failure').checked;
+    const onSuccess = document.getElementById('f-notif-success').checked;
+    const onAssertion = document.getElementById('f-notif-assertion').checked;
+    if (!onFailure && !onSuccess && !onAssertion) return null;
+    const emailsStr = document.getElementById('f-notif-emails').value.trim();
+    const config = { on_failure: onFailure, on_success: onSuccess, on_assertion_failure: onAssertion };
+    if (emailsStr) {
+        config.recipients = { emails: emailsStr.split(',').map(s => s.trim()).filter(Boolean), phones: [] };
+    }
+    return config;
+}
+
+function populateJobNotifications(notif) {
+    document.getElementById('f-notif-failure').checked = notif ? notif.on_failure : false;
+    document.getElementById('f-notif-success').checked = notif ? notif.on_success : false;
+    document.getElementById('f-notif-assertion').checked = notif ? notif.on_assertion_failure : false;
+    const emails = notif && notif.recipients ? (notif.recipients.emails || []).join(', ') : '';
+    document.getElementById('f-notif-emails').value = emails;
 }
 
 function showCreateKeyForm() {

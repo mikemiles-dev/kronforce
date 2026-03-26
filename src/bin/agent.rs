@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use kronforce::agent_server;
+use kronforce::agent;
 use kronforce::config::AgentConfig;
 use kronforce::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
@@ -84,14 +84,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     // Start agent server
-    let state = agent_server::AgentState {
+    let state = agent::server::AgentState {
         agent_id,
         controller_url: config.controller_url.clone(),
         http_client,
         running: running_map,
     };
 
-    let app = agent_server::router(state);
+    let app = agent::server::router(state);
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     tracing::info!("agent listening on {}", config.bind_addr);
     axum::serve(listener, app).await?;

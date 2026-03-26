@@ -164,12 +164,32 @@ pub struct OutputTrigger {
     pub severity: String, // "error", "warning", "info", "success"
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutputAssertion {
+    pub pattern: String,
+    pub message: Option<String>, // custom failure message
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OutputRules {
     #[serde(default)]
     pub extractions: Vec<ExtractionRule>,
     #[serde(default)]
     pub triggers: Vec<OutputTrigger>,
+    #[serde(default)]
+    pub assertions: Vec<OutputAssertion>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct JobNotificationConfig {
+    #[serde(default)]
+    pub on_failure: bool,
+    #[serde(default)]
+    pub on_success: bool,
+    #[serde(default)]
+    pub on_assertion_failure: bool,
+    #[serde(default)]
+    pub recipients: Option<crate::notifications::NotificationRecipients>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -189,6 +209,8 @@ pub struct Job {
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
     pub output_rules: Option<OutputRules>,
+    #[serde(default)]
+    pub notifications: Option<JobNotificationConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

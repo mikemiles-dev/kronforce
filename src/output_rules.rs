@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::models::{ExtractionRule, OutputTrigger};
+use crate::models::{ExtractionRule, OutputAssertion, OutputTrigger};
 
 /// Run extraction rules against stdout, returning extracted key-value pairs.
 pub fn run_extractions(stdout: &str, rules: &[ExtractionRule]) -> HashMap<String, String> {
@@ -46,6 +46,25 @@ fn extract_jsonpath(stdout: &str, path: &str) -> Option<String> {
         serde_json::Value::Null => None,
         other => Some(other.to_string()),
     }
+}
+
+/// Run assertions against stdout. Returns a list of failure messages for patterns NOT found.
+pub fn run_assertions(stdout: &str, assertions: &[OutputAssertion]) -> Vec<String> {
+    let mut failures = Vec::new();
+    for assertion in assertions {
+        let found = if let Ok(re) = regex::Regex::new(&assertion.pattern) {
+            re.is_match(stdout)
+        } else {
+            stdout.contains(&assertion.pattern)
+        };
+        if !found {
+            let msg = assertion.message.clone().unwrap_or_else(|| {
+                format!("expected pattern '{}' not found in output", assertion.pattern)
+            });
+            failures.push(msg);
+        }
+    }
+    failures
 }
 
 /// Run trigger patterns against stdout and stderr, returning matched (pattern, severity) pairs.

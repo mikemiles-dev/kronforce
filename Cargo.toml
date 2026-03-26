@@ -35,3 +35,4 @@ rand = "0.9"
 base64 = "0.22"
 rhai = "1"
 regex = "1.12.3"
+lettre = { version = "0.11.19", features = ["tokio1-native-tls"] }

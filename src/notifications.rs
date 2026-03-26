@@ -1,0 +1,247 @@
+use serde::{Deserialize, Serialize};
+use crate::db::Db;
+use crate::models::EventSeverity;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmailConfig {
+    pub enabled: bool,
+    pub smtp_host: String,
+    pub smtp_port: u16,
+    pub username: String,
+    pub password: String,
+    pub from: String,
+    #[serde(default = "default_true")]
+    pub tls: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SmsConfig {
+    pub enabled: bool,
+    pub webhook_url: String,
+    pub auth_user: Option<String>,
+    pub auth_pass: Option<String>,
+    pub from_number: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NotificationRecipients {
+    #[serde(default)]
+    pub emails: Vec<String>,
+    #[serde(default)]
+    pub phones: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SystemAlerts {
+    #[serde(default)]
+    pub agent_offline: bool,
+}
+
+fn default_true() -> bool { true }
+
+pub fn load_email_config(db: &Db) -> Option<EmailConfig> {
+    db.get_setting("notification_email")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .filter(|c: &EmailConfig| c.enabled)
+}
+
+pub fn load_sms_config(db: &Db) -> Option<SmsConfig> {
+    db.get_setting("notification_sms")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .filter(|c: &SmsConfig| c.enabled)
+}
+
+pub fn load_recipients(db: &Db) -> NotificationRecipients {
+    db.get_setting("notification_recipients")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+pub fn load_system_alerts(db: &Db) -> SystemAlerts {
+    db.get_setting("notification_system_alerts")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+pub async fn send_notification(
+    db: &Db,
+    subject: &str,
+    body: &str,
+    recipient_override: Option<&NotificationRecipients>,
+) {
+    let recipients = match recipient_override {
+        Some(r) if !r.emails.is_empty() || !r.phones.is_empty() => r.clone(),
+        _ => load_recipients(db),
+    };
+
+    if let Some(email_config) = load_email_config(db) {
+        if !recipients.emails.is_empty() {
+            let to = recipients.emails.clone();
+            let subj = subject.to_string();
+            let bod = bod_clone(body);
+            let db_clone = db.clone();
+            tokio::spawn(async move {
+                match send_email(&email_config, &to, &subj, &bod).await {
+                    Ok(_) => {
+                        let _ = db_clone.log_event(
+                            "notification.sent",
+                            EventSeverity::Info,
+                            &format!("Email sent to {} recipient(s): {}", to.len(), subj),
+                            None, None,
+                        );
+                    }
+                    Err(e) => {
+                        let _ = db_clone.log_event(
+                            "notification.failed",
+                            EventSeverity::Error,
+                            &format!("Email failed: {} — {}", subj, e),
+                            None, None,
+                        );
+                    }
+                }
+            });
+        }
+    }
+
+    if let Some(sms_config) = load_sms_config(db) {
+        if !recipients.phones.is_empty() {
+            let to = recipients.phones.clone();
+            let bod = bod_clone(body);
+            let subj = subject.to_string();
+            let db_clone = db.clone();
+            tokio::spawn(async move {
+                match send_sms(&sms_config, &to, &bod).await {
+                    Ok(_) => {
+                        let _ = db_clone.log_event(
+                            "notification.sent",
+                            EventSeverity::Info,
+                            &format!("SMS sent to {} recipient(s): {}", to.len(), subj),
+                            None, None,
+                        );
+                    }
+                    Err(e) => {
+                        let _ = db_clone.log_event(
+                            "notification.failed",
+                            EventSeverity::Error,
+                            &format!("SMS failed: {} — {}", subj, e),
+                            None, None,
+                        );
+                    }
+                }
+            });
+        }
+    }
+}
+
+fn bod_clone(s: &str) -> String { s.to_string() }
+
+pub async fn send_email(
+    config: &EmailConfig,
+    to: &[String],
+    subject: &str,
+    body: &str,
+) -> Result<(), String> {
+    use lettre::{Message, SmtpTransport, Transport};
+    use lettre::transport::smtp::authentication::Credentials;
+
+    let creds = Credentials::new(config.username.clone(), config.password.clone());
+
+    let mailer = if config.tls {
+        SmtpTransport::starttls_relay(&config.smtp_host)
+            .map_err(|e| format!("SMTP relay error: {e}"))?
+            .port(config.smtp_port)
+            .credentials(creds)
+            .build()
+    } else {
+        SmtpTransport::builder_dangerous(&config.smtp_host)
+            .port(config.smtp_port)
+            .credentials(creds)
+            .build()
+    };
+
+    for recipient in to {
+        let email = Message::builder()
+            .from(config.from.parse().map_err(|e| format!("bad from address: {e}"))?)
+            .to(recipient.parse().map_err(|e| format!("bad to address '{}': {e}", recipient))?)
+            .subject(subject)
+            .body(body.to_string())
+            .map_err(|e| format!("email build error: {e}"))?;
+
+        mailer.send(&email).map_err(|e| format!("SMTP send error: {e}"))?;
+    }
+
+    Ok(())
+}
+
+pub async fn send_sms(
+    config: &SmsConfig,
+    to: &[String],
+    body: &str,
+) -> Result<(), String> {
+    let client = reqwest::Client::new();
+
+    for phone in to {
+        let mut req = client.post(&config.webhook_url)
+            .json(&serde_json::json!({
+                "To": phone,
+                "From": config.from_number.as_deref().unwrap_or(""),
+                "Body": body,
+            }));
+
+        if let (Some(user), Some(pass)) = (&config.auth_user, &config.auth_pass) {
+            req = req.basic_auth(user, Some(pass));
+        }
+
+        let resp = req.send().await.map_err(|e| format!("SMS webhook error: {e}"))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            return Err(format!("SMS webhook returned {}: {}", status, text));
+        }
+    }
+
+    Ok(())
+}
+
+/// Send a test notification to verify channel configuration
+pub async fn send_test(db: &Db) -> Result<String, String> {
+    let recipients = load_recipients(db);
+    let mut results = Vec::new();
+
+    if let Some(email_config) = load_email_config(db) {
+        if let Some(first) = recipients.emails.first() {
+            match send_email(&email_config, &[first.clone()], "[Kronforce] Test Notification", "This is a test notification from Kronforce.").await {
+                Ok(_) => results.push(format!("Email sent to {}", first)),
+                Err(e) => results.push(format!("Email failed: {}", e)),
+            }
+        } else {
+            results.push("Email enabled but no recipients configured".to_string());
+        }
+    } else {
+        results.push("Email channel not enabled".to_string());
+    }
+
+    if let Some(sms_config) = load_sms_config(db) {
+        if let Some(first) = recipients.phones.first() {
+            match send_sms(&sms_config, &[first.clone()], "[Kronforce] Test notification").await {
+                Ok(_) => results.push(format!("SMS sent to {}", first)),
+                Err(e) => results.push(format!("SMS failed: {}", e)),
+            }
+        } else {
+            results.push("SMS enabled but no recipients configured".to_string());
+        }
+    } else {
+        results.push("SMS channel not enabled".to_string());
+    }
+
+    Ok(results.join("; "))
+}
