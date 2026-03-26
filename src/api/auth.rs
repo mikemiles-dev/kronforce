@@ -28,6 +28,54 @@ pub fn generate_api_key() -> (String, String) {
     (raw, prefix)
 }
 
+pub(crate) async fn agent_auth_middleware(
+    State(state): State<AppState>,
+    req: Request,
+    next: Next,
+) -> Result<Response, AppError> {
+    // Check if any API keys exist — if not, skip auth (first-time setup)
+    let db = state.db.clone();
+    let key_count = tokio::task::spawn_blocking(move || db.count_api_keys())
+        .await
+        .unwrap()?;
+
+    if key_count == 0 {
+        return Ok(next.run(req).await);
+    }
+
+    let auth_header = req
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let raw_key = match auth_header {
+        Some(ref h) if h.starts_with("Bearer ") => &h[7..],
+        _ => {
+            return Err(AppError::Unauthorized("agent API key required".into()));
+        }
+    };
+
+    let hash = hash_api_key(raw_key);
+    let db = state.db.clone();
+    let api_key = tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash))
+        .await
+        .unwrap()?;
+
+    match api_key {
+        Some(key) if key.role.is_agent() || key.role.can_manage_keys() => {
+            // Agent keys and admin keys can access agent endpoints
+            let db = state.db.clone();
+            let key_id = key.id;
+            let now = Utc::now();
+            let _ = tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+            Ok(next.run(req).await)
+        }
+        Some(_) => Err(AppError::Forbidden("this API key does not have agent access".into())),
+        None => Err(AppError::Unauthorized("invalid API key".into())),
+    }
+}
+
 pub(crate) async fn auth_middleware(
     State(state): State<AppState>,
     mut req: Request,

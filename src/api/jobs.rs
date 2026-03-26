@@ -143,6 +143,13 @@ pub(crate) async fn create_job(
         CronSchedule::parse(&expr.0)?;
     }
 
+    // Validate file push size limit (5MB = ~6.7MB base64)
+    if let TaskType::FilePush { ref content_base64, .. } = req.task {
+        if content_base64.len() > 7_000_000 {
+            return Err(AppError::BadRequest("file exceeds 5MB limit".to_string()));
+        }
+    }
+
     let depends_on = req.depends_on.unwrap_or_default();
 
     // Validate dependencies (no cycles)

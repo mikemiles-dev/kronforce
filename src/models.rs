@@ -89,6 +89,14 @@ pub enum TaskType {
         agent_task_type: String,
         data: serde_json::Value,
     },
+    FilePush {
+        filename: String,
+        destination: String,
+        content_base64: String,
+        permissions: Option<String>,
+        #[serde(default)]
+        overwrite: bool,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -419,6 +427,7 @@ pub enum ApiKeyRole {
     Admin,
     Operator,
     Viewer,
+    Agent,
 }
 
 impl ApiKeyRole {
@@ -427,6 +436,7 @@ impl ApiKeyRole {
             ApiKeyRole::Admin => "admin",
             ApiKeyRole::Operator => "operator",
             ApiKeyRole::Viewer => "viewer",
+            ApiKeyRole::Agent => "agent",
         }
     }
 
@@ -435,6 +445,7 @@ impl ApiKeyRole {
             "admin" => Some(ApiKeyRole::Admin),
             "operator" => Some(ApiKeyRole::Operator),
             "viewer" => Some(ApiKeyRole::Viewer),
+            "agent" => Some(ApiKeyRole::Agent),
             _ => None,
         }
     }
@@ -445,5 +456,9 @@ impl ApiKeyRole {
 
     pub fn can_manage_keys(&self) -> bool {
         matches!(self, ApiKeyRole::Admin)
+    }
+
+    pub fn is_agent(&self) -> bool {
+        matches!(self, ApiKeyRole::Agent)
     }
 }

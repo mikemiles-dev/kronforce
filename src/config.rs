@@ -46,6 +46,7 @@ pub struct AgentConfig {
     pub tags: Vec<String>,
     pub port: u16,
     pub heartbeat_interval: Duration,
+    pub agent_key: Option<String>,
 }
 
 impl AgentConfig {
@@ -85,6 +86,7 @@ impl AgentConfig {
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(10),
             ),
+            agent_key: std::env::var("KRONFORCE_AGENT_KEY").ok().filter(|s| !s.is_empty()),
         }
     }
 }

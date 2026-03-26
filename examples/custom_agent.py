@@ -27,13 +27,20 @@ CONTROLLER_URL = os.environ.get("KRONFORCE_URL", "http://localhost:8080")
 AGENT_NAME = os.environ.get("AGENT_NAME", "python-agent")
 AGENT_TAGS = os.environ.get("AGENT_TAGS", "python,custom").split(",")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
+AGENT_KEY = os.environ.get("KRONFORCE_AGENT_KEY", "")
+
+def auth_headers():
+    """Return auth headers if agent key is configured."""
+    if AGENT_KEY:
+        return {"Authorization": f"Bearer {AGENT_KEY}"}
+    return {}
 
 
 def register():
     """Register this agent with the controller."""
     print(f"Registering with {CONTROLLER_URL} as '{AGENT_NAME}'...")
     # Task types are configured in the UI, not in registration
-    resp = requests.post(f"{CONTROLLER_URL}/api/agents/register", json={
+    resp = requests.post(f"{CONTROLLER_URL}/api/agents/register", headers=auth_headers(), json={
         "name": AGENT_NAME,
         "tags": [t.strip() for t in AGENT_TAGS],
         "hostname": os.uname().nodename,
@@ -51,7 +58,7 @@ def register():
 def discover_task_types(agent_id):
     """Fetch configured task types from the controller."""
     try:
-        resp = requests.get(f"{CONTROLLER_URL}/api/agents/{agent_id}/task-types")
+        resp = requests.get(f"{CONTROLLER_URL}/api/agents/{agent_id}/task-types", headers=auth_headers())
         resp.raise_for_status()
         task_types = resp.json()
         if task_types:
@@ -66,7 +73,7 @@ def discover_task_types(agent_id):
 
 def poll_for_work(agent_id):
     """Poll the controller for a job to execute."""
-    resp = requests.get(f"{CONTROLLER_URL}/api/agent-queue/{agent_id}/next")
+    resp = requests.get(f"{CONTROLLER_URL}/api/agent-queue/{agent_id}/next", headers=auth_headers())
     if resp.status_code == 204:
         return None  # No work available
     resp.raise_for_status()
@@ -152,6 +159,29 @@ def execute_task(task):
         except Exception as e:
             return "failed", -1, "", str(e)
 
+    elif task_type == "file_push":
+        # Write file to destination
+        import base64
+        destination = task.get("destination", "")
+        filename = task.get("filename", "unknown")
+        content_b64 = task.get("content_base64", "")
+        overwrite = task.get("overwrite", True)
+        print(f"  File push: {filename} -> {destination}")
+        try:
+            content = base64.b64decode(content_b64)
+            dest = os.path.abspath(destination)
+            if not overwrite and os.path.exists(dest):
+                return "failed", 1, "", f"file already exists: {dest} (overwrite=false)"
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as f:
+                f.write(content)
+            permissions = task.get("permissions")
+            if permissions:
+                os.chmod(dest, int(permissions, 8))
+            return "succeeded", 0, f"File '{filename}' written to {dest} ({len(content)} bytes)", ""
+        except Exception as e:
+            return "failed", 1, "", str(e)
+
     else:
         # Unknown task type
         print(f"  Unknown task type: {task_type}")
@@ -175,7 +205,7 @@ def report_result(job, status, exit_code, stdout, stderr, started_at):
         "finished_at": finished_at
     }
     try:
-        resp = requests.post(job["callback_url"], json=payload)
+        resp = requests.post(job["callback_url"], headers=auth_headers(), json=payload)
         resp.raise_for_status()
         print(f"  Result reported: {status}")
     except Exception as e:

@@ -19,6 +19,7 @@ pub struct AgentState {
     pub controller_url: String,
     pub http_client: reqwest::Client,
     pub running: Arc<Mutex<HashMap<Uuid, oneshot::Sender<()>>>>,
+    pub agent_key: Option<String>,
 }
 
 pub fn router(state: AgentState) -> Router {
@@ -50,6 +51,7 @@ async fn execute_job(
     let running = state.running.clone();
     let client = state.http_client.clone();
     let agent_id = state.agent_id;
+    let agent_key = state.agent_key.clone();
 
     tokio::spawn(async move {
         let started_at = Utc::now();
@@ -80,7 +82,11 @@ async fn execute_job(
         let mut attempts = 0;
         loop {
             attempts += 1;
-            match client.post(&req.callback_url).json(&report).send().await {
+            let mut cb_req = client.post(&req.callback_url).json(&report);
+            if let Some(ref key) = agent_key {
+                cb_req = cb_req.header("Authorization", format!("Bearer {}", key));
+            }
+            match cb_req.send().await {
                 Ok(resp) if resp.status().is_success() => {
                     tracing::info!("reported result for execution {exec_id}");
                     break;

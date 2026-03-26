@@ -21,12 +21,13 @@ This means you can reconfigure task types without restarting the agent, and non-
 
 ## Protocol
 
-All agent endpoints require **no API key**.
+All agent endpoints require an API key with the `agent` role (or `admin`). On first startup, a bootstrap agent key is created and printed to the console. Set it as `KRONFORCE_AGENT_KEY` on your agents. Create additional agent keys in Settings.
 
 ### 1. Register
 
 ```bash
 curl -X POST http://localhost:8080/api/agents/register \
+  -H "Authorization: Bearer kf_your_agent_key" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-python-agent",

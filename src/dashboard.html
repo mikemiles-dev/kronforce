@@ -1307,6 +1307,29 @@ th .job-checkbox { margin: 0; }
 .diff-same { color: var(--text-secondary); }
 .diff-ln { display: inline-block; width: 30px; color: var(--text-muted); text-align: right; margin-right: 8px; user-select: none; }
 .diff-prefix { display: inline-block; width: 12px; font-weight: 600; }
+
+.rich-empty { text-align: center; padding: 48px 24px; max-width: 480px; margin: 0 auto; }
+.rich-empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.6; }
+.rich-empty-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.rich-empty-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+.rich-empty-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
+.rich-empty-hint { font-size: 11px; color: var(--text-muted); }
+
+.wizard-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 200; }
+.wizard-card { background: var(--bg-secondary); border-radius: 12px; width: 90%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+.wizard-header { padding: 20px 24px 12px; text-align: center; }
+.wizard-header h2 { margin: 0 0 12px; font-size: 18px; }
+.wizard-dots { display: flex; gap: 8px; justify-content: center; }
+.wizard-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border); transition: background 0.2s; }
+.wizard-dot.active { background: var(--accent); }
+.wizard-dot.done { background: var(--success); }
+.wizard-body { padding: 16px 24px; overflow-y: auto; flex: 1; }
+.wizard-footer { padding: 12px 24px; display: flex; justify-content: space-between; border-top: 1px solid var(--border); }
+.wizard-template-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+.wizard-template-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; text-align: left; background: var(--bg-primary); transition: border-color 0.15s; }
+.wizard-template-card:hover { border-color: var(--accent); }
+.wizard-template-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--text-primary); }
+.wizard-template-card p { margin: 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
 @media (max-width: 768px) { .docs-sidebar { display: none; } .docs-content { padding: 12px 16px; } }
 
 .agent-status-dot {
@@ -2888,6 +2911,7 @@ print("Redis: " + result.response);</code></pre>
                             <option value="admin">Admin</option>
                             <option value="operator" selected>Operator</option>
                             <option value="viewer">Viewer</option>
+                            <option value="agent">Agent</option>
                         </select>
                     </div>
                     <button class="btn btn-primary" onclick="createKey()">Create</button>
@@ -3021,6 +3045,7 @@ print("Redis: " + result.response);</code></pre>
                 <label><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> SQL</label>
                 <label><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> FTP</label>
                 <label><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> Script</label>
+                <label><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> File Push</label>
             </div>
         </div>
         <div id="task-shell-fields">
@@ -3116,6 +3141,28 @@ print("Redis: " + result.response);</code></pre>
                     <option value="">Select a script...</option>
                 </select>
                 <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
+            </div>
+        </div>
+        <div id="task-filepush-fields" style="display:none">
+            <div class="form-group">
+                <label>File</label>
+                <input type="file" id="f-filepush-file" onchange="onFilePushFileSelected(this)">
+                <div id="f-filepush-info" style="display:none;margin-top:4px;font-size:12px;color:var(--text-secondary)"></div>
+            </div>
+            <div class="form-group">
+                <label>Destination Path</label>
+                <input id="f-filepush-dest" type="text" placeholder="/opt/configs/app.conf">
+                <div class="form-hint">Full path where the file will be written on the agent</div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Permissions (optional)</label>
+                    <input id="f-filepush-perms" type="text" placeholder="644">
+                    <div class="form-hint">Unix octal mode (e.g., 644, 755)</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;padding-top:18px">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-filepush-overwrite" checked> Overwrite if exists</label>
+                </div>
             </div>
         </div>
         </div><!-- end builtin-task-section -->
@@ -3494,19 +3541,7 @@ function refreshForScope(scope) {
 }
 
 function shareCurrentPage() {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-        toast('Link copied to clipboard');
-    }).catch(() => {
-        // Fallback
-        const input = document.createElement('input');
-        input.value = url;
-        document.body.appendChild(input);
-        input.select();
-        document.execCommand('copy');
-        document.body.removeChild(input);
-        toast('Link copied to clipboard');
-    });
+    copyToClipboard(window.location.href, 'Link copied to clipboard');
 }
 
 function getSinceISO(minutes) {
@@ -3685,7 +3720,17 @@ function getSortValue(job, col) {
 function renderJobsTable() {
     const wrap = document.getElementById('jobs-table-wrap');
     if (allJobs.length === 0) {
-        wrap.innerHTML = emptyState('No jobs yet', { label: 'Create your first job', onclick: 'openCreateModal()' });
+        wrap.innerHTML = renderRichEmptyState({
+            icon: '&#128203;',
+            title: 'No jobs yet',
+            description: 'Jobs are automated tasks that run on a schedule, on events, or on demand. Pick a template to get started.',
+            actions: [
+                { label: 'Health Check', onclick: "openTemplateJob('health-check')", primary: true },
+                { label: 'Cron Task', onclick: "openTemplateJob('cron-task')" },
+                { label: 'Event Watcher', onclick: "openTemplateJob('event-watcher')" },
+                { label: 'Create from scratch', onclick: 'openCreateModal()' },
+            ],
+        });
         return;
     }
 
@@ -3891,7 +3936,7 @@ async function showExecDetail(id) {
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
             renderExtractedValues(e.extracted) +
-            (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(e.task_snapshot, null, 2)) + '</pre></div>' : '') +
+            (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(sanitizeTaskSnapshot(e.task_snapshot), null, 2)) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated) +
             '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
@@ -3901,6 +3946,16 @@ async function showExecDetail(id) {
     } catch (e) {
         toast(e.message, 'error');
     }
+}
+
+function sanitizeTaskSnapshot(snap) {
+    if (!snap || snap.type !== 'file_push') return snap;
+    const copy = Object.assign({}, snap);
+    if (copy.content_base64) {
+        const size = Math.floor(copy.content_base64.length * 3 / 4);
+        copy.content_base64 = '[' + (size / 1024).toFixed(1) + ' KB]';
+    }
+    return copy;
 }
 
 function renderExtractedValues(extracted) {
@@ -4480,7 +4535,34 @@ function updateTaskFields() {
     document.getElementById('task-sql-fields').style.display = type === 'sql' ? '' : 'none';
     document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
     document.getElementById('task-script-fields').style.display = type === 'script' ? '' : 'none';
+    document.getElementById('task-filepush-fields').style.display = type === 'file_push' ? '' : 'none';
     if (type === 'script') populateScriptDropdown();
+}
+
+let filePushBase64 = '';
+let filePushFilename = '';
+let filePushSize = 0;
+
+function onFilePushFileSelected(input) {
+    const file = input.files[0];
+    const info = document.getElementById('f-filepush-info');
+    if (!file) { info.style.display = 'none'; filePushBase64 = ''; return; }
+    if (file.size > 5 * 1024 * 1024) {
+        toast('File exceeds 5MB limit', 'error');
+        input.value = '';
+        info.style.display = 'none';
+        filePushBase64 = '';
+        return;
+    }
+    filePushFilename = file.name;
+    filePushSize = file.size;
+    const reader = new FileReader();
+    reader.onload = () => {
+        filePushBase64 = btoa(reader.result);
+        info.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+        info.style.display = '';
+    };
+    reader.readAsBinaryString(file);
 }
 
 function buildTaskFromForm() {
@@ -4528,6 +4610,20 @@ function buildTaskFromForm() {
         const scriptName = document.getElementById('f-script-name').value;
         if (!scriptName) return null;
         return { type: 'script', script_name: scriptName };
+    }
+    if (type === 'file_push') {
+        const dest = document.getElementById('f-filepush-dest').value.trim();
+        if (!dest) { toast('Destination path is required', 'error'); return null; }
+        if (!filePushBase64) { toast('Select a file to upload', 'error'); return null; }
+        const perms = document.getElementById('f-filepush-perms').value.trim();
+        return {
+            type: 'file_push',
+            filename: filePushFilename,
+            destination: dest,
+            content_base64: filePushBase64,
+            permissions: perms || null,
+            overwrite: document.getElementById('f-filepush-overwrite').checked,
+        };
     }
     return null;
 }
@@ -4579,6 +4675,18 @@ function populateTaskForm(task) {
         document.getElementById('f-ftp-local').value = task.local_path || '';
     } else if (type === 'script') {
         populateScriptDropdown(task.script_name);
+    } else if (type === 'file_push') {
+        document.getElementById('f-filepush-dest').value = task.destination || '';
+        document.getElementById('f-filepush-perms').value = task.permissions || '';
+        document.getElementById('f-filepush-overwrite').checked = task.overwrite !== false;
+        filePushFilename = task.filename || '';
+        filePushBase64 = task.content_base64 || '';
+        filePushSize = filePushBase64 ? Math.floor(filePushBase64.length * 3 / 4) : 0;
+        const info = document.getElementById('f-filepush-info');
+        if (filePushFilename) {
+            info.textContent = filePushFilename + ' (' + (filePushSize / 1024).toFixed(1) + ' KB) — re-upload to change';
+            info.style.display = '';
+        }
     }
 }
 
@@ -5158,6 +5266,7 @@ function fmtTaskBadge(task) {
     if (t === 'sql') return '<span class="badge badge-paused">sql</span>';
     if (t === 'ftp') return '<span class="badge badge-disabled">ftp</span>';
     if (t === 'script') return '<span class="badge badge-paused">script</span>';
+    if (t === 'file_push') return '<span class="badge badge-scheduled">file</span>';
     return '<span class="badge">' + t + '</span>';
 }
 
@@ -5168,6 +5277,10 @@ function fmtTaskDetail(task) {
     if (task.type === 'sql') return fmtTaskBadge(task) + ' <code>' + esc(task.driver + ': ' + task.query.slice(0, 80)) + '</code>';
     if (task.type === 'ftp') return fmtTaskBadge(task) + ' <code>' + esc(task.direction + ' ' + task.protocol + '://' + task.host + task.remote_path) + '</code>';
     if (task.type === 'script') return fmtTaskBadge(task) + ' <span class="job-name" onclick="showPage(\'scripts\')" style="cursor:pointer">' + esc(task.script_name) + '</span>';
+    if (task.type === 'file_push') {
+        const size = task.content_base64 ? (Math.floor(task.content_base64.length * 3 / 4 / 1024 * 10) / 10) + ' KB' : '?';
+        return fmtTaskBadge(task) + ' <code>' + esc(task.filename) + ' &rarr; ' + esc(task.destination) + '</code> <span class="time-text">(' + size + ')</span>';
+    }
     return task.type;
 }
 
@@ -5432,10 +5545,19 @@ async function fetchAgents() {
 function renderAgents() {
     const wrap = document.getElementById('agents-table-wrap');
 
-    let html = '<div class="pair-command"><span class="pair-label">Standard agent:</span> <code id="pair-cmd-text">KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code> <button class="share-btn" onclick="copyPairCommand()" title="Copy command" style="margin-left:6px">&#128203; Copy</button></div>';
+    let html = '';
 
     if (allAgents.length === 0) {
-        wrap.innerHTML = html + '<div class="agents-empty"><p>No agents registered</p></div>';
+        wrap.innerHTML = html + renderRichEmptyState({
+            icon: '&#128421;',
+            title: 'No agents registered',
+            description: 'Agents run jobs on remote machines. Start a standard agent with the command above, or build a custom agent in any language.',
+            actions: [
+                { label: 'View Docs', onclick: "showPage('docs')", primary: true },
+            ],
+            hint: 'Custom agents poll for work \u2014 build in Python, Go, Node, or any language with an HTTP client.',
+        });
+        updatePairCommand();
         return;
     }
 
@@ -5471,6 +5593,7 @@ function renderAgents() {
     if (filtered.length === 0) {
         html += '<div class="agents-empty"><p>No agents match your filters</p></div>';
         wrap.innerHTML = html;
+        updatePairCommand();
         return;
     }
 
@@ -5522,6 +5645,9 @@ function renderAgents() {
             renderTaskTypeEditor(openAgentConfigId);
         }
     }
+
+    // Update pair command with agent key (after DOM is set)
+    updatePairCommand();
 }
 
 async function unpairAgent(id, name) {
@@ -5658,7 +5784,14 @@ async function renderMap() {
     const container = document.getElementById('map-container');
 
     if (jobs.length === 0) {
-        svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + getComputedStyle(document.documentElement).getPropertyValue('--text-muted') + '" font-size="14">No jobs to display</text>';
+        container.innerHTML = renderRichEmptyState({
+            icon: '&#9741;',
+            title: 'No jobs to display',
+            description: 'The dependency map visualizes how jobs depend on each other. Create jobs with dependencies to see the graph.',
+            actions: [
+                { label: 'Create a Job', onclick: 'openCreateModal()', primary: true },
+            ],
+        });
         return;
     }
 
@@ -6160,7 +6293,18 @@ async function fetchAllExecutions() {
         if (execSearch.searchTerm) qs += '&search=' + encodeURIComponent(execSearch.searchTerm);
         if (timeRanges.execs) qs += '&since=' + encodeURIComponent(getSinceISO(timeRanges.execs));
         const res = await api('GET', '/api/executions' + qs);
-        renderExecTable(res.data, { wrapId: 'all-execs-table-wrap', showJobColumn: true, emptyMessage: 'No executions found' });
+        if (res.data.length === 0 && !execSearch.statusFilter && !execSearch.searchTerm) {
+            document.getElementById('all-execs-table-wrap').innerHTML = renderRichEmptyState({
+                icon: '&#9654;',
+                title: 'No executions yet',
+                description: 'Executions appear when jobs run. Create a job and trigger it to see results here.',
+                actions: [
+                    { label: 'Go to Jobs', onclick: "showPage('jobs')", primary: true },
+                ],
+            });
+        } else {
+            renderExecTable(res.data, { wrapId: 'all-execs-table-wrap', showJobColumn: true, emptyMessage: 'No executions match your filters' });
+        }
         renderPagination('all-execs-pagination', allExecsPage, res.total_pages, res.total, goToAllExecsPage);
     } catch (e) {
         console.error('fetchAllExecutions:', e);
@@ -6794,7 +6938,14 @@ function goToEventsPage(p) {
 function renderEvents(events) {
     const wrap = document.getElementById('events-list-wrap');
     if (events.length === 0) {
-        wrap.innerHTML = '<div class="empty-state"><p>No events yet</p><p style="font-size:12px;color:var(--text-muted)">Events are logged when jobs are created, triggered, completed, or when agents come online/offline.</p></div>';
+        wrap.innerHTML = renderRichEmptyState({
+            icon: '&#128276;',
+            title: 'No events yet',
+            description: 'Events are logged when jobs run, agents change status, API keys are managed, and output patterns match. Activity will appear here automatically.',
+            actions: [
+                { label: 'Create a Job', onclick: "showPage('jobs')", primary: true },
+            ],
+        });
         return;
     }
 
@@ -7094,38 +7245,62 @@ function renderKeys(keys) {
     list.innerHTML = html;
 }
 
+function getControllerUrl() {
+    // Normalize 127.0.0.1 to localhost for cleaner commands
+    let origin = window.location.origin;
+    if (origin.includes('127.0.0.1')) origin = origin.replace('127.0.0.1', 'localhost');
+    return origin;
+}
+
+async function updatePairCommand() {
+    const el = document.getElementById('pair-cmd-text');
+    if (!el) return;
+    const host = getControllerUrl();
+    try {
+        const keys = await api('GET', '/api/keys');
+        const agentKey = keys.find(k => k.role === 'agent' && k.active);
+        if (agentKey) {
+            const cmd = 'KRONFORCE_AGENT_KEY=<agent_key> KRONFORCE_CONTROLLER_URL=' + host + ' cargo run --bin kronforce-agent';
+            el.textContent = cmd;
+            el.dataset.fullCmd = cmd;
+            el.insertAdjacentHTML('afterend', '<div class="form-hint" style="margin-top:4px">Agent key (' + esc(agentKey.key_prefix) + '...) was shown once at startup or when created. Check the controller logs or create a new one in Settings.</div>');
+        } else {
+            el.innerHTML = 'No agent key found. <a href="#" onclick="showPage(\'settings\');return false" style="color:var(--accent)">Create one in Settings</a> with role "agent".';
+        }
+    } catch (e) {
+        el.textContent = 'KRONFORCE_AGENT_KEY=<agent_key> KRONFORCE_CONTROLLER_URL=' + host + ' cargo run --bin kronforce-agent';
+    }
+}
+
+function copyToClipboard(text, successMsg) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => toast(successMsg || 'Copied'));
+    } else {
+        // Fallback for non-secure contexts (http, 127.0.0.1)
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        toast(successMsg || 'Copied');
+    }
+}
+
 function copyPairCommand() {
     const el = document.getElementById('pair-cmd-text');
     if (el) {
-        navigator.clipboard.writeText(el.textContent).then(() => {
-            toast('Command copied to clipboard');
-        }).catch(() => {
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            document.execCommand('copy');
-            toast('Command copied to clipboard');
-        });
+        const text = el.dataset.fullCmd || el.textContent;
+        copyToClipboard(text, 'Command copied — replace <paste_agent_key> with your full agent key');
     }
 }
 
 function copyKey() {
     const el = document.getElementById('new-key-value');
     if (el) {
-        navigator.clipboard.writeText(el.textContent).then(() => {
-            toast('Key copied to clipboard');
-        }).catch(() => {
-            // Fallback for non-HTTPS
-            const range = document.createRange();
-            range.selectNodeContents(el);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-            document.execCommand('copy');
-            toast('Key copied to clipboard');
-        });
+        copyToClipboard(el.textContent, 'Key copied to clipboard');
     }
 }
 
@@ -7228,6 +7403,199 @@ showJobsList = function() {
 window.addEventListener('hashchange', handleRoute);
 window.addEventListener('popstate', handleRoute);
 
+// --- Rich Empty States ---
+function renderRichEmptyState(config) {
+    let html = '<div class="rich-empty">';
+    if (config.icon) html += '<div class="rich-empty-icon">' + config.icon + '</div>';
+    html += '<div class="rich-empty-title">' + esc(config.title) + '</div>';
+    if (config.description) html += '<div class="rich-empty-desc">' + config.description + '</div>';
+    if (config.actions && config.actions.length > 0) {
+        html += '<div class="rich-empty-actions">';
+        for (const a of config.actions) {
+            const cls = a.primary ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+            html += '<button class="' + cls + '" onclick="' + a.onclick + '">' + esc(a.label) + '</button>';
+        }
+        html += '</div>';
+    }
+    if (config.hint) html += '<div class="rich-empty-hint">' + config.hint + '</div>';
+    html += '</div>';
+    return html;
+}
+
+// --- Job Templates ---
+function openTemplateJob(template) {
+    closeWizard();
+    openCreateModal();
+    setTimeout(() => {
+        if (template === 'health-check') {
+            document.querySelector('input[name="task-type"][value="http"]').checked = true;
+            updateTaskFields();
+            document.getElementById('f-http-method').value = 'get';
+            document.getElementById('f-http-url').value = 'https://example.com/health';
+            document.getElementById('f-http-expect').value = '200';
+            document.getElementById('f-name').value = 'health-check';
+            document.querySelector('input[name="sched-type"][value="cron"]').checked = true;
+            updateSchedFields();
+        } else if (template === 'cron-task') {
+            document.querySelector('input[name="task-type"][value="shell"]').checked = true;
+            updateTaskFields();
+            document.getElementById('f-command').value = 'echo "hello world"';
+            document.getElementById('f-name').value = 'my-cron-job';
+            document.querySelector('input[name="sched-type"][value="cron"]').checked = true;
+            updateSchedFields();
+        } else if (template === 'event-watcher') {
+            document.getElementById('f-name').value = 'failure-alert';
+            document.querySelector('input[name="task-type"][value="shell"]').checked = true;
+            updateTaskFields();
+            document.getElementById('f-command').value = 'echo "Job failed — investigate"';
+            document.querySelector('input[name="sched-type"][value="event"]').checked = true;
+            updateSchedFields();
+            setEventKindValue('execution.completed');
+            document.getElementById('f-event-severity').value = 'error';
+        }
+    }, 100);
+}
+
+// --- Setup Wizard ---
+let wizardStep = 0;
+let wizardData = { jobCreated: null };
+const WIZARD_STEPS = 5;
+
+function showWizard() {
+    wizardStep = 0;
+    wizardData = { jobCreated: null };
+    let html = '<div class="wizard-overlay" id="wizard-overlay" onclick="if(event.target===this)closeWizard()">';
+    html += '<div class="wizard-card">';
+    html += '<div class="wizard-header"><h2 id="wizard-title"></h2><div class="wizard-dots" id="wizard-dots"></div></div>';
+    html += '<div class="wizard-body" id="wizard-body"></div>';
+    html += '<div class="wizard-footer" id="wizard-footer"></div>';
+    html += '</div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+    renderWizardStep();
+}
+
+function closeWizard() {
+    const el = document.getElementById('wizard-overlay');
+    if (el) el.remove();
+    // Mark completed
+    api('PUT', '/api/settings', { wizard_completed: 'true' }).catch(() => {});
+}
+
+function wizardNext() { if (wizardStep < WIZARD_STEPS - 1) { wizardStep++; renderWizardStep(); } else { closeWizard(); } }
+function wizardBack() { if (wizardStep > 0) { wizardStep--; renderWizardStep(); } }
+function wizardSkip() { wizardNext(); }
+
+function renderWizardStep() {
+    const title = document.getElementById('wizard-title');
+    const body = document.getElementById('wizard-body');
+    const footer = document.getElementById('wizard-footer');
+    const dots = document.getElementById('wizard-dots');
+
+    // Dots
+    let dotsHtml = '';
+    for (let i = 0; i < WIZARD_STEPS; i++) {
+        const cls = i === wizardStep ? 'active' : (i < wizardStep ? 'done' : '');
+        dotsHtml += '<div class="wizard-dot ' + cls + '"></div>';
+    }
+    dots.innerHTML = dotsHtml;
+
+    // Footer nav
+    const backBtn = wizardStep > 0 ? '<button class="btn btn-ghost btn-sm" onclick="wizardBack()">Back</button>' : '<span></span>';
+    const isLast = wizardStep === WIZARD_STEPS - 1;
+
+    if (wizardStep === 0) {
+        title.textContent = 'Welcome to Kronforce';
+        body.innerHTML =
+            '<p style="color:var(--text-secondary);line-height:1.6;margin-bottom:16px">A workload automation engine for scheduling jobs, managing agents, and building event-driven workflows.</p>' +
+            '<div style="text-align:left;margin:0 auto;max-width:320px">' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#128197; Job Scheduling</strong> — Cron, one-shot, on-demand, event triggers</p>' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#128421; Distributed Agents</strong> — Push to standard agents, pull for custom agents</p>' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#128220; Rhai Scripting</strong> — Custom logic with HTTP, shell, TCP/UDP built-ins</p>' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#9889; Event Triggers</strong> — Chain jobs based on events and output patterns</p>' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#128276; Notifications</strong> — Email and SMS alerts on failures</p>' +
+            '</div>';
+        footer.innerHTML = '<span></span><button class="btn btn-primary btn-sm" onclick="wizardNext()">Let\'s get started</button>';
+    } else if (wizardStep === 1) {
+        title.textContent = 'Create Your First Job';
+        body.innerHTML =
+            '<p style="color:var(--text-secondary);margin-bottom:12px">Pick a template to get started quickly, or create from scratch.</p>' +
+            '<div class="wizard-template-cards">' +
+            '<div class="wizard-template-card" onclick="openTemplateJob(\'health-check\')">' +
+            '<h4>&#128994; Health Check</h4><p>HTTP GET a URL every 5 minutes. Great for uptime monitoring.</p></div>' +
+            '<div class="wizard-template-card" onclick="openTemplateJob(\'cron-task\')">' +
+            '<h4>&#9200; Cron Task</h4><p>Run a shell command on a schedule. Backups, reports, cleanups.</p></div>' +
+            '<div class="wizard-template-card" onclick="openTemplateJob(\'event-watcher\')">' +
+            '<h4>&#9889; Event Watcher</h4><p>React to job failures. Alerting, cleanup, escalation.</p></div>' +
+            '<div class="wizard-template-card" onclick="openTemplateJob(\'custom\')">' +
+            '<h4>&#9881; Custom</h4><p>Open the full job creation form.</p></div>' +
+            '</div>';
+        footer.innerHTML = backBtn + '<button class="btn btn-ghost btn-sm" onclick="wizardSkip()">Skip</button>';
+    } else if (wizardStep === 2) {
+        title.textContent = 'Connect an Agent';
+        body.innerHTML =
+            '<p style="color:var(--text-secondary);margin-bottom:12px">Agents run jobs on remote machines. You can skip this if running everything locally.</p>' +
+            '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">' +
+            '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Standard agent (Rust binary):</p>' +
+            '<code style="font-size:11px;word-break:break-all">KRONFORCE_AGENT_KEY=&lt;key&gt; KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code>' +
+            '</div>' +
+            '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">' +
+            '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Custom agent (Python example):</p>' +
+            '<code style="font-size:11px">KRONFORCE_AGENT_KEY=&lt;key&gt; python3 examples/custom_agent.py</code>' +
+            '</div>' +
+            '<div style="background:rgba(62,139,255,0.08);border:1px solid var(--accent);border-radius:var(--radius);padding:10px;font-size:11px;color:var(--text-secondary)">' +
+            '<strong>Agent Key Required:</strong> Find your agent key in Settings &rarr; Agent Authentication. All agents must include this key to connect.' +
+            '</div>' +
+            '<p style="font-size:12px;color:var(--text-muted);margin-top:12px">See the <a href="#" onclick="closeWizard();showPage(\'docs\');return false" style="color:var(--accent)">Docs</a> page for the full agent protocol.</p>';
+        footer.innerHTML = backBtn + '<button class="btn btn-ghost btn-sm" onclick="wizardSkip()">Skip</button>';
+    } else if (wizardStep === 3) {
+        title.textContent = 'Set Up Notifications';
+        body.innerHTML =
+            '<p style="color:var(--text-secondary);margin-bottom:12px">Get alerted when things go wrong. You can configure this later in Settings.</p>' +
+            '<div class="form-group"><label>Email for alerts (optional)</label>' +
+            '<input id="wizard-email" type="email" placeholder="ops@example.com"></div>' +
+            '<label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="wizard-agent-alert" checked> Alert when an agent goes offline</label>';
+        footer.innerHTML = backBtn + '<div style="display:flex;gap:6px">' +
+            '<button class="btn btn-ghost btn-sm" onclick="wizardSkip()">Skip</button>' +
+            '<button class="btn btn-primary btn-sm" onclick="saveWizardNotifications()">Save & Continue</button></div>';
+    } else if (wizardStep === 4) {
+        title.textContent = 'You\'re All Set!';
+        let summary = '<p style="color:var(--text-secondary);margin-bottom:16px">Kronforce is ready to go.</p>';
+        summary += '<div style="text-align:left;margin:0 auto;max-width:320px">';
+        summary += '<p style="margin:6px 0;font-size:13px">&#10004; Dashboard is live</p>';
+        if (wizardData.jobCreated) summary += '<p style="margin:6px 0;font-size:13px">&#10004; Job \'' + esc(wizardData.jobCreated) + '\' created</p>';
+        summary += '<p style="margin:6px 0;font-size:13px">&#10004; <a href="#" onclick="closeWizard();showPage(\'docs\');return false" style="color:var(--accent)">Browse the Docs</a> for detailed guides</p>';
+        summary += '</div>';
+        body.innerHTML = summary;
+        footer.innerHTML = '<span></span><button class="btn btn-primary btn-sm" onclick="closeWizard()">Finish</button>';
+    }
+}
+
+async function saveWizardNotifications() {
+    const email = document.getElementById('wizard-email').value.trim();
+    const agentAlert = document.getElementById('wizard-agent-alert').checked;
+    try {
+        const settings = {};
+        if (email) {
+            settings.notification_recipients = JSON.stringify({ emails: [email], phones: [] });
+        }
+        settings.notification_system_alerts = JSON.stringify({ agent_offline: agentAlert });
+        await api('PUT', '/api/settings', settings);
+        toast('Notifications saved');
+    } catch (e) { /* ignore */ }
+    wizardNext();
+}
+
+async function checkWizardNeeded() {
+    try {
+        const settings = await api('GET', '/api/settings');
+        if (settings.wizard_completed) return;
+        const res = await api('GET', '/api/jobs?per_page=1');
+        if (res.total === 0) {
+            showWizard();
+        }
+    } catch (e) { /* ignore — auth not set up yet, etc */ }
+}
+
 // --- Init ---
 fetchHealth();
 (async () => {
@@ -7236,6 +7604,7 @@ fetchHealth();
         await fetchAgents();
         handleRoute();
         startPolling();
+        checkWizardNeeded();
     }
 })();
 </script>

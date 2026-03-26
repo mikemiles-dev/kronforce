@@ -1,0 +1,49 @@
+# Kronforce Controller + Agent (local development / testing)
+#
+# Start:
+#   docker compose -f docker-compose.full.yml up -d
+#
+# Uses pre-set keys so both services can communicate immediately.
+# Change the keys before using in production.
+
+services:
+  controller:
+    build: .
+    command: kronforce
+    ports:
+      - "8080:8080"
+    volumes:
+      - kronforce-data:/data
+      - kronforce-scripts:/scripts
+    environment:
+      - KRONFORCE_DB=/data/kronforce.db
+      - KRONFORCE_BIND=0.0.0.0:8080
+      - KRONFORCE_SCRIPTS_DIR=/scripts
+      - KRONFORCE_CALLBACK_URL=http://controller:8080
+      - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${KRONFORCE_ADMIN_KEY:-kf_docker_admin_key_change_in_prod}
+      - KRONFORCE_BOOTSTRAP_AGENT_KEY=${KRONFORCE_AGENT_KEY:-kf_docker_agent_key_change_in_prod}
+      - RUST_LOG=kronforce=info
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  agent:
+    build: .
+    command: kronforce-agent
+    depends_on:
+      controller:
+        condition: service_healthy
+    environment:
+      - KRONFORCE_CONTROLLER_URL=http://controller:8080
+      - KRONFORCE_AGENT_KEY=${KRONFORCE_AGENT_KEY:-kf_docker_agent_key_change_in_prod}
+      - KRONFORCE_AGENT_NAME=docker-agent-1
+      - KRONFORCE_AGENT_TAGS=docker,linux
+      - KRONFORCE_AGENT_ADDRESS=agent
+      - KRONFORCE_AGENT_BIND=0.0.0.0:8081
+      - RUST_LOG=kronforce_agent=info
+
+volumes:
+  kronforce-data:
+  kronforce-scripts:

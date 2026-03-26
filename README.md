@@ -1,8 +1,19 @@
 # Kronforce
 
-A workload automation and job scheduling engine built in Rust. Features a controller/agent architecture for distributed job execution.
+A workload automation and job scheduling engine built in Rust. Single binary, embedded dashboard, zero external dependencies.
 
 ![Kronforce Dashboard](screenshot.png)
+
+- **One binary, batteries included** — controller, scheduler, REST API, and web dashboard in a single Rust binary. No Node, no Redis, no Postgres. Just SQLite.
+- **7 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, file push, and custom agent-defined types
+- **Distributed agents** — push-based standard agents (Rust) or pull-based custom agents in any language (Python, Go, Node, etc.)
+- **Event-driven workflows** — chain jobs based on completions, failures, output patterns, agent status changes, and more
+- **Output intelligence** — extract values from stdout (regex/jsonpath), fail jobs when expected output is missing, compare output across runs
+- **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
+- **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
+- **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
+- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent). Bootstrap keys generated on first startup.
+- **Docker ready** — single Dockerfile, separate compose files for controller and agent, pre-set key bootstrapping
 
 ## Quick Start
 
@@ -57,6 +68,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 | `KRONFORCE_AGENT_TAGS` | (none) | Comma-separated tags |
 | `KRONFORCE_AGENT_ADDRESS` | hostname | Address the controller uses to reach this agent |
 | `KRONFORCE_AGENT_BIND` | `0.0.0.0:8081` | Agent listen address |
+| `KRONFORCE_AGENT_KEY` | (none) | API key with `agent` role for authenticating with the controller |
 
 ## Features
 
@@ -86,6 +98,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 
 ## Documentation
 
+- [Deployment](docs/DEPLOYMENT.md) — Docker Compose setup, configuration, authentication, scaling, troubleshooting
 - [Architecture](docs/ARCHITECTURE.md) — system design, components, execution flow, database schema
 - [API Reference](docs/API.md) — all endpoints with examples, schedule types, event triggers, output rules
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains, workflow patterns
@@ -95,7 +108,7 @@ The dashboard also includes a **Docs** page with the same content accessible fro
 
 ## Authentication
 
-API keys with roles: `admin`, `operator`, `viewer`. Bootstrap key printed on first startup. Agent endpoints require no key.
+API keys with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role.
 
 ## Development
 

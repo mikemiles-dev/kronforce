@@ -45,13 +45,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let reg_url = format!("{}/api/agents/register", config.controller_url);
-    let resp: AgentRegistrationResponse = http_client
-        .post(&reg_url)
-        .json(&reg)
-        .send()
-        .await?
-        .json()
-        .await?;
+    let mut req = http_client.post(&reg_url).json(&reg);
+    if let Some(ref key) = config.agent_key {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
+    let response = req.send().await?;
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        if status.as_u16() == 401 || status.as_u16() == 403 {
+            tracing::error!("authentication failed — set KRONFORCE_AGENT_KEY with a valid agent API key");
+            tracing::error!("server response: {}", body);
+        } else {
+            tracing::error!("registration failed ({}): {}", status, body);
+        }
+        std::process::exit(1);
+    }
+    let resp: AgentRegistrationResponse = response.json().await?;
 
     let agent_id = resp.agent_id;
     let heartbeat_interval = std::time::Duration::from_secs(resp.heartbeat_interval_secs);
@@ -63,6 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "{}/api/agents/{}/heartbeat",
         config.controller_url, agent_id
     );
+    let hb_key = config.agent_key.clone();
     let running_map: Arc<Mutex<HashMap<Uuid, tokio::sync::oneshot::Sender<()>>>> =
         Arc::new(Mutex::new(HashMap::new()));
     let hb_running = running_map.clone();
@@ -76,7 +87,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 agent_id,
                 running_executions: running_ids,
             };
-            match hb_client.post(&hb_url).json(&hb).send().await {
+            let mut req = hb_client.post(&hb_url).json(&hb);
+            if let Some(ref key) = hb_key {
+                req = req.header("Authorization", format!("Bearer {}", key));
+            }
+            match req.send().await {
                 Ok(_) => tracing::debug!("heartbeat sent"),
                 Err(e) => tracing::warn!("heartbeat failed: {e}"),
             }
@@ -89,6 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         controller_url: config.controller_url.clone(),
         http_client,
         running: running_map,
+        agent_key: config.agent_key.clone(),
     };
 
     let app = agent::server::router(state);

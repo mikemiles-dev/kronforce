@@ -1,0 +1,24 @@
+# Kronforce Agent
+#
+# Prerequisites:
+#   1. Controller is running and accessible
+#   2. You have an agent API key (from controller startup logs or Settings page)
+#
+# Start:
+#   KRONFORCE_AGENT_KEY=kf_your_key KRONFORCE_CONTROLLER_URL=http://controller-host:8080 docker compose -f docker-compose.agent.yml up -d
+#
+# Or create a .env file:
+#   KRONFORCE_AGENT_KEY=kf_your_key
+#   KRONFORCE_CONTROLLER_URL=http://controller-host:8080
+
+services:
+  agent:
+    build: .
+    command: kronforce-agent
+    environment:
+      - KRONFORCE_CONTROLLER_URL=${KRONFORCE_CONTROLLER_URL:?Set KRONFORCE_CONTROLLER_URL to the controller address}
+      - KRONFORCE_AGENT_KEY=${KRONFORCE_AGENT_KEY:?Set KRONFORCE_AGENT_KEY from the controller startup logs}
+      - KRONFORCE_AGENT_NAME=${KRONFORCE_AGENT_NAME:-docker-agent}
+      - KRONFORCE_AGENT_TAGS=${KRONFORCE_AGENT_TAGS:-docker,linux}
+      - KRONFORCE_AGENT_BIND=0.0.0.0:8081
+      - RUST_LOG=kronforce_agent=info

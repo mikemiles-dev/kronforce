@@ -22,7 +22,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Bootstrap admin API key if none exist
     if db.count_api_keys()? == 0 {
-        let (raw_key, prefix) = kronforce::api::generate_api_key();
+        let (raw_key, prefix) = if let Ok(preset) = std::env::var("KRONFORCE_BOOTSTRAP_ADMIN_KEY") {
+            if !preset.is_empty() {
+                let pfx = if preset.len() >= 11 { preset[..11].to_string() } else { preset.clone() };
+                (preset, pfx)
+            } else {
+                kronforce::api::generate_api_key()
+            }
+        } else {
+            kronforce::api::generate_api_key()
+        };
         let hash = kronforce::api::hash_api_key(&raw_key);
         let key = kronforce::models::ApiKey {
             id: uuid::Uuid::new_v4(),
@@ -38,6 +47,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("=============================================================");
         tracing::info!("  No API keys found. Bootstrap admin key created:");
         tracing::info!("  {}", raw_key);
+        tracing::info!("  Save this key — it will not be shown again.");
+        tracing::info!("=============================================================");
+
+        // Also create a bootstrap agent key — use KRONFORCE_BOOTSTRAP_AGENT_KEY if set
+        let (agent_raw, agent_prefix) = if let Ok(preset) = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY") {
+            if !preset.is_empty() {
+                let prefix = if preset.len() >= 11 { preset[..11].to_string() } else { preset.clone() };
+                (preset, prefix)
+            } else {
+                kronforce::api::generate_api_key()
+            }
+        } else {
+            kronforce::api::generate_api_key()
+        };
+        let agent_hash = kronforce::api::hash_api_key(&agent_raw);
+        let agent_key_record = kronforce::models::ApiKey {
+            id: uuid::Uuid::new_v4(),
+            key_prefix: agent_prefix,
+            key_hash: agent_hash,
+            name: "agent (bootstrap)".to_string(),
+            role: kronforce::models::ApiKeyRole::Agent,
+            created_at: chrono::Utc::now(),
+            last_used_at: None,
+            active: true,
+        };
+        db.insert_api_key(&agent_key_record)?;
+        tracing::info!("=============================================================");
+        tracing::info!("  Bootstrap agent key created:");
+        tracing::info!("  {}", agent_raw);
+        tracing::info!("  Set KRONFORCE_AGENT_KEY={} on your agents.", agent_raw);
         tracing::info!("  Save this key — it will not be shown again.");
         tracing::info!("=============================================================");
     }

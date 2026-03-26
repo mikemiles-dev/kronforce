@@ -79,18 +79,23 @@ pub fn router(state: AppState) -> Router {
         .route_layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
         .with_state(state.clone());
 
-    // Routes exempt from auth
-    let public = Router::new()
-        .route("/", get(dashboard))
-        .route("/api/health", get(health))
+    // Agent endpoints — require agent key when KRONFORCE_AGENT_KEY is set
+    let agent_authed = Router::new()
         .route("/api/agents/register", post(agents::register_agent))
         .route("/api/agent-queue/{agent_id}/next", get(agents::poll_agent_queue))
         .route("/api/agents/{id}/heartbeat", post(agents::agent_heartbeat))
         .route("/api/callbacks/execution-result", post(callbacks::execution_result_callback))
         .route("/api/agents/{id}/task-types", get(agents::get_agent_task_types))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth::agent_auth_middleware))
+        .with_state(state.clone());
+
+    // Routes exempt from all auth
+    let public = Router::new()
+        .route("/", get(dashboard))
+        .route("/api/health", get(health))
         .with_state(state);
 
-    public.merge(authed)
+    public.merge(authed).merge(agent_authed)
 }
 
 async fn dashboard() -> Html<&'static str> {
