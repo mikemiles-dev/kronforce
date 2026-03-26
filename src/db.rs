@@ -148,7 +148,11 @@ impl Db {
             (9, "Add task_types to agents", "
                 ALTER TABLE agents ADD COLUMN task_types_json TEXT;
             "),
-            (10, "Add settings table", "
+            (10, "Add output rules and extracted values", "
+                ALTER TABLE jobs ADD COLUMN output_rules_json TEXT;
+                ALTER TABLE executions ADD COLUMN extracted_json TEXT;
+            "),
+            (11, "Add settings table", "
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY,
                     value TEXT NOT NULL
@@ -198,9 +202,10 @@ impl Db {
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
         let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
+        let output_rules_json = job.output_rules.as_ref().map(|r| serde_json::to_string(r).unwrap());
         conn.execute(
-            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 job.id.to_string(),
                 job.name,
@@ -215,6 +220,7 @@ impl Db {
                 job.created_by.map(|id| id.to_string()),
                 job.created_at.to_rfc3339(),
                 job.updated_at.to_rfc3339(),
+                output_rules_json,
             ],
         ).map_err(|e| {
             if let rusqlite::Error::SqliteFailure(ref err, _) = e {
@@ -234,7 +240,7 @@ impl Db {
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_job(row)))
@@ -313,12 +319,12 @@ impl Db {
 
         let sql = if where_clauses.is_empty() {
             format!(
-                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
                 limit_idx, offset_idx
             )
         } else {
             format!(
-                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
+                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
                 where_clauses.join(" AND "), limit_idx, offset_idx
             )
         };
@@ -343,7 +349,7 @@ impl Db {
         let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10 WHERE id=?11",
+                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11 WHERE id=?12",
                 params![
                     job.name,
                     job.description,
@@ -355,6 +361,7 @@ impl Db {
                     depends_on_json,
                     target_json,
                     job.updated_at.to_rfc3339(),
+                    job.output_rules.as_ref().map(|r| serde_json::to_string(r).unwrap()),
                     job.id.to_string(),
                 ],
             )
@@ -516,10 +523,19 @@ impl Db {
         Ok(())
     }
 
+    pub fn update_execution_extracted(&self, id: Uuid, extracted: &serde_json::Value) -> Result<(), AppError> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE executions SET extracted_json = ?1 WHERE id = ?2",
+            params![serde_json::to_string(extracted).unwrap(), id.to_string()],
+        ).map_err(AppError::Db)?;
+        Ok(())
+    }
+
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE id = ?1")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], |row| Ok(row_to_execution(row)))
@@ -565,7 +581,7 @@ impl Db {
 
         let where_sql = if where_clauses.is_empty() { String::new() } else { format!("WHERE {}", where_clauses.join(" AND ")) };
         let sql = format!(
-            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
+            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
             where_sql, limit_idx, offset_idx
         );
 
@@ -634,7 +650,7 @@ impl Db {
     ) -> Result<Vec<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string(), limit, offset], |row| {
@@ -1321,6 +1337,10 @@ fn row_to_job(row: &rusqlite::Row) -> Job {
         updated_at: DateTime::parse_from_rfc3339(&updated_str)
             .unwrap()
             .with_timezone(&Utc),
+        output_rules: {
+            let or_json: Option<String> = row.get(13).unwrap_or(None);
+            or_json.and_then(|s| serde_json::from_str(&s).ok())
+        },
     }
 }
 
@@ -1360,6 +1380,10 @@ fn row_to_execution(row: &rusqlite::Row) -> ExecutionRecord {
                 .with_timezone(&Utc)
         }),
         triggered_by: serde_json::from_str(&triggered_json).unwrap(),
+        extracted: {
+            let ex_json: Option<String> = row.get(13).unwrap_or(None);
+            ex_json.and_then(|s| serde_json::from_str(&s).ok())
+        },
     }
 }
 

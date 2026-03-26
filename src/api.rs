@@ -86,6 +86,7 @@ struct CreateJobRequest {
     timeout_secs: Option<u64>,
     depends_on: Option<Vec<Dependency>>,
     target: Option<AgentTarget>,
+    output_rules: Option<OutputRules>,
 }
 
 #[derive(Deserialize)]
@@ -99,6 +100,7 @@ struct UpdateJobRequest {
     timeout_secs: Option<u64>,
     depends_on: Option<Vec<Dependency>>,
     target: Option<AgentTarget>,
+    output_rules: Option<OutputRules>,
 }
 
 #[derive(Serialize)]
@@ -264,6 +266,7 @@ async fn create_job(
         created_by: None, // TODO: set from auth context
         created_at: now,
         updated_at: now,
+        output_rules: req.output_rules,
     };
 
     let db = state.db.clone();
@@ -356,6 +359,9 @@ async fn update_job(
     }
     if let Some(target) = req.target {
         job.target = Some(target);
+    }
+    if req.output_rules.is_some() {
+        job.output_rules = req.output_rules;
     }
 
     job.updated_at = Utc::now();
@@ -816,12 +822,54 @@ async fn execution_result_callback(
         started_at: Some(result.started_at),
         finished_at: Some(result.finished_at),
         triggered_by,
+        extracted: None,
     };
+
+    let stdout_for_rules = rec.stdout.clone();
+    let stderr_for_rules = rec.stderr.clone();
+    let job_id_for_rules = rec.job_id;
+    let exec_id_for_rules = rec.id;
 
     let status = rec.status;
     tokio::task::spawn_blocking(move || db.update_execution(&rec))
         .await
         .unwrap()?;
+
+    // Run output rules (extraction + triggers)
+    let db_rules = state.db.clone();
+    tokio::task::spawn(async move {
+        let db_r = db_rules.clone();
+        let stdout_r = stdout_for_rules;
+        let stderr_r = stderr_for_rules;
+        let _ = tokio::task::spawn_blocking(move || {
+            if let Ok(Some(job)) = db_r.get_job(job_id_for_rules) {
+                if let Some(ref rules) = job.output_rules {
+                    if !rules.extractions.is_empty() {
+                        let extracted = crate::output_rules::run_extractions(&stdout_r, &rules.extractions);
+                        if !extracted.is_empty() {
+                            let _ = db_r.update_execution_extracted(exec_id_for_rules, &serde_json::json!(extracted));
+                        }
+                    }
+                    let matches = crate::output_rules::run_triggers(&stdout_r, &stderr_r, &rules.triggers);
+                    for (pattern, severity) in &matches {
+                        let sev = match severity.as_str() {
+                            "error" => EventSeverity::Error,
+                            "warning" => EventSeverity::Warning,
+                            "success" => EventSeverity::Success,
+                            _ => EventSeverity::Info,
+                        };
+                        let _ = db_r.log_event(
+                            "output.matched",
+                            sev,
+                            &format!("Output pattern matched: '{}' in job '{}'", pattern, job.name),
+                            Some(job_id_for_rules),
+                            None,
+                        );
+                    }
+                }
+            }
+        }).await;
+    });
 
     let severity = match status {
         ExecutionStatus::Succeeded => EventSeverity::Success,

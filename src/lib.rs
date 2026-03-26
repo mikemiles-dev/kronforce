@@ -11,3 +11,4 @@ pub mod agent_client;
 pub mod agent_server;
 pub mod scheduler;
 pub mod scripts;
+pub mod output_rules;

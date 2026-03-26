@@ -151,6 +151,28 @@ impl JobStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtractionRule {
+    pub name: String,
+    pub pattern: String,
+    #[serde(rename = "type")]
+    pub rule_type: String, // "regex" or "jsonpath"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutputTrigger {
+    pub pattern: String,
+    pub severity: String, // "error", "warning", "info", "success"
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct OutputRules {
+    #[serde(default)]
+    pub extractions: Vec<ExtractionRule>,
+    #[serde(default)]
+    pub triggers: Vec<OutputTrigger>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     pub id: Uuid,
     pub name: String,
@@ -165,6 +187,8 @@ pub struct Job {
     pub created_by: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    #[serde(default)]
+    pub output_rules: Option<OutputRules>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -306,6 +330,8 @@ pub struct ExecutionRecord {
     pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub triggered_by: TriggerSource,
+    #[serde(default)]
+    pub extracted: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

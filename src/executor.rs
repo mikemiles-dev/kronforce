@@ -87,6 +87,7 @@ impl Executor {
             started_at: Some(now),
             finished_at: None,
             triggered_by: trigger,
+            extracted: None,
         };
 
         let db = self.db.clone();
@@ -124,6 +125,7 @@ impl Executor {
                 started_at: rec.started_at,
                 finished_at: Some(finished_at),
                 triggered_by: rec.triggered_by,
+                extracted: None,
             };
 
             let db2 = db.clone();
@@ -133,6 +135,45 @@ impl Executor {
             {
                 tracing::error!("failed to update execution {}: {e}", exec_id);
             }
+            // Run output rules (extraction + triggers)
+            {
+                let db_rules = db.clone();
+                let stdout_clone = updated.stdout.clone();
+                let stderr_clone = updated.stderr.clone();
+                let job_id = updated.job_id;
+                let exec_id_rules = exec_id;
+                let _ = tokio::task::spawn_blocking(move || {
+                    if let Ok(Some(job)) = db_rules.get_job(job_id) {
+                        if let Some(ref rules) = job.output_rules {
+                            // Extractions
+                            if !rules.extractions.is_empty() {
+                                let extracted = crate::output_rules::run_extractions(&stdout_clone, &rules.extractions);
+                                if !extracted.is_empty() {
+                                    let _ = db_rules.update_execution_extracted(exec_id_rules, &serde_json::json!(extracted));
+                                }
+                            }
+                            // Triggers
+                            let matches = crate::output_rules::run_triggers(&stdout_clone, &stderr_clone, &rules.triggers);
+                            for (pattern, severity) in &matches {
+                                let sev = match severity.as_str() {
+                                    "error" => crate::models::EventSeverity::Error,
+                                    "warning" => crate::models::EventSeverity::Warning,
+                                    "success" => crate::models::EventSeverity::Success,
+                                    _ => crate::models::EventSeverity::Info,
+                                };
+                                let _ = db_rules.log_event(
+                                    "output.matched",
+                                    sev,
+                                    &format!("Output pattern matched: '{}' in job '{}'", pattern, job.name),
+                                    Some(job_id),
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                }).await;
+            }
+
             running.lock().await.remove(&exec_id);
             tracing::info!("execution {} finished: {:?}", exec_id, updated.status);
 
@@ -318,6 +359,7 @@ impl Executor {
             started_at: Some(now),
             finished_at: None,
             triggered_by: trigger,
+            extracted: None,
         };
 
         let db = self.db.clone();

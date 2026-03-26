@@ -710,13 +710,32 @@ th .job-checkbox { margin: 0; }
     background: var(--bg-secondary);
     border: 1px solid rgba(42,47,61,0.5);
     border-radius: 10px;
-    padding: 24px;
+    padding: 0;
     width: 90%;
-    max-width: 560px;
+    max-width: 620px;
     max-height: 85vh;
     box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg-secondary);
+    z-index: 1;
+    border-radius: 10px 10px 0 0;
+}
+
+.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
+
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
 
 .modal-card h3 {
     font-size: 16px;
@@ -724,9 +743,31 @@ th .job-checkbox { margin: 0; }
     margin-bottom: 16px;
 }
 
+.form-section {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.form-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .form-group {
     margin-bottom: 14px;
 }
+
+.form-group:last-child { margin-bottom: 0; }
 
 .form-group label {
     display: block;
@@ -742,24 +783,37 @@ th .job-checkbox { margin: 0; }
 
 .radio-group {
     display: flex;
-    gap: 16px;
+    gap: 4px;
     margin-top: 4px;
+    flex-wrap: wrap;
 }
 
 .radio-group label {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    gap: 5px;
+    font-size: 12px;
     color: var(--text-primary);
     cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    transition: all 0.15s;
 }
+
+.radio-group label:hover { border-color: var(--text-muted); }
+.radio-group label:has(input:checked) { border-color: var(--accent); background: rgba(62,139,255,0.08); color: var(--accent); }
+.radio-group label input[type="radio"] { display: none; }
 
 .form-actions {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-top: 20px;
+    padding: 14px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    border-radius: 0 0 10px 10px;
 }
 
 .dep-entry {
@@ -1226,12 +1280,12 @@ th .job-checkbox { margin: 0; }
 .agent-card.custom-clickable { cursor: pointer; }
 .agent-card.custom-clickable:hover .agent-card-header .agent-name { color: var(--accent); }
 
-.docs-layout { display: flex; gap: 0; min-height: calc(100vh - 80px); }
-.docs-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 0; position: sticky; top: 0; align-self: flex-start; }
+.docs-layout { display: flex; gap: 0; height: calc(100vh - 60px); overflow: hidden; }
+.docs-sidebar { width: 200px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 0; overflow-y: auto; }
 .docs-topic { display: block; padding: 8px 20px; font-size: 13px; color: var(--text-secondary); cursor: pointer; border: none; background: none; width: 100%; text-align: left; border-left: 3px solid transparent; }
 .docs-topic:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .docs-topic.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg-tertiary); font-weight: 600; }
-.docs-content { flex: 1; padding: 20px 32px; max-width: 800px; overflow-y: auto; }
+.docs-content { flex: 1; padding: 20px 32px; max-width: 800px; overflow-y: auto; height: 100%; }
 .docs-content h2 { margin-top: 0; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); font-size: 18px; }
 .docs-content h3 { margin-top: 20px; margin-bottom: 8px; font-size: 14px; color: var(--text-primary); }
 .docs-content h4 { margin-top: 16px; margin-bottom: 6px; font-size: 13px; color: var(--text-secondary); }
@@ -1246,6 +1300,13 @@ th .job-checkbox { margin: 0; }
 .docs-content li { margin-bottom: 4px; line-height: 1.5; }
 .docs-content strong { color: var(--text-primary); }
 .docs-section { margin-bottom: 40px; padding-top: 4px; }
+.diff-view { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--border); border-radius: var(--radius); overflow-x: auto; max-height: 400px; overflow-y: auto; }
+.diff-view > div { padding: 1px 8px; white-space: pre; }
+.diff-add { background: rgba(46,204,113,0.1); color: var(--success); }
+.diff-remove { background: rgba(224,82,82,0.1); color: var(--danger); }
+.diff-same { color: var(--text-secondary); }
+.diff-ln { display: inline-block; width: 30px; color: var(--text-muted); text-align: right; margin-right: 8px; user-select: none; }
+.diff-prefix { display: inline-block; width: 12px; font-weight: 600; }
 @media (max-width: 768px) { .docs-sidebar { display: none; } .docs-content { padding: 12px 16px; } }
 
 .agent-status-dot {
@@ -2841,24 +2902,30 @@ print("Redis: " + result.response);</code></pre>
 
 <div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('create-modal')">
     <div class="modal-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <h3 id="modal-title" style="margin:0">Create Job</h3>
+        <div class="modal-header">
+            <h3 id="modal-title">Create Job</h3>
             <div style="display:flex;gap:6px">
                 <button class="btn btn-ghost btn-sm" onclick="closeCreateModal()">Cancel</button>
                 <button class="btn btn-primary btn-sm" onclick="submitJobForm()">Save</button>
             </div>
         </div>
-        <div class="form-group">
-            <label>Name</label>
-            <input id="f-name" type="text" placeholder="my-job">
-        </div>
-        <div class="form-group">
-            <label>Execution Mode</label>
-            <div class="radio-group">
-                <label><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> Standard</label>
-                <label><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> Custom Agent</label>
+        <div class="modal-body">
+        <div class="form-section">
+            <div class="form-section-title">&#128203; General</div>
+            <div class="form-group">
+                <label>Name</label>
+                <input id="f-name" type="text" placeholder="my-job">
+            </div>
+            <div class="form-group">
+                <label>Execution Mode</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> Standard</label>
+                    <label><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> Custom Agent</label>
+                </div>
             </div>
         </div>
+        <div class="form-section" id="task-section">
+            <div class="form-section-title">&#9881; Task</div>
         <div id="custom-agent-section" style="display:none">
             <div class="form-group">
                 <label>Custom Agent</label>
@@ -2977,14 +3044,9 @@ print("Redis: " + result.response);</code></pre>
             </div>
         </div>
         </div><!-- end builtin-task-section -->
-        <div class="form-group">
-            <label>Run As (optional)</label>
-            <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
-        </div>
-        <div class="form-group">
-            <label>Description (optional)</label>
-            <input id="f-desc" type="text" placeholder="What this job does">
-        </div>
+        </div><!-- end task-section -->
+        <div class="form-section">
+            <div class="form-section-title">&#128197; Schedule</div>
         <div class="form-group">
             <label>Schedule</label>
             <div class="radio-group">
@@ -3095,33 +3157,59 @@ print("Redis: " + result.response);</code></pre>
                 </div>
             </div>
         </div>
-        <div class="form-group">
-            <label>Timeout (seconds, optional)</label>
-            <input id="f-timeout" type="number" min="1" placeholder="300">
-        </div>
-        <div id="standard-target-section">
-        <div class="form-group">
-            <label>Target</label>
-            <div class="radio-group">
-                <label><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> Local</label>
-                <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> Specific Agent</label>
-                <label><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> Any Agent</label>
-                <label><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> All Agents</label>
+        </div><!-- end schedule-section -->
+        <div class="form-section" id="standard-target-section">
+            <div class="form-section-title">&#127919; Target</div>
+            <div class="form-group">
+                <label>Target</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> Local</label>
+                    <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> Specific Agent</label>
+                    <label><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> Any Agent</label>
+                    <label><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> All Agents</label>
+                </div>
+            </div>
+            <div class="form-group" id="agent-select-field" style="display:none">
+                <label>Agent</label>
+                <select id="f-agent"><option value="">Loading agents...</option></select>
             </div>
         </div>
-        <div class="form-group" id="agent-select-field" style="display:none">
-            <label>Agent</label>
-            <select id="f-agent"><option value="">Loading agents...</option></select>
-        </div>
-        </div><!-- end standard-target-section -->
-        <div class="form-group">
-            <label>Dependencies</label>
-            <div class="form-hint">This job will only run if the selected jobs completed successfully within the specified time window. Leave the window empty for no time limit.</div>
-            <div id="deps-container">
-                <div id="deps-entries"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
+        <div class="form-section">
+            <div class="form-section-title">&#9881; Advanced</div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input id="f-desc" type="text" placeholder="What this job does">
+            </div>
+            <div class="form-group">
+                <label>Run As (optional)</label>
+                <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
+            </div>
+            <div class="form-group">
+                <label>Timeout (seconds, optional)</label>
+                <input id="f-timeout" type="number" min="1" placeholder="300">
+            </div>
+            <div class="form-group">
+                <label>Dependencies</label>
+                <div class="form-hint">Only run if selected jobs completed successfully within the time window.</div>
+                <div id="deps-container">
+                    <div id="deps-entries"></div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Output Extractions</label>
+                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail.</div>
+                <div id="extractions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addExtractionRow()" style="margin-top:4px">+ Add Extraction</button>
+            </div>
+            <div class="form-group">
+                <label>Output Triggers</label>
+                <div class="form-hint">Emit events when output matches a pattern. Use with event-triggered jobs to react to output.</div>
+                <div id="triggers-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addTriggerRow()" style="margin-top:4px">+ Add Trigger</button>
             </div>
         </div>
+        </div><!-- end modal-body -->
         <div class="form-actions">
             <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
             <button class="btn btn-primary" onclick="submitJobForm()">Save</button>
@@ -3131,8 +3219,8 @@ print("Redis: " + result.response);</code></pre>
 
 <div id="exec-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('exec-modal')">
     <div class="modal-card exec-modal-card">
-        <h3>Execution Details</h3>
-        <div id="exec-detail-content"></div>
+        <div class="modal-header"><h3>Execution Details</h3></div>
+        <div class="modal-body" id="exec-detail-content"></div>
         <div class="form-actions">
             <button id="exec-cancel-btn" class="btn btn-danger btn-sm" style="display:none" onclick="cancelExec()">Cancel Execution</button>
             <button class="btn btn-ghost" onclick="closeExecModal()">Close</button>
@@ -3142,8 +3230,8 @@ print("Redis: " + result.response);</code></pre>
 
 <div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('waiting-modal')">
     <div class="modal-card">
-        <h3>Waiting on Dependencies</h3>
-        <div id="waiting-detail-content"></div>
+        <div class="modal-header"><h3>Waiting on Dependencies</h3></div>
+        <div class="modal-body" id="waiting-detail-content"></div>
         <div class="form-actions">
             <button class="btn btn-ghost" onclick="closeWaitingModal()">Close</button>
         </div>
@@ -3683,14 +3771,126 @@ async function showExecDetail(id) {
             infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local', 'exec-info-item') +
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
+            renderExtractedValues(e.extracted) +
             (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(e.task_snapshot, null, 2)) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
-            renderOutputSection('Error', e.stderr, e.stderr_truncated);
+            renderOutputSection('Error', e.stderr, e.stderr_truncated) +
+            '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
+        window._currentExecStdout = e.stdout || '';
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
         openModal('exec-modal');
     } catch (e) {
         toast(e.message, 'error');
     }
+}
+
+function renderExtractedValues(extracted) {
+    if (!extracted || typeof extracted !== 'object' || Object.keys(extracted).length === 0) return '';
+    let html = '<div class="output-section"><h4>Extracted Values</h4><div class="exec-info">';
+    for (const [key, val] of Object.entries(extracted)) {
+        html += infoField(key, esc(String(val)), 'exec-info-item');
+    }
+    html += '</div></div>';
+    return html;
+}
+
+async function showOutputDiff(jobId, currentExecId) {
+    const section = document.getElementById('diff-section');
+    // Fetch recent executions for this job
+    try {
+        const res = await api('GET', '/api/jobs/' + jobId + '/executions?per_page=10');
+        const others = res.data.filter(e => e.id !== currentExecId && e.status !== 'pending' && e.status !== 'running');
+        if (others.length === 0) {
+            section.innerHTML = '<div class="form-hint">No previous completed runs to compare</div>';
+            return;
+        }
+        let html = '<div style="margin-bottom:8px"><select id="diff-select" style="width:300px"><option value="">Select a run to compare...</option>';
+        for (const e of others) {
+            html += '<option value="' + e.id + '">' + e.id.slice(0, 8) + ' \u2022 ' + e.status + ' \u2022 ' + (e.started_at ? fmtDate(e.started_at) : '?') + '</option>';
+        }
+        html += '</select> <button class="btn btn-primary btn-sm" onclick="runOutputDiff(\'' + currentExecId + '\')">Diff</button></div>';
+        html += '<div id="diff-output"></div>';
+        section.innerHTML = html;
+    } catch (e) {
+        section.innerHTML = '<div class="form-hint" style="color:var(--danger)">Failed to load executions</div>';
+    }
+}
+
+async function runOutputDiff(currentExecId) {
+    const otherId = document.getElementById('diff-select').value;
+    if (!otherId) { toast('Select a run to compare', 'error'); return; }
+    const output = document.getElementById('diff-output');
+    try {
+        const other = await api('GET', '/api/executions/' + otherId);
+        const currentStdout = window._currentExecStdout || '';
+        const otherStdout = other.stdout || '';
+        // Truncate for diff
+        const maxLen = 50000;
+        const a = otherStdout.length > maxLen ? otherStdout.slice(0, maxLen) + '\n[...truncated for diff]' : otherStdout;
+        const b = currentStdout.length > maxLen ? currentStdout.slice(0, maxLen) + '\n[...truncated for diff]' : currentStdout;
+        const diff = computeDiff(a.split('\n'), b.split('\n'));
+        output.innerHTML = renderDiffView(diff);
+    } catch (e) {
+        output.innerHTML = '<div class="form-hint" style="color:var(--danger)">Failed to load execution</div>';
+    }
+}
+
+function computeDiff(linesA, linesB) {
+    // Simple LCS-based line diff
+    const m = linesA.length, n = linesB.length;
+    // For large inputs, fall back to simple sequential comparison
+    if (m * n > 1000000) {
+        const result = [];
+        const max = Math.max(m, n);
+        for (let i = 0; i < max; i++) {
+            if (i < m && i < n && linesA[i] === linesB[i]) {
+                result.push({ type: 'same', line: linesA[i] });
+            } else {
+                if (i < m) result.push({ type: 'remove', line: linesA[i] });
+                if (i < n) result.push({ type: 'add', line: linesB[i] });
+            }
+        }
+        return result;
+    }
+    // LCS table
+    const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = linesA[i-1] === linesB[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        }
+    }
+    // Backtrack
+    const result = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && linesA[i-1] === linesB[j-1]) {
+            result.unshift({ type: 'same', line: linesA[i-1] });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+            result.unshift({ type: 'add', line: linesB[j-1] });
+            j--;
+        } else {
+            result.unshift({ type: 'remove', line: linesA[i-1] });
+            i--;
+        }
+    }
+    return result;
+}
+
+function renderDiffView(diff) {
+    let html = '<div class="diff-view">';
+    let lineNum = 0;
+    for (const d of diff) {
+        lineNum++;
+        const cls = d.type === 'add' ? 'diff-add' : d.type === 'remove' ? 'diff-remove' : 'diff-same';
+        const prefix = d.type === 'add' ? '+' : d.type === 'remove' ? '-' : ' ';
+        html += '<div class="' + cls + '"><span class="diff-ln">' + lineNum + '</span><span class="diff-prefix">' + prefix + '</span>' + esc(d.line) + '</div>';
+    }
+    if (diff.every(d => d.type === 'same')) {
+        html = '<div class="form-hint" style="color:var(--success)">No differences</div>' + html;
+    }
+    html += '</div>';
+    return html;
 }
 
 let outputIdCounter = 0;
@@ -4063,6 +4263,7 @@ function openCreateModal() {
     updateExecutionMode();
     updateTargetFields();
     populateDeps(null);
+    populateOutputRules(null);
     openModal('create-modal');
 }
 
@@ -4140,6 +4341,7 @@ async function openEditModal(id) {
         }
 
         populateDeps(id, job.depends_on);
+        populateOutputRules(job.output_rules);
         openModal('create-modal');
     } catch (e) {
         toast(e.message, 'error');
@@ -4620,6 +4822,60 @@ function getDepEntries() {
     return deps;
 }
 
+function addExtractionRow(name, pattern, type) {
+    const container = document.getElementById('extractions-container');
+    const row = document.createElement('div');
+    row.className = 'tt-field-row';
+    row.innerHTML =
+        '<input type="text" value="' + esc(name || '') + '" placeholder="name" style="width:80px" class="ex-name">' +
+        '<input type="text" value="' + esc(pattern || '') + '" placeholder="pattern (regex or $.path)" style="flex:1;min-width:120px" class="ex-pattern">' +
+        '<select class="ex-type" style="width:90px"><option value="regex"' + (type === 'jsonpath' ? '' : ' selected') + '>regex</option><option value="jsonpath"' + (type === 'jsonpath' ? ' selected' : '') + '>jsonpath</option></select>' +
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="this.parentElement.remove()">&times;</button>';
+    container.appendChild(row);
+}
+
+function addTriggerRow(pattern, severity) {
+    const container = document.getElementById('triggers-container');
+    const row = document.createElement('div');
+    row.className = 'tt-field-row';
+    const sev = severity || 'error';
+    row.innerHTML =
+        '<input type="text" value="' + esc(pattern || '') + '" placeholder="pattern (regex or substring)" style="flex:1;min-width:150px" class="trig-pattern">' +
+        '<select class="trig-severity" style="width:90px">' +
+        '<option value="error"' + (sev === 'error' ? ' selected' : '') + '>error</option>' +
+        '<option value="warning"' + (sev === 'warning' ? ' selected' : '') + '>warning</option>' +
+        '<option value="info"' + (sev === 'info' ? ' selected' : '') + '>info</option>' +
+        '<option value="success"' + (sev === 'success' ? ' selected' : '') + '>success</option></select>' +
+        '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="this.parentElement.remove()">&times;</button>';
+    container.appendChild(row);
+}
+
+function collectOutputRules() {
+    const extractions = [];
+    document.querySelectorAll('#extractions-container .tt-field-row').forEach(row => {
+        const name = row.querySelector('.ex-name').value.trim();
+        const pattern = row.querySelector('.ex-pattern').value.trim();
+        const type = row.querySelector('.ex-type').value;
+        if (name && pattern) extractions.push({ name, pattern, type });
+    });
+    const triggers = [];
+    document.querySelectorAll('#triggers-container .tt-field-row').forEach(row => {
+        const pattern = row.querySelector('.trig-pattern').value.trim();
+        const severity = row.querySelector('.trig-severity').value;
+        if (pattern) triggers.push({ pattern, severity });
+    });
+    if (extractions.length === 0 && triggers.length === 0) return null;
+    return { extractions, triggers };
+}
+
+function populateOutputRules(rules) {
+    document.getElementById('extractions-container').innerHTML = '';
+    document.getElementById('triggers-container').innerHTML = '';
+    if (!rules) return;
+    (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type));
+    (rules.triggers || []).forEach(t => addTriggerRow(t.pattern, t.severity));
+}
+
 async function submitJobForm() {
     const name = document.getElementById('f-name').value.trim();
     if (!name) { toast('Name is required', 'error'); return; }
@@ -4677,7 +4933,8 @@ async function submitJobForm() {
         }
     }
 
-    const body = { name, task, schedule, timeout_secs, depends_on, target };
+    const output_rules = collectOutputRules();
+    const body = { name, task, schedule, timeout_secs, depends_on, target, output_rules };
     const run_as = document.getElementById('f-run-as').value.trim();
     if (run_as) body.run_as = run_as;
     const desc = document.getElementById('f-desc').value.trim();
@@ -4974,9 +5231,10 @@ function showPage(page) {
 }
 
 function scrollToDocTopic(topicId) {
+    const container = document.getElementById('docs-content');
     const el = document.getElementById(topicId);
-    if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (container && el) {
+        container.scrollTo({ top: el.offsetTop - container.offsetTop, behavior: 'smooth' });
     }
     document.querySelectorAll('.docs-topic').forEach(t => t.classList.remove('active'));
     const btn = document.querySelector('.docs-topic[onclick*="' + topicId + '"]');
@@ -5247,14 +5505,29 @@ async function renderMap() {
         }
     }
 
-    // Assign layers via BFS from roots
+    // Include event trigger relationships in the graph for layout
+    for (const j of jobs) {
+        if (j.schedule.type !== 'event' || !j.schedule.value || !j.schedule.value.job_name_filter) continue;
+        const filter = j.schedule.value.job_name_filter.toLowerCase();
+        for (const src of jobs) {
+            if (src.id === j.id) continue;
+            if (src.name.toLowerCase().includes(filter)) {
+                children[src.id] = children[src.id] || [];
+                if (!children[src.id].includes(j.id)) children[src.id].push(j.id);
+                parents[j.id] = parents[j.id] || [];
+                if (!parents[j.id].includes(src.id)) parents[j.id].push(src.id);
+            }
+        }
+    }
+
+    // Assign layers via BFS from roots (nodes with no parents in the graph)
     const layers = {};
-    const roots = jobs.filter(j => j.depends_on.length === 0).map(j => j.id);
+    const roots = jobs.filter(j => (parents[j.id] || []).length === 0).map(j => j.id);
     const visited = new Set();
     const queue = roots.map(id => ({ id, layer: 0 }));
-    // Also handle jobs whose parents aren't in the list
+    // Also handle jobs whose parents aren't in the job list
     for (const j of jobs) {
-        if (!roots.includes(j.id) && j.depends_on.every(d => !jobMap[d.job_id])) {
+        if (!roots.includes(j.id) && (parents[j.id] || []).every(pid => !jobMap[pid])) {
             queue.push({ id: j.id, layer: 0 });
         }
     }
@@ -5347,28 +5620,46 @@ async function renderMap() {
         }
     }
 
-    // Draw event trigger edges (dashed)
+    // Draw event trigger edges (dashed) — only when a specific job_name_filter is set
     for (const j of jobs) {
         if (j.schedule.type !== 'event' || !j.schedule.value) continue;
         const to = positions[j.id];
         if (!to) continue;
         const filter = j.schedule.value.job_name_filter;
-        const kindPattern = j.schedule.value.kind_pattern;
-        // Find source jobs that this event trigger listens to
+        const kindPattern = j.schedule.value.kind_pattern || '*';
+        // Only draw specific edges when a job name filter identifies the source
+        if (!filter) continue;
         for (const src of jobs) {
             if (src.id === j.id) continue;
-            // Match if filter matches job name, or if kind matches execution/job events
-            const nameMatch = filter && src.name.toLowerCase().includes(filter.toLowerCase());
-            const kindMatch = !filter && (kindPattern.startsWith('execution') || kindPattern.startsWith('job'));
-            if (nameMatch || kindMatch) {
-                const from = positions[src.id];
-                if (!from) continue;
-                const x1 = from.x + nodeW, y1 = from.y + nodeH / 2;
-                const x2 = to.x, y2 = to.y + nodeH / 2;
-                const cx1 = x1 + (x2 - x1) * 0.4, cx2 = x2 - (x2 - x1) * 0.4;
-                svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" marker-end="url(#arrow)"/>';
-                svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + ((y1+y2)/2 - 8) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + kindPattern + '</text>';
+            if (!src.name.toLowerCase().includes(filter.toLowerCase())) continue;
+            const from = positions[src.id];
+            if (!from) continue;
+
+            // Route the curve: handle same-column or right-to-left cases
+            let x1, y1, x2, y2, cx1, cx2;
+            if (from.x + nodeW <= to.x) {
+                // Normal left-to-right
+                x1 = from.x + nodeW; y1 = from.y + nodeH / 2;
+                x2 = to.x; y2 = to.y + nodeH / 2;
+                cx1 = x1 + (x2 - x1) * 0.4; cx2 = x2 - (x2 - x1) * 0.4;
+            } else if (to.x + nodeW <= from.x) {
+                // Right-to-left
+                x1 = from.x; y1 = from.y + nodeH / 2;
+                x2 = to.x + nodeW; y2 = to.y + nodeH / 2;
+                cx1 = x1 - Math.abs(x1 - x2) * 0.4; cx2 = x2 + Math.abs(x1 - x2) * 0.4;
+            } else {
+                // Same column — route below the nodes with a U-shaped curve
+                x1 = from.x + nodeW / 2; y1 = from.y + nodeH;
+                x2 = to.x + nodeW / 2; y2 = to.y + nodeH;
+                const drop = 40;
+                cx1 = x1; cx2 = x2;
+                // Use a quadratic-ish path going down and across
+                svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + drop) + ', ' + x2 + ' ' + (y2 + drop) + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" fill="none" marker-end="url(#arrow)"/>';
+                svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + (Math.max(y1,y2) + drop - 4) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + esc(kindPattern) + '</text>';
+                continue;
             }
+            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" fill="none" marker-end="url(#arrow)"/>';
+            svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + ((y1+y2)/2 - 8) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + esc(kindPattern) + '</text>';
         }
     }
 
