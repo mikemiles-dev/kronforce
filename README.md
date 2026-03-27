@@ -1,5 +1,9 @@
 # Kronforce
 
+[![CI](https://github.com/mikemiles-dev/kronforce/actions/workflows/ci.yml/badge.svg)](https://github.com/mikemiles-dev/kronforce/actions/workflows/ci.yml)
+[![Release](https://github.com/mikemiles-dev/kronforce/actions/workflows/release.yml/badge.svg)](https://github.com/mikemiles-dev/kronforce/releases)
+[![License: MIT/Apache-2.0](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
+
 A workload automation and job scheduling engine built in Rust. Single binary, embedded dashboard, zero external dependencies.
 
 ![Kronforce Dashboard](screenshot.png)

@@ -811,6 +811,13 @@ th .job-checkbox { margin: 0; }
 
 .radio-group label:hover { border-color: var(--text-muted); }
 .radio-group label:has(input:checked) { border-color: var(--accent); background: rgba(62,139,255,0.08); color: var(--accent); }
+.radio-group label.pill-green:has(input:checked) { border-color: var(--success); background: rgba(46,204,113,0.1); color: var(--success); }
+.radio-group label.pill-orange:has(input:checked) { border-color: var(--warning); background: rgba(230,168,23,0.1); color: var(--warning); }
+.radio-group label.pill-red:has(input:checked) { border-color: var(--danger); background: rgba(224,82,82,0.1); color: var(--danger); }
+.radio-group label.pill-purple:has(input:checked) { border-color: #9b59b6; background: rgba(155,89,182,0.1); color: #9b59b6; }
+label.pill-red:has(input:checked) { border-color: var(--danger) !important; background: rgba(224,82,82,0.1); color: var(--danger); }
+label.pill-green:has(input:checked) { border-color: var(--success) !important; background: rgba(46,204,113,0.1); color: var(--success); }
+label.pill-orange:has(input:checked) { border-color: var(--warning) !important; background: rgba(230,168,23,0.1); color: var(--warning); }
 .radio-group label input[type="radio"] { display: none; }
 
 .form-actions {
@@ -3050,6 +3057,8 @@ print("Redis: " + result.response);</code></pre>
             <button class="modal-tab active" onclick="switchJobTab('task',this)">Task</button>
             <button class="modal-tab" onclick="switchJobTab('schedule',this)">Schedule</button>
             <button class="modal-tab" onclick="switchJobTab('target',this)">Target</button>
+            <button class="modal-tab" onclick="switchJobTab('rules',this)">Rules</button>
+            <button class="modal-tab" onclick="switchJobTab('notifications',this)">Alerts</button>
             <button class="modal-tab" onclick="switchJobTab('advanced',this)">Advanced</button>
         </div>
         <div class="modal-body">
@@ -3057,8 +3066,8 @@ print("Redis: " + result.response);</code></pre>
             <div class="form-group">
                 <label>Execution Mode</label>
                 <div class="radio-group">
-                    <label><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> Standard</label>
-                    <label><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> Custom Agent</label>
+                    <label class="pill-green"><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> &#9654; Standard</label>
+                    <label class="pill-purple"><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> &#9881; Custom Agent</label>
                 </div>
             </div>
         <div id="custom-agent-section" style="display:none">
@@ -3076,19 +3085,19 @@ print("Redis: " + result.response);</code></pre>
         <div class="form-group">
             <label>Task Type</label>
             <div class="radio-group">
-                <label><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()"> Shell</label>
-                <label><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> HTTP</label>
-                <label><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> SQL</label>
-                <label><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> FTP</label>
-                <label><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> Script</label>
-                <label><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> File Push</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()"> &#9654; Shell</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> &#127760; HTTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> &#128451; SQL</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> &#128193; FTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> &#128220; Script</label>
+                <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> &#128228; File Push</label>
             </div>
             <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues</label>
             <div class="radio-group">
-                <label><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> Kafka</label>
-                <label><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> RabbitMQ</label>
-                <label><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> MQTT</label>
-                <label><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> Redis</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> &#9889; Kafka</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> &#128007; RabbitMQ</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> &#128225; MQTT</label>
+                <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> &#9879; Redis</label>
             </div>
         </div>
         <div id="task-shell-fields">
@@ -3314,10 +3323,10 @@ print("Redis: " + result.response);</code></pre>
         <div class="form-group">
             <label>Schedule</label>
             <div class="radio-group">
-                <label><input type="radio" name="sched-type" value="one_shot" checked onchange="updateSchedFields()"> One-Shot</label>
-                <label><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> Cron</label>
-                <label><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> On-Demand</label>
-                <label><input type="radio" name="sched-type" value="event" onchange="updateSchedFields()"> Event</label>
+                <label class="pill-green"><input type="radio" name="sched-type" value="one_shot" checked onchange="updateSchedFields()"> &#128197; One-Shot</label>
+                <label class="pill-green"><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> &#128336; Cron</label>
+                <label class="pill-orange"><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> &#9889; On-Demand</label>
+                <label class="pill-purple"><input type="radio" name="sched-type" value="event" onchange="updateSchedFields()"> &#128276; Event</label>
             </div>
         </div>
         <div class="form-group" id="oneshot-field">
@@ -3455,10 +3464,10 @@ print("Redis: " + result.response);</code></pre>
             <div class="form-group">
                 <label>Target</label>
                 <div class="radio-group">
-                    <label><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> Local</label>
-                    <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> Specific Agent</label>
-                    <label><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> Any Agent</label>
-                    <label><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> All Agents</label>
+                    <label class="pill-green"><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> &#127968; Local</label>
+                    <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> &#128421; Specific Agent</label>
+                    <label class="pill-orange"><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> &#127922; Any Agent</label>
+                    <label class="pill-red"><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> &#127760; All Agents</label>
                 </div>
             </div>
             <div class="form-group" id="agent-select-field" style="display:none">
@@ -3467,6 +3476,50 @@ print("Redis: " + result.response);</code></pre>
             </div>
         </div><!-- end standard-target-section -->
         </div><!-- end job-tab-target -->
+        <div class="modal-tab-content" id="job-tab-rules">
+            <div class="form-group">
+                <label>&#128279; Dependencies</label>
+                <div class="form-hint">Only run if selected jobs completed successfully within the time window.</div>
+                <div id="deps-container">
+                    <div id="deps-entries"></div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>&#128270; Output Extractions</label>
+                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail.</div>
+                <div id="extractions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addExtractionRow()" style="margin-top:4px">+ Add Extraction</button>
+            </div>
+            <div class="form-group">
+                <label>&#9889; Output Triggers</label>
+                <div class="form-hint">Emit events when output matches a pattern. Use with event-triggered jobs to react to output.</div>
+                <div id="triggers-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addTriggerRow()" style="margin-top:4px">+ Add Trigger</button>
+            </div>
+            <div class="form-group">
+                <label>&#10004; Output Assertions</label>
+                <div class="form-hint">Fail the execution if expected patterns are NOT found in stdout. Only checked on successful runs.</div>
+                <div id="assertions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addAssertionRow()" style="margin-top:4px">+ Add Assertion</button>
+            </div>
+        </div><!-- end job-tab-rules -->
+        <div class="modal-tab-content" id="job-tab-notifications">
+            <div class="form-group">
+                <label>&#128276; Alert Conditions</label>
+                <div class="form-hint">Send email/SMS alerts when this job's executions match these conditions. Configure notification channels in Settings.</div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+                    <label class="pill-red" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-failure" style="display:none"> &#10060; On failure</label>
+                    <label class="pill-green" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-success" style="display:none"> &#10004; On success</label>
+                    <label class="pill-orange" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-assertion" style="display:none"> &#9888; On assertion failure</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>&#128231; Recipient Override (optional)</label>
+                <div class="form-hint">Override the global notification recipients for this job. Leave blank to use the default recipients from Settings.</div>
+                <input id="f-notif-emails" type="text" placeholder="ops@example.com, oncall@example.com" style="margin-top:4px">
+            </div>
+        </div><!-- end job-tab-notifications -->
         <div class="modal-tab-content" id="job-tab-advanced">
             <div class="form-group">
                 <label>Description (optional)</label>
@@ -3479,42 +3532,6 @@ print("Redis: " + result.response);</code></pre>
             <div class="form-group">
                 <label>Timeout (seconds, optional)</label>
                 <input id="f-timeout" type="number" min="1" placeholder="300">
-            </div>
-            <div class="form-group">
-                <label>Dependencies</label>
-                <div class="form-hint">Only run if selected jobs completed successfully within the time window.</div>
-                <div id="deps-container">
-                    <div id="deps-entries"></div>
-                    <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Output Extractions</label>
-                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail.</div>
-                <div id="extractions-container"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addExtractionRow()" style="margin-top:4px">+ Add Extraction</button>
-            </div>
-            <div class="form-group">
-                <label>Output Triggers</label>
-                <div class="form-hint">Emit events when output matches a pattern. Use with event-triggered jobs to react to output.</div>
-                <div id="triggers-container"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addTriggerRow()" style="margin-top:4px">+ Add Trigger</button>
-            </div>
-            <div class="form-group">
-                <label>Output Assertions</label>
-                <div class="form-hint">Fail the execution if expected patterns are NOT found in stdout. Only checked on successful runs.</div>
-                <div id="assertions-container"></div>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="addAssertionRow()" style="margin-top:4px">+ Add Assertion</button>
-            </div>
-            <div class="form-group">
-                <label>Notifications</label>
-                <div class="form-hint">Send email/SMS alerts when this job's executions match these conditions.</div>
-                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-failure"> On failure</label>
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-success"> On success</label>
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-assertion"> On assertion failure</label>
-                </div>
-                <input id="f-notif-emails" type="text" placeholder="Override recipients (comma-separated emails, optional)" style="margin-top:4px">
             </div>
         </div><!-- end job-tab-advanced -->
         </div><!-- end modal-body -->
