@@ -34,7 +34,7 @@ pub struct AppState {
     pub script_store: crate::scripts::ScriptStore,
 }
 
-const DASHBOARD_HTML: &str = include_str!("../dashboard.html");
+const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
 
 #[derive(Serialize)]
 pub(crate) struct PaginatedResponse<T: serde::Serialize> {
