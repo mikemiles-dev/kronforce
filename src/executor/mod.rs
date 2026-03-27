@@ -6,6 +6,8 @@ pub use local::run_task;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use regex::Regex;
+
 use chrono::Utc;
 use tokio::sync::{Mutex, oneshot};
 use uuid::Uuid;
@@ -53,18 +55,32 @@ impl Executor {
         trigger: TriggerSource,
         callback_base_url: &str,
     ) -> Result<Uuid, AppError> {
+        // Substitute global variables in task fields
+        let mut job = job.clone();
+        let db = self.db.clone();
+        let task_clone = job.task.clone();
+        let substituted = tokio::task::spawn_blocking(move || {
+            let vars = db.get_all_variables_map()?;
+            Ok::<_, AppError>(substitute_variables(&task_clone, &vars))
+        })
+        .await
+        .unwrap()?;
+        if let Some(new_task) = substituted {
+            job.task = new_task;
+        }
+
         match &job.target {
-            None | Some(AgentTarget::Local) => self.execute_local(job, trigger).await,
+            None | Some(AgentTarget::Local) => self.execute_local(&job, trigger).await,
             Some(AgentTarget::Agent { agent_id }) => {
-                self.dispatch_to_agent(*agent_id, job, trigger, callback_base_url)
+                self.dispatch_to_agent(*agent_id, &job, trigger, callback_base_url)
                     .await
             }
             Some(AgentTarget::Tagged { tag }) => {
-                self.dispatch_to_tagged(tag, job, trigger, callback_base_url)
+                self.dispatch_to_tagged(tag, &job, trigger, callback_base_url)
                     .await
             }
-            Some(AgentTarget::Any) => self.dispatch_to_any(job, trigger, callback_base_url).await,
-            Some(AgentTarget::All) => self.dispatch_to_all(job, trigger, callback_base_url).await,
+            Some(AgentTarget::Any) => self.dispatch_to_any(&job, trigger, callback_base_url).await,
+            Some(AgentTarget::All) => self.dispatch_to_all(&job, trigger, callback_base_url).await,
         }
     }
 
@@ -75,6 +91,46 @@ impl Executor {
             true
         } else {
             false
+        }
+    }
+}
+
+/// Substitute `{{VAR_NAME}}` placeholders in task fields with variable values.
+/// Returns None if no substitutions were needed, or Some(new_task) with resolved values.
+pub fn substitute_variables(task: &TaskType, vars: &HashMap<String, String>) -> Option<TaskType> {
+    if vars.is_empty() {
+        return None;
+    }
+    let json_str = serde_json::to_string(task).ok()?;
+    if !json_str.contains("{{") {
+        return None;
+    }
+
+    let re = Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}").unwrap();
+    let mut had_substitution = false;
+    let result = re.replace_all(&json_str, |caps: &regex::Captures| {
+        let var_name = &caps[1];
+        if let Some(value) = vars.get(var_name) {
+            had_substitution = true;
+            // JSON-escape the value for safe embedding in a JSON string
+            let escaped = serde_json::to_string(value).unwrap();
+            // Strip the surrounding quotes since we're inside an existing JSON string
+            escaped[1..escaped.len() - 1].to_string()
+        } else {
+            tracing::warn!("unresolved variable reference: {{{{{}}}}}", var_name);
+            caps[0].to_string()
+        }
+    });
+
+    if !had_substitution {
+        return None;
+    }
+
+    match serde_json::from_str(&result) {
+        Ok(new_task) => Some(new_task),
+        Err(e) => {
+            tracing::error!("variable substitution produced invalid JSON: {}", e);
+            None
         }
     }
 }

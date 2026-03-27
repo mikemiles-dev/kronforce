@@ -70,7 +70,7 @@ Pull structured values from unstructured output using regex or JSON path:
     "output_rules": {
         "extractions": [
             { "name": "duration_ms", "pattern": "completed in (\\d+)ms", "type": "regex" },
-            { "name": "record_count", "pattern": "$.results.count", "type": "jsonpath" }
+            { "name": "record_count", "pattern": "$.results.count", "type": "jsonpath", "write_to_variable": "LAST_RECORD_COUNT" }
         ]
     }
 }
@@ -79,7 +79,18 @@ Pull structured values from unstructured output using regex or JSON path:
 - **Regex**: Captures group 1 (or named groups) as the value
 - **JSON path**: Parses stdout as JSON and traverses dot-notation paths (e.g., `$.data.total`)
 - Extracted values are stored on the execution and displayed in the execution detail modal
+- **Write to variable**: Optionally set `write_to_variable` on an extraction rule to upsert the extracted value into a global variable. This enables job chaining — one job extracts a value, another job uses it via `{{VAR_NAME}}` substitution.
 - Maximum 10 extraction rules per job
+
+### Global Variables
+
+Global variables are shared key-value pairs that can be referenced in any task field using `{{VAR_NAME}}` syntax. Variables are substituted controller-side before execution, so they work for both local and remote agent jobs.
+
+- **Manage variables** in the Variables page or via `POST/PUT/DELETE /api/variables`
+- **Use in tasks**: Reference variables in shell commands, HTTP URLs, SQL queries, message bodies, etc. — e.g., `curl {{API_HOST}}/status`
+- **Auto-update from jobs**: Set `write_to_variable` on an extraction rule to have a job update a variable with its output
+- **Pipeline pattern**: Job A extracts a value into `DEPLOY_VERSION`, Job B uses `{{DEPLOY_VERSION}}` in its command
+- Unresolved `{{VAR}}` references are left as-is (with a warning logged), so shell variables like `${HOME}` are unaffected
 
 ### Output Triggers
 

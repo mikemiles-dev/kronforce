@@ -9,6 +9,7 @@ fn test_regex_extraction_group1() {
         name: "duration".to_string(),
         pattern: r"took (\d+)ms".to_string(),
         rule_type: "regex".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions("Processing took 245ms total", &rules);
     assert_eq!(result.get("duration").unwrap(), "245");
@@ -20,6 +21,7 @@ fn test_regex_extraction_no_match() {
         name: "missing".to_string(),
         pattern: r"not_found_(\d+)".to_string(),
         rule_type: "regex".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions("no match here", &rules);
     assert!(!result.contains_key("missing"));
@@ -32,11 +34,13 @@ fn test_regex_extraction_multiple_rules() {
             name: "status".to_string(),
             pattern: r"status: (\w+)".to_string(),
             rule_type: "regex".to_string(),
+            write_to_variable: None,
         },
         ExtractionRule {
             name: "count".to_string(),
             pattern: r"processed (\d+) records".to_string(),
             rule_type: "regex".to_string(),
+            write_to_variable: None,
         },
     ];
     let result = run_extractions("status: healthy, processed 42 records", &rules);
@@ -50,6 +54,7 @@ fn test_jsonpath_extraction() {
         name: "count".to_string(),
         pattern: "$.results.count".to_string(),
         rule_type: "jsonpath".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions(r#"{"results": {"count": 42}}"#, &rules);
     assert_eq!(result.get("count").unwrap(), "42");
@@ -61,6 +66,7 @@ fn test_jsonpath_extraction_string_value() {
         name: "status".to_string(),
         pattern: "$.status".to_string(),
         rule_type: "jsonpath".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions(r#"{"status": "healthy"}"#, &rules);
     assert_eq!(result.get("status").unwrap(), "healthy");
@@ -72,6 +78,7 @@ fn test_jsonpath_extraction_invalid_json() {
         name: "val".to_string(),
         pattern: "$.key".to_string(),
         rule_type: "jsonpath".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions("not json at all", &rules);
     assert!(!result.contains_key("val"));
@@ -83,6 +90,7 @@ fn test_jsonpath_extraction_missing_path() {
         name: "val".to_string(),
         pattern: "$.nonexistent.path".to_string(),
         rule_type: "jsonpath".to_string(),
+        write_to_variable: None,
     }];
     let result = run_extractions(r#"{"other": "data"}"#, &rules);
     assert!(!result.contains_key("val"));

@@ -6,6 +6,7 @@ mod executions;
 mod jobs;
 mod scripts;
 mod settings;
+mod variables;
 
 use axum::middleware;
 use axum::response::Html;
@@ -104,6 +105,16 @@ pub fn router(state: AppState) -> Router {
             get(settings::get_settings).put(settings::update_settings),
         )
         .route("/api/notifications/test", post(settings::test_notification))
+        .route(
+            "/api/variables",
+            get(variables::list_variables).post(variables::create_variable),
+        )
+        .route(
+            "/api/variables/{name}",
+            get(variables::get_variable)
+                .put(variables::update_variable)
+                .delete(variables::delete_variable),
+        )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::auth_middleware,

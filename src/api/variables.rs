@@ -1,0 +1,114 @@
+use axum::Json;
+use axum::extract::{Path, State};
+use chrono::Utc;
+use serde::Deserialize;
+
+use super::AppState;
+use super::auth::AuthUser;
+use crate::error::AppError;
+use crate::models::Variable;
+
+pub(crate) async fn list_variables(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<Variable>>, AppError> {
+    let db = state.db.clone();
+    let vars = tokio::task::spawn_blocking(move || db.list_variables())
+        .await
+        .unwrap()?;
+    Ok(Json(vars))
+}
+
+pub(crate) async fn get_variable(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Variable>, AppError> {
+    let db = state.db.clone();
+    let var = tokio::task::spawn_blocking(move || db.get_variable(&name))
+        .await
+        .unwrap()?;
+    match var {
+        Some(v) => Ok(Json(v)),
+        None => Err(AppError::NotFound("variable not found".into())),
+    }
+}
+
+fn validate_variable_name(name: &str) -> Result<(), AppError> {
+    if name.is_empty() {
+        return Err(AppError::BadRequest("variable name cannot be empty".into()));
+    }
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+        return Err(AppError::BadRequest(
+            "variable name must contain only alphanumeric characters and underscores".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Deserialize)]
+pub(crate) struct CreateVariableRequest {
+    name: String,
+    value: String,
+}
+
+pub(crate) async fn create_variable(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Json(req): Json<CreateVariableRequest>,
+) -> Result<(axum::http::StatusCode, Json<Variable>), AppError> {
+    validate_variable_name(&req.name)?;
+
+    let var = Variable {
+        name: req.name,
+        value: req.value,
+        updated_at: Utc::now(),
+    };
+    let db = state.db.clone();
+    let var_clone = var.clone();
+    tokio::task::spawn_blocking(move || db.insert_variable(&var_clone))
+        .await
+        .unwrap()?;
+    Ok((axum::http::StatusCode::CREATED, Json(var)))
+}
+
+#[derive(Deserialize)]
+pub(crate) struct UpdateVariableRequest {
+    value: String,
+}
+
+pub(crate) async fn update_variable(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateVariableRequest>,
+) -> Result<Json<Variable>, AppError> {
+    let db = state.db.clone();
+    let name_clone = name.clone();
+    let value = req.value.clone();
+    let updated = tokio::task::spawn_blocking(move || db.update_variable(&name_clone, &value))
+        .await
+        .unwrap()?;
+    if !updated {
+        return Err(AppError::NotFound("variable not found".into()));
+    }
+    let db = state.db.clone();
+    let var = tokio::task::spawn_blocking(move || db.get_variable(&name))
+        .await
+        .unwrap()?
+        .unwrap();
+    Ok(Json(var))
+}
+
+pub(crate) async fn delete_variable(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    _auth: AuthUser,
+) -> Result<axum::http::StatusCode, AppError> {
+    let db = state.db.clone();
+    let deleted = tokio::task::spawn_blocking(move || db.delete_variable(&name))
+        .await
+        .unwrap()?;
+    if !deleted {
+        return Err(AppError::NotFound("variable not found".into()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}

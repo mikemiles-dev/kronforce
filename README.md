@@ -79,7 +79,8 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 - **Task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai Script, and Custom agent types
 - **Custom agents** — pull-based agents in any language with UI-managed task type definitions
 - **Execution modes** — Standard or Custom Agent mode in job creation
-- **Output intelligence** — extract values from output (regex/jsonpath), trigger events on patterns, diff output across runs
+- **Output intelligence** — extract values from output (regex/jsonpath), trigger events on patterns, diff output across runs, write extracted values to global variables
+- **Global variables** — shared key-value store with `{{VAR_NAME}}` substitution in all task fields, updatable via UI, API, or output extraction write-back
 - **Cron scheduling** — 6-field second-precision cron with visual builder
 - **Event triggers** — fire jobs reactively on system events or output pattern matches
 - **Dependency DAG** — job dependencies with time windows and visual map
@@ -97,6 +98,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 | Agents | Agent cards with custom agent task type editor |
 | Scripts | Rhai script editor with syntax highlighting |
 | Events | Activity feed |
+| Variables | Global key-value variable management with inline editing |
 | Docs | In-app documentation for all features |
 | Settings | Theme, API keys, data retention |
 
