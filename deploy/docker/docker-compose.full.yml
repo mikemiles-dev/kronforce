@@ -8,7 +8,9 @@
 
 services:
   controller:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     command: kronforce
     ports:
       - "8080:8080"
@@ -30,7 +32,9 @@ services:
       retries: 3
 
   agent:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     command: kronforce-agent
     depends_on:
       controller:

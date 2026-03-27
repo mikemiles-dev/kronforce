@@ -1147,8 +1147,8 @@ async fn run_script(
     }
 }
 
-/// Max bytes stored per stream (256KB). Output beyond this is truncated from the front (keeps tail).
-const MAX_OUTPUT_BYTES: usize = 256 * 1024;
+/// Max bytes stored per stream (10MB). Output beyond this is truncated from the front (keeps tail).
+const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
 
 pub struct CapturedOutput {
     pub text: String,

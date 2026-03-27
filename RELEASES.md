@@ -39,7 +39,7 @@ Kronforce follows [Semantic Versioning](https://semver.org/):
 - [ ] `cargo test --all` — all tests pass
 - [ ] Migration tested: fresh DB creates successfully
 - [ ] Migration tested: upgrade from previous version works
-- [ ] Docker build succeeds: `docker compose -f docker-compose.full.yml build`
+- [ ] Docker build succeeds: `docker compose -f deploy/docker/docker-compose.full.yml build`
 - [ ] Docker stack runs: controller starts, agent connects
 - [ ] Manual smoke test: create job, trigger, verify execution
 - [ ] Documentation is current (README, docs/, in-app docs)
@@ -75,7 +75,7 @@ Each release includes:
 
 ## Docker Images
 
-Docker images are built from the `Dockerfile` in the repository root. Three compose configurations are provided:
+Docker images are built from `deploy/docker/Dockerfile`. Three compose configurations are provided in `deploy/docker/`:
 
 - `docker-compose.yml` — controller only (production)
 - `docker-compose.agent.yml` — agent only (production, separate machine)

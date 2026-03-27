@@ -17,7 +17,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
 - **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent). Bootstrap keys generated on first startup.
-- **Docker ready** — single Dockerfile, separate compose files for controller and agent, pre-set key bootstrapping
+- **Docker ready** — single Dockerfile in `deploy/docker/`, separate compose files for controller and agent, pre-set key bootstrapping
 
 ## Quick Start
 
