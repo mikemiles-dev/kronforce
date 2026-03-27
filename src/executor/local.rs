@@ -115,10 +115,19 @@ impl super::Executor {
                                 for rule in &rules.extractions {
                                     if let Some(ref var_name) = rule.write_to_variable {
                                         if let Some(value) = extracted.get(&rule.name) {
-                                            if let Err(e) = db_rules.upsert_variable(var_name, value) {
-                                                tracing::error!("failed to write variable {}: {}", var_name, e);
+                                            if let Err(e) =
+                                                db_rules.upsert_variable(var_name, value)
+                                            {
+                                                tracing::error!(
+                                                    "failed to write variable {}: {}",
+                                                    var_name,
+                                                    e
+                                                );
                                             } else {
-                                                tracing::info!("variable {} updated from extraction", var_name);
+                                                tracing::info!(
+                                                    "variable {} updated from extraction",
+                                                    var_name
+                                                );
                                             }
                                         }
                                     }

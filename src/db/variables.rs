@@ -22,9 +22,7 @@ impl Db {
         let mut stmt = conn
             .prepare("SELECT name, value, updated_at FROM variables ORDER BY name")
             .map_err(AppError::Db)?;
-        let rows = stmt
-            .query_map([], parse_variable)
-            .map_err(AppError::Db)?;
+        let rows = stmt.query_map([], parse_variable).map_err(AppError::Db)?;
         let mut vars = Vec::new();
         for row in rows {
             vars.push(row.map_err(AppError::Db)?);
@@ -87,7 +85,9 @@ impl Db {
         Ok(())
     }
 
-    pub fn get_all_variables_map(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
+    pub fn get_all_variables_map(
+        &self,
+    ) -> Result<std::collections::HashMap<String, String>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
             .prepare("SELECT name, value FROM variables")

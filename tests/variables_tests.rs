@@ -133,7 +133,10 @@ fn test_substitute_single_variable() {
         command: "curl {{API_HOST}}/status".to_string(),
     };
     let mut vars = HashMap::new();
-    vars.insert("API_HOST".to_string(), "https://api.example.com".to_string());
+    vars.insert(
+        "API_HOST".to_string(),
+        "https://api.example.com".to_string(),
+    );
 
     let result = substitute_variables(&task, &vars).unwrap();
     if let TaskType::Shell { command } = result {
@@ -218,7 +221,10 @@ fn test_substitute_http_task() {
         expect_status: None,
     };
     let mut vars = HashMap::new();
-    vars.insert("BASE_URL".to_string(), "https://api.example.com".to_string());
+    vars.insert(
+        "BASE_URL".to_string(),
+        "https://api.example.com".to_string(),
+    );
 
     let result = substitute_variables(&task, &vars).unwrap();
     if let TaskType::Http { url, .. } = result {
