@@ -22,7 +22,7 @@ fn test_regex_extraction_no_match() {
         rule_type: "regex".to_string(),
     }];
     let result = run_extractions("no match here", &rules);
-    assert!(result.get("missing").is_none());
+    assert!(!result.contains_key("missing"));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn test_jsonpath_extraction_invalid_json() {
         rule_type: "jsonpath".to_string(),
     }];
     let result = run_extractions("not json at all", &rules);
-    assert!(result.get("val").is_none());
+    assert!(!result.contains_key("val"));
 }
 
 #[test]
@@ -85,7 +85,7 @@ fn test_jsonpath_extraction_missing_path() {
         rule_type: "jsonpath".to_string(),
     }];
     let result = run_extractions(r#"{"other": "data"}"#, &rules);
-    assert!(result.get("val").is_none());
+    assert!(!result.contains_key("val"));
 }
 
 // --- Triggers ---
@@ -135,8 +135,14 @@ fn test_trigger_regex_pattern() {
 #[test]
 fn test_trigger_multiple_matches() {
     let triggers = vec![
-        OutputTrigger { pattern: "ERROR".to_string(), severity: "error".to_string() },
-        OutputTrigger { pattern: "WARNING".to_string(), severity: "warning".to_string() },
+        OutputTrigger {
+            pattern: "ERROR".to_string(),
+            severity: "error".to_string(),
+        },
+        OutputTrigger {
+            pattern: "WARNING".to_string(),
+            severity: "warning".to_string(),
+        },
     ];
     let matches = run_triggers("ERROR and WARNING found", "", &triggers);
     assert_eq!(matches.len(), 2);
@@ -193,8 +199,14 @@ fn test_assertion_regex_pattern() {
 #[test]
 fn test_multiple_assertions() {
     let assertions = vec![
-        OutputAssertion { pattern: "started".to_string(), message: None },
-        OutputAssertion { pattern: "completed".to_string(), message: None },
+        OutputAssertion {
+            pattern: "started".to_string(),
+            message: None,
+        },
+        OutputAssertion {
+            pattern: "completed".to_string(),
+            message: None,
+        },
     ];
     let result = run_assertions("Job started and completed", &assertions);
     assert_eq!(result.len(), 0);

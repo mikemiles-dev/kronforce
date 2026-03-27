@@ -11,13 +11,12 @@ pub struct ControllerConfig {
 
 impl ControllerConfig {
     pub fn from_env() -> Self {
-        let bind_addr = std::env::var("KRONFORCE_BIND")
-            .unwrap_or_else(|_| "0.0.0.0:8080".to_string());
+        let bind_addr =
+            std::env::var("KRONFORCE_BIND").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
         let callback_base_url = std::env::var("KRONFORCE_CALLBACK_URL")
             .unwrap_or_else(|_| format!("http://{}", bind_addr));
         Self {
-            db_path: std::env::var("KRONFORCE_DB")
-                .unwrap_or_else(|_| "kronforce.db".to_string()),
+            db_path: std::env::var("KRONFORCE_DB").unwrap_or_else(|_| "kronforce.db".to_string()),
             bind_addr,
             tick_interval: Duration::from_secs(
                 std::env::var("KRONFORCE_TICK_SECS")
@@ -51,8 +50,8 @@ pub struct AgentConfig {
 
 impl AgentConfig {
     pub fn from_env() -> Self {
-        let bind_addr = std::env::var("KRONFORCE_AGENT_BIND")
-            .unwrap_or_else(|_| "0.0.0.0:8081".to_string());
+        let bind_addr =
+            std::env::var("KRONFORCE_AGENT_BIND").unwrap_or_else(|_| "0.0.0.0:8081".to_string());
         let port: u16 = bind_addr
             .rsplit(':')
             .next()
@@ -86,7 +85,9 @@ impl AgentConfig {
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(10),
             ),
-            agent_key: std::env::var("KRONFORCE_AGENT_KEY").ok().filter(|s| !s.is_empty()),
+            agent_key: std::env::var("KRONFORCE_AGENT_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
         }
     }
 }

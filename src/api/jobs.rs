@@ -1,11 +1,11 @@
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AppState, PaginatedResponse, log_and_notify};
 use super::auth::AuthUser;
+use super::{AppState, PaginatedResponse, log_and_notify};
 use crate::cron_parser::CronSchedule;
 use crate::db::Db;
 use crate::error::AppError;
@@ -108,7 +108,12 @@ pub(crate) async fn list_jobs(
 
     let db = state.db.clone();
     let jobs = tokio::task::spawn_blocking(move || {
-        db.list_jobs(filter_owned.as_deref(), search_owned.as_deref(), per_page, offset)
+        db.list_jobs(
+            filter_owned.as_deref(),
+            search_owned.as_deref(),
+            per_page,
+            offset,
+        )
     })
     .await
     .unwrap()?;
@@ -122,7 +127,11 @@ pub(crate) async fn list_jobs(
     .await
     .unwrap();
 
-    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(per_page)
+    };
 
     Ok(Json(PaginatedResponse {
         data: responses,
@@ -144,10 +153,12 @@ pub(crate) async fn create_job(
     }
 
     // Validate file push size limit (5MB = ~6.7MB base64)
-    if let TaskType::FilePush { ref content_base64, .. } = req.task {
-        if content_base64.len() > 7_000_000 {
-            return Err(AppError::BadRequest("file exceeds 5MB limit".to_string()));
-        }
+    if let TaskType::FilePush {
+        ref content_base64, ..
+    } = req.task
+        && content_base64.len() > 7_000_000
+    {
+        return Err(AppError::BadRequest("file exceeds 5MB limit".to_string()));
     }
 
     let depends_on = req.depends_on.unwrap_or_default();
@@ -188,10 +199,23 @@ pub(crate) async fn create_job(
         .unwrap()?;
 
     // Tell scheduler to reload
-    let _ = state.scheduler_tx.send(crate::scheduler::SchedulerCommand::Reload).await;
+    let _ = state
+        .scheduler_tx
+        .send(crate::scheduler::SchedulerCommand::Reload)
+        .await;
 
-    log_and_notify(&state.db, &state.scheduler_tx, "job.created", EventSeverity::Info,
-        &format!("Job '{}' created", job.name), Some(job.id), None, &auth, None).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "job.created",
+        EventSeverity::Info,
+        &format!("Job '{}' created", job.name),
+        Some(job.id),
+        None,
+        &auth,
+        None,
+    )
+    .await;
 
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
@@ -287,20 +311,45 @@ pub(crate) async fn update_job(
         .await
         .unwrap()?;
 
-    let _ = state.scheduler_tx.send(crate::scheduler::SchedulerCommand::Reload).await;
+    let _ = state
+        .scheduler_tx
+        .send(crate::scheduler::SchedulerCommand::Reload)
+        .await;
 
     // Build audit diff
     let mut changes = Vec::new();
     let new_task = serde_json::to_string(&job.task).unwrap_or_default();
     let new_schedule = serde_json::to_string(&job.schedule).unwrap_or_default();
-    if old_task != new_task { changes.push(format!("task: {} -> {}", old_task, new_task)); }
-    if old_schedule != new_schedule { changes.push(format!("schedule: {} -> {}", old_schedule, new_schedule)); }
-    if old_status != job.status.as_str() { changes.push(format!("status: {} -> {}", old_status, job.status.as_str())); }
-    if old_run_as != job.run_as { changes.push(format!("run_as: {:?} -> {:?}", old_run_as, job.run_as)); }
-    let details = if changes.is_empty() { None } else { Some(changes.join("; ")) };
+    if old_task != new_task {
+        changes.push(format!("task: {} -> {}", old_task, new_task));
+    }
+    if old_schedule != new_schedule {
+        changes.push(format!("schedule: {} -> {}", old_schedule, new_schedule));
+    }
+    if old_status != job.status.as_str() {
+        changes.push(format!("status: {} -> {}", old_status, job.status.as_str()));
+    }
+    if old_run_as != job.run_as {
+        changes.push(format!("run_as: {:?} -> {:?}", old_run_as, job.run_as));
+    }
+    let details = if changes.is_empty() {
+        None
+    } else {
+        Some(changes.join("; "))
+    };
 
-    log_and_notify(&state.db, &state.scheduler_tx, "job.updated", EventSeverity::Info,
-        &format!("Job '{}' updated", job.name), Some(job.id), None, &auth, details).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "job.updated",
+        EventSeverity::Info,
+        &format!("Job '{}' updated", job.name),
+        Some(job.id),
+        None,
+        &auth,
+        details,
+    )
+    .await;
 
     let db2 = state.db.clone();
     let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
@@ -319,9 +368,22 @@ pub(crate) async fn delete_job(
         .await
         .unwrap()?;
 
-    let _ = state.scheduler_tx.send(crate::scheduler::SchedulerCommand::Reload).await;
-    log_and_notify(&state.db, &state.scheduler_tx, "job.deleted", EventSeverity::Warning,
-        &format!("Job deleted ({})", id), Some(id), None, &auth, None).await;
+    let _ = state
+        .scheduler_tx
+        .send(crate::scheduler::SchedulerCommand::Reload)
+        .await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "job.deleted",
+        EventSeverity::Warning,
+        &format!("Job deleted ({})", id),
+        Some(id),
+        None,
+        &auth,
+        None,
+    )
+    .await;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -342,8 +404,18 @@ pub(crate) async fn trigger_job(
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 
-    log_and_notify(&state.db, &state.scheduler_tx, "job.triggered", EventSeverity::Info,
-        &format!("Job manually triggered ({})", id), Some(id), None, &auth, None).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "job.triggered",
+        EventSeverity::Info,
+        &format!("Job manually triggered ({})", id),
+        Some(id),
+        None,
+        &auth,
+        None,
+    )
+    .await;
 
     Ok(Json(TriggerResponse {
         message: "job triggered".to_string(),
@@ -380,36 +452,40 @@ pub(crate) fn build_job_response(job: Job, db: &Db) -> JobResponse {
             exit_code: e.exit_code,
             finished_at: e.finished_at,
         });
-    let (total, succeeded, failed) = db
-        .get_execution_counts(job.id)
-        .unwrap_or((0, 0, 0));
+    let (total, succeeded, failed) = db.get_execution_counts(job.id).unwrap_or((0, 0, 0));
 
     // Check dependency status
     let now = chrono::Utc::now();
     let mut all_satisfied = true;
-    let deps_status: Vec<DepStatus> = job.depends_on.iter().map(|dep| {
-        let dep_job = db.get_job(dep.job_id).ok().flatten();
-        let dep_name = dep_job.map(|j| j.name);
-        let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
-            Some(exec) if exec.status == ExecutionStatus::Succeeded => {
-                if let Some(within) = dep.within_secs {
-                    exec.finished_at
-                        .map(|f| (now - f).num_seconds() <= within as i64)
-                        .unwrap_or(false)
-                } else {
-                    true
+    let deps_status: Vec<DepStatus> = job
+        .depends_on
+        .iter()
+        .map(|dep| {
+            let dep_job = db.get_job(dep.job_id).ok().flatten();
+            let dep_name = dep_job.map(|j| j.name);
+            let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
+                Some(exec) if exec.status == ExecutionStatus::Succeeded => {
+                    if let Some(within) = dep.within_secs {
+                        exec.finished_at
+                            .map(|f| (now - f).num_seconds() <= within as i64)
+                            .unwrap_or(false)
+                    } else {
+                        true
+                    }
                 }
+                _ => false,
+            };
+            if !satisfied {
+                all_satisfied = false;
             }
-            _ => false,
-        };
-        if !satisfied { all_satisfied = false; }
-        DepStatus {
-            job_id: dep.job_id,
-            job_name: dep_name,
-            within_secs: dep.within_secs,
-            satisfied,
-        }
-    }).collect();
+            DepStatus {
+                job_id: dep.job_id,
+                job_name: dep_name,
+                within_secs: dep.within_secs,
+                satisfied,
+            }
+        })
+        .collect();
 
     JobResponse {
         job,

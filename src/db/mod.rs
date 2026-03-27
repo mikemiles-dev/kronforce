@@ -10,7 +10,7 @@ mod settings;
 use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use crate::error::AppError;
 
@@ -38,11 +38,16 @@ impl Db {
                 version INTEGER PRIMARY KEY,
                 applied_at TEXT NOT NULL,
                 description TEXT NOT NULL
-            );"
-        ).map_err(AppError::Db)?;
+            );",
+        )
+        .map_err(AppError::Db)?;
 
         let current_version: i64 = conn
-            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| row.get(0))
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |row| row.get(0),
+            )
             .unwrap_or(0);
 
         tracing::info!("database schema version: {}", current_version);
@@ -179,12 +184,18 @@ impl Db {
             // Execute each statement separately (ALTER TABLE can't be batched with others that might fail)
             for stmt in sql.split(';') {
                 let stmt = stmt.trim();
-                if stmt.is_empty() { continue; }
+                if stmt.is_empty() {
+                    continue;
+                }
                 if let Err(e) = conn.execute_batch(stmt) {
                     // Ignore "duplicate column" errors for idempotency
                     let err_str = e.to_string();
                     if err_str.contains("duplicate column") || err_str.contains("already exists") {
-                        tracing::debug!("migration v{}: skipping (already applied): {}", version, err_str);
+                        tracing::debug!(
+                            "migration v{}: skipping (already applied): {}",
+                            version,
+                            err_str
+                        );
                     } else {
                         tracing::error!("migration v{} failed: {}", version, e);
                         return Err(AppError::Db(e));
@@ -194,7 +205,8 @@ impl Db {
             conn.execute(
                 "INSERT INTO schema_version (version, applied_at, description) VALUES (?1, ?2, ?3)",
                 params![version, Utc::now().to_rfc3339(), description],
-            ).map_err(AppError::Db)?;
+            )
+            .map_err(AppError::Db)?;
             tracing::info!("migration v{} applied", version);
         }
 

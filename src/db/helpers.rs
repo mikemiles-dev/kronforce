@@ -139,8 +139,14 @@ pub(super) fn row_to_api_key(row: &rusqlite::Row) -> ApiKey {
         key_hash: row.get(2).unwrap(),
         name: row.get(3).unwrap(),
         role: ApiKeyRole::from_str(&role_str).unwrap_or(ApiKeyRole::Viewer),
-        created_at: DateTime::parse_from_rfc3339(&created_str).unwrap().with_timezone(&Utc),
-        last_used_at: last_used_str.map(|s| DateTime::parse_from_rfc3339(&s).unwrap().with_timezone(&Utc)),
+        created_at: DateTime::parse_from_rfc3339(&created_str)
+            .unwrap()
+            .with_timezone(&Utc),
+        last_used_at: last_used_str.map(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .unwrap()
+                .with_timezone(&Utc)
+        }),
         active: active_int != 0,
     }
 }

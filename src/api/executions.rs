@@ -1,5 +1,5 @@
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -44,7 +44,11 @@ pub(crate) async fn list_executions(
             .await
             .unwrap()?;
 
-    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(per_page)
+    };
 
     Ok(Json(PaginatedResponse {
         data: recs,
@@ -70,16 +74,30 @@ pub(crate) async fn list_all_executions(
     let s2 = status.clone();
     let q2 = search.clone();
     let t2 = since.clone();
-    let total = tokio::task::spawn_blocking(move || db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref()))
-        .await
-        .unwrap()?;
+    let total = tokio::task::spawn_blocking(move || {
+        db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref())
+    })
+    .await
+    .unwrap()?;
 
     let db = state.db.clone();
-    let recs = tokio::task::spawn_blocking(move || db.list_all_executions(status.as_deref(), search.as_deref(), since.as_deref(), per_page, offset))
-        .await
-        .unwrap()?;
+    let recs = tokio::task::spawn_blocking(move || {
+        db.list_all_executions(
+            status.as_deref(),
+            search.as_deref(),
+            since.as_deref(),
+            per_page,
+            offset,
+        )
+    })
+    .await
+    .unwrap()?;
 
-    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(per_page)
+    };
 
     Ok(Json(PaginatedResponse {
         data: recs,
@@ -112,5 +130,7 @@ pub(crate) async fn cancel_execution(
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 
-    Ok(Json(serde_json::json!({"message": "cancel request sent", "execution_id": id})))
+    Ok(Json(
+        serde_json::json!({"message": "cancel request sent", "execution_id": id}),
+    ))
 }

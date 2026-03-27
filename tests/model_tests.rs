@@ -4,7 +4,9 @@ use kronforce::models::*;
 
 #[test]
 fn test_shell_task_serde() {
-    let task = TaskType::Shell { command: "echo hello".to_string() };
+    let task = TaskType::Shell {
+        command: "echo hello".to_string(),
+    };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"shell\""));
     let back: TaskType = serde_json::from_str(&json).unwrap();
@@ -26,7 +28,13 @@ fn test_http_task_serde() {
     };
     let json = serde_json::to_string(&task).unwrap();
     let back: TaskType = serde_json::from_str(&json).unwrap();
-    if let TaskType::Http { method, url, expect_status, .. } = back {
+    if let TaskType::Http {
+        method,
+        url,
+        expect_status,
+        ..
+    } = back
+    {
         assert_eq!(method, HttpMethod::Post);
         assert_eq!(url, "https://example.com");
         assert_eq!(expect_status, Some(200));
@@ -58,7 +66,12 @@ fn test_file_push_task_serde() {
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"file_push\""));
     let back: TaskType = serde_json::from_str(&json).unwrap();
-    if let TaskType::FilePush { filename, overwrite, .. } = back {
+    if let TaskType::FilePush {
+        filename,
+        overwrite,
+        ..
+    } = back
+    {
         assert_eq!(filename, "app.conf");
         assert!(overwrite);
     } else {

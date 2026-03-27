@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 use uuid::Uuid;
 
-use super::helpers::*;
 use super::Db;
+use super::helpers::*;
 use crate::error::AppError;
 use crate::models::*;
 
@@ -11,7 +11,11 @@ impl Db {
     pub fn upsert_agent(&self, agent: &Agent) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let tags_json = serde_json::to_string(&agent.tags).unwrap();
-        let task_types_json = if agent.task_types.is_empty() { None } else { Some(serde_json::to_string(&agent.task_types).unwrap()) };
+        let task_types_json = if agent.task_types.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(&agent.task_types).unwrap())
+        };
         conn.execute(
             "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
@@ -119,7 +123,8 @@ impl Db {
 
     pub fn expire_agents(&self, timeout: std::time::Duration) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
-        let cutoff = (Utc::now() - chrono::Duration::seconds(timeout.as_secs() as i64)).to_rfc3339();
+        let cutoff =
+            (Utc::now() - chrono::Duration::seconds(timeout.as_secs() as i64)).to_rfc3339();
         conn.execute(
             "UPDATE agents SET status = 'offline' WHERE status = 'online' AND last_heartbeat < ?1",
             params![cutoff],
@@ -135,13 +140,22 @@ impl Db {
         Ok(())
     }
 
-    pub fn update_agent_task_types(&self, id: Uuid, task_types: &[crate::models::TaskTypeDefinition]) -> Result<(), AppError> {
+    pub fn update_agent_task_types(
+        &self,
+        id: Uuid,
+        task_types: &[crate::models::TaskTypeDefinition],
+    ) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
-        let json = if task_types.is_empty() { None } else { Some(serde_json::to_string(task_types).unwrap()) };
+        let json = if task_types.is_empty() {
+            None
+        } else {
+            Some(serde_json::to_string(task_types).unwrap())
+        };
         conn.execute(
             "UPDATE agents SET task_types_json = ?1 WHERE id = ?2",
             params![json, id.to_string()],
-        ).map_err(AppError::Db)?;
+        )
+        .map_err(AppError::Db)?;
         Ok(())
     }
 }

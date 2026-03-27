@@ -1,8 +1,8 @@
 use rusqlite::params;
 use uuid::Uuid;
 
-use super::helpers::*;
 use super::Db;
+use super::helpers::*;
 use crate::error::AppError;
 use crate::models::*;
 
@@ -11,9 +11,18 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
-        let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
-        let output_rules_json = job.output_rules.as_ref().map(|r| serde_json::to_string(r).unwrap());
-        let notifications_json = job.notifications.as_ref().map(|n| serde_json::to_string(n).unwrap());
+        let target_json = job
+            .target
+            .as_ref()
+            .map(|t| serde_json::to_string(t).unwrap());
+        let output_rules_json = job
+            .output_rules
+            .as_ref()
+            .map(|r| serde_json::to_string(r).unwrap());
+        let notifications_json = job
+            .notifications
+            .as_ref()
+            .map(|n| serde_json::to_string(n).unwrap());
         conn.execute(
             "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
@@ -35,15 +44,14 @@ impl Db {
                 notifications_json,
             ],
         ).map_err(|e| {
-            if let rusqlite::Error::SqliteFailure(ref err, _) = e {
-                if err.code == rusqlite::ErrorCode::ConstraintViolation {
+            if let rusqlite::Error::SqliteFailure(ref err, _) = e
+                && err.code == rusqlite::ErrorCode::ConstraintViolation {
                     let msg = e.to_string();
                     if msg.contains("name") {
                         return AppError::Conflict(format!("job name '{}' already exists", job.name));
                     }
                     return AppError::BadRequest(format!("constraint violation: {msg}"));
                 }
-            }
             AppError::Db(e)
         })?;
         Ok(())
@@ -89,12 +97,17 @@ impl Db {
         let sql = if where_clauses.is_empty() {
             "SELECT COUNT(*) FROM jobs".to_string()
         } else {
-            format!("SELECT COUNT(*) FROM jobs WHERE {}", where_clauses.join(" AND "))
+            format!(
+                "SELECT COUNT(*) FROM jobs WHERE {}",
+                where_clauses.join(" AND ")
+            )
         };
 
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
         stmt.query_row(params.as_slice(), |row| row.get(0))
             .map_err(AppError::Db)
     }
@@ -137,13 +150,17 @@ impl Db {
         } else {
             format!(
                 "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
-                where_clauses.join(" AND "), limit_idx, offset_idx
+                where_clauses.join(" AND "),
+                limit_idx,
+                offset_idx
             )
         };
 
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
         let rows = stmt
             .query_map(params.as_slice(), |row| Ok(row_to_job(row)))
             .map_err(AppError::Db)?;
@@ -158,7 +175,10 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
         let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
-        let target_json = job.target.as_ref().map(|t| serde_json::to_string(t).unwrap());
+        let target_json = job
+            .target
+            .as_ref()
+            .map(|t| serde_json::to_string(t).unwrap());
         let changed = conn
             .execute(
                 "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12 WHERE id=?13",
@@ -194,10 +214,7 @@ impl Db {
                 .map_err(AppError::Db)?;
             let rows = stmt
                 .query_map(params![id.to_string()], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                    ))
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
                 })
                 .map_err(AppError::Db)?;
             let mut deps = Vec::new();
@@ -219,8 +236,11 @@ impl Db {
         }
 
         // Delete executions first
-        conn.execute("DELETE FROM executions WHERE job_id = ?1", params![id.to_string()])
-            .map_err(AppError::Db)?;
+        conn.execute(
+            "DELETE FROM executions WHERE job_id = ?1",
+            params![id.to_string()],
+        )
+        .map_err(AppError::Db)?;
         let changed = conn
             .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
             .map_err(AppError::Db)?;
@@ -251,7 +271,9 @@ impl Db {
             let (id_str, deps_json) = row.map_err(AppError::Db)?;
             let id = Uuid::parse_str(&id_str).unwrap();
             // Support both old Vec<Uuid> and new Vec<Dependency> formats
-            let deps: Vec<Uuid> = if let Ok(dep_objs) = serde_json::from_str::<Vec<crate::models::Dependency>>(&deps_json) {
+            let deps: Vec<Uuid> = if let Ok(dep_objs) =
+                serde_json::from_str::<Vec<crate::models::Dependency>>(&deps_json)
+            {
                 dep_objs.iter().map(|d| d.job_id).collect()
             } else {
                 serde_json::from_str(&deps_json).unwrap_or_default()

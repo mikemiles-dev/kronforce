@@ -1,7 +1,7 @@
-use kronforce::db::Db;
-use kronforce::dag::DagResolver;
-use kronforce::models::*;
 use chrono::Utc;
+use kronforce::dag::DagResolver;
+use kronforce::db::Db;
+use kronforce::models::*;
 use uuid::Uuid;
 
 fn test_db() -> Db {
@@ -15,7 +15,9 @@ fn make_job(name: &str) -> Job {
         id: Uuid::new_v4(),
         name: name.to_string(),
         description: None,
-        task: TaskType::Shell { command: "echo".to_string() },
+        task: TaskType::Shell {
+            command: "echo".to_string(),
+        },
         run_as: None,
         schedule: ScheduleKind::OnDemand,
         status: JobStatus::Scheduled,
@@ -42,7 +44,10 @@ fn test_no_cycle_simple() {
     // job_c depends on job_a — no cycle
     let result = dag.validate_no_cycle(
         Uuid::new_v4(),
-        &[Dependency { job_id: job_a.id, within_secs: None }],
+        &[Dependency {
+            job_id: job_a.id,
+            within_secs: None,
+        }],
     );
     assert!(result.is_ok());
 }
@@ -52,10 +57,13 @@ fn test_cycle_detection() {
     let db = test_db();
 
     let mut job_a = make_job("cycle-a");
-    let mut job_b = make_job("cycle-b");
+    let job_b = make_job("cycle-b");
 
     // a depends on b
-    job_a.depends_on = vec![Dependency { job_id: job_b.id, within_secs: None }];
+    job_a.depends_on = vec![Dependency {
+        job_id: job_b.id,
+        within_secs: None,
+    }];
     db.insert_job(&job_a).unwrap();
     db.insert_job(&job_b).unwrap();
 
@@ -64,7 +72,10 @@ fn test_cycle_detection() {
     // Now try to make b depend on a — should detect cycle
     let result = dag.validate_no_cycle(
         job_b.id,
-        &[Dependency { job_id: job_a.id, within_secs: None }],
+        &[Dependency {
+            job_id: job_a.id,
+            within_secs: None,
+        }],
     );
     assert!(result.is_err());
 }

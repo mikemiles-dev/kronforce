@@ -1,9 +1,9 @@
-use axum::extract::{Path, State};
 use axum::Json;
+use axum::extract::{Path, State};
 use serde::Deserialize;
 
-use super::{AppState, log_and_notify};
 use super::auth::AuthUser;
+use super::{AppState, log_and_notify};
 use crate::error::AppError;
 use crate::models::*;
 
@@ -46,8 +46,18 @@ pub(crate) async fn save_script(
         .await
         .unwrap()?;
 
-    log_and_notify(&state.db, &state.scheduler_tx, "script.saved", EventSeverity::Info,
-        &format!("Script '{}' saved", name), None, None, &auth, None).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "script.saved",
+        EventSeverity::Info,
+        &format!("Script '{}' saved", name),
+        None,
+        None,
+        &auth,
+        None,
+    )
+    .await;
 
     Ok(Json(serde_json::json!({"status": "ok", "name": name})))
 }
@@ -63,8 +73,18 @@ pub(crate) async fn delete_script(
         .await
         .unwrap()?;
 
-    log_and_notify(&state.db, &state.scheduler_tx, "script.deleted", EventSeverity::Warning,
-        &format!("Script '{}' deleted", name), None, None, &auth, None).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "script.deleted",
+        EventSeverity::Warning,
+        &format!("Script '{}' deleted", name),
+        None,
+        None,
+        &auth,
+        None,
+    )
+    .await;
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

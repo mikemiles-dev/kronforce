@@ -7,6 +7,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    #[allow(clippy::too_many_arguments)]
     pub fn enqueue_job(
         &self,
         id: Uuid,
@@ -50,7 +51,9 @@ impl Db {
             let timeout: Option<i64> = row.get(5)?;
             let callback: String = row.get(6)?;
             let job_id: Option<String> = row.get(7)?;
-            Ok((id, exec_id, agent, task_json, run_as, timeout, callback, job_id))
+            Ok((
+                id, exec_id, agent, task_json, run_as, timeout, callback, job_id,
+            ))
         });
 
         match result {
@@ -59,7 +62,8 @@ impl Db {
                 conn.execute(
                     "UPDATE job_queue SET status = 'claimed', claimed_at = ?1 WHERE id = ?2",
                     params![Utc::now().to_rfc3339(), id],
-                ).map_err(AppError::Db)?;
+                )
+                .map_err(AppError::Db)?;
 
                 let task: serde_json::Value = serde_json::from_str(&task_json).unwrap_or_default();
                 Ok(Some(serde_json::json!({
@@ -83,7 +87,8 @@ impl Db {
         conn.execute(
             "UPDATE job_queue SET status = 'completed' WHERE execution_id = ?1",
             params![execution_id.to_string()],
-        ).map_err(AppError::Db)?;
+        )
+        .map_err(AppError::Db)?;
         Ok(())
     }
 
@@ -93,7 +98,8 @@ impl Db {
             "SELECT COUNT(*) FROM job_queue WHERE agent_id = ?1 AND status = 'pending'",
             params![agent_id.to_string()],
             |row| row.get(0),
-        ).map_err(AppError::Db)
+        )
+        .map_err(AppError::Db)
     }
 
     pub fn fail_stale_pending_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
@@ -102,9 +108,11 @@ impl Db {
         let mut stmt = conn.prepare(
             "SELECT id, execution_id FROM job_queue WHERE status = 'pending' AND created_at < ?1"
         ).map_err(AppError::Db)?;
-        let rows: Vec<(String, String)> = stmt.query_map(params![cutoff], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        }).map_err(AppError::Db)?.filter_map(|r| r.ok()).collect();
+        let rows: Vec<(String, String)> = stmt
+            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(AppError::Db)?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let count = rows.len() as u32;
         for (queue_id, exec_id) in &rows {
@@ -127,9 +135,11 @@ impl Db {
         let mut stmt = conn.prepare(
             "SELECT id, execution_id FROM job_queue WHERE status = 'claimed' AND claimed_at < ?1"
         ).map_err(AppError::Db)?;
-        let rows: Vec<(String, String)> = stmt.query_map(params![cutoff], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        }).map_err(AppError::Db)?.filter_map(|r| r.ok()).collect();
+        let rows: Vec<(String, String)> = stmt
+            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(AppError::Db)?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let count = rows.len() as u32;
         for (queue_id, exec_id) in &rows {

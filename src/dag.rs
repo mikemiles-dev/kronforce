@@ -44,7 +44,11 @@ impl DagResolver {
     }
 
     /// Validate that adding/updating a job with the given dependencies won't create a cycle.
-    pub fn validate_no_cycle(&self, job_id: Uuid, depends_on: &[Dependency]) -> Result<(), AppError> {
+    pub fn validate_no_cycle(
+        &self,
+        job_id: Uuid,
+        depends_on: &[Dependency],
+    ) -> Result<(), AppError> {
         let all_jobs = self.db.get_all_jobs_for_dag()?;
 
         let mut graph = DiGraph::<Uuid, ()>::new();
@@ -55,10 +59,9 @@ impl DagResolver {
             node_map.insert(*id, idx);
         }
 
-        if !node_map.contains_key(&job_id) {
-            let idx = graph.add_node(job_id);
-            node_map.insert(job_id, idx);
-        }
+        node_map
+            .entry(job_id)
+            .or_insert_with(|| graph.add_node(job_id));
 
         for dep in depends_on {
             if !node_map.contains_key(&dep.job_id) {

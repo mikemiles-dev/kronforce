@@ -5,7 +5,7 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 use uuid::Uuid;
 
 use crate::executor::run_task;
@@ -56,7 +56,14 @@ async fn execute_job(
     tokio::spawn(async move {
         let started_at = Utc::now();
 
-        let result = run_task(&req.task, req.run_as.as_deref(), req.timeout_secs, None, cancel_rx).await;
+        let result = run_task(
+            &req.task,
+            req.run_as.as_deref(),
+            req.timeout_secs,
+            None,
+            cancel_rx,
+        )
+        .await;
 
         let finished_at = Utc::now();
 
@@ -92,17 +99,16 @@ async fn execute_job(
                     break;
                 }
                 Ok(resp) => {
-                    tracing::warn!(
-                        "callback failed for {exec_id}: status {}",
-                        resp.status()
-                    );
+                    tracing::warn!("callback failed for {exec_id}: status {}", resp.status());
                 }
                 Err(e) => {
                     tracing::warn!("callback failed for {exec_id}: {e}");
                 }
             }
             if attempts >= 5 {
-                tracing::error!("giving up on callback for execution {exec_id} after {attempts} attempts");
+                tracing::error!(
+                    "giving up on callback for execution {exec_id} after {attempts} attempts"
+                );
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempts))).await;

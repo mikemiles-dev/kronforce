@@ -1,15 +1,15 @@
-pub mod auth;
-mod jobs;
-mod executions;
 mod agents;
-mod events;
-mod settings;
-mod scripts;
+pub mod auth;
 mod callbacks;
+mod events;
+mod executions;
+mod jobs;
+mod scripts;
+mod settings;
 
 use axum::middleware;
-use axum::routing::{get, post, put, delete};
 use axum::response::Html;
+use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use serde::Serialize;
 use tokio::sync::mpsc;
@@ -21,7 +21,7 @@ use crate::db::Db;
 use crate::models::*;
 use crate::scheduler::SchedulerCommand;
 
-pub use auth::{hash_api_key, generate_api_key};
+pub use auth::{generate_api_key, hash_api_key};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -55,38 +55,81 @@ pub fn router(state: AppState) -> Router {
         .route("/api/jobs", get(jobs::list_jobs).post(jobs::create_job))
         .route(
             "/api/jobs/{id}",
-            get(jobs::get_job_handler).put(jobs::update_job).delete(jobs::delete_job),
+            get(jobs::get_job_handler)
+                .put(jobs::update_job)
+                .delete(jobs::delete_job),
         )
         .route("/api/jobs/{id}/trigger", post(jobs::trigger_job))
-        .route("/api/jobs/{id}/executions", get(executions::list_executions))
+        .route(
+            "/api/jobs/{id}/executions",
+            get(executions::list_executions),
+        )
         .route("/api/executions", get(executions::list_all_executions))
         .route("/api/executions/{id}", get(executions::get_execution))
-        .route("/api/executions/{id}/cancel", post(executions::cancel_execution))
+        .route(
+            "/api/executions/{id}/cancel",
+            post(executions::cancel_execution),
+        )
         .route("/api/agents", get(agents::list_agents))
-        .route("/api/agents/{id}", get(agents::get_agent_handler).delete(agents::deregister_agent))
-        .route("/api/agents/{id}/task-types", put(agents::update_agent_task_types))
+        .route(
+            "/api/agents/{id}",
+            get(agents::get_agent_handler).delete(agents::deregister_agent),
+        )
+        .route(
+            "/api/agents/{id}/task-types",
+            put(agents::update_agent_task_types),
+        )
         .route("/api/events", get(events::list_events))
         .route("/api/timeline", get(events::get_timeline))
         .route("/api/timeline/{job_id}", get(events::get_job_timeline))
-        .route("/api/timeline-detail/{bucket}", get(events::get_timeline_detail))
-        .route("/api/keys", get(auth::list_api_keys).post(auth::create_api_key))
+        .route(
+            "/api/timeline-detail/{bucket}",
+            get(events::get_timeline_detail),
+        )
+        .route(
+            "/api/keys",
+            get(auth::list_api_keys).post(auth::create_api_key),
+        )
         .route("/api/keys/{id}", delete(auth::revoke_api_key))
         .route("/api/auth/me", get(auth::auth_me))
         .route("/api/scripts", get(scripts::list_scripts))
-        .route("/api/scripts/{name}", get(scripts::get_script).put(scripts::save_script).delete(scripts::delete_script))
-        .route("/api/settings", get(settings::get_settings).put(settings::update_settings))
+        .route(
+            "/api/scripts/{name}",
+            get(scripts::get_script)
+                .put(scripts::save_script)
+                .delete(scripts::delete_script),
+        )
+        .route(
+            "/api/settings",
+            get(settings::get_settings).put(settings::update_settings),
+        )
         .route("/api/notifications/test", post(settings::test_notification))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth::auth_middleware))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::auth_middleware,
+        ))
         .with_state(state.clone());
 
     // Agent endpoints — require agent key when KRONFORCE_AGENT_KEY is set
     let agent_authed = Router::new()
         .route("/api/agents/register", post(agents::register_agent))
-        .route("/api/agent-queue/{agent_id}/next", get(agents::poll_agent_queue))
+        .route(
+            "/api/agent-queue/{agent_id}/next",
+            get(agents::poll_agent_queue),
+        )
         .route("/api/agents/{id}/heartbeat", post(agents::agent_heartbeat))
-        .route("/api/callbacks/execution-result", post(callbacks::execution_result_callback))
-        .route("/api/agents/{id}/task-types", get(agents::get_agent_task_types))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth::agent_auth_middleware))
+        .route(
+            "/api/callbacks/execution-result",
+            post(callbacks::execution_result_callback),
+        )
+        .route(
+            "/api/agents/{id}/task-types",
+            get(agents::get_agent_task_types),
+        )
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::agent_auth_middleware,
+        ))
         .with_state(state.clone());
 
     // Routes exempt from all auth
@@ -109,6 +152,7 @@ async fn health() -> Json<HealthResponse> {
 }
 
 /// Log an event and notify the scheduler for event-triggered jobs
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn log_and_notify(
     db: &Db,
     scheduler_tx: &mpsc::Sender<SchedulerCommand>,
@@ -135,5 +179,7 @@ pub(crate) async fn log_and_notify(
     let db2 = db.clone();
     let event2 = event.clone();
     let _ = tokio::task::spawn_blocking(move || db2.insert_event(&event2)).await;
-    let _ = scheduler_tx.send(SchedulerCommand::EventOccurred(event)).await;
+    let _ = scheduler_tx
+        .send(SchedulerCommand::EventOccurred(event))
+        .await;
 }

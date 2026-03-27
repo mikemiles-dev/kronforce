@@ -253,7 +253,10 @@ impl FieldSpec {
                     None
                 }
             }
-            FieldSpec::Values(vals) => vals.iter().copied().find(|&v| v >= from && v >= min && v <= max),
+            FieldSpec::Values(vals) => vals
+                .iter()
+                .copied()
+                .find(|&v| v >= from && v >= min && v <= max),
         }
     }
 }

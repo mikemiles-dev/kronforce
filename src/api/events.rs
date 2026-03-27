@@ -1,5 +1,5 @@
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -49,11 +49,16 @@ pub(crate) async fn list_events(
         .unwrap()?;
 
     let db = state.db.clone();
-    let events = tokio::task::spawn_blocking(move || db.list_events(since.as_deref(), per_page, offset))
-        .await
-        .unwrap()?;
+    let events =
+        tokio::task::spawn_blocking(move || db.list_events(since.as_deref(), per_page, offset))
+            .await
+            .unwrap()?;
 
-    let total_pages = if total == 0 { 1 } else { (total + per_page - 1) / per_page };
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(per_page)
+    };
 
     Ok(Json(PaginatedResponse {
         data: events,
@@ -73,7 +78,16 @@ pub(crate) async fn get_timeline(
     let data = tokio::task::spawn_blocking(move || db.get_execution_timeline(None, minutes))
         .await
         .unwrap()?;
-    Ok(Json(data.into_iter().map(|(t, s, f, o)| TimelineBucket { time: t, succeeded: s, failed: f, other: o }).collect()))
+    Ok(Json(
+        data.into_iter()
+            .map(|(t, s, f, o)| TimelineBucket {
+                time: t,
+                succeeded: s,
+                failed: f,
+                other: o,
+            })
+            .collect(),
+    ))
 }
 
 pub(crate) async fn get_job_timeline(
@@ -83,10 +97,20 @@ pub(crate) async fn get_job_timeline(
 ) -> Result<Json<Vec<TimelineBucket>>, AppError> {
     let minutes = query.minutes.unwrap_or(60);
     let db = state.db.clone();
-    let data = tokio::task::spawn_blocking(move || db.get_execution_timeline(Some(job_id), minutes))
-        .await
-        .unwrap()?;
-    Ok(Json(data.into_iter().map(|(t, s, f, o)| TimelineBucket { time: t, succeeded: s, failed: f, other: o }).collect()))
+    let data =
+        tokio::task::spawn_blocking(move || db.get_execution_timeline(Some(job_id), minutes))
+            .await
+            .unwrap()?;
+    Ok(Json(
+        data.into_iter()
+            .map(|(t, s, f, o)| TimelineBucket {
+                time: t,
+                succeeded: s,
+                failed: f,
+                other: o,
+            })
+            .collect(),
+    ))
 }
 
 pub(crate) async fn get_timeline_detail(
@@ -97,5 +121,13 @@ pub(crate) async fn get_timeline_detail(
     let data = tokio::task::spawn_blocking(move || db.get_timeline_detail(&bucket))
         .await
         .unwrap()?;
-    Ok(Json(data.into_iter().map(|(name, status, count)| TimelineDetailEntry { job_name: name, status, count }).collect()))
+    Ok(Json(
+        data.into_iter()
+            .map(|(name, status, count)| TimelineDetailEntry {
+                job_name: name,
+                status,
+                count,
+            })
+            .collect(),
+    ))
 }

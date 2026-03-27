@@ -163,9 +163,18 @@ impl Scheduler {
             }
         }
 
-        match self.executor.execute(job, trigger, &self.callback_base_url).await {
+        match self
+            .executor
+            .execute(job, trigger, &self.callback_base_url)
+            .await
+        {
             Ok(exec_id) => {
-                tracing::info!("fired job {} ({}) -> execution {}", job.name, job.id, exec_id);
+                tracing::info!(
+                    "fired job {} ({}) -> execution {}",
+                    job.name,
+                    job.id,
+                    exec_id
+                );
             }
             Err(e) => {
                 tracing::error!("failed to execute job {} ({}): {e}", job.name, job.id);
@@ -209,24 +218,28 @@ impl Scheduler {
                     .await
                     .unwrap_or(Ok(None));
 
-                if let Ok(Some(exec)) = exec {
-                    if let Some(agent_id) = exec.agent_id {
-                        let db = self.db.clone();
-                        if let Ok(Some(agent)) =
-                            tokio::task::spawn_blocking(move || db.get_agent(agent_id))
-                                .await
-                                .unwrap_or(Ok(None))
+                if let Ok(Some(exec)) = exec
+                    && let Some(agent_id) = exec.agent_id
+                {
+                    let db = self.db.clone();
+                    if let Ok(Some(agent)) =
+                        tokio::task::spawn_blocking(move || db.get_agent(agent_id))
+                            .await
+                            .unwrap_or(Ok(None))
+                    {
+                        match self
+                            .agent_client
+                            .cancel_execution(&agent.address, agent.port, exec_id)
+                            .await
                         {
-                            match self
-                                .agent_client
-                                .cancel_execution(&agent.address, agent.port, exec_id)
-                                .await
-                            {
-                                Ok(_) => tracing::info!("cancelled remote execution {} on agent {}", exec_id, agent.name),
-                                Err(e) => tracing::error!("failed to cancel on agent: {e}"),
-                            }
-                            return;
+                            Ok(_) => tracing::info!(
+                                "cancelled remote execution {} on agent {}",
+                                exec_id,
+                                agent.name
+                            ),
+                            Err(e) => tracing::error!("failed to cancel on agent: {e}"),
                         }
+                        return;
                     }
                 }
 
@@ -261,12 +274,9 @@ impl Scheduler {
 
                 // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
                 // (events from TriggerSource::Event executions)
-                tracing::info!(
-                    "event '{}' matched job '{}', firing",
-                    event.kind,
-                    job.name
-                );
-                self.fire_job(job, TriggerSource::Event { event_id: event.id }).await;
+                tracing::info!("event '{}' matched job '{}', firing", event.kind, job.name);
+                self.fire_job(job, TriggerSource::Event { event_id: event.id })
+                    .await;
             }
         }
     }
@@ -300,16 +310,20 @@ fn event_matches(event: &Event, config: &EventTriggerConfig) -> bool {
     }
 
     // Match severity filter
-    if let Some(ref sev) = config.severity {
-        if event.severity != *sev {
-            return false;
-        }
+    if let Some(ref sev) = config.severity
+        && event.severity != *sev
+    {
+        return false;
     }
 
     // Match job name filter (prefix match on the event message or related job)
     if let Some(ref name_filter) = config.job_name_filter {
         // Check if the event message contains the job name
-        if !event.message.to_lowercase().contains(&name_filter.to_lowercase()) {
+        if !event
+            .message
+            .to_lowercase()
+            .contains(&name_filter.to_lowercase())
+        {
             return false;
         }
     }
@@ -321,12 +335,12 @@ fn pattern_matches(pattern: &str, value: &str) -> bool {
     if pattern == "*" {
         return true;
     }
-    if pattern.ends_with(".*") {
-        let prefix = &pattern[..pattern.len() - 2];
-        return value.starts_with(prefix) && value.len() > prefix.len() && value.as_bytes()[prefix.len()] == b'.';
+    if let Some(prefix) = pattern.strip_suffix(".*") {
+        return value.starts_with(prefix)
+            && value.len() > prefix.len()
+            && value.as_bytes()[prefix.len()] == b'.';
     }
-    if pattern.ends_with('*') {
-        let prefix = &pattern[..pattern.len() - 1];
+    if let Some(prefix) = pattern.strip_suffix('*') {
         return value.starts_with(prefix);
     }
     pattern == value

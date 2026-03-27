@@ -1,6 +1,6 @@
+use chrono::Utc;
 use kronforce::db::Db;
 use kronforce::models::*;
-use chrono::Utc;
 use uuid::Uuid;
 
 fn test_db() -> Db {
@@ -14,7 +14,9 @@ fn make_job(name: &str) -> Job {
         id: Uuid::new_v4(),
         name: name.to_string(),
         description: Some("test job".to_string()),
-        task: TaskType::Shell { command: "echo hello".to_string() },
+        task: TaskType::Shell {
+            command: "echo hello".to_string(),
+        },
         run_as: None,
         schedule: ScheduleKind::OnDemand,
         status: JobStatus::Scheduled,
@@ -231,7 +233,8 @@ fn test_update_execution_extracted() {
         extracted: None,
     };
     db.insert_execution(&exec).unwrap();
-    db.update_execution_extracted(exec.id, &serde_json::json!({"key": "value"})).unwrap();
+    db.update_execution_extracted(exec.id, &serde_json::json!({"key": "value"}))
+        .unwrap();
 
     let fetched = db.get_execution(exec.id).unwrap().unwrap();
     assert!(fetched.extracted.is_some());
@@ -243,7 +246,11 @@ fn test_execution_counts() {
     let job = make_job("counts-job");
     db.insert_job(&job).unwrap();
 
-    for status in [ExecutionStatus::Succeeded, ExecutionStatus::Succeeded, ExecutionStatus::Failed] {
+    for status in [
+        ExecutionStatus::Succeeded,
+        ExecutionStatus::Succeeded,
+        ExecutionStatus::Failed,
+    ] {
         let exec = ExecutionRecord {
             id: Uuid::new_v4(),
             job_id: job.id,
@@ -482,10 +489,18 @@ fn test_enqueue_and_dequeue() {
     let job_id = Uuid::new_v4();
 
     db.enqueue_job(
-        Uuid::new_v4(), exec_id, agent_id, job_id,
-        &TaskType::Shell { command: "echo test".to_string() },
-        None, None, "http://callback",
-    ).unwrap();
+        Uuid::new_v4(),
+        exec_id,
+        agent_id,
+        job_id,
+        &TaskType::Shell {
+            command: "echo test".to_string(),
+        },
+        None,
+        None,
+        "http://callback",
+    )
+    .unwrap();
 
     let job = db.dequeue_job(agent_id).unwrap();
     assert!(job.is_some());
@@ -506,10 +521,18 @@ fn test_queue_depth() {
 
     for _ in 0..3 {
         db.enqueue_job(
-            Uuid::new_v4(), Uuid::new_v4(), agent_id, Uuid::new_v4(),
-            &TaskType::Shell { command: "echo".to_string() },
-            None, None, "http://cb",
-        ).unwrap();
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            agent_id,
+            Uuid::new_v4(),
+            &TaskType::Shell {
+                command: "echo".to_string(),
+            },
+            None,
+            None,
+            "http://cb",
+        )
+        .unwrap();
     }
 
     let depth = db.queue_depth(agent_id).unwrap();
@@ -521,7 +544,14 @@ fn test_queue_depth() {
 #[test]
 fn test_log_event() {
     let db = test_db();
-    db.log_event("test.event", EventSeverity::Info, "test message", None, None).unwrap();
+    db.log_event(
+        "test.event",
+        EventSeverity::Info,
+        "test message",
+        None,
+        None,
+    )
+    .unwrap();
 
     let events = db.list_events(None, 10, 0).unwrap();
     assert_eq!(events.len(), 1);
