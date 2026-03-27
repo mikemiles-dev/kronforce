@@ -111,6 +111,25 @@ impl super::Executor {
                                     exec_id_rules,
                                     &serde_json::json!(extracted),
                                 );
+                                // Write-back: update global variables for rules with write_to_variable
+                                for rule in &rules.extractions {
+                                    if let Some(ref var_name) = rule.write_to_variable
+                                        && let Some(value) = extracted.get(&rule.name)
+                                    {
+                                        if let Err(e) = db_rules.upsert_variable(var_name, value) {
+                                            tracing::error!(
+                                                "failed to write variable {}: {}",
+                                                var_name,
+                                                e
+                                            );
+                                        } else {
+                                            tracing::info!(
+                                                "variable {} updated from extraction",
+                                                var_name
+                                            );
+                                        }
+                                    }
+                                }
                             }
                         }
                         // Assertions — only on successful executions

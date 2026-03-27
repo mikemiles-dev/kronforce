@@ -99,7 +99,7 @@ curl -X POST http://localhost:8080/api/jobs \
     "output_rules": {
         "extractions": [
             {"name": "duration", "pattern": "took (\\d+)ms", "type": "regex"},
-            {"name": "count", "pattern": "$.results.count", "type": "jsonpath"}
+            {"name": "count", "pattern": "$.results.count", "type": "jsonpath", "write_to_variable": "LAST_COUNT"}
         ],
         "triggers": [
             {"pattern": "ERROR|FATAL", "severity": "error"},
@@ -109,7 +109,21 @@ curl -X POST http://localhost:8080/api/jobs \
 }
 ```
 
-Extractions run against stdout after each execution. Extracted values appear in `GET /api/executions/{id}` as the `extracted` field. Triggers emit `output.matched` events. See [Triggers & Workflows](TRIGGERS_AND_WORKFLOWS.md).
+Extractions run against stdout after each execution. Extracted values appear in `GET /api/executions/{id}` as the `extracted` field. Add `write_to_variable` to an extraction rule to upsert the value into a global variable. Triggers emit `output.matched` events. See [Triggers & Workflows](TRIGGERS_AND_WORKFLOWS.md).
+
+### Variables
+
+Global key-value variables that can be referenced in task fields using `{{VAR_NAME}}` syntax. Variables are substituted before execution.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/variables` | List all variables |
+| `GET` | `/api/variables/{name}` | Get a variable |
+| `POST` | `/api/variables` | Create a variable (`{"name": "API_HOST", "value": "https://api.example.com"}`) |
+| `PUT` | `/api/variables/{name}` | Update a variable (`{"value": "new_value"}`) |
+| `DELETE` | `/api/variables/{name}` | Delete a variable |
+
+Variable names must match `[A-Za-z0-9_]+`.
 
 ### Output Assertions
 

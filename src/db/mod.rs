@@ -6,6 +6,7 @@ mod jobs;
 mod keys;
 mod queue;
 mod settings;
+mod variables;
 
 use std::sync::{Arc, Mutex};
 
@@ -173,6 +174,13 @@ impl Db {
                     value TEXT NOT NULL
                 );
                 INSERT OR IGNORE INTO settings (key, value) VALUES ('retention_days', '7');
+            "),
+            (13, "Add variables table", "
+                CREATE TABLE IF NOT EXISTS variables (
+                    name TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
             "),
         ];
 

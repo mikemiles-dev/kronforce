@@ -2221,6 +2221,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
         <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
         <button class="nav-tab" id="tab-scripts" onclick="showPage('scripts')"><span class="tab-icon">&#128220;</span> Scripts</button>
         <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
+        <button class="nav-tab" id="tab-variables" onclick="showPage('variables')"><span class="tab-icon">&#120299;</span> Variables</button>
         <button class="nav-tab" id="tab-docs" onclick="showPage('docs')"><span class="tab-icon">&#128218;</span> Docs</button>
         <button class="nav-tab" id="tab-settings" onclick="showPage('settings')"><span class="tab-icon">&#9881;</span> Settings</button>
     </nav>
@@ -2526,6 +2527,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting (Rhai)</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
             </nav>
             <div class="docs-content" id="docs-content">
@@ -2833,6 +2835,36 @@ print("Redis: " + result.response);</code></pre>
                     </table>
                 </div>
 
+                <div class="docs-section" id="doc-variables">
+                    <h2>Global Variables</h2>
+                    <p>Global variables are shared key-value pairs that can be referenced in any task field. Manage them in the <strong>Variables</strong> page or via the <code>/api/variables</code> API.</p>
+
+                    <h4>Using Variables in Tasks</h4>
+                    <p>Reference variables using <code>{{VAR_NAME}}</code> syntax in any task field &mdash; shell commands, HTTP URLs, SQL queries, message bodies, etc.</p>
+                    <table>
+                        <tr><th>Task Field</th><th>Example</th></tr>
+                        <tr><td>Shell command</td><td><code>curl {{API_HOST}}/health</code></td></tr>
+                        <tr><td>HTTP URL</td><td><code>{{BASE_URL}}/api/status</code></td></tr>
+                        <tr><td>Kafka topic</td><td><code>{{ENV}}_events</code></td></tr>
+                    </table>
+                    <p>Variables are resolved <strong>controller-side</strong> before execution, so they work for both local and remote agent jobs. Shell variables like <code>${HOME}</code> are unaffected.</p>
+
+                    <h4>Updating Variables from Job Output</h4>
+                    <p>Set the <strong>"Write to variable"</strong> field on an output extraction rule to automatically update a global variable with the extracted value after each run.</p>
+                    <p><strong>Example pipeline:</strong></p>
+                    <ol>
+                        <li>Job A runs <code>deploy.sh</code> and outputs <code>version=2.4.1</code></li>
+                        <li>An extraction rule captures <code>version</code> with <code>write_to_variable: "DEPLOY_VERSION"</code></li>
+                        <li>Job B uses <code>echo "Deployed {{DEPLOY_VERSION}}"</code> in its command</li>
+                    </ol>
+
+                    <h4>Variable Name Rules</h4>
+                    <p>Names must match <code>[A-Za-z0-9_]+</code> (letters, numbers, underscores only).</p>
+
+                    <h4>Unresolved Variables</h4>
+                    <p>If a <code>{{VAR}}</code> reference doesn't match any defined variable, the placeholder is left as-is and a warning is logged. The job still runs.</p>
+                </div>
+
                 <div class="docs-section" id="doc-cron">
                     <h2>Cron Expressions</h2>
                     <p>6-field cron with second-level precision: <code>sec min hour dom month dow</code></p>
@@ -2903,139 +2935,187 @@ print("Redis: " + result.response);</code></pre>
         </div>
     </section>
 
-    <section id="settings-view" style="display:none">
+    <section id="variables-view" style="display:none">
         <div class="card">
-            <div class="card-header"><h3>Appearance</h3></div>
-            <div class="settings-group">
-                <label class="settings-label">Theme</label>
-                <div class="theme-switcher">
-                    <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')">
-                        <span class="theme-btn-icon">&#127769;</span>
-                        <span>Dark</span>
-                    </button>
-                    <button class="theme-btn" id="theme-light" onclick="setTheme('light')">
-                        <span class="theme-btn-icon">&#9728;</span>
-                        <span>Light</span>
-                    </button>
-                    <button class="theme-btn" id="theme-system" onclick="setTheme('system')">
-                        <span class="theme-btn-icon">&#128187;</span>
-                        <span>System</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="card" id="auth-card">
-            <div class="card-header"><h3>Authentication</h3></div>
-            <div class="settings-group">
-                <div id="auth-info"></div>
-            </div>
-            <div class="settings-group">
-                <button class="btn btn-danger" onclick="doLogout()">Sign Out</button>
-            </div>
-        </div>
-        <div class="card" id="keys-card" style="display:none">
             <div class="card-header">
-                <h3>API Keys</h3>
-                <button class="btn btn-primary btn-sm" onclick="showCreateKeyForm()">+ Create Key</button>
+                <h3>Global Variables</h3>
+                <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
             </div>
-            <div id="create-key-form" style="display:none;margin-bottom:16px">
-                <div style="display:flex;gap:8px;align-items:flex-end">
-                    <div class="form-group" style="flex:1;margin-bottom:0">
-                        <label>Name</label>
-                        <input id="new-key-name" type="text" placeholder="Key name">
+            <div id="add-variable-form" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px">
+                <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                    <div>
+                        <label class="settings-label" style="margin-bottom:4px">Name</label>
+                        <input type="text" id="new-var-name" placeholder="MY_VARIABLE" style="width:200px" pattern="[A-Za-z0-9_]+" title="Alphanumeric and underscores only">
                     </div>
-                    <div class="form-group" style="margin-bottom:0">
-                        <label>Role</label>
-                        <select id="new-key-role">
-                            <option value="admin">Admin</option>
-                            <option value="operator" selected>Operator</option>
-                            <option value="viewer">Viewer</option>
-                            <option value="agent">Agent</option>
+                    <div style="flex:1;min-width:200px">
+                        <label class="settings-label" style="margin-bottom:4px">Value</label>
+                        <input type="text" id="new-var-value" placeholder="value" style="width:100%">
+                    </div>
+                    <div style="display:flex;gap:4px">
+                        <button class="btn btn-primary btn-sm" onclick="createVariable()">Save</button>
+                        <button class="btn btn-ghost btn-sm" onclick="hideAddVariableForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <div id="variables-empty" style="display:none;padding:24px;text-align:center;color:var(--text-muted)">
+                No variables defined. Click "+ Add Variable" to create one.
+            </div>
+            <table id="variables-table" class="exec-table" style="display:none">
+                <thead><tr><th>Name</th><th>Value</th><th>Updated</th><th style="width:80px"></th></tr></thead>
+                <tbody id="variables-tbody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <section id="settings-view" style="display:none">
+        <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0">
+            <button class="btn btn-ghost btn-sm settings-tab active" onclick="showSettingsTab('general')" id="stab-general" style="border-radius:6px 6px 0 0;padding:6px 16px">General</button>
+            <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('auth')" id="stab-auth" style="border-radius:6px 6px 0 0;padding:6px 16px">Auth &amp; Keys</button>
+            <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('notifications')" id="stab-notifications" style="border-radius:6px 6px 0 0;padding:6px 16px">Notifications</button>
+        </div>
+
+        <!-- General Tab -->
+        <div id="settings-panel-general">
+            <div class="card">
+                <div class="card-header"><h3>Appearance</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Theme</label>
+                    <div class="theme-switcher">
+                        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')">
+                            <span class="theme-btn-icon">&#127769;</span>
+                            <span>Dark</span>
+                        </button>
+                        <button class="theme-btn" id="theme-light" onclick="setTheme('light')">
+                            <span class="theme-btn-icon">&#9728;</span>
+                            <span>Light</span>
+                        </button>
+                        <button class="theme-btn" id="theme-system" onclick="setTheme('system')">
+                            <span class="theme-btn-icon">&#128187;</span>
+                            <span>System</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Data Retention</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Auto-purge executions and events older than</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <select id="retention-days" onchange="saveRetention()" style="width:160px">
+                            <option value="1">1 day</option>
+                            <option value="3">3 days</option>
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                            <option value="0">Never (keep all)</option>
                         </select>
+                        <span id="retention-status" style="font-size:11px;color:var(--text-muted)"></span>
                     </div>
-                    <button class="btn btn-primary" onclick="createKey()">Create</button>
-                    <button class="btn btn-ghost" onclick="hideCreateKeyForm()">Cancel</button>
+                    <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
                 </div>
-            </div>
-            <div id="new-key-display" style="display:none" class="new-key-display"></div>
-            <div id="keys-list"></div>
-        </div>
-        <div class="card">
-            <div class="card-header"><h3>Data Retention</h3></div>
-            <div class="settings-group">
-                <label class="settings-label">Auto-purge executions and events older than</label>
-                <div style="display:flex;gap:8px;align-items:center">
-                    <select id="retention-days" onchange="saveRetention()" style="width:160px">
-                        <option value="1">1 day</option>
-                        <option value="3">3 days</option>
-                        <option value="7">7 days</option>
-                        <option value="14">14 days</option>
-                        <option value="30">30 days</option>
-                        <option value="60">60 days</option>
-                        <option value="90">90 days</option>
-                        <option value="0">Never (keep all)</option>
-                    </select>
-                    <span id="retention-status" style="font-size:11px;color:var(--text-muted)"></span>
-                </div>
-                <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-header"><h3>Notifications</h3></div>
-            <div class="settings-group">
-                <label class="settings-label">Email (SMTP)</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-email-enabled"> Enabled</label>
+
+        <!-- Auth & Keys Tab -->
+        <div id="settings-panel-auth" style="display:none">
+            <div class="card">
+                <div class="card-header"><h3>Authentication</h3></div>
+                <div class="settings-group">
+                    <div id="auth-info"></div>
                 </div>
-                <div style="display:flex;gap:8px;margin-top:6px">
-                    <input id="notif-smtp-host" type="text" placeholder="smtp.gmail.com" style="flex:1">
-                    <input id="notif-smtp-port" type="number" placeholder="587" style="width:70px">
-                </div>
-                <div style="display:flex;gap:8px;margin-top:4px">
-                    <input id="notif-smtp-user" type="text" placeholder="username" style="flex:1">
-                    <input id="notif-smtp-pass" type="password" placeholder="password" style="flex:1">
-                </div>
-                <div style="display:flex;gap:8px;margin-top:4px">
-                    <input id="notif-smtp-from" type="text" placeholder="alerts@example.com" style="flex:1">
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-smtp-tls" checked> TLS</label>
+                <div class="settings-group">
+                    <button class="btn btn-danger" onclick="doLogout()">Sign Out</button>
                 </div>
             </div>
-            <div class="settings-group">
-                <label class="settings-label">SMS (Webhook)</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-sms-enabled"> Enabled</label>
+            <div class="card" id="keys-card" style="display:none">
+                <div class="card-header">
+                    <h3>API Keys</h3>
+                    <button class="btn btn-primary btn-sm" onclick="showCreateKeyForm()">+ Create Key</button>
                 </div>
-                <input id="notif-sms-url" type="text" placeholder="https://api.twilio.com/..." style="width:100%;margin-top:6px">
-                <div style="display:flex;gap:8px;margin-top:4px">
-                    <input id="notif-sms-user" type="text" placeholder="auth user (optional)" style="flex:1">
-                    <input id="notif-sms-pass" type="password" placeholder="auth pass (optional)" style="flex:1">
-                    <input id="notif-sms-from" type="text" placeholder="from number" style="width:120px">
-                </div>
-            </div>
-            <div class="settings-group">
-                <label class="settings-label">Recipients</label>
-                <div style="display:flex;gap:8px">
-                    <div style="flex:1">
-                        <label style="font-size:11px;color:var(--text-muted)">Email addresses (one per line)</label>
-                        <textarea id="notif-emails" rows="3" style="width:100%;font-size:12px" placeholder="ops@example.com&#10;oncall@example.com"></textarea>
-                    </div>
-                    <div style="flex:1">
-                        <label style="font-size:11px;color:var(--text-muted)">Phone numbers (one per line)</label>
-                        <textarea id="notif-phones" rows="3" style="width:100%;font-size:12px" placeholder="+12345678900"></textarea>
+                <div id="create-key-form" style="display:none;margin-bottom:16px">
+                    <div style="display:flex;gap:8px;align-items:flex-end">
+                        <div class="form-group" style="flex:1;margin-bottom:0">
+                            <label>Name</label>
+                            <input id="new-key-name" type="text" placeholder="Key name">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label>Role</label>
+                            <select id="new-key-role">
+                                <option value="admin">Admin</option>
+                                <option value="operator" selected>Operator</option>
+                                <option value="viewer">Viewer</option>
+                                <option value="agent">Agent</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="createKey()">Create</button>
+                        <button class="btn btn-ghost" onclick="hideCreateKeyForm()">Cancel</button>
                     </div>
                 </div>
-            </div>
-            <div class="settings-group">
-                <label class="settings-label">System Alerts</label>
-                <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-alert-agent-offline"> Agent went offline</label>
-            </div>
-            <div style="display:flex;gap:8px;margin-top:8px">
-                <button class="btn btn-primary btn-sm" onclick="saveNotificationSettings()">Save</button>
-                <button class="btn btn-ghost btn-sm" onclick="testNotification()">Send Test</button>
-                <span id="notif-status" style="font-size:11px;color:var(--text-muted);align-self:center"></span>
+                <div id="new-key-display" style="display:none" class="new-key-display"></div>
+                <div id="keys-list"></div>
             </div>
         </div>
-        <p style="color:var(--text-muted);font-size:12px;margin-top:12px">For custom agent setup, scripting, and API documentation, see the <a href="#" onclick="showPage('docs');return false" style="color:var(--accent)">Docs</a> page.</p>
+
+        <!-- Notifications Tab -->
+        <div id="settings-panel-notifications" style="display:none">
+            <div class="card">
+                <div class="card-header"><h3>Notifications</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Email (SMTP)</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-email-enabled"> Enabled</label>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:6px">
+                        <input id="notif-smtp-host" type="text" placeholder="smtp.gmail.com" style="flex:1">
+                        <input id="notif-smtp-port" type="number" placeholder="587" style="width:70px">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-smtp-user" type="text" placeholder="username" style="flex:1">
+                        <input id="notif-smtp-pass" type="password" placeholder="password" style="flex:1">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-smtp-from" type="text" placeholder="alerts@example.com" style="flex:1">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-smtp-tls" checked> TLS</label>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">SMS (Webhook)</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-sms-enabled"> Enabled</label>
+                    </div>
+                    <input id="notif-sms-url" type="text" placeholder="https://api.twilio.com/..." style="width:100%;margin-top:6px">
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-sms-user" type="text" placeholder="auth user (optional)" style="flex:1">
+                        <input id="notif-sms-pass" type="password" placeholder="auth pass (optional)" style="flex:1">
+                        <input id="notif-sms-from" type="text" placeholder="from number" style="width:120px">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Recipients</label>
+                    <div style="display:flex;gap:8px">
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:var(--text-muted)">Email addresses (one per line)</label>
+                            <textarea id="notif-emails" rows="3" style="width:100%;font-size:12px" placeholder="ops@example.com&#10;oncall@example.com"></textarea>
+                        </div>
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:var(--text-muted)">Phone numbers (one per line)</label>
+                            <textarea id="notif-phones" rows="3" style="width:100%;font-size:12px" placeholder="+12345678900"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">System Alerts</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-alert-agent-offline"> Agent went offline</label>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-primary btn-sm" onclick="saveNotificationSettings()">Save</button>
+                    <button class="btn btn-ghost btn-sm" onclick="testNotification()">Send Test</button>
+                    <span id="notif-status" style="font-size:11px;color:var(--text-muted);align-self:center"></span>
+                </div>
+            </div>
+        </div>
     </section>
 </main>
 </div><!-- scrollable -->
@@ -3487,7 +3567,7 @@ print("Redis: " + result.response);</code></pre>
             </div>
             <div class="form-group">
                 <label>&#128270; Output Extractions</label>
-                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail.</div>
+                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail. Optionally write to a global variable for use in other jobs via <code>{{VAR_NAME}}</code>.</div>
                 <div id="extractions-container"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addExtractionRow()" style="margin-top:4px">+ Add Extraction</button>
             </div>
@@ -3575,7 +3655,7 @@ let pollTimer = null;
 let jobsPage = 1;
 
 // View registry for page management
-const ALL_VIEWS = ['dashboard','jobs','detail','map','agents','executions','scripts','events','settings','docs'];
+const ALL_VIEWS = ['dashboard','jobs','detail','map','agents','executions','scripts','events','variables','settings','docs'];
 const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
 // Time range state
@@ -5413,7 +5493,7 @@ function getDepEntries() {
     return deps;
 }
 
-function addExtractionRow(name, pattern, type) {
+function addExtractionRow(name, pattern, type, writeToVar) {
     const container = document.getElementById('extractions-container');
     const row = document.createElement('div');
     row.className = 'tt-field-row';
@@ -5421,6 +5501,7 @@ function addExtractionRow(name, pattern, type) {
         '<input type="text" value="' + esc(name || '') + '" placeholder="name" style="width:80px" class="ex-name">' +
         '<input type="text" value="' + esc(pattern || '') + '" placeholder="pattern (regex or $.path)" style="flex:1;min-width:120px" class="ex-pattern">' +
         '<select class="ex-type" style="width:90px"><option value="regex"' + (type === 'jsonpath' ? '' : ' selected') + '>regex</option><option value="jsonpath"' + (type === 'jsonpath' ? ' selected' : '') + '>jsonpath</option></select>' +
+        '<input type="text" value="' + esc(writeToVar || '') + '" placeholder="write to var" title="Write to global variable" style="width:100px" class="ex-write-var">' +
         '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="this.parentElement.remove()">&times;</button>';
     container.appendChild(row);
 }
@@ -5458,7 +5539,12 @@ function collectOutputRules() {
         const name = row.querySelector('.ex-name').value.trim();
         const pattern = row.querySelector('.ex-pattern').value.trim();
         const type = row.querySelector('.ex-type').value;
-        if (name && pattern) extractions.push({ name, pattern, type });
+        const write_to_variable = row.querySelector('.ex-write-var').value.trim() || null;
+        if (name && pattern) {
+            const rule = { name, pattern, type };
+            if (write_to_variable) rule.write_to_variable = write_to_variable;
+            extractions.push(rule);
+        }
     });
     const triggers = [];
     document.querySelectorAll('#triggers-container .tt-field-row').forEach(row => {
@@ -5481,7 +5567,7 @@ function populateOutputRules(rules) {
     document.getElementById('triggers-container').innerHTML = '';
     document.getElementById('assertions-container').innerHTML = '';
     if (!rules) return;
-    (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type));
+    (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type, r.write_to_variable));
     (rules.triggers || []).forEach(t => addTriggerRow(t.pattern, t.severity));
     (rules.assertions || []).forEach(a => addAssertionRow(a.pattern, a.message));
 }
@@ -5850,11 +5936,14 @@ function showPage(page) {
         fetchScripts();
     } else if (page === 'events') {
         fetchEvents();
+    } else if (page === 'variables') {
+        fetchVariables();
     } else if (page === 'settings') {
         updateThemeButtons();
         renderSettingsAuth();
         loadRetention();
         loadNotificationSettings();
+        showSettingsTab(currentSettingsTab || 'general');
     }
 }
 
@@ -7399,6 +7488,23 @@ function renderSettingsAuth() {
     }
 }
 
+let currentSettingsTab = 'general';
+const SETTINGS_TABS = ['general', 'auth', 'notifications'];
+
+function showSettingsTab(tab) {
+    currentSettingsTab = tab;
+    SETTINGS_TABS.forEach(t => {
+        const panel = document.getElementById('settings-panel-' + t);
+        const btn = document.getElementById('stab-' + t);
+        if (panel) panel.style.display = t === tab ? '' : 'none';
+        if (btn) {
+            btn.classList.toggle('active', t === tab);
+            btn.style.background = t === tab ? 'var(--surface)' : '';
+            btn.style.borderBottom = t === tab ? '2px solid var(--accent)' : '';
+        }
+    });
+}
+
 async function loadRetention() {
     try {
         const settings = await api('GET', '/api/settings');
@@ -7500,6 +7606,84 @@ async function testNotification() {
     } catch (e) {
         status.textContent = 'Error: ' + e.message;
         status.style.color = 'var(--danger)';
+    }
+}
+
+// --- Variables ---
+let allVariables = [];
+
+async function fetchVariables() {
+    try {
+        allVariables = await api('GET', '/api/variables');
+        renderVariables();
+    } catch (e) {
+        console.error('Failed to fetch variables:', e);
+    }
+}
+
+function renderVariables() {
+    const tbody = document.getElementById('variables-tbody');
+    const table = document.getElementById('variables-table');
+    const empty = document.getElementById('variables-empty');
+    if (allVariables.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = '';
+        return;
+    }
+    table.style.display = '';
+    empty.style.display = 'none';
+    tbody.innerHTML = allVariables.map(v => `<tr>
+        <td><code>${esc(v.name)}</code></td>
+        <td><input type="text" class="var-edit-value" data-name="${esc(v.name)}" value="${esc(v.value)}" style="width:100%;font-family:var(--font-mono);font-size:12px" onchange="updateVariable('${esc(v.name)}', this.value)"></td>
+        <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(v.updated_at)}</td>
+        <td><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteVariable('${esc(v.name)}')">Delete</button></td>
+    </tr>`).join('');
+}
+
+function showAddVariableForm() {
+    document.getElementById('add-variable-form').style.display = '';
+    document.getElementById('new-var-name').value = '';
+    document.getElementById('new-var-value').value = '';
+    document.getElementById('new-var-name').focus();
+}
+
+function hideAddVariableForm() {
+    document.getElementById('add-variable-form').style.display = 'none';
+}
+
+async function createVariable() {
+    const name = document.getElementById('new-var-name').value.trim();
+    const value = document.getElementById('new-var-value').value;
+    if (!name) return;
+    if (!/^[A-Za-z0-9_]+$/.test(name)) {
+        alert('Variable name must contain only letters, numbers, and underscores.');
+        return;
+    }
+    try {
+        await api('POST', '/api/variables', { name, value });
+        hideAddVariableForm();
+        fetchVariables();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function updateVariable(name, value) {
+    try {
+        await api('PUT', '/api/variables/' + encodeURIComponent(name), { value });
+        fetchVariables();
+    } catch (e) {
+        alert('Error: ' + e.message);
+    }
+}
+
+async function deleteVariable(name) {
+    if (!confirm('Delete variable "' + name + '"?')) return;
+    try {
+        await api('DELETE', '/api/variables/' + encodeURIComponent(name));
+        fetchVariables();
+    } catch (e) {
+        alert('Error: ' + e.message);
     }
 }
 

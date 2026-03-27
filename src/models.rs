@@ -194,6 +194,8 @@ pub struct ExtractionRule {
     pub pattern: String,
     #[serde(rename = "type")]
     pub rule_type: String, // "regex" or "jsonpath"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub write_to_variable: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -496,4 +498,11 @@ impl ApiKeyRole {
     pub fn is_agent(&self) -> bool {
         matches!(self, ApiKeyRole::Agent)
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Variable {
+    pub name: String,
+    pub value: String,
+    pub updated_at: DateTime<Utc>,
 }
