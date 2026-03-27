@@ -8,6 +8,12 @@ pub struct AgentClient {
     client: reqwest::Client,
 }
 
+impl Default for AgentClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AgentClient {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
@@ -73,11 +79,7 @@ impl AgentClient {
         agent_port: u16,
     ) -> Result<(), AppError> {
         let url = format!("http://{}:{}/shutdown", agent_address, agent_port);
-        let _ = self
-            .client
-            .post(&url)
-            .send()
-            .await; // Best-effort, don't fail if agent is already down
+        let _ = self.client.post(&url).send().await; // Best-effort, don't fail if agent is already down
         Ok(())
     }
 }

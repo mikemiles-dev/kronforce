@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -28,10 +28,17 @@ pub(crate) async fn register_agent(
     let agent_id = existing.as_ref().map(|a| a.id).unwrap_or_else(Uuid::new_v4);
     let now = Utc::now();
 
-    let agent_type = req.agent_type.as_deref().map(AgentType::from_str).unwrap_or(AgentType::Standard);
+    let agent_type = req
+        .agent_type
+        .as_deref()
+        .map(AgentType::from_str)
+        .unwrap_or(AgentType::Standard);
 
     // Preserve existing UI-managed task types on re-registration
-    let task_types = existing.as_ref().map(|a| a.task_types.clone()).unwrap_or_default();
+    let task_types = existing
+        .as_ref()
+        .map(|a| a.task_types.clone())
+        .unwrap_or_default();
 
     let agent = Agent {
         id: agent_id,
@@ -59,8 +66,15 @@ pub(crate) async fn register_agent(
     let agent_name = agent.name.clone();
     let agent_id_log = agent.id;
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("agent.registered", EventSeverity::Success, &format!("Agent '{}' registered", agent_name), None, Some(agent_id_log))
-    }).await;
+        db_log.log_event(
+            "agent.registered",
+            EventSeverity::Success,
+            &format!("Agent '{}' registered", agent_name),
+            None,
+            Some(agent_id_log),
+        )
+    })
+    .await;
 
     Ok(Json(AgentRegistrationResponse {
         agent_id: agent.id,
@@ -128,8 +142,15 @@ pub(crate) async fn deregister_agent(
         let db_log = state.db.clone();
         let name = a.name.clone();
         let _ = tokio::task::spawn_blocking(move || {
-            db_log.log_event("agent.unpaired", EventSeverity::Warning, &format!("Agent '{}' unpaired and shut down", name), None, Some(id))
-        }).await;
+            db_log.log_event(
+                "agent.unpaired",
+                EventSeverity::Warning,
+                &format!("Agent '{}' unpaired and shut down", name),
+                None,
+                Some(id),
+            )
+        })
+        .await;
     }
 
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -155,8 +176,11 @@ pub(crate) async fn update_agent_task_types(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let task_types: Vec<crate::models::TaskTypeDefinition> = serde_json::from_value(
-        body.get("task_types").cloned().unwrap_or(serde_json::Value::Array(vec![]))
-    ).map_err(|e| AppError::BadRequest(format!("invalid task_types: {e}")))?;
+        body.get("task_types")
+            .cloned()
+            .unwrap_or(serde_json::Value::Array(vec![])),
+    )
+    .map_err(|e| AppError::BadRequest(format!("invalid task_types: {e}")))?;
 
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || db.update_agent_task_types(id, &task_types))

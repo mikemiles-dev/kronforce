@@ -35,7 +35,9 @@ impl super::Executor {
 
         let db = self.db.clone();
         let rec_clone = rec.clone();
-        tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone)).await.unwrap()?;
+        tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone))
+            .await
+            .unwrap()?;
 
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
         {
@@ -52,7 +54,14 @@ impl super::Executor {
         let script_store = self.script_store.clone();
 
         tokio::spawn(async move {
-            let result = run_task(&task, run_as.as_deref(), timeout_secs, Some(&script_store), cancel_rx).await;
+            let result = run_task(
+                &task,
+                run_as.as_deref(),
+                timeout_secs,
+                Some(&script_store),
+                cancel_rx,
+            )
+            .await;
             let finished_at = Utc::now();
             let updated = ExecutionRecord {
                 id: exec_id,
@@ -88,55 +97,80 @@ impl super::Executor {
                 let exec_status = updated.status;
                 let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
                     let mut events = Vec::new();
-                    if let Ok(Some(job)) = db_rules.get_job(job_id) {
-                        if let Some(ref rules) = job.output_rules {
-                            // Extractions
-                            if !rules.extractions.is_empty() {
-                                let extracted = crate::output_rules::run_extractions(&stdout_clone, &rules.extractions);
-                                if !extracted.is_empty() {
-                                    let _ = db_rules.update_execution_extracted(exec_id_rules, &serde_json::json!(extracted));
-                                }
+                    if let Ok(Some(job)) = db_rules.get_job(job_id)
+                        && let Some(ref rules) = job.output_rules
+                    {
+                        // Extractions
+                        if !rules.extractions.is_empty() {
+                            let extracted = crate::output_rules::run_extractions(
+                                &stdout_clone,
+                                &rules.extractions,
+                            );
+                            if !extracted.is_empty() {
+                                let _ = db_rules.update_execution_extracted(
+                                    exec_id_rules,
+                                    &serde_json::json!(extracted),
+                                );
                             }
-                            // Assertions — only on successful executions
-                            if exec_status == ExecutionStatus::Succeeded && !rules.assertions.is_empty() {
-                                let failures = crate::output_rules::run_assertions(&stdout_clone, &rules.assertions);
-                                if !failures.is_empty() {
-                                    let msg = failures.join("; ");
-                                    let _ = db_rules.fail_execution_assertion(exec_id_rules, &msg);
-                                    tracing::warn!("execution {} failed assertion: {}", exec_id_rules, msg);
-                                }
+                        }
+                        // Assertions — only on successful executions
+                        if exec_status == ExecutionStatus::Succeeded && !rules.assertions.is_empty()
+                        {
+                            let failures = crate::output_rules::run_assertions(
+                                &stdout_clone,
+                                &rules.assertions,
+                            );
+                            if !failures.is_empty() {
+                                let msg = failures.join("; ");
+                                let _ = db_rules.fail_execution_assertion(exec_id_rules, &msg);
+                                tracing::warn!(
+                                    "execution {} failed assertion: {}",
+                                    exec_id_rules,
+                                    msg
+                                );
                             }
-                            // Triggers
-                            let matches = crate::output_rules::run_triggers(&stdout_clone, &stderr_clone, &rules.triggers);
-                            for (pattern, severity) in &matches {
-                                let sev = match severity.as_str() {
-                                    "error" => crate::models::EventSeverity::Error,
-                                    "warning" => crate::models::EventSeverity::Warning,
-                                    "success" => crate::models::EventSeverity::Success,
-                                    _ => crate::models::EventSeverity::Info,
-                                };
-                                let event = Event {
-                                    id: Uuid::new_v4(),
-                                    kind: "output.matched".to_string(),
-                                    severity: sev,
-                                    message: format!("Output pattern matched: '{}' in job '{}'", pattern, job.name),
-                                    job_id: Some(job_id),
-                                    agent_id: None,
-                                    api_key_id: None,
-                                    api_key_name: None,
-                                    details: None,
-                                    timestamp: chrono::Utc::now(),
-                                };
-                                let _ = db_rules.insert_event(&event);
-                                events.push(event);
-                            }
+                        }
+                        // Triggers
+                        let matches = crate::output_rules::run_triggers(
+                            &stdout_clone,
+                            &stderr_clone,
+                            &rules.triggers,
+                        );
+                        for (pattern, severity) in &matches {
+                            let sev = match severity.as_str() {
+                                "error" => crate::models::EventSeverity::Error,
+                                "warning" => crate::models::EventSeverity::Warning,
+                                "success" => crate::models::EventSeverity::Success,
+                                _ => crate::models::EventSeverity::Info,
+                            };
+                            let event = Event {
+                                id: Uuid::new_v4(),
+                                kind: "output.matched".to_string(),
+                                severity: sev,
+                                message: format!(
+                                    "Output pattern matched: '{}' in job '{}'",
+                                    pattern, job.name
+                                ),
+                                job_id: Some(job_id),
+                                agent_id: None,
+                                api_key_id: None,
+                                api_key_name: None,
+                                details: None,
+                                timestamp: chrono::Utc::now(),
+                            };
+                            let _ = db_rules.insert_event(&event);
+                            events.push(event);
                         }
                     }
                     events
-                }).await.unwrap_or_default();
+                })
+                .await
+                .unwrap_or_default();
                 // Notify scheduler of output.matched events so event-triggered jobs can fire
                 for event in output_events {
-                    let _ = sched_tx.send(crate::scheduler::SchedulerCommand::EventOccurred(event)).await;
+                    let _ = sched_tx
+                        .send(crate::scheduler::SchedulerCommand::EventOccurred(event))
+                        .await;
                 }
             }
 
@@ -151,7 +185,9 @@ impl super::Executor {
                     let job = match tokio::task::spawn_blocking({
                         let db = db_notif.clone();
                         move || db.get_job(job_id_notif)
-                    }).await {
+                    })
+                    .await
+                    {
                         Ok(Ok(Some(j))) => j,
                         _ => return,
                     };
@@ -160,28 +196,50 @@ impl super::Executor {
                         None => return,
                     };
                     let should_notify = match exec_status {
-                        ExecutionStatus::Failed | ExecutionStatus::TimedOut => notif.on_failure || notif.on_assertion_failure,
+                        ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
+                            notif.on_failure || notif.on_assertion_failure
+                        }
                         ExecutionStatus::Succeeded => notif.on_success,
                         _ => false,
                     };
-                    if !should_notify { return; }
-                    let subject = format!("[Kronforce] Job '{}' {}", job.name, match exec_status {
-                        ExecutionStatus::Succeeded => "succeeded",
-                        ExecutionStatus::Failed => "failed",
-                        ExecutionStatus::TimedOut => "timed out",
-                        _ => "completed",
-                    });
+                    if !should_notify {
+                        return;
+                    }
+                    let subject = format!(
+                        "[Kronforce] Job '{}' {}",
+                        job.name,
+                        match exec_status {
+                            ExecutionStatus::Succeeded => "succeeded",
+                            ExecutionStatus::Failed => "failed",
+                            ExecutionStatus::TimedOut => "timed out",
+                            _ => "completed",
+                        }
+                    );
                     let body = format!(
                         "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
-                        job.name, exec_status, exec_id_short,
+                        job.name,
+                        exec_status,
+                        exec_id_short,
                         chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-                        if !stderr_excerpt.is_empty() { format!("\nError output:\n{}", stderr_excerpt) } else { String::new() }
+                        if !stderr_excerpt.is_empty() {
+                            format!("\nError output:\n{}", stderr_excerpt)
+                        } else {
+                            String::new()
+                        }
                     );
-                    let recipients = notif.recipients.as_ref().map(|r| crate::notifications::NotificationRecipients {
-                        emails: r.emails.clone(),
-                        phones: r.phones.clone(),
+                    let recipients = notif.recipients.as_ref().map(|r| {
+                        crate::notifications::NotificationRecipients {
+                            emails: r.emails.clone(),
+                            phones: r.phones.clone(),
+                        }
                     });
-                    crate::notifications::send_notification(&db_notif, &subject, &body, recipients.as_ref()).await;
+                    crate::notifications::send_notification(
+                        &db_notif,
+                        &subject,
+                        &body,
+                        recipients.as_ref(),
+                    )
+                    .await;
                 });
             }
 
@@ -209,7 +267,9 @@ impl super::Executor {
             let db3 = db.clone();
             let event2 = event.clone();
             let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
-            let _ = sched_tx.send(crate::scheduler::SchedulerCommand::EventOccurred(event)).await;
+            let _ = sched_tx
+                .send(crate::scheduler::SchedulerCommand::EventOccurred(event))
+                .await;
         });
 
         Ok(exec_id)
@@ -225,73 +285,157 @@ pub async fn run_task(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     match task {
-        TaskType::Shell { command } => {
-            run_command(command, run_as, timeout_secs, cancel_rx).await
-        }
-        TaskType::Sql { driver, connection_string, query } => {
+        TaskType::Shell { command } => run_command(command, run_as, timeout_secs, cancel_rx).await,
+        TaskType::Sql {
+            driver,
+            connection_string,
+            query,
+        } => {
             let cmd = match driver {
-                SqlDriver::Postgres => format!("psql {} -c {}", shell_escape(connection_string), shell_escape(query)),
-                SqlDriver::Mysql => format!("mysql {} -e {}", shell_escape(connection_string), shell_escape(query)),
-                SqlDriver::Sqlite => format!("sqlite3 {} {}", shell_escape(connection_string), shell_escape(query)),
+                SqlDriver::Postgres => format!(
+                    "psql {} -c {}",
+                    shell_escape(connection_string),
+                    shell_escape(query)
+                ),
+                SqlDriver::Mysql => format!(
+                    "mysql {} -e {}",
+                    shell_escape(connection_string),
+                    shell_escape(query)
+                ),
+                SqlDriver::Sqlite => format!(
+                    "sqlite3 {} {}",
+                    shell_escape(connection_string),
+                    shell_escape(query)
+                ),
             };
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
-        TaskType::Ftp { protocol, host, port, username, password, direction, remote_path, local_path } => {
+        TaskType::Ftp {
+            protocol,
+            host,
+            port,
+            username,
+            password,
+            direction,
+            remote_path,
+            local_path,
+        } => {
             let port_part = port.map(|p| format!(":{}", p)).unwrap_or_default();
             let proto = match protocol {
                 FtpProtocol::Ftp => "ftp",
                 FtpProtocol::Ftps => "ftps",
                 FtpProtocol::Sftp => "sftp",
             };
-            let url = format!("{}://{}{}{}",proto, host, port_part, remote_path);
+            let url = format!("{}://{}{}{}", proto, host, port_part, remote_path);
             let cmd = match direction {
-                TransferDirection::Download => format!("curl -u {}:{} {} -o {}", shell_escape(username), shell_escape(password), shell_escape(&url), shell_escape(local_path)),
-                TransferDirection::Upload => format!("curl -u {}:{} -T {} {}", shell_escape(username), shell_escape(password), shell_escape(local_path), shell_escape(&url)),
+                TransferDirection::Download => format!(
+                    "curl -u {}:{} {} -o {}",
+                    shell_escape(username),
+                    shell_escape(password),
+                    shell_escape(&url),
+                    shell_escape(local_path)
+                ),
+                TransferDirection::Upload => format!(
+                    "curl -u {}:{} -T {} {}",
+                    shell_escape(username),
+                    shell_escape(password),
+                    shell_escape(local_path),
+                    shell_escape(&url)
+                ),
             };
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
-        TaskType::Http { method, url, headers, body, expect_status } => {
-            run_http(method, url, headers.as_ref(), body.as_deref(), *expect_status, timeout_secs, cancel_rx).await
+        TaskType::Http {
+            method,
+            url,
+            headers,
+            body,
+            expect_status,
+        } => {
+            run_http(
+                method,
+                url,
+                headers.as_ref(),
+                body.as_deref(),
+                *expect_status,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Script { script_name } => {
             let store = match script_store {
                 Some(s) => s,
-                None => return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: None,
-                    stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: "script store not available on agent".to_string(), truncated: false },
-                },
+                None => {
+                    return CommandResult {
+                        status: ExecutionStatus::Failed,
+                        exit_code: None,
+                        stdout: CapturedOutput {
+                            text: String::new(),
+                            truncated: false,
+                        },
+                        stderr: CapturedOutput {
+                            text: "script store not available on agent".to_string(),
+                            truncated: false,
+                        },
+                    };
+                }
             };
             let code = match store.read_code(script_name) {
                 Ok(c) => c,
-                Err(e) => return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: None,
-                    stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: format!("script error: {e}"), truncated: false },
-                },
+                Err(e) => {
+                    return CommandResult {
+                        status: ExecutionStatus::Failed,
+                        exit_code: None,
+                        stdout: CapturedOutput {
+                            text: String::new(),
+                            truncated: false,
+                        },
+                        stderr: CapturedOutput {
+                            text: format!("script error: {e}"),
+                            truncated: false,
+                        },
+                    };
+                }
             };
             run_script(&code, timeout_secs, cancel_rx).await
         }
-        TaskType::Custom { .. } => {
-            CommandResult {
-                status: ExecutionStatus::Failed,
-                exit_code: None,
-                stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: "custom tasks require a custom agent — cannot run locally".to_string(), truncated: false },
-            }
-        }
-        TaskType::FilePush { filename, destination, content_base64, permissions, overwrite } => {
+        TaskType::Custom { .. } => CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: None,
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: "custom tasks require a custom agent — cannot run locally".to_string(),
+                truncated: false,
+            },
+        },
+        TaskType::FilePush {
+            filename,
+            destination,
+            content_base64,
+            permissions,
+            overwrite,
+        } => {
             use base64::Engine;
             let decoded = match base64::engine::general_purpose::STANDARD.decode(content_base64) {
                 Ok(bytes) => bytes,
-                Err(e) => return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: Some(1),
-                    stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: format!("base64 decode error: {e}"), truncated: false },
-                },
+                Err(e) => {
+                    return CommandResult {
+                        status: ExecutionStatus::Failed,
+                        exit_code: Some(1),
+                        stdout: CapturedOutput {
+                            text: String::new(),
+                            truncated: false,
+                        },
+                        stderr: CapturedOutput {
+                            text: format!("base64 decode error: {e}"),
+                            truncated: false,
+                        },
+                    };
+                }
             };
 
             let dest = std::path::Path::new(destination);
@@ -301,21 +445,33 @@ pub async fn run_task(
                 return CommandResult {
                     status: ExecutionStatus::Failed,
                     exit_code: Some(1),
-                    stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: format!("file already exists: {} (overwrite=false)", destination), truncated: false },
+                    stdout: CapturedOutput {
+                        text: String::new(),
+                        truncated: false,
+                    },
+                    stderr: CapturedOutput {
+                        text: format!("file already exists: {} (overwrite=false)", destination),
+                        truncated: false,
+                    },
                 };
             }
 
             // Create parent dirs
-            if let Some(parent) = dest.parent() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    return CommandResult {
-                        status: ExecutionStatus::Failed,
-                        exit_code: Some(1),
-                        stdout: CapturedOutput { text: String::new(), truncated: false },
-                        stderr: CapturedOutput { text: format!("failed to create directory {}: {e}", parent.display()), truncated: false },
-                    };
-                }
+            if let Some(parent) = dest.parent()
+                && let Err(e) = std::fs::create_dir_all(parent)
+            {
+                return CommandResult {
+                    status: ExecutionStatus::Failed,
+                    exit_code: Some(1),
+                    stdout: CapturedOutput {
+                        text: String::new(),
+                        truncated: false,
+                    },
+                    stderr: CapturedOutput {
+                        text: format!("failed to create directory {}: {e}", parent.display()),
+                        truncated: false,
+                    },
+                };
             }
 
             // Write file
@@ -324,37 +480,64 @@ pub async fn run_task(
                 return CommandResult {
                     status: ExecutionStatus::Failed,
                     exit_code: Some(1),
-                    stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: format!("failed to write file: {e}"), truncated: false },
+                    stdout: CapturedOutput {
+                        text: String::new(),
+                        truncated: false,
+                    },
+                    stderr: CapturedOutput {
+                        text: format!("failed to write file: {e}"),
+                        truncated: false,
+                    },
                 };
             }
 
             // Set permissions (Unix only)
             #[cfg(unix)]
-            if let Some(perm_str) = permissions {
-                if let Ok(mode) = u32::from_str_radix(perm_str, 8) {
-                    use std::os::unix::fs::PermissionsExt;
-                    let perms = std::fs::Permissions::from_mode(mode);
-                    let _ = std::fs::set_permissions(dest, perms);
-                }
+            if let Some(perm_str) = permissions
+                && let Ok(mode) = u32::from_str_radix(perm_str, 8)
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let perms = std::fs::Permissions::from_mode(mode);
+                let _ = std::fs::set_permissions(dest, perms);
             }
 
             CommandResult {
                 status: ExecutionStatus::Succeeded,
                 exit_code: Some(0),
                 stdout: CapturedOutput {
-                    text: format!("File '{}' written to {} ({} bytes)", filename, destination, size),
+                    text: format!(
+                        "File '{}' written to {} ({} bytes)",
+                        filename, destination, size
+                    ),
                     truncated: false,
                 },
-                stderr: CapturedOutput { text: String::new(), truncated: false },
+                stderr: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
             }
         }
-        TaskType::Kafka { broker, topic, message, key, properties } => {
-            let mut cmd = format!("echo {} | kafka-console-producer --broker-list {} --topic {}",
-                shell_escape(message), shell_escape(broker), shell_escape(topic));
+        TaskType::Kafka {
+            broker,
+            topic,
+            message,
+            key,
+            properties,
+        } => {
+            let mut cmd = format!(
+                "echo {} | kafka-console-producer --broker-list {} --topic {}",
+                shell_escape(message),
+                shell_escape(broker),
+                shell_escape(topic)
+            );
             if let Some(k) = key {
-                cmd = format!("echo {}:{} | kafka-console-producer --broker-list {} --topic {} --property parse.key=true --property key.separator=:",
-                    shell_escape(k), shell_escape(message), shell_escape(broker), shell_escape(topic));
+                cmd = format!(
+                    "echo {}:{} | kafka-console-producer --broker-list {} --topic {} --property parse.key=true --property key.separator=:",
+                    shell_escape(k),
+                    shell_escape(message),
+                    shell_escape(broker),
+                    shell_escape(topic)
+                );
             }
             if let Some(props) = properties {
                 cmd.push(' ');
@@ -362,18 +545,43 @@ pub async fn run_task(
             }
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
-        TaskType::Rabbitmq { url, exchange, routing_key, message, content_type } => {
-            let mut cmd = format!("amqp-publish --url {} --exchange {} --routing-key {} --body {}",
-                shell_escape(url), shell_escape(exchange), shell_escape(routing_key), shell_escape(message));
+        TaskType::Rabbitmq {
+            url,
+            exchange,
+            routing_key,
+            message,
+            content_type,
+        } => {
+            let mut cmd = format!(
+                "amqp-publish --url {} --exchange {} --routing-key {} --body {}",
+                shell_escape(url),
+                shell_escape(exchange),
+                shell_escape(routing_key),
+                shell_escape(message)
+            );
             if let Some(ct) = content_type {
                 cmd.push_str(&format!(" --content-type {}", shell_escape(ct)));
             }
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
-        TaskType::Mqtt { broker, topic, message, port, qos, username, password, client_id } => {
+        TaskType::Mqtt {
+            broker,
+            topic,
+            message,
+            port,
+            qos,
+            username,
+            password,
+            client_id,
+        } => {
             let p = port.unwrap_or(1883);
-            let mut cmd = format!("mosquitto_pub -h {} -p {} -t {} -m {}",
-                shell_escape(broker), p, shell_escape(topic), shell_escape(message));
+            let mut cmd = format!(
+                "mosquitto_pub -h {} -p {} -t {} -m {}",
+                shell_escape(broker),
+                p,
+                shell_escape(topic),
+                shell_escape(message)
+            );
             if let Some(q) = qos {
                 cmd.push_str(&format!(" -q {}", q));
             }
@@ -388,9 +596,17 @@ pub async fn run_task(
             }
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
-        TaskType::Redis { url, channel, message } => {
-            let cmd = format!("redis-cli -u {} PUBLISH {} {}",
-                shell_escape(url), shell_escape(channel), shell_escape(message));
+        TaskType::Redis {
+            url,
+            channel,
+            message,
+        } => {
+            let cmd = format!(
+                "redis-cli -u {} PUBLISH {} {}",
+                shell_escape(url),
+                shell_escape(channel),
+                shell_escape(message)
+            );
             run_command(&cmd, run_as, timeout_secs, cancel_rx).await
         }
     }
@@ -410,7 +626,11 @@ async fn run_http(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     let client = reqwest::Client::builder()
-        .timeout(timeout_secs.map(std::time::Duration::from_secs).unwrap_or(std::time::Duration::from_secs(30)))
+        .timeout(
+            timeout_secs
+                .map(std::time::Duration::from_secs)
+                .unwrap_or(std::time::Duration::from_secs(30)),
+        )
         .build()
         .unwrap();
 
@@ -437,29 +657,51 @@ async fn run_http(
                 let status_code = resp.status().as_u16();
                 let resp_body = resp.text().await.unwrap_or_default();
 
-                if let Some(expected) = expect_status {
-                    if status_code != expected {
-                        return CommandResult {
-                            status: ExecutionStatus::Failed,
-                            exit_code: Some(status_code as i32),
-                            stdout: CapturedOutput { text: resp_body, truncated: false },
-                            stderr: CapturedOutput { text: format!("expected status {}, got {}", expected, status_code), truncated: false },
-                        };
-                    }
+                if let Some(expected) = expect_status
+                    && status_code != expected
+                {
+                    return CommandResult {
+                        status: ExecutionStatus::Failed,
+                        exit_code: Some(status_code as i32),
+                        stdout: CapturedOutput {
+                            text: resp_body,
+                            truncated: false,
+                        },
+                        stderr: CapturedOutput {
+                            text: format!("expected status {}, got {}", expected, status_code),
+                            truncated: false,
+                        },
+                    };
                 }
 
                 CommandResult {
-                    status: if (200..300).contains(&status_code) { ExecutionStatus::Succeeded } else { ExecutionStatus::Failed },
+                    status: if (200..300).contains(&status_code) {
+                        ExecutionStatus::Succeeded
+                    } else {
+                        ExecutionStatus::Failed
+                    },
                     exit_code: Some(status_code as i32),
-                    stdout: CapturedOutput { text: resp_body, truncated: false },
-                    stderr: CapturedOutput { text: String::new(), truncated: false },
+                    stdout: CapturedOutput {
+                        text: resp_body,
+                        truncated: false,
+                    },
+                    stderr: CapturedOutput {
+                        text: String::new(),
+                        truncated: false,
+                    },
                 }
             }
             Err(e) => CommandResult {
                 status: ExecutionStatus::Failed,
                 exit_code: None,
-                stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: format!("HTTP request failed: {e}"), truncated: false },
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: format!("HTTP request failed: {e}"),
+                    truncated: false,
+                },
             },
         }
     };
@@ -479,10 +721,12 @@ async fn run_http(
 
 fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
     let hex = hex.replace(' ', "");
-    if hex.len() % 2 != 0 { return Err("odd length".into()); }
+    if !hex.len().is_multiple_of(2) {
+        return Err("odd length".into());
+    }
     (0..hex.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i+2], 16).map_err(|e| format!("{e}")))
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|e| format!("{e}")))
         .collect()
 }
 
@@ -499,7 +743,9 @@ async fn run_script(
     use std::sync::{Arc as StdArc, Mutex as StdMutex};
 
     let code = code.to_string();
-    let timeout = timeout_secs.map(std::time::Duration::from_secs).unwrap_or(std::time::Duration::from_secs(60));
+    let timeout = timeout_secs
+        .map(std::time::Duration::from_secs)
+        .unwrap_or(std::time::Duration::from_secs(60));
 
     let script_future = tokio::task::spawn_blocking(move || {
         let mut engine = Engine::new();
@@ -528,11 +774,10 @@ async fn run_script(
             let rt = tokio::runtime::Handle::try_current();
             let result = if let Ok(handle) = rt {
                 let u = url.clone();
-                std::thread::spawn(move || {
-                    handle.block_on(async {
-                        reqwest::get(&u).await
-                    })
-                }).join().ok().and_then(|r| r.ok())
+                std::thread::spawn(move || handle.block_on(async { reqwest::get(&u).await }))
+                    .join()
+                    .ok()
+                    .and_then(|r| r.ok())
             } else {
                 None
             };
@@ -540,7 +785,10 @@ async fn run_script(
                 Some(resp) => {
                     let status = resp.status().as_u16() as i64;
                     let body_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                        std::thread::spawn(move || handle.block_on(resp.text())).join().ok().and_then(|r| r.ok())
+                        std::thread::spawn(move || handle.block_on(resp.text()))
+                            .join()
+                            .ok()
+                            .and_then(|r| r.ok())
                     } else {
                         None
                     };
@@ -553,7 +801,10 @@ async fn run_script(
                 None => {
                     let mut map = rhai::Map::new();
                     map.insert("status".into(), rhai::Dynamic::from(0_i64));
-                    map.insert("body".into(), rhai::Dynamic::from("request failed".to_string()));
+                    map.insert(
+                        "body".into(),
+                        rhai::Dynamic::from("request failed".to_string()),
+                    );
                     rhai::Dynamic::from(map)
                 }
             }
@@ -568,10 +819,11 @@ async fn run_script(
                 let u = url.clone();
                 let b = body.clone();
                 std::thread::spawn(move || {
-                    handle.block_on(async {
-                        reqwest::Client::new().post(&u).body(b).send().await
-                    })
-                }).join().ok().and_then(|r| r.ok())
+                    handle.block_on(async { reqwest::Client::new().post(&u).body(b).send().await })
+                })
+                .join()
+                .ok()
+                .and_then(|r| r.ok())
             } else {
                 None
             };
@@ -579,7 +831,10 @@ async fn run_script(
                 Some(resp) => {
                     let status = resp.status().as_u16() as i64;
                     let body_result = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                        std::thread::spawn(move || handle.block_on(resp.text())).join().ok().and_then(|r| r.ok())
+                        std::thread::spawn(move || handle.block_on(resp.text()))
+                            .join()
+                            .ok()
+                            .and_then(|r| r.ok())
                     } else {
                         None
                     };
@@ -592,7 +847,10 @@ async fn run_script(
                 None => {
                     let mut map = rhai::Map::new();
                     map.insert("status".into(), rhai::Dynamic::from(0_i64));
-                    map.insert("body".into(), rhai::Dynamic::from("request failed".to_string()));
+                    map.insert(
+                        "body".into(),
+                        rhai::Dynamic::from("request failed".to_string()),
+                    );
                     rhai::Dynamic::from(map)
                 }
             }
@@ -600,23 +858,32 @@ async fn run_script(
 
         // Register shell_exec(cmd) -> #{exit_code, stdout, stderr}
         engine.register_fn("shell_exec", |cmd: &str| -> rhai::Dynamic {
-            let output = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(cmd)
-                .output();
+            let output = std::process::Command::new("sh").arg("-c").arg(cmd).output();
             match output {
                 Ok(out) => {
                     let mut map = rhai::Map::new();
-                    map.insert("exit_code".into(), rhai::Dynamic::from(out.status.code().unwrap_or(-1) as i64));
-                    map.insert("stdout".into(), rhai::Dynamic::from(String::from_utf8_lossy(&out.stdout).to_string()));
-                    map.insert("stderr".into(), rhai::Dynamic::from(String::from_utf8_lossy(&out.stderr).to_string()));
+                    map.insert(
+                        "exit_code".into(),
+                        rhai::Dynamic::from(out.status.code().unwrap_or(-1) as i64),
+                    );
+                    map.insert(
+                        "stdout".into(),
+                        rhai::Dynamic::from(String::from_utf8_lossy(&out.stdout).to_string()),
+                    );
+                    map.insert(
+                        "stderr".into(),
+                        rhai::Dynamic::from(String::from_utf8_lossy(&out.stderr).to_string()),
+                    );
                     rhai::Dynamic::from(map)
                 }
                 Err(e) => {
                     let mut map = rhai::Map::new();
                     map.insert("exit_code".into(), rhai::Dynamic::from(-1_i64));
                     map.insert("stdout".into(), rhai::Dynamic::from("".to_string()));
-                    map.insert("stderr".into(), rhai::Dynamic::from(format!("exec error: {e}")));
+                    map.insert(
+                        "stderr".into(),
+                        rhai::Dynamic::from(format!("exec error: {e}")),
+                    );
                     rhai::Dynamic::from(map)
                 }
             }
@@ -664,7 +931,9 @@ async fn run_script(
             use std::net::TcpStream;
             let mut map = rhai::Map::new();
             match TcpStream::connect_timeout(
-                &addr.parse().unwrap_or_else(|_| std::net::SocketAddr::from(([127,0,0,1], 0))),
+                &addr
+                    .parse()
+                    .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
                 std::time::Duration::from_secs(5),
             ) {
                 Ok(mut stream) => {
@@ -675,7 +944,10 @@ async fn run_script(
                             let _ = stream.shutdown(std::net::Shutdown::Write);
                             let mut buf = Vec::new();
                             let _ = stream.read_to_end(&mut buf);
-                            map.insert("response".into(), rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()));
+                            map.insert(
+                                "response".into(),
+                                rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()),
+                            );
                             map.insert("error".into(), rhai::Dynamic::from("".to_string()));
                         }
                         Err(e) => {
@@ -741,7 +1013,9 @@ async fn run_script(
                 }
             };
             match TcpStream::connect_timeout(
-                &addr.parse().unwrap_or_else(|_| std::net::SocketAddr::from(([127,0,0,1], 0))),
+                &addr
+                    .parse()
+                    .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 0))),
                 std::time::Duration::from_secs(5),
             ) {
                 Ok(mut stream) => {
@@ -752,8 +1026,14 @@ async fn run_script(
                             let _ = stream.shutdown(std::net::Shutdown::Write);
                             let mut buf = Vec::new();
                             let _ = stream.read_to_end(&mut buf);
-                            map.insert("response_hex".into(), rhai::Dynamic::from(bytes_to_hex(&buf)));
-                            map.insert("response".into(), rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()));
+                            map.insert(
+                                "response_hex".into(),
+                                rhai::Dynamic::from(bytes_to_hex(&buf)),
+                            );
+                            map.insert(
+                                "response".into(),
+                                rhai::Dynamic::from(String::from_utf8_lossy(&buf).to_string()),
+                            );
                             map.insert("error".into(), rhai::Dynamic::from("".to_string()));
                         }
                         Err(e) => {
@@ -807,9 +1087,19 @@ async fn run_script(
                     format!("{}\n{}", stdout_lines, val)
                 };
                 if let Some(fail_msg) = failed {
-                    (ExecutionStatus::Failed, None, final_stdout, format!("{}\n{}", stderr_lines, fail_msg).trim().to_string())
+                    (
+                        ExecutionStatus::Failed,
+                        None,
+                        final_stdout,
+                        format!("{}\n{}", stderr_lines, fail_msg).trim().to_string(),
+                    )
                 } else {
-                    (ExecutionStatus::Succeeded, Some(0), final_stdout, stderr_lines)
+                    (
+                        ExecutionStatus::Succeeded,
+                        Some(0),
+                        final_stdout,
+                        stderr_lines,
+                    )
                 }
             }
             Err(e) => {
@@ -897,8 +1187,14 @@ pub async fn run_command(
             return CommandResult {
                 status: ExecutionStatus::Failed,
                 exit_code: None,
-                stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: format!("failed to spawn process: {e}"), truncated: false },
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: format!("failed to spawn process: {e}"),
+                    truncated: false,
+                },
             };
         }
     };
@@ -988,7 +1284,10 @@ async fn read_pipe_stdout(pipe: &mut Option<tokio::process::ChildStdout>) -> Cap
             let _ = p.read_to_end(&mut buf).await;
             truncate_output(buf)
         }
-        None => CapturedOutput { text: String::new(), truncated: false },
+        None => CapturedOutput {
+            text: String::new(),
+            truncated: false,
+        },
     }
 }
 
@@ -999,6 +1298,9 @@ async fn read_pipe_stderr(pipe: &mut Option<tokio::process::ChildStderr>) -> Cap
             let _ = p.read_to_end(&mut buf).await;
             truncate_output(buf)
         }
-        None => CapturedOutput { text: String::new(), truncated: false },
+        None => CapturedOutput {
+            text: String::new(),
+            truncated: false,
+        },
     }
 }

@@ -1,9 +1,9 @@
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 use uuid::Uuid;
 
-use super::{AppState, log_and_notify};
 use super::auth::AuthUser;
+use super::{AppState, log_and_notify};
 use crate::error::AppError;
 use crate::models::*;
 use crate::protocol::ExecutionResultReport;
@@ -64,49 +64,60 @@ pub(crate) async fn execution_result_callback(
         let stderr_r = stderr_for_rules;
         let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
             let mut events = Vec::new();
-            if let Ok(Some(job)) = db_r.get_job(job_id_for_rules) {
-                if let Some(ref rules) = job.output_rules {
-                    if !rules.extractions.is_empty() {
-                        let extracted = crate::output_rules::run_extractions(&stdout_r, &rules.extractions);
-                        if !extracted.is_empty() {
-                            let _ = db_r.update_execution_extracted(exec_id_for_rules, &serde_json::json!(extracted));
-                        }
+            if let Ok(Some(job)) = db_r.get_job(job_id_for_rules)
+                && let Some(ref rules) = job.output_rules
+            {
+                if !rules.extractions.is_empty() {
+                    let extracted =
+                        crate::output_rules::run_extractions(&stdout_r, &rules.extractions);
+                    if !extracted.is_empty() {
+                        let _ = db_r.update_execution_extracted(
+                            exec_id_for_rules,
+                            &serde_json::json!(extracted),
+                        );
                     }
-                    // Assertions — only on successful executions
-                    if status == ExecutionStatus::Succeeded && !rules.assertions.is_empty() {
-                        let failures = crate::output_rules::run_assertions(&stdout_r, &rules.assertions);
-                        if !failures.is_empty() {
-                            let msg = failures.join("; ");
-                            let _ = db_r.fail_execution_assertion(exec_id_for_rules, &msg);
-                        }
+                }
+                // Assertions — only on successful executions
+                if status == ExecutionStatus::Succeeded && !rules.assertions.is_empty() {
+                    let failures =
+                        crate::output_rules::run_assertions(&stdout_r, &rules.assertions);
+                    if !failures.is_empty() {
+                        let msg = failures.join("; ");
+                        let _ = db_r.fail_execution_assertion(exec_id_for_rules, &msg);
                     }
-                    let matches = crate::output_rules::run_triggers(&stdout_r, &stderr_r, &rules.triggers);
-                    for (pattern, severity) in &matches {
-                        let sev = match severity.as_str() {
-                            "error" => EventSeverity::Error,
-                            "warning" => EventSeverity::Warning,
-                            "success" => EventSeverity::Success,
-                            _ => EventSeverity::Info,
-                        };
-                        let event = Event {
-                            id: Uuid::new_v4(),
-                            kind: "output.matched".to_string(),
-                            severity: sev,
-                            message: format!("Output pattern matched: '{}' in job '{}'", pattern, job.name),
-                            job_id: Some(job_id_for_rules),
-                            agent_id: None,
-                            api_key_id: None,
-                            api_key_name: None,
-                            details: None,
-                            timestamp: chrono::Utc::now(),
-                        };
-                        let _ = db_r.insert_event(&event);
-                        events.push(event);
-                    }
+                }
+                let matches =
+                    crate::output_rules::run_triggers(&stdout_r, &stderr_r, &rules.triggers);
+                for (pattern, severity) in &matches {
+                    let sev = match severity.as_str() {
+                        "error" => EventSeverity::Error,
+                        "warning" => EventSeverity::Warning,
+                        "success" => EventSeverity::Success,
+                        _ => EventSeverity::Info,
+                    };
+                    let event = Event {
+                        id: Uuid::new_v4(),
+                        kind: "output.matched".to_string(),
+                        severity: sev,
+                        message: format!(
+                            "Output pattern matched: '{}' in job '{}'",
+                            pattern, job.name
+                        ),
+                        job_id: Some(job_id_for_rules),
+                        agent_id: None,
+                        api_key_id: None,
+                        api_key_name: None,
+                        details: None,
+                        timestamp: chrono::Utc::now(),
+                    };
+                    let _ = db_r.insert_event(&event);
+                    events.push(event);
                 }
             }
             events
-        }).await.unwrap_or_default();
+        })
+        .await
+        .unwrap_or_default();
         // Notify scheduler so event-triggered jobs can fire
         for event in output_events {
             let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
@@ -124,7 +135,9 @@ pub(crate) async fn execution_result_callback(
             let job = match tokio::task::spawn_blocking({
                 let db = db_notif.clone();
                 move || db.get_job(job_id_notif)
-            }).await {
+            })
+            .await
+            {
                 Ok(Ok(Some(j))) => j,
                 _ => return,
             };
@@ -133,28 +146,52 @@ pub(crate) async fn execution_result_callback(
                 None => return,
             };
             let should_notify = match exec_status {
-                ExecutionStatus::Failed | ExecutionStatus::TimedOut => notif.on_failure || notif.on_assertion_failure,
+                ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
+                    notif.on_failure || notif.on_assertion_failure
+                }
                 ExecutionStatus::Succeeded => notif.on_success,
                 _ => false,
             };
-            if !should_notify { return; }
-            let subject = format!("[Kronforce] Job '{}' {}", job.name, match exec_status {
-                ExecutionStatus::Succeeded => "succeeded",
-                ExecutionStatus::Failed => "failed",
-                ExecutionStatus::TimedOut => "timed out",
-                _ => "completed",
-            });
+            if !should_notify {
+                return;
+            }
+            let subject = format!(
+                "[Kronforce] Job '{}' {}",
+                job.name,
+                match exec_status {
+                    ExecutionStatus::Succeeded => "succeeded",
+                    ExecutionStatus::Failed => "failed",
+                    ExecutionStatus::TimedOut => "timed out",
+                    _ => "completed",
+                }
+            );
             let body = format!(
                 "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
-                job.name, exec_status, exec_id_short,
+                job.name,
+                exec_status,
+                exec_id_short,
                 chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-                if !stderr_excerpt.is_empty() { format!("\nError output:\n{}", stderr_excerpt) } else { String::new() }
+                if !stderr_excerpt.is_empty() {
+                    format!("\nError output:\n{}", stderr_excerpt)
+                } else {
+                    String::new()
+                }
             );
-            let recipients = notif.recipients.as_ref().map(|r| crate::notifications::NotificationRecipients {
-                emails: r.emails.clone(),
-                phones: r.phones.clone(),
-            });
-            crate::notifications::send_notification(&db_notif, &subject, &body, recipients.as_ref()).await;
+            let recipients =
+                notif
+                    .recipients
+                    .as_ref()
+                    .map(|r| crate::notifications::NotificationRecipients {
+                        emails: r.emails.clone(),
+                        phones: r.phones.clone(),
+                    });
+            crate::notifications::send_notification(
+                &db_notif,
+                &subject,
+                &body,
+                recipients.as_ref(),
+            )
+            .await;
         });
     }
 
@@ -171,8 +208,18 @@ pub(crate) async fn execution_result_callback(
     let eid = result.execution_id;
     let _ = tokio::task::spawn_blocking(move || db_q.complete_queue_item(eid)).await;
 
-    log_and_notify(&state.db, &state.scheduler_tx, "execution.completed", severity,
-        &msg, Some(result.job_id), Some(result.agent_id), &no_auth, None).await;
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "execution.completed",
+        severity,
+        &msg,
+        Some(result.job_id),
+        Some(result.agent_id),
+        &no_auth,
+        None,
+    )
+    .await;
 
     tracing::info!(
         "received execution result {} from agent {}: {:?}",

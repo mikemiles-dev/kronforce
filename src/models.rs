@@ -177,6 +177,7 @@ impl JobStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "scheduled" | "enabled" | "active" => Some(JobStatus::Scheduled),
@@ -283,6 +284,7 @@ impl AgentType {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "custom" => AgentType::Custom,
@@ -300,6 +302,7 @@ impl AgentStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "online" => Some(AgentStatus::Online),
@@ -351,6 +354,7 @@ impl ExecutionStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "pending" => Some(ExecutionStatus::Pending),
@@ -426,6 +430,7 @@ impl EventSeverity {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "info" => Some(EventSeverity::Info),
@@ -469,6 +474,7 @@ impl ApiKeyRole {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "admin" => Some(ApiKeyRole::Admin),

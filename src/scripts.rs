@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
 use crate::error::AppError;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 pub struct ScriptStore {
@@ -28,7 +28,9 @@ impl ScriptStore {
             std::fs::create_dir_all(path)
                 .map_err(|e| AppError::Internal(format!("failed to create scripts dir: {e}")))?;
         }
-        Ok(Self { dir: path.to_path_buf() })
+        Ok(Self {
+            dir: path.to_path_buf(),
+        })
     }
 
     pub fn list(&self) -> Result<Vec<ScriptInfo>, AppError> {
@@ -39,7 +41,11 @@ impl ScriptStore {
             let entry = entry.map_err(|e| AppError::Internal(format!("{e}")))?;
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("rhai") {
-                let name = path.file_stem().unwrap_or_default().to_string_lossy().to_string();
+                let name = path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 let meta = std::fs::metadata(&path).ok();
                 scripts.push(ScriptInfo {
                     name,
@@ -63,13 +69,22 @@ impl ScriptStore {
         let code = std::fs::read_to_string(&path)
             .map_err(|e| AppError::Internal(format!("failed to read script: {e}")))?;
         let size = code.len() as u64;
-        Ok(ScriptFull { name: name.to_string(), code, size })
+        Ok(ScriptFull {
+            name: name.to_string(),
+            code,
+            size,
+        })
     }
 
     pub fn save(&self, name: &str, code: &str) -> Result<(), AppError> {
         // Validate name (alphanumeric, dashes, underscores only)
-        if !name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-            return Err(AppError::BadRequest("script name must be alphanumeric with dashes/underscores".into()));
+        if !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        {
+            return Err(AppError::BadRequest(
+                "script name must be alphanumeric with dashes/underscores".into(),
+            ));
         }
         let path = self.script_path(name);
         std::fs::write(&path, code)

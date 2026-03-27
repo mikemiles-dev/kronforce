@@ -24,7 +24,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if db.count_api_keys()? == 0 {
         let (raw_key, prefix) = if let Ok(preset) = std::env::var("KRONFORCE_BOOTSTRAP_ADMIN_KEY") {
             if !preset.is_empty() {
-                let pfx = if preset.len() >= 11 { preset[..11].to_string() } else { preset.clone() };
+                let pfx = if preset.len() >= 11 {
+                    preset[..11].to_string()
+                } else {
+                    preset.clone()
+                };
                 (preset, pfx)
             } else {
                 kronforce::api::generate_api_key()
@@ -51,16 +55,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("=============================================================");
 
         // Also create a bootstrap agent key — use KRONFORCE_BOOTSTRAP_AGENT_KEY if set
-        let (agent_raw, agent_prefix) = if let Ok(preset) = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY") {
-            if !preset.is_empty() {
-                let prefix = if preset.len() >= 11 { preset[..11].to_string() } else { preset.clone() };
-                (preset, prefix)
+        let (agent_raw, agent_prefix) =
+            if let Ok(preset) = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY") {
+                if !preset.is_empty() {
+                    let prefix = if preset.len() >= 11 {
+                        preset[..11].to_string()
+                    } else {
+                        preset.clone()
+                    };
+                    (preset, prefix)
+                } else {
+                    kronforce::api::generate_api_key()
+                }
             } else {
                 kronforce::api::generate_api_key()
-            }
-        } else {
-            kronforce::api::generate_api_key()
-        };
+            };
         let agent_hash = kronforce::api::hash_api_key(&agent_raw);
         let agent_key_record = kronforce::models::ApiKey {
             id: uuid::Uuid::new_v4(),
@@ -86,7 +95,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_client = AgentClient::new();
     let script_store = kronforce::scripts::ScriptStore::new(&config.scripts_dir)?;
     tracing::info!("scripts directory: {}", config.scripts_dir);
-    let executor = Executor::new(db.clone(), agent_client.clone(), scheduler_tx.clone(), script_store.clone());
+    let executor = Executor::new(
+        db.clone(),
+        agent_client.clone(),
+        scheduler_tx.clone(),
+        script_store.clone(),
+    );
     let dag = DagResolver::new(db.clone());
     let scheduler = Scheduler::new(
         db.clone(),
@@ -110,7 +124,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let timeout = timeout;
             let db_tick = db.clone();
             let offline_agents: Vec<(String, String)> = tokio::task::spawn_blocking(move || {
-                let before: Vec<_> = db_tick.list_agents().unwrap_or_default().into_iter()
+                let before: Vec<_> = db_tick
+                    .list_agents()
+                    .unwrap_or_default()
+                    .into_iter()
                     .filter(|a| a.status == kronforce::models::AgentStatus::Online)
                     .map(|a| (a.id, a.name.clone()))
                     .collect();
@@ -118,32 +135,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let after = db_tick.list_agents().unwrap_or_default();
                 let mut went_offline = Vec::new();
                 for (id, name) in &before {
-                    if let Some(a) = after.iter().find(|a| a.id == *id) {
-                        if a.status == kronforce::models::AgentStatus::Offline {
-                            let _ = db_tick.log_event(
-                                "agent.offline",
-                                kronforce::models::EventSeverity::Warning,
-                                &format!("Agent '{}' went offline (heartbeat timeout)", name),
-                                None,
-                                Some(*id),
-                            );
-                            went_offline.push((name.clone(), a.hostname.clone()));
-                        }
+                    if let Some(a) = after.iter().find(|a| a.id == *id)
+                        && a.status == kronforce::models::AgentStatus::Offline
+                    {
+                        let _ = db_tick.log_event(
+                            "agent.offline",
+                            kronforce::models::EventSeverity::Warning,
+                            &format!("Agent '{}' went offline (heartbeat timeout)", name),
+                            None,
+                            Some(*id),
+                        );
+                        went_offline.push((name.clone(), a.hostname.clone()));
                     }
                 }
                 let _ = db_tick.fail_stale_pending_queue_items(300);
                 let _ = db_tick.fail_stale_claimed_queue_items(600);
-                if let Ok(Some(days_str)) = db_tick.get_setting("retention_days") {
-                    if let Ok(days) = days_str.parse::<i64>() {
-                        if days > 0 {
-                            let _ = db_tick.purge_old_executions(days);
-                            let _ = db_tick.purge_old_events(days);
-                            let _ = db_tick.purge_old_queue_items(days);
-                        }
-                    }
+                if let Ok(Some(days_str)) = db_tick.get_setting("retention_days")
+                    && let Ok(days) = days_str.parse::<i64>()
+                    && days > 0
+                {
+                    let _ = db_tick.purge_old_executions(days);
+                    let _ = db_tick.purge_old_events(days);
+                    let _ = db_tick.purge_old_queue_items(days);
                 }
                 went_offline
-            }).await.unwrap_or_default();
+            })
+            .await
+            .unwrap_or_default();
 
             // Send notifications for agents that went offline
             if !offline_agents.is_empty() {
@@ -154,9 +172,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let subject = format!("[Kronforce] Agent '{}' went offline", name);
                         let body = format!(
                             "Agent: {}\nHostname: {}\nTime: {}\n\nThe agent's heartbeat timed out.",
-                            name, hostname, chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+                            name,
+                            hostname,
+                            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
                         );
-                        kronforce::notifications::send_notification(&db_notif, &subject, &body, None).await;
+                        kronforce::notifications::send_notification(
+                            &db_notif, &subject, &body, None,
+                        )
+                        .await;
                     }
                 }
             }

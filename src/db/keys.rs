@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 use uuid::Uuid;
 
-use super::helpers::*;
 use super::Db;
+use super::helpers::*;
 use crate::error::AppError;
 use crate::models::*;
 
@@ -61,14 +61,19 @@ impl Db {
         conn.execute(
             "UPDATE api_keys SET last_used_at = ?1 WHERE id = ?2",
             params![at.to_rfc3339(), id.to_string()],
-        ).map_err(AppError::Db)?;
+        )
+        .map_err(AppError::Db)?;
         Ok(())
     }
 
     pub fn count_api_keys(&self) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM api_keys WHERE active = 1", [], |row| row.get(0))
-            .map_err(AppError::Db)
+        conn.query_row(
+            "SELECT COUNT(*) FROM api_keys WHERE active = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(AppError::Db)
     }
 
     pub fn delete_api_key(&self, id: Uuid) -> Result<(), AppError> {
@@ -80,7 +85,8 @@ impl Db {
         conn.execute(
             "UPDATE api_keys SET active = 0 WHERE id = ?1",
             params![id.to_string()],
-        ).map_err(AppError::Db)?;
+        )
+        .map_err(AppError::Db)?;
         Ok(())
     }
 }

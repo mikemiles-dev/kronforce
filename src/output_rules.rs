@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::models::{ExtractionRule, OutputAssertion, OutputTrigger};
+use std::collections::HashMap;
 
 /// Run extraction rules against stdout, returning extracted key-value pairs.
 pub fn run_extractions(stdout: &str, rules: &[ExtractionRule]) -> HashMap<String, String> {
@@ -59,7 +59,10 @@ pub fn run_assertions(stdout: &str, assertions: &[OutputAssertion]) -> Vec<Strin
         };
         if !found {
             let msg = assertion.message.clone().unwrap_or_else(|| {
-                format!("expected pattern '{}' not found in output", assertion.pattern)
+                format!(
+                    "expected pattern '{}' not found in output",
+                    assertion.pattern
+                )
             });
             failures.push(msg);
         }
@@ -68,7 +71,11 @@ pub fn run_assertions(stdout: &str, assertions: &[OutputAssertion]) -> Vec<Strin
 }
 
 /// Run trigger patterns against stdout and stderr, returning matched (pattern, severity) pairs.
-pub fn run_triggers(stdout: &str, stderr: &str, triggers: &[OutputTrigger]) -> Vec<(String, String)> {
+pub fn run_triggers(
+    stdout: &str,
+    stderr: &str,
+    triggers: &[OutputTrigger],
+) -> Vec<(String, String)> {
     let mut matches = Vec::new();
     for trigger in triggers {
         let matched = if let Ok(re) = regex::Regex::new(&trigger.pattern) {

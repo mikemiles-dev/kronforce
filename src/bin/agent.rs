@@ -39,10 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         task_types: None,
     };
 
-    tracing::info!(
-        "registering with controller at {}",
-        config.controller_url
-    );
+    tracing::info!("registering with controller at {}", config.controller_url);
 
     let reg_url = format!("{}/api/agents/register", config.controller_url);
     let mut req = http_client.post(&reg_url).json(&reg);
@@ -54,7 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
         if status.as_u16() == 401 || status.as_u16() == 403 {
-            tracing::error!("authentication failed — set KRONFORCE_AGENT_KEY with a valid agent API key");
+            tracing::error!(
+                "authentication failed — set KRONFORCE_AGENT_KEY with a valid agent API key"
+            );
             tracing::error!("server response: {}", body);
         } else {
             tracing::error!("registration failed ({}): {}", status, body);

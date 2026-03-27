@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::Utc;
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{Mutex, oneshot};
 use uuid::Uuid;
 
 use crate::agent::AgentClient;
@@ -32,7 +32,12 @@ pub struct Executor {
 }
 
 impl Executor {
-    pub fn new(db: Db, agent_client: AgentClient, scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>, script_store: crate::scripts::ScriptStore) -> Self {
+    pub fn new(
+        db: Db,
+        agent_client: AgentClient,
+        scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>,
+        script_store: crate::scripts::ScriptStore,
+    ) -> Self {
         Self {
             db,
             agent_client,
@@ -49,21 +54,17 @@ impl Executor {
         callback_base_url: &str,
     ) -> Result<Uuid, AppError> {
         match &job.target {
-            None | Some(AgentTarget::Local) => {
-                self.execute_local(job, trigger).await
-            }
+            None | Some(AgentTarget::Local) => self.execute_local(job, trigger).await,
             Some(AgentTarget::Agent { agent_id }) => {
-                self.dispatch_to_agent(*agent_id, job, trigger, callback_base_url).await
+                self.dispatch_to_agent(*agent_id, job, trigger, callback_base_url)
+                    .await
             }
             Some(AgentTarget::Tagged { tag }) => {
-                self.dispatch_to_tagged(tag, job, trigger, callback_base_url).await
+                self.dispatch_to_tagged(tag, job, trigger, callback_base_url)
+                    .await
             }
-            Some(AgentTarget::Any) => {
-                self.dispatch_to_any(job, trigger, callback_base_url).await
-            }
-            Some(AgentTarget::All) => {
-                self.dispatch_to_all(job, trigger, callback_base_url).await
-            }
+            Some(AgentTarget::Any) => self.dispatch_to_any(job, trigger, callback_base_url).await,
+            Some(AgentTarget::All) => self.dispatch_to_all(job, trigger, callback_base_url).await,
         }
     }
 

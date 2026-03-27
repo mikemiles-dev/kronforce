@@ -1,17 +1,17 @@
+use axum::Json;
 use axum::extract::Request;
 use axum::middleware::Next;
 use axum::response::Response;
-use axum::Json;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::AppState;
-use axum::extract::State;
-use axum::extract::Path;
 use crate::error::AppError;
 use crate::models::*;
+use axum::extract::Path;
+use axum::extract::State;
 
 pub fn hash_api_key(raw: &str) -> String {
     let mut hasher = Sha256::new();
@@ -23,7 +23,10 @@ pub fn generate_api_key() -> (String, String) {
     use rand::Rng;
     let mut bytes = [0u8; 32];
     rand::rng().fill(&mut bytes);
-    let raw = format!("kf_{}", base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes));
+    let raw = format!(
+        "kf_{}",
+        base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes)
+    );
     let prefix = raw[..11].to_string(); // "kf_" + first 8 chars of base64
     (raw, prefix)
 }
@@ -68,10 +71,13 @@ pub(crate) async fn agent_auth_middleware(
             let db = state.db.clone();
             let key_id = key.id;
             let now = Utc::now();
-            let _ = tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+            let _ =
+                tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
             Ok(next.run(req).await)
         }
-        Some(_) => Err(AppError::Forbidden("this API key does not have agent access".into())),
+        Some(_) => Err(AppError::Forbidden(
+            "this API key does not have agent access".into(),
+        )),
         None => Err(AppError::Unauthorized("invalid API key".into())),
     }
 }
@@ -101,7 +107,9 @@ pub(crate) async fn auth_middleware(
     let raw_key = match auth_header {
         Some(ref h) if h.starts_with("Bearer ") => &h[7..],
         _ => {
-            return Err(AppError::Unauthorized("missing or invalid Authorization header".into()));
+            return Err(AppError::Unauthorized(
+                "missing or invalid Authorization header".into(),
+            ));
         }
     };
 
@@ -118,7 +126,8 @@ pub(crate) async fn auth_middleware(
             let db = state.db.clone();
             let key_id = key.id;
             let now = Utc::now();
-            let _ = tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+            let _ =
+                tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
 
             req.extensions_mut().insert(key);
             Ok(next.run(req).await)
@@ -141,7 +150,6 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for AuthUser {
         Ok(AuthUser(parts.extensions.get::<ApiKey>().cloned()))
     }
 }
-
 
 pub(crate) fn require_admin(req: &Request) -> Result<(), AppError> {
     if let Some(key) = req.extensions().get::<ApiKey>() {
@@ -219,8 +227,15 @@ pub(crate) async fn create_api_key(
     let db_log = state.db.clone();
     let key_name = key.name.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("key.created", EventSeverity::Info, &format!("API key '{}' created", key_name), None, None)
-    }).await;
+        db_log.log_event(
+            "key.created",
+            EventSeverity::Info,
+            &format!("API key '{}' created", key_name),
+            None,
+            None,
+        )
+    })
+    .await;
 
     Ok(Json(CreateApiKeyResponse { key, raw_key }))
 }
@@ -252,8 +267,15 @@ pub(crate) async fn revoke_api_key(
 
     let db_log = state.db.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event("key.revoked", EventSeverity::Warning, &format!("API key {} revoked", id), None, None)
-    }).await;
+        db_log.log_event(
+            "key.revoked",
+            EventSeverity::Warning,
+            &format!("API key {} revoked", id),
+            None,
+            None,
+        )
+    })
+    .await;
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

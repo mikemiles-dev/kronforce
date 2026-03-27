@@ -2,8 +2,8 @@ use chrono::Utc;
 use rusqlite::params;
 use uuid::Uuid;
 
-use super::helpers::*;
 use super::Db;
+use super::helpers::*;
 use crate::error::AppError;
 use crate::models::*;
 
@@ -55,12 +55,17 @@ impl Db {
         Ok(())
     }
 
-    pub fn update_execution_extracted(&self, id: Uuid, extracted: &serde_json::Value) -> Result<(), AppError> {
+    pub fn update_execution_extracted(
+        &self,
+        id: Uuid,
+        extracted: &serde_json::Value,
+    ) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "UPDATE executions SET extracted_json = ?1 WHERE id = ?2",
             params![serde_json::to_string(extracted).unwrap(), id.to_string()],
-        ).map_err(AppError::Db)?;
+        )
+        .map_err(AppError::Db)?;
         Ok(())
     }
 
@@ -152,15 +157,21 @@ impl Db {
         param_values.push(offset.to_string());
         let offset_idx = param_values.len();
 
-        let where_sql = if where_clauses.is_empty() { String::new() } else { format!("WHERE {}", where_clauses.join(" AND ")) };
+        let where_sql = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", where_clauses.join(" AND "))
+        };
         let sql = format!(
             "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
             where_sql, limit_idx, offset_idx
         );
 
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
+        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
         let rows = stmt
             .query_map(params.as_slice(), |row| Ok(row_to_execution(row)))
             .map_err(AppError::Db)?;
@@ -196,13 +207,23 @@ impl Db {
             where_clauses.push(format!("e.started_at >= ?{}", param_values.len()));
         }
 
-        let where_sql = if where_clauses.is_empty() { String::new() } else { format!("WHERE {}", where_clauses.join(" AND ")) };
-        let sql = format!("SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {}", where_sql);
+        let where_sql = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", where_clauses.join(" AND "))
+        };
+        let sql = format!(
+            "SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {}",
+            where_sql
+        );
 
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            param_values.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
-        stmt.query_row(params.as_slice(), |row| row.get(0)).map_err(AppError::Db)
+        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+        stmt.query_row(params.as_slice(), |row| row.get(0))
+            .map_err(AppError::Db)
     }
 
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {
@@ -253,17 +274,22 @@ impl Db {
         };
 
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> =
-            params_vec.iter().map(|s| s as &dyn rusqlite::types::ToSql).collect();
-        let rows = stmt.query_map(params.as_slice(), |row| {
-            let bucket: Option<String> = row.get(0)?;
-            let status: String = row.get(1)?;
-            let count: u32 = row.get(2)?;
-            Ok((bucket.unwrap_or_default(), status, count))
-        }).map_err(AppError::Db)?;
+        let params: Vec<&dyn rusqlite::types::ToSql> = params_vec
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = stmt
+            .query_map(params.as_slice(), |row| {
+                let bucket: Option<String> = row.get(0)?;
+                let status: String = row.get(1)?;
+                let count: u32 = row.get(2)?;
+                Ok((bucket.unwrap_or_default(), status, count))
+            })
+            .map_err(AppError::Db)?;
 
         // Aggregate into buckets
-        let mut bucket_map: std::collections::BTreeMap<String, (u32, u32, u32)> = std::collections::BTreeMap::new();
+        let mut bucket_map: std::collections::BTreeMap<String, (u32, u32, u32)> =
+            std::collections::BTreeMap::new();
 
         // Pre-fill all minute buckets
         let now = Utc::now();
@@ -283,7 +309,10 @@ impl Db {
             }
         }
 
-        Ok(bucket_map.into_iter().map(|(k, (s, f, o))| (k, s, f, o)).collect())
+        Ok(bucket_map
+            .into_iter()
+            .map(|(k, (s, f, o))| (k, s, f, o))
+            .collect())
     }
 
     /// Get per-job execution counts for a specific minute bucket
@@ -297,9 +326,15 @@ impl Db {
         let mut stmt = conn.prepare(
             "SELECT j.name, e.status, COUNT(*) as cnt FROM executions e JOIN jobs j ON e.job_id = j.id WHERE e.started_at >= ?1 AND e.started_at <= ?2 GROUP BY j.name, e.status ORDER BY cnt DESC"
         ).map_err(AppError::Db)?;
-        let rows = stmt.query_map(params![bucket_start, bucket_end], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, u32>(2)?))
-        }).map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map(params![bucket_start, bucket_end], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, u32>(2)?,
+                ))
+            })
+            .map_err(AppError::Db)?;
         let mut result = Vec::new();
         for row in rows {
             result.push(row.map_err(AppError::Db)?);

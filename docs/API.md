@@ -207,7 +207,7 @@ curl -X POST http://localhost:8080/api/jobs \
 
 | Target | JSON | Description |
 |---|---|---|
-| Local | `null` or `{"type": "local"}` | Runs on the controller (default) |
+| Controller | `null` or `{"type": "local"}` | Runs on the controller (default) |
 | Specific agent | `{"type": "agent", "agent_id": "uuid"}` | Runs on a specific agent |
 | Any agent | `{"type": "any"}` | Random online agent (type-aware) |
 | All agents | `{"type": "all"}` | Every online agent (type-aware) |
