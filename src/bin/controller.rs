@@ -5,6 +5,23 @@ use kronforce::db::Db;
 use kronforce::executor::Executor;
 use kronforce::scheduler::Scheduler;
 
+fn create_admin_key(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
+    let (raw_key, prefix) = kronforce::api::generate_api_key();
+    let hash = kronforce::api::hash_api_key(&raw_key);
+    let key = kronforce::models::ApiKey {
+        id: uuid::Uuid::new_v4(),
+        key_prefix: prefix,
+        key_hash: hash,
+        name: "admin (reset)".to_string(),
+        role: kronforce::models::ApiKeyRole::Admin,
+        created_at: chrono::Utc::now(),
+        last_used_at: None,
+        active: true,
+    };
+    db.insert_api_key(&key)?;
+    Ok(raw_key)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
@@ -14,11 +31,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
+    let args: Vec<String> = std::env::args().collect();
+    let reset_key = args.iter().any(|a| a == "--reset-admin-key");
+    let reset_key_and_run = args.iter().any(|a| a == "--reset-admin-key-and-run");
+
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        eprintln!("Usage: kronforce [OPTIONS]");
+        eprintln!();
+        eprintln!("Options:");
+        eprintln!("  --reset-admin-key          Generate a new admin API key and exit");
+        eprintln!("  --reset-admin-key-and-run  Generate a new admin API key and start the server");
+        eprintln!("  -h, --help                 Show this help message");
+        eprintln!();
+        eprintln!("Configuration is via environment variables. See docs for details.");
+        std::process::exit(0);
+    }
+
     let config = ControllerConfig::from_env();
 
     tracing::info!("opening database: {}", config.db_path);
     let db = Db::open(&config.db_path)?;
     db.migrate()?;
+
+    if reset_key || reset_key_and_run {
+        let raw_key = create_admin_key(&db)?;
+        eprintln!("=============================================================");
+        eprintln!("  New admin API key created:");
+        eprintln!("  {}", raw_key);
+        eprintln!("  Save this key — it will not be shown again.");
+        eprintln!("=============================================================");
+        if reset_key {
+            std::process::exit(0);
+        }
+    }
 
     // Bootstrap admin API key if none exist
     if db.count_api_keys()? == 0 {
