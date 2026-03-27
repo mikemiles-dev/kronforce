@@ -75,7 +75,7 @@
 
 | Mode | Task Types | Targets | Description |
 |---|---|---|---|
-| Standard | Shell, HTTP, SQL, FTP, Script | Local / Specific / Any / All / Tagged | Built-in task types run on controller or standard agents |
+| Standard | Shell, HTTP, SQL, FTP, Script | Controller / Specific / Any / All / Tagged | Built-in task types run on controller or standard agents |
 | Custom Agent | Defined per agent in UI | Specific custom agent | Custom task data dispatched to pull-based agents |
 
 `Any`, `All`, and `Tagged` targets are **type-aware** — they only pick agents matching the task type (standard for built-in, custom for custom tasks).

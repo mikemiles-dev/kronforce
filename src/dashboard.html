@@ -2623,7 +2623,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
                     <h3>Execution Modes</h3>
                     <table>
                         <tr><th>Mode</th><th>Task Types</th><th>Targets</th></tr>
-                        <tr><td>Standard</td><td>Shell, HTTP, SQL, FTP, Script</td><td>Local / Specific Agent / Any / All</td></tr>
+                        <tr><td>Standard</td><td>Shell, HTTP, SQL, FTP, Script</td><td>Controller / Specific Agent / Any / All</td></tr>
                         <tr><td>Custom Agent</td><td>Defined per agent in UI</td><td>Specific custom agent</td></tr>
                     </table>
 
@@ -3464,7 +3464,7 @@ print("Redis: " + result.response);</code></pre>
             <div class="form-group">
                 <label>Target</label>
                 <div class="radio-group">
-                    <label class="pill-green"><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> &#127968; Local</label>
+                    <label class="pill-green"><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> &#127968; Controller</label>
                     <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> &#128421; Specific Agent</label>
                     <label class="pill-orange"><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> &#127922; Any Agent</label>
                     <label class="pill-red"><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> &#127760; All Agents</label>
@@ -3863,7 +3863,7 @@ function getSortValue(job, col) {
         case 'name': return job.name.toLowerCase();
         case 'state': return job.status;
         case 'target':
-            if (!job.target) return 'local';
+            if (!job.target) return 'controller';
             return job.target.type;
         case 'last_run':
             if (!job.last_execution) return '';
@@ -4073,7 +4073,7 @@ function renderExecTable(execs, { wrapId, showJobColumn, emptyMessage } = {}) {
         html += '<td>' + (e.exit_code !== null ? e.exit_code : '-') + '</td>';
         html += '<td><span class="time-text">' + (e.started_at ? fmtDate(e.started_at) : '-') + '</span></td>';
         html += '<td><span class="time-text">' + fmtDuration(e.started_at, e.finished_at) + '</span></td>';
-        html += '<td>' + (e.agent_id ? fmtAgentLink(e.agent_id) : '<span class="time-text">local</span>') + '</td>';
+        html += '<td>' + (e.agent_id ? fmtAgentLink(e.agent_id) : '<span class="time-text">controller</span>') + '</td>';
         html += '<td><span class="time-text">' + fmtTrigger(e.triggered_by) + '</span></td>';
         html += '</tr>';
     }
@@ -4092,7 +4092,7 @@ async function showExecDetail(id) {
             infoField('Exit Code', e.exit_code !== null ? e.exit_code : '-', 'exec-info-item') +
             infoField('Started', e.started_at ? fmtDate(e.started_at) : '-', 'exec-info-item') +
             infoField('Duration', fmtDuration(e.started_at, e.finished_at), 'exec-info-item') +
-            infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'local', 'exec-info-item') +
+            infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'controller', 'exec-info-item') +
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
             renderExtractedValues(e.extracted) +
@@ -5642,7 +5642,7 @@ function fmtAgentLink(agentId) {
 }
 
 function fmtTarget(t) {
-    if (!t || t.type === 'local') return '<span class="badge badge-active">local</span>';
+    if (!t || t.type === 'local') return '<span class="badge badge-active">controller</span>';
     if (t.type === 'agent') return fmtAgentLink(t.agent_id);
     if (t.type === 'any') return '<span class="badge badge-running">any agent</span>';
     if (t.type === 'all') return '<span class="badge badge-paused">all agents</span>';
