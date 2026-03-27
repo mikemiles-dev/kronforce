@@ -13,7 +13,9 @@
 
 services:
   agent:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     command: kronforce-agent
     environment:
       - KRONFORCE_CONTROLLER_URL=${KRONFORCE_CONTROLLER_URL:?Set KRONFORCE_CONTROLLER_URL to the controller address}

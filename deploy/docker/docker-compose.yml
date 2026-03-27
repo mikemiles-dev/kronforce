@@ -6,7 +6,9 @@
 
 services:
   controller:
-    build: .
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     command: kronforce
     ports:
       - "8080:8080"

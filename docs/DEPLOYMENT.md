@@ -103,7 +103,7 @@ sha256sum -c checksums-sha256.txt
 Run the controller and a standard agent together with pre-set keys:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d
+docker compose -f deploy/docker/docker-compose.full.yml up -d
 ```
 
 - Dashboard: http://localhost:8080
@@ -114,19 +114,19 @@ To use custom keys:
 
 ```bash
 KRONFORCE_ADMIN_KEY=kf_myadminkey KRONFORCE_AGENT_KEY=kf_myagentkey \
-  docker compose -f docker-compose.full.yml up -d
+  docker compose -f deploy/docker/docker-compose.full.yml up -d
 ```
 
 ### Production — Controller
 
 ```bash
-docker compose up -d
+docker compose -f deploy/docker/docker-compose.yml up -d
 ```
 
 On first startup, the controller generates and prints bootstrap API keys:
 
 ```bash
-docker compose logs controller | grep "key"
+docker compose -f deploy/docker/docker-compose.yml logs controller | grep "key"
 ```
 
 You'll see two keys:
@@ -138,7 +138,7 @@ To pre-set keys instead of auto-generating:
 ```bash
 KRONFORCE_BOOTSTRAP_ADMIN_KEY=kf_myadminkey \
 KRONFORCE_BOOTSTRAP_AGENT_KEY=kf_myagentkey \
-  docker compose up -d
+  docker compose -f deploy/docker/docker-compose.yml up -d
 ```
 
 Bootstrap keys are only used on first startup with an empty database. After that, manage keys in the Settings page.
@@ -150,7 +150,7 @@ On the machine where you want to run an agent:
 ```bash
 KRONFORCE_AGENT_KEY=kf_your_agent_key \
 KRONFORCE_CONTROLLER_URL=http://your-controller:8080 \
-  docker compose -f docker-compose.agent.yml up -d
+  docker compose -f deploy/docker/docker-compose.agent.yml up -d
 ```
 
 Or create a `.env` file:
@@ -165,16 +165,16 @@ KRONFORCE_AGENT_TAGS=linux,prod
 Then:
 
 ```bash
-docker compose -f docker-compose.agent.yml up -d
+docker compose -f deploy/docker/docker-compose.agent.yml up -d
 ```
 
 ## Docker Compose Files
 
 | File | Services | Use Case |
 |---|---|---|
-| `docker-compose.yml` | Controller only | Production controller deployment |
-| `docker-compose.agent.yml` | Agent only | Production agent on a separate machine |
-| `docker-compose.full.yml` | Controller + Agent | Local development and testing |
+| `deploy/docker/docker-compose.yml` | Controller only | Production controller deployment |
+| `deploy/docker/docker-compose.agent.yml` | Agent only | Production agent on a separate machine |
+| `deploy/docker/docker-compose.full.yml` | Controller + Agent | Local development and testing |
 
 ## Building from Source
 
@@ -271,7 +271,7 @@ The controller stores data in two volumes:
 To back up:
 
 ```bash
-docker compose exec controller cp /data/kronforce.db /data/backup.db
+docker compose -f deploy/docker/docker-compose.yml exec controller cp /data/kronforce.db /data/backup.db
 docker cp $(docker compose ps -q controller):/data/backup.db ./kronforce-backup.db
 ```
 
@@ -295,11 +295,11 @@ Deploy multiple agents by running `docker-compose.agent.yml` on different machin
 ```bash
 # Machine 1
 KRONFORCE_AGENT_NAME=prod-web-1 KRONFORCE_AGENT_TAGS=web,prod \
-  docker compose -f docker-compose.agent.yml up -d
+  docker compose -f deploy/docker/docker-compose.agent.yml up -d
 
 # Machine 2
 KRONFORCE_AGENT_NAME=prod-worker-1 KRONFORCE_AGENT_TAGS=worker,prod \
-  docker compose -f docker-compose.agent.yml up -d
+  docker compose -f deploy/docker/docker-compose.agent.yml up -d
 ```
 
 Use tag-based targeting to dispatch jobs to specific groups:
@@ -331,7 +331,7 @@ The agent key is missing or incorrect. Check:
 
 The agent's heartbeat timed out (default: 30 seconds). Check:
 1. Network connectivity between agent and controller
-2. Agent process is still running: `docker compose -f docker-compose.agent.yml logs`
+2. Agent process is still running: `docker compose -f deploy/docker/docker-compose.agent.yml logs`
 3. Firewall allows HTTP traffic on the controller port
 
 ### Database locked
