@@ -235,12 +235,6 @@ impl Db {
             )));
         }
 
-        // Delete executions first
-        conn.execute(
-            "DELETE FROM executions WHERE job_id = ?1",
-            params![id.to_string()],
-        )
-        .map_err(AppError::Db)?;
         let changed = conn
             .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
             .map_err(AppError::Db)?;
