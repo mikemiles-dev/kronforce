@@ -4,6 +4,7 @@ mod executions;
 mod helpers;
 mod jobs;
 mod keys;
+pub mod models;
 mod queue;
 mod settings;
 mod variables;
