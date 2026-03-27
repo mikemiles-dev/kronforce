@@ -116,9 +116,7 @@ impl super::Executor {
                                     if let Some(ref var_name) = rule.write_to_variable
                                         && let Some(value) = extracted.get(&rule.name)
                                     {
-                                        if let Err(e) =
-                                            db_rules.upsert_variable(var_name, value)
-                                        {
+                                        if let Err(e) = db_rules.upsert_variable(var_name, value) {
                                             tracing::error!(
                                                 "failed to write variable {}: {}",
                                                 var_name,
