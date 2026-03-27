@@ -6,9 +6,9 @@ use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+use self::cron_parser::CronSchedule;
 use crate::agent::AgentClient;
 use crate::config::ControllerConfig;
-use self::cron_parser::CronSchedule;
 use crate::dag::DagResolver;
 use crate::db::Db;
 use crate::executor::Executor;

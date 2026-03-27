@@ -7,8 +7,8 @@ fn main() {
     let out_path = Path::new(&out_dir).join("dashboard.html");
 
     // Read HTML template
-    let html = fs::read_to_string(web_dir.join("index.html"))
-        .expect("failed to read web/index.html");
+    let html =
+        fs::read_to_string(web_dir.join("index.html")).expect("failed to read web/index.html");
 
     // Read CSS
     let css = fs::read_to_string(web_dir.join("css/style.css"))
