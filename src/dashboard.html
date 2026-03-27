@@ -5681,14 +5681,17 @@ function describeCron(expr) {
 
     // Every N seconds
     if (sec.startsWith('*/')) return 'every ' + sec.slice(2) + 's';
+    if (sec.includes('/')) return 'every ' + sec.split('/')[1] + 's';
     if (sec === '*') return 'every second';
 
     // Every N minutes
     if (min.startsWith('*/')) return 'every ' + min.slice(2) + ' min';
+    if (min.includes('/')) return 'every ' + min.split('/')[1] + ' min';
     if (min === '*' && hr === '*' && dom === '*') return 'every minute';
 
     // Every N hours
     if (hr.startsWith('*/')) return 'every ' + hr.slice(2) + 'h';
+    if (hr.includes('/')) return 'every ' + hr.split('/')[1] + 'h';
     if (hr === '*' && min !== '*' && dom === '*') return 'hourly at :' + pad(parseInt(min));
 
     // Weekly
