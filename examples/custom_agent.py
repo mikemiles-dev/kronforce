@@ -182,6 +182,31 @@ def execute_task(task):
         except Exception as e:
             return "failed", 1, "", str(e)
 
+    elif task_type in ("kafka", "rabbitmq", "mqtt", "redis"):
+        # MQ types — construct and run the CLI command
+        try:
+            if task_type == "kafka":
+                cmd = f"echo {task.get('message', '')} | kafka-console-producer --broker-list {task.get('broker', '')} --topic {task.get('topic', '')}"
+            elif task_type == "rabbitmq":
+                cmd = f"amqp-publish --url {task.get('url', '')} --exchange {task.get('exchange', '')} --routing-key {task.get('routing_key', '')} --body {task.get('message', '')}"
+            elif task_type == "mqtt":
+                port = task.get("port", 1883)
+                cmd = f"mosquitto_pub -h {task.get('broker', '')} -p {port} -t {task.get('topic', '')} -m '{task.get('message', '')}'"
+                if task.get("username"):
+                    cmd += f" -u {task['username']}"
+                if task.get("password"):
+                    cmd += f" -P {task['password']}"
+                if task.get("qos") is not None:
+                    cmd += f" -q {task['qos']}"
+            elif task_type == "redis":
+                cmd = f"redis-cli -u {task.get('url', '')} PUBLISH {task.get('channel', '')} '{task.get('message', '')}'"
+            print(f"  MQ publish: {cmd[:80]}...")
+            result = subprocess.run(["sh", "-c", cmd], capture_output=True, text=True, timeout=30)
+            status = "succeeded" if result.returncode == 0 else "failed"
+            return status, result.returncode, result.stdout, result.stderr
+        except Exception as e:
+            return "failed", -1, "", str(e)
+
     else:
         # Unknown task type
         print(f"  Unknown task type: {task_type}")

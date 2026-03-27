@@ -101,6 +101,33 @@ When a pattern matches stdout or stderr, the system emits an `output.matched` ev
 
 Patterns are treated as regex first. If the regex is invalid, falls back to substring matching.
 
+### Output Assertions
+
+Fail the execution if expected patterns are NOT found in stdout. Only checked on successful runs — if the command itself fails, assertions are skipped.
+
+```json
+{
+    "output_rules": {
+        "assertions": [
+            { "pattern": "OK", "message": "Health check did not return OK" },
+            { "pattern": "records processed" }
+        ]
+    }
+}
+```
+
+- Patterns are tried as regex first, fall back to substring match
+- If the pattern is NOT found, the execution flips from `succeeded` to `failed`
+- The failure message is appended to stderr as `[assertion failed] ...`
+- Custom `message` is optional — if omitted, a default message is generated
+- Combine with `on_assertion_failure` notifications to get alerted when assertions trip
+
+**Use cases:**
+- Health check must output "OK" — fail if it doesn't
+- ETL must report "records processed" — catch silent failures
+- Backup must confirm "completed successfully"
+- API response must contain expected JSON fields
+
 ### Output Diff
 
 The execution detail modal includes a **Compare** button that lets you select a previous execution and see a side-by-side diff of the output. Useful for:
@@ -250,7 +277,29 @@ curl -X POST http://localhost:8080/api/jobs -d '{
 
 The `key.*` pattern matches both `key.created` and `key.revoked` events.
 
-### Pattern 7: Self-Healing Infrastructure
+### Pattern 7: Assertion-Based Monitoring
+
+Use assertions to detect silent failures where the command succeeds (exit code 0) but the output is wrong:
+
+```bash
+curl -X POST http://localhost:8080/api/jobs -d '{
+    "name": "check-api",
+    "task": {"type": "http", "method": "get", "url": "https://api.example.com/status"},
+    "schedule": {"type": "cron", "value": "0 * * * * *"},
+    "output_rules": {
+        "assertions": [
+            {"pattern": "\"healthy\":true", "message": "API not reporting healthy"}
+        ]
+    },
+    "notifications": {
+        "on_assertion_failure": true
+    }
+}'
+```
+
+The HTTP request returns 200 (success) but if the response body doesn't contain `"healthy":true`, the execution is failed and a notification is sent.
+
+### Pattern 8: Self-Healing Infrastructure
 
 Combine agent monitoring with automatic remediation:
 

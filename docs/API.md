@@ -111,6 +111,96 @@ curl -X POST http://localhost:8080/api/jobs \
 
 Extractions run against stdout after each execution. Extracted values appear in `GET /api/executions/{id}` as the `extracted` field. Triggers emit `output.matched` events. See [Triggers & Workflows](TRIGGERS_AND_WORKFLOWS.md).
 
+### Output Assertions
+
+Fail the execution if expected patterns are NOT found in stdout (only checked on successful runs):
+
+```json
+{
+    "output_rules": {
+        "assertions": [
+            {"pattern": "OK", "message": "Health check did not return OK"},
+            {"pattern": "records processed", "message": "ETL did not process any records"}
+        ]
+    }
+}
+```
+
+### Job Notifications
+
+Send email/SMS alerts based on execution results:
+
+```json
+{
+    "notifications": {
+        "on_failure": true,
+        "on_success": false,
+        "on_assertion_failure": true,
+        "recipients": {
+            "emails": ["ops@example.com"],
+            "phones": ["+1234567890"]
+        }
+    }
+}
+```
+
+If `recipients` is omitted, falls back to the global notification recipients configured in Settings.
+
+### Additional Task Type Examples
+
+```bash
+# File push — deploy a config file to an agent
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "deploy-config",
+    "task": {"type": "file_push", "filename": "app.conf", "destination": "/opt/app/app.conf", "content_base64": "dGVzdA==", "overwrite": true},
+    "schedule": {"type": "on_demand"},
+    "target": {"type": "agent", "agent_id": "uuid"}
+  }'
+
+# Kafka — publish a message
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "kafka-publish",
+    "task": {"type": "kafka", "broker": "localhost:9092", "topic": "events", "message": "{\"event\":\"user.created\"}"},
+    "schedule": {"type": "on_demand"}
+  }'
+
+# MQTT — publish a sensor reading
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "mqtt-temp",
+    "task": {"type": "mqtt", "broker": "localhost", "port": 1883, "topic": "sensors/temp", "message": "22.5", "qos": 1},
+    "schedule": {"type": "cron", "value": "0 * * * * *"}
+  }'
+
+# RabbitMQ — publish to an exchange
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "rabbitmq-event",
+    "task": {"type": "rabbitmq", "url": "amqp://guest:guest@localhost:5672", "exchange": "events", "routing_key": "user.created", "message": "{\"user\":\"alice\"}", "content_type": "application/json"},
+    "schedule": {"type": "on_demand"}
+  }'
+
+# Redis — publish to a channel
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "redis-notify",
+    "task": {"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"},
+    "schedule": {"type": "on_demand"}
+  }'
+```
+
 **Trigger fields:** `kind_pattern` (supports wildcards: `job.*`, `*`), `severity` (optional), `job_name_filter` (optional)
 
 ## Job Targeting
@@ -185,7 +275,7 @@ curl -X POST http://localhost:8080/api/keys \                    # Create
 curl -X DELETE http://localhost:8080/api/keys/{id}               # Revoke
 ```
 
-Roles: `admin` (full access), `operator` (jobs + agents), `viewer` (read-only).
+Roles: `admin` (full access + key management), `operator` (jobs + agents), `viewer` (read-only), `agent` (agent endpoints only — register, poll, heartbeat, callback).
 
 ## Authentication
 

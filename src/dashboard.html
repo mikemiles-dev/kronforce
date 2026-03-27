@@ -735,7 +735,14 @@ th .job-checkbox { margin: 0; }
 
 .modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; }
 
-.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-body { padding: 0; overflow-y: auto; flex: 1; }
+
+.modal-tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 24px; background: var(--bg-secondary); }
+.modal-tab { padding: 10px 16px; font-size: 12px; font-weight: 500; color: var(--text-secondary); cursor: pointer; border: none; background: none; border-bottom: 2px solid transparent; transition: all 0.15s; }
+.modal-tab:hover { color: var(--text-primary); }
+.modal-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.modal-tab-content { display: none; padding: 20px 24px; }
+.modal-tab-content.active { display: block; }
 
 .modal-card h3 {
     font-size: 16px;
@@ -2701,8 +2708,13 @@ print("Redis: " + result.response);</code></pre>
                         <tr><td><code>ftp</code></td><td>Uses curl for FTP/FTPS/SFTP</td><td>protocol, host, port, username, password, direction, remote_path, local_path</td></tr>
                         <tr><td><code>script</code></td><td>Rhai scripting engine</td><td>script_name</td></tr>
                         <tr><td><code>custom</code></td><td>Dispatched to custom agent</td><td>agent_task_type, data (fields defined per agent in UI)</td></tr>
+                        <tr><td><code>file_push</code></td><td>Base64 decode + write to filesystem</td><td>filename, destination, content_base64, permissions, overwrite</td></tr>
+                        <tr><td><code>kafka</code></td><td><code>kafka-console-producer</code> via shell</td><td>broker, topic, message, key, properties</td></tr>
+                        <tr><td><code>rabbitmq</code></td><td><code>amqp-publish</code> via shell</td><td>url, exchange, routing_key, message, content_type</td></tr>
+                        <tr><td><code>mqtt</code></td><td><code>mosquitto_pub</code> via shell</td><td>broker, port, topic, message, qos, username, password</td></tr>
+                        <tr><td><code>redis</code></td><td><code>redis-cli PUBLISH</code> via shell</td><td>url, channel, message</td></tr>
                     </table>
-                    <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents &mdash; task type definitions are configured per agent in the dashboard.</p>
+                    <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents. File Push deploys files to agents. Message queue types (Kafka, RabbitMQ, MQTT, Redis) shell out to CLI tools.</p>
 
                     <h3>Shell</h3>
                     <p>Runs a command via <code>sh -c</code>. Supports <code>run_as</code> for sudo execution.</p>
@@ -2723,6 +2735,26 @@ print("Redis: " + result.response);</code></pre>
                     <h3>Custom</h3>
                     <p>Dispatched to a custom agent. Task types and fields are defined per-agent in the UI. Cannot run locally.</p>
 <pre><code>{"type": "custom", "agent_task_type": "python", "data": {"script": "print('hello')", "args": "--verbose"}}</code></pre>
+
+                    <h3>File Push</h3>
+                    <p>Upload a file in the job form and deploy it to an agent. Content is base64-encoded in the task JSON (5MB limit).</p>
+<pre><code>{"type": "file_push", "filename": "app.conf", "destination": "/opt/app/app.conf", "content_base64": "...", "permissions": "644", "overwrite": true}</code></pre>
+
+                    <h3>Kafka</h3>
+                    <p>Publish a message to a Kafka topic via <code>kafka-console-producer</code>.</p>
+<pre><code>{"type": "kafka", "broker": "localhost:9092", "topic": "events", "message": "{\"event\":\"test\"}", "key": "user-123"}</code></pre>
+
+                    <h3>RabbitMQ</h3>
+                    <p>Publish a message to a RabbitMQ exchange via <code>amqp-publish</code>.</p>
+<pre><code>{"type": "rabbitmq", "url": "amqp://guest:guest@localhost:5672", "exchange": "events", "routing_key": "user.created", "message": "{\"user\":\"alice\"}"}</code></pre>
+
+                    <h3>MQTT</h3>
+                    <p>Publish a message to an MQTT topic via <code>mosquitto_pub</code>.</p>
+<pre><code>{"type": "mqtt", "broker": "localhost", "port": 1883, "topic": "sensors/temp", "message": "22.5", "qos": 1}</code></pre>
+
+                    <h3>Redis</h3>
+                    <p>Publish a message to a Redis Pub/Sub channel via <code>redis-cli</code>.</p>
+<pre><code>{"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"}</code></pre>
                 </div>
 
                 <div class="docs-section" id="doc-api">
@@ -3008,13 +3040,20 @@ print("Redis: " + result.response);</code></pre>
         <div class="modal-header">
             <h3 id="modal-title">Create Job</h3>
         </div>
-        <div class="modal-body">
-        <div class="form-section">
-            <div class="form-section-title">&#128203; General</div>
-            <div class="form-group">
+        <div style="padding:12px 24px 0">
+            <div class="form-group" style="margin-bottom:8px">
                 <label>Name</label>
                 <input id="f-name" type="text" placeholder="my-job">
             </div>
+        </div>
+        <div class="modal-tabs">
+            <button class="modal-tab active" onclick="switchJobTab('task',this)">Task</button>
+            <button class="modal-tab" onclick="switchJobTab('schedule',this)">Schedule</button>
+            <button class="modal-tab" onclick="switchJobTab('target',this)">Target</button>
+            <button class="modal-tab" onclick="switchJobTab('advanced',this)">Advanced</button>
+        </div>
+        <div class="modal-body">
+        <div class="modal-tab-content active" id="job-tab-task">
             <div class="form-group">
                 <label>Execution Mode</label>
                 <div class="radio-group">
@@ -3022,9 +3061,6 @@ print("Redis: " + result.response);</code></pre>
                     <label><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> Custom Agent</label>
                 </div>
             </div>
-        </div>
-        <div class="form-section" id="task-section">
-            <div class="form-section-title">&#9881; Task</div>
         <div id="custom-agent-section" style="display:none">
             <div class="form-group">
                 <label>Custom Agent</label>
@@ -3046,6 +3082,13 @@ print("Redis: " + result.response);</code></pre>
                 <label><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> FTP</label>
                 <label><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> Script</label>
                 <label><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> File Push</label>
+            </div>
+            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues</label>
+            <div class="radio-group">
+                <label><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> Kafka</label>
+                <label><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> RabbitMQ</label>
+                <label><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> MQTT</label>
+                <label><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> Redis</label>
             </div>
         </div>
         <div id="task-shell-fields">
@@ -3165,10 +3208,109 @@ print("Redis: " + result.response);</code></pre>
                 </div>
             </div>
         </div>
+        <div id="task-kafka-fields" style="display:none">
+            <div class="form-group">
+                <label>Broker URL</label>
+                <input id="f-kafka-broker" type="text" placeholder="localhost:9092">
+            </div>
+            <div class="form-group">
+                <label>Topic</label>
+                <input id="f-kafka-topic" type="text" placeholder="my-topic">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-kafka-message" placeholder='{"event": "user.created", "data": {...}}'></textarea>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Key (optional)</label>
+                    <input id="f-kafka-key" type="text" placeholder="partition-key">
+                </div>
+                <div style="flex:1">
+                    <label>Extra flags (optional)</label>
+                    <input id="f-kafka-props" type="text" placeholder="--producer-property acks=all">
+                </div>
+            </div>
+        </div>
+        <div id="task-rabbitmq-fields" style="display:none">
+            <div class="form-group">
+                <label>AMQP URL</label>
+                <input id="f-rabbitmq-url" type="text" placeholder="amqp://user:pass@localhost:5672/vhost">
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Exchange</label>
+                    <input id="f-rabbitmq-exchange" type="text" placeholder="my-exchange">
+                </div>
+                <div style="flex:1">
+                    <label>Routing Key</label>
+                    <input id="f-rabbitmq-routing" type="text" placeholder="events.user.created">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-rabbitmq-message" placeholder='{"event": "user.created"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label>Content Type (optional)</label>
+                <input id="f-rabbitmq-ctype" type="text" placeholder="application/json">
+            </div>
+        </div>
+        <div id="task-mqtt-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Broker Host</label>
+                    <input id="f-mqtt-broker" type="text" placeholder="localhost">
+                </div>
+                <div style="width:80px">
+                    <label>Port</label>
+                    <input id="f-mqtt-port" type="number" placeholder="1883">
+                </div>
+                <div style="width:80px">
+                    <label>QoS</label>
+                    <select id="f-mqtt-qos"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Topic</label>
+                <input id="f-mqtt-topic" type="text" placeholder="sensors/temperature">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-mqtt-message" placeholder="22.5"></textarea>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Username (optional)</label>
+                    <input id="f-mqtt-user" type="text" placeholder="device1">
+                </div>
+                <div style="flex:1">
+                    <label>Password (optional)</label>
+                    <input id="f-mqtt-pass" type="password">
+                </div>
+                <div style="flex:1">
+                    <label>Client ID (optional)</label>
+                    <input id="f-mqtt-clientid" type="text" placeholder="kronforce-pub">
+                </div>
+            </div>
+        </div>
+        <div id="task-redis-fields" style="display:none">
+            <div class="form-group">
+                <label>Redis URL</label>
+                <input id="f-redis-url" type="text" placeholder="redis://localhost:6379">
+            </div>
+            <div class="form-group">
+                <label>Channel</label>
+                <input id="f-redis-channel" type="text" placeholder="notifications">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-redis-message" placeholder='{"type": "alert", "text": "..."}'></textarea>
+            </div>
+        </div>
         </div><!-- end builtin-task-section -->
-        </div><!-- end task-section -->
-        <div class="form-section">
-            <div class="form-section-title">&#128197; Schedule</div>
+        </div><!-- end job-tab-task -->
+        <div class="modal-tab-content" id="job-tab-schedule">
         <div class="form-group">
             <label>Schedule</label>
             <div class="radio-group">
@@ -3307,9 +3449,9 @@ print("Redis: " + result.response);</code></pre>
                 </div>
             </div>
         </div>
-        </div><!-- end schedule-section -->
-        <div class="form-section" id="standard-target-section">
-            <div class="form-section-title">&#127919; Target</div>
+        </div><!-- end job-tab-schedule -->
+        <div class="modal-tab-content" id="job-tab-target">
+        <div id="standard-target-section">
             <div class="form-group">
                 <label>Target</label>
                 <div class="radio-group">
@@ -3323,9 +3465,9 @@ print("Redis: " + result.response);</code></pre>
                 <label>Agent</label>
                 <select id="f-agent"><option value="">Loading agents...</option></select>
             </div>
-        </div>
-        <div class="form-section">
-            <div class="form-section-title">&#9881; Advanced</div>
+        </div><!-- end standard-target-section -->
+        </div><!-- end job-tab-target -->
+        <div class="modal-tab-content" id="job-tab-advanced">
             <div class="form-group">
                 <label>Description (optional)</label>
                 <input id="f-desc" type="text" placeholder="What this job does">
@@ -3374,7 +3516,7 @@ print("Redis: " + result.response);</code></pre>
                 </div>
                 <input id="f-notif-emails" type="text" placeholder="Override recipients (comma-separated emails, optional)" style="margin-top:4px">
             </div>
-        </div>
+        </div><!-- end job-tab-advanced -->
         </div><!-- end modal-body -->
         <div class="form-actions">
             <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
@@ -3857,6 +3999,7 @@ function renderJobDetail(job) {
     document.getElementById('detail-card').innerHTML =
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
@@ -4418,6 +4561,7 @@ async function bulkDelete() {
 // --- Create/Edit Modal ---
 function openCreateModal() {
     editingJobId = null;
+    resetJobTabs();
     document.getElementById('modal-title').textContent = 'Create Job';
     document.getElementById('f-name').value = '';
     document.getElementById('f-command').value = '';
@@ -4440,6 +4584,81 @@ function openCreateModal() {
     populateOutputRules(null);
     populateJobNotifications(null);
     openModal('create-modal');
+}
+
+async function copyJob(id) {
+    try {
+        const job = await api('GET', '/api/jobs/' + id);
+        // Open as a new job with copied data
+        openCreateModal();
+        document.getElementById('modal-title').textContent = 'Copy Job';
+        document.getElementById('f-name').value = job.name + '-copy';
+
+        // Populate task
+        if (job.task.type === 'custom') {
+            document.querySelector('input[name="exec-mode"][value="custom"]').checked = true;
+            currentExecMode = 'custom';
+            updateExecutionMode();
+            await populateCustomAgentSelect();
+            if (job.target && job.target.agent_id) {
+                document.getElementById('f-custom-agent').value = job.target.agent_id;
+                await onCustomAgentSelected();
+                const radio = document.querySelector('input[name="custom-task-type"][value="' + job.task.agent_task_type + '"]');
+                if (radio) { radio.checked = true; onCustomTaskTypeSelected(); }
+                if (job.task.data) {
+                    for (const [key, val] of Object.entries(job.task.data)) {
+                        const el = document.getElementById('f-custom-' + key);
+                        if (el) el.value = val;
+                    }
+                }
+            }
+        } else {
+            document.querySelector('input[name="exec-mode"][value="standard"]').checked = true;
+            currentExecMode = 'standard';
+            updateExecutionMode();
+            populateTaskForm(job.task);
+        }
+
+        // Populate schedule
+        document.getElementById('f-desc').value = job.description || '';
+        document.getElementById('f-run-as').value = job.run_as || '';
+        document.getElementById('f-timeout').value = job.timeout_secs || '';
+
+        let schedType = job.schedule.type;
+        if (schedType === 'manual') schedType = 'on_demand';
+        document.querySelector('input[name="sched-type"][value="' + schedType + '"]').checked = true;
+        updateSchedFields();
+        if (schedType === 'cron') {
+            document.getElementById('f-cron').value = job.schedule.value;
+            parseCronToUI(job.schedule.value);
+        } else if (schedType === 'one_shot') {
+            document.getElementById('f-oneshot').value = toLocalDatetimeString(new Date());
+        } else if (schedType === 'event' && job.schedule.value) {
+            setEventKindValue(job.schedule.value.kind_pattern || '*');
+            document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
+            document.getElementById('f-event-job-filter').value = job.schedule.value.job_name_filter || '';
+        }
+
+        // Populate target
+        const target = job.target;
+        if (target && target.type === 'agent' && job.task.type !== 'custom') {
+            document.querySelector('input[name="target-type"][value="agent"]').checked = true;
+            updateTargetFields();
+            await populateAgentSelect('standard');
+            document.getElementById('f-agent').value = target.agent_id;
+        } else if (target && target.type === 'any') {
+            document.querySelector('input[name="target-type"][value="any"]').checked = true;
+        } else if (target && target.type === 'all') {
+            document.querySelector('input[name="target-type"][value="all"]').checked = true;
+        }
+
+        // Populate advanced
+        populateDeps(null, job.depends_on);
+        populateOutputRules(job.output_rules);
+        populateJobNotifications(job.notifications);
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 
 async function openEditModal(id) {
@@ -4536,6 +4755,10 @@ function updateTaskFields() {
     document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
     document.getElementById('task-script-fields').style.display = type === 'script' ? '' : 'none';
     document.getElementById('task-filepush-fields').style.display = type === 'file_push' ? '' : 'none';
+    document.getElementById('task-kafka-fields').style.display = type === 'kafka' ? '' : 'none';
+    document.getElementById('task-rabbitmq-fields').style.display = type === 'rabbitmq' ? '' : 'none';
+    document.getElementById('task-mqtt-fields').style.display = type === 'mqtt' ? '' : 'none';
+    document.getElementById('task-redis-fields').style.display = type === 'redis' ? '' : 'none';
     if (type === 'script') populateScriptDropdown();
 }
 
@@ -4625,6 +4848,53 @@ function buildTaskFromForm() {
             overwrite: document.getElementById('f-filepush-overwrite').checked,
         };
     }
+    if (type === 'kafka') {
+        const broker = document.getElementById('f-kafka-broker').value.trim();
+        const topic = document.getElementById('f-kafka-topic').value.trim();
+        const message = document.getElementById('f-kafka-message').value;
+        if (!broker || !topic || !message) return null;
+        const task = { type: 'kafka', broker, topic, message };
+        const key = document.getElementById('f-kafka-key').value.trim();
+        if (key) task.key = key;
+        const props = document.getElementById('f-kafka-props').value.trim();
+        if (props) task.properties = props;
+        return task;
+    }
+    if (type === 'rabbitmq') {
+        const url = document.getElementById('f-rabbitmq-url').value.trim();
+        const exchange = document.getElementById('f-rabbitmq-exchange').value.trim();
+        const routing_key = document.getElementById('f-rabbitmq-routing').value.trim();
+        const message = document.getElementById('f-rabbitmq-message').value;
+        if (!url || !exchange || !routing_key || !message) return null;
+        const task = { type: 'rabbitmq', url, exchange, routing_key, message };
+        const ct = document.getElementById('f-rabbitmq-ctype').value.trim();
+        if (ct) task.content_type = ct;
+        return task;
+    }
+    if (type === 'mqtt') {
+        const broker = document.getElementById('f-mqtt-broker').value.trim();
+        const topic = document.getElementById('f-mqtt-topic').value.trim();
+        const message = document.getElementById('f-mqtt-message').value;
+        if (!broker || !topic || !message) return null;
+        const task = { type: 'mqtt', broker, topic, message };
+        const port = document.getElementById('f-mqtt-port').value.trim();
+        if (port) task.port = parseInt(port);
+        task.qos = parseInt(document.getElementById('f-mqtt-qos').value);
+        const user = document.getElementById('f-mqtt-user').value.trim();
+        if (user) task.username = user;
+        const pass = document.getElementById('f-mqtt-pass').value;
+        if (pass) task.password = pass;
+        const cid = document.getElementById('f-mqtt-clientid').value.trim();
+        if (cid) task.client_id = cid;
+        return task;
+    }
+    if (type === 'redis') {
+        const url = document.getElementById('f-redis-url').value.trim();
+        const channel = document.getElementById('f-redis-channel').value.trim();
+        const message = document.getElementById('f-redis-message').value;
+        if (!url || !channel || !message) return null;
+        return { type: 'redis', url, channel, message };
+    }
     return null;
 }
 
@@ -4687,6 +4957,31 @@ function populateTaskForm(task) {
             info.textContent = filePushFilename + ' (' + (filePushSize / 1024).toFixed(1) + ' KB) — re-upload to change';
             info.style.display = '';
         }
+    } else if (type === 'kafka') {
+        document.getElementById('f-kafka-broker').value = task.broker || '';
+        document.getElementById('f-kafka-topic').value = task.topic || '';
+        document.getElementById('f-kafka-message').value = task.message || '';
+        document.getElementById('f-kafka-key').value = task.key || '';
+        document.getElementById('f-kafka-props').value = task.properties || '';
+    } else if (type === 'rabbitmq') {
+        document.getElementById('f-rabbitmq-url').value = task.url || '';
+        document.getElementById('f-rabbitmq-exchange').value = task.exchange || '';
+        document.getElementById('f-rabbitmq-routing').value = task.routing_key || '';
+        document.getElementById('f-rabbitmq-message').value = task.message || '';
+        document.getElementById('f-rabbitmq-ctype').value = task.content_type || '';
+    } else if (type === 'mqtt') {
+        document.getElementById('f-mqtt-broker').value = task.broker || '';
+        document.getElementById('f-mqtt-port').value = task.port || '';
+        document.getElementById('f-mqtt-topic').value = task.topic || '';
+        document.getElementById('f-mqtt-message').value = task.message || '';
+        document.getElementById('f-mqtt-qos').value = task.qos != null ? task.qos : 1;
+        document.getElementById('f-mqtt-user').value = task.username || '';
+        document.getElementById('f-mqtt-pass').value = task.password || '';
+        document.getElementById('f-mqtt-clientid').value = task.client_id || '';
+    } else if (type === 'redis') {
+        document.getElementById('f-redis-url').value = task.url || '';
+        document.getElementById('f-redis-channel').value = task.channel || '';
+        document.getElementById('f-redis-message').value = task.message || '';
     }
 }
 
@@ -4855,6 +5150,24 @@ function updateSchedFields() {
 
 let currentExecMode = 'standard';
 let selectedCustomAgentData = null;
+
+function switchJobTab(tabId, btn) {
+    document.querySelectorAll('.modal-tab-content').forEach(el => {
+        if (el.id.startsWith('job-tab-')) el.classList.remove('active');
+    });
+    document.querySelectorAll('.modal-tabs .modal-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('job-tab-' + tabId).classList.add('active');
+    if (btn) btn.classList.add('active');
+}
+
+function resetJobTabs() {
+    document.querySelectorAll('.modal-tabs .modal-tab').forEach((t, i) => {
+        t.classList.toggle('active', i === 0);
+    });
+    document.querySelectorAll('.modal-tab-content').forEach(el => {
+        if (el.id.startsWith('job-tab-')) el.classList.toggle('active', el.id === 'job-tab-task');
+    });
+}
 
 function updateExecutionMode() {
     currentExecMode = document.querySelector('input[name="exec-mode"]:checked').value;
@@ -5267,6 +5580,10 @@ function fmtTaskBadge(task) {
     if (t === 'ftp') return '<span class="badge badge-disabled">ftp</span>';
     if (t === 'script') return '<span class="badge badge-paused">script</span>';
     if (t === 'file_push') return '<span class="badge badge-scheduled">file</span>';
+    if (t === 'kafka') return '<span class="badge badge-running">kafka</span>';
+    if (t === 'rabbitmq') return '<span class="badge badge-paused">rabbitmq</span>';
+    if (t === 'mqtt') return '<span class="badge badge-enabled">mqtt</span>';
+    if (t === 'redis') return '<span class="badge badge-disabled">redis</span>';
     return '<span class="badge">' + t + '</span>';
 }
 
@@ -5281,6 +5598,10 @@ function fmtTaskDetail(task) {
         const size = task.content_base64 ? (Math.floor(task.content_base64.length * 3 / 4 / 1024 * 10) / 10) + ' KB' : '?';
         return fmtTaskBadge(task) + ' <code>' + esc(task.filename) + ' &rarr; ' + esc(task.destination) + '</code> <span class="time-text">(' + size + ')</span>';
     }
+    if (task.type === 'kafka') return fmtTaskBadge(task) + ' <code>' + esc(task.broker) + ' / ' + esc(task.topic) + '</code>';
+    if (task.type === 'rabbitmq') return fmtTaskBadge(task) + ' <code>' + esc(task.exchange) + ' / ' + esc(task.routing_key) + '</code>';
+    if (task.type === 'mqtt') return fmtTaskBadge(task) + ' <code>' + esc(task.broker) + ':' + (task.port || 1883) + ' / ' + esc(task.topic) + '</code>';
+    if (task.type === 'redis') return fmtTaskBadge(task) + ' <code>' + esc(task.channel) + '</code>';
     return task.type;
 }
 

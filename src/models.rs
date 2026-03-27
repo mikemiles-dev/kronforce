@@ -97,6 +97,35 @@ pub enum TaskType {
         #[serde(default)]
         overwrite: bool,
     },
+    Kafka {
+        broker: String,
+        topic: String,
+        message: String,
+        key: Option<String>,
+        properties: Option<String>,
+    },
+    Rabbitmq {
+        url: String,
+        exchange: String,
+        routing_key: String,
+        message: String,
+        content_type: Option<String>,
+    },
+    Mqtt {
+        broker: String,
+        topic: String,
+        message: String,
+        port: Option<u16>,
+        qos: Option<u8>,
+        username: Option<String>,
+        password: Option<String>,
+        client_id: Option<String>,
+    },
+    Redis {
+        url: String,
+        channel: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

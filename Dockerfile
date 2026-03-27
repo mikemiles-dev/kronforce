@@ -11,7 +11,9 @@ RUN cargo build --release
 
 FROM debian:trixie-slim
 
-RUN apt-get update && apt-get install -y ca-certificates libssl3 curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates libssl3 curl \
+    mosquitto-clients amqp-tools redis-tools \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/kronforce /usr/local/bin/kronforce
 COPY --from=builder /app/target/release/kronforce-agent /usr/local/bin/kronforce-agent

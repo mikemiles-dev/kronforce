@@ -349,6 +349,50 @@ pub async fn run_task(
                 stderr: CapturedOutput { text: String::new(), truncated: false },
             }
         }
+        TaskType::Kafka { broker, topic, message, key, properties } => {
+            let mut cmd = format!("echo {} | kafka-console-producer --broker-list {} --topic {}",
+                shell_escape(message), shell_escape(broker), shell_escape(topic));
+            if let Some(k) = key {
+                cmd = format!("echo {}:{} | kafka-console-producer --broker-list {} --topic {} --property parse.key=true --property key.separator=:",
+                    shell_escape(k), shell_escape(message), shell_escape(broker), shell_escape(topic));
+            }
+            if let Some(props) = properties {
+                cmd.push(' ');
+                cmd.push_str(props);
+            }
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Rabbitmq { url, exchange, routing_key, message, content_type } => {
+            let mut cmd = format!("amqp-publish --url {} --exchange {} --routing-key {} --body {}",
+                shell_escape(url), shell_escape(exchange), shell_escape(routing_key), shell_escape(message));
+            if let Some(ct) = content_type {
+                cmd.push_str(&format!(" --content-type {}", shell_escape(ct)));
+            }
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Mqtt { broker, topic, message, port, qos, username, password, client_id } => {
+            let p = port.unwrap_or(1883);
+            let mut cmd = format!("mosquitto_pub -h {} -p {} -t {} -m {}",
+                shell_escape(broker), p, shell_escape(topic), shell_escape(message));
+            if let Some(q) = qos {
+                cmd.push_str(&format!(" -q {}", q));
+            }
+            if let Some(u) = username {
+                cmd.push_str(&format!(" -u {}", shell_escape(u)));
+            }
+            if let Some(pw) = password {
+                cmd.push_str(&format!(" -P {}", shell_escape(pw)));
+            }
+            if let Some(cid) = client_id {
+                cmd.push_str(&format!(" -i {}", shell_escape(cid)));
+            }
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
+        TaskType::Redis { url, channel, message } => {
+            let cmd = format!("redis-cli -u {} PUBLISH {} {}",
+                shell_escape(url), shell_escape(channel), shell_escape(message));
+            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+        }
     }
 }
 

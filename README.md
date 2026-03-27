@@ -5,7 +5,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 ![Kronforce Dashboard](screenshot.png)
 
 - **One binary, batteries included** — controller, scheduler, REST API, and web dashboard in a single Rust binary. No Node, no Redis, no Postgres. Just SQLite.
-- **7 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, file push, and custom agent-defined types
+- **11 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, file push, Kafka, RabbitMQ, MQTT, Redis, and custom agent-defined types
 - **Distributed agents** — push-based standard agents (Rust) or pull-based custom agents in any language (Python, Go, Node, etc.)
 - **Event-driven workflows** — chain jobs based on completions, failures, output patterns, agent status changes, and more
 - **Output intelligence** — extract values from stdout (regex/jsonpath), fail jobs when expected output is missing, compare output across runs

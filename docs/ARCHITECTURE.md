@@ -52,15 +52,15 @@
 
 | Component | File | Description |
 |---|---|---|
-| REST API | `src/api.rs` | Axum HTTP server — dashboard, job CRUD, agent management, callbacks, settings |
+| REST API | `src/api/` | Axum HTTP server — dashboard, job CRUD, agent management, callbacks, settings |
 | Scheduler | `src/scheduler.rs` | Tick-based cron evaluator with mpsc channel for reload/trigger/event commands |
-| Executor | `src/executor.rs` | Runs tasks locally or dispatches to agents. Handles timeouts, cancellation, output rules |
-| Database | `src/db.rs` | SQLite with WAL mode. 11 versioned migrations. Jobs, executions, agents, events, settings, queue |
-| Models | `src/models.rs` | All data types — TaskType, ScheduleKind, AgentTarget, OutputRules, etc. |
-| Output Rules | `src/output_rules.rs` | Regex/jsonpath extraction engine and trigger pattern matcher |
+| Executor | `src/executor/` | Runs tasks locally or dispatches to agents. Handles timeouts, cancellation, output rules |
+| Database | `src/db/` | SQLite with WAL mode. 12 versioned migrations. Jobs, executions, agents, events, settings, queue |
+| Models | `src/models.rs` | All data types — TaskType, ScheduleKind, AgentTarget, OutputRules, Notifications, etc. |
+| Output Rules | `src/output_rules.rs` | Regex/jsonpath extraction, assertions, and trigger pattern matcher |
+| Notifications | `src/notifications.rs` | Email (SMTP) and SMS (webhook) notification dispatch |
 | Scripts | `src/scripts.rs` | Rhai script file store — CRUD, file discovery, name validation |
-| Agent Client | `src/agent_client.rs` | HTTP client for dispatching jobs to standard agents |
-| Agent Server | `src/agent_server.rs` | HTTP server that standard agents run (receives /execute, /cancel, /health) |
+| Agent | `src/agent/` | Client (dispatch to standard agents) and server (receives /execute, /cancel, /health) |
 | Dashboard | `src/dashboard.html` | Single-file HTML embedded via `include_str!` — all pages, CSS, JS |
 | Config | `src/config.rs` | Environment variable parsing for controller and agent |
 
@@ -68,7 +68,7 @@
 
 | Type | Model | Registration | Task Types | Dispatch |
 |---|---|---|---|---|
-| Standard | Push | Controller pushes via HTTP POST | Shell, HTTP, SQL, FTP, Script | Immediate via `/execute` |
+| Standard | Push | Controller pushes via HTTP POST | Shell, HTTP, SQL, FTP, Script, FilePush, Kafka, RabbitMQ, MQTT, Redis | Immediate via `/execute` |
 | Custom | Pull | Agent polls `GET /api/agent-queue/{id}/next` | UI-defined per agent | Queued in `job_queue` table |
 
 ## Execution Modes
@@ -90,6 +90,11 @@
 | `ftp` | Uses curl for transfers | `protocol`, `host`, `port`, `username`, `password`, `direction`, `remote_path`, `local_path` |
 | `script` | Embedded Rhai scripting engine | `script_name` |
 | `custom` | Dispatched to custom agent | `agent_task_type`, `data` (arbitrary JSON) |
+| `file_push` | Base64 decode + write to filesystem | `filename`, `destination`, `content_base64`, `permissions`, `overwrite` |
+| `kafka` | `kafka-console-producer` via shell | `broker`, `topic`, `message`, `key`, `properties` |
+| `rabbitmq` | `amqp-publish` via shell | `url`, `exchange`, `routing_key`, `message`, `content_type` |
+| `mqtt` | `mosquitto_pub` via shell | `broker`, `port`, `topic`, `message`, `qos`, `username`, `password` |
+| `redis` | `redis-cli PUBLISH` via shell | `url`, `channel`, `message` |
 
 ## Schedule Types
 
@@ -133,4 +138,4 @@ Custom agent jobs are enqueued in the `job_queue` table with statuses: `pending`
 
 ## Authentication
 
-API key middleware on all `/api/*` routes (except health, agent registration, polling, callbacks). Three roles: `admin`, `operator`, `viewer`. Auto-disabled when no keys exist (first-time setup).
+API key middleware on all `/api/*` routes (except health). Agent endpoints have a separate middleware requiring the `agent` role. Four roles: `admin` (full access), `operator` (jobs + agents), `viewer` (read-only), `agent` (register, poll, heartbeat, callback). Bootstrap admin and agent keys created on first startup. Auto-disabled when no keys exist (first-time setup).
