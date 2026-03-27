@@ -1,3 +1,5 @@
+pub mod cron_parser;
+
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
@@ -6,7 +8,7 @@ use uuid::Uuid;
 
 use crate::agent::AgentClient;
 use crate::config::ControllerConfig;
-use crate::cron_parser::CronSchedule;
+use self::cron_parser::CronSchedule;
 use crate::dag::DagResolver;
 use crate::db::Db;
 use crate::executor::Executor;

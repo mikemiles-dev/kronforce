@@ -1,5 +1,8 @@
 mod dispatch;
 mod local;
+pub mod notifications;
+pub mod output_rules;
+pub mod scripts;
 
 pub use local::run_task;
 
