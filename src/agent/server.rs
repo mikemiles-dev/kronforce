@@ -108,9 +108,7 @@ async fn execute_job(
                     );
                 }
                 Err(e) => {
-                    warn!(
-                        "callback failed for {exec_id} (attempt {attempt}/{max_attempts}): {e}"
-                    );
+                    warn!("callback failed for {exec_id} (attempt {attempt}/{max_attempts}): {e}");
                 }
             }
             if attempt >= max_attempts {

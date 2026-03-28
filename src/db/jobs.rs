@@ -9,7 +9,10 @@ use crate::error::AppError;
 impl Db {
     /// Inserts a new job. Returns a conflict error if the job name already exists.
     pub fn insert_job(&self, job: &Job) -> Result<(), AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let schedule_json = serde_json::to_string(&job.schedule)
             .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
         let depends_on_json = serde_json::to_string(&job.depends_on)
@@ -70,7 +73,10 @@ impl Db {
 
     /// Looks up a job by its UUID.
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
@@ -101,7 +107,10 @@ impl Db {
         status_filter: Option<&str>,
         search: Option<&str>,
     ) -> Result<u32, AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let f = Self::build_job_filters(status_filter, search);
         let sql = format!("SELECT COUNT(*) FROM jobs{}", f.where_sql());
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
@@ -117,7 +126,10 @@ impl Db {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<Job>, AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut f = Self::build_job_filters(status_filter, search);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
@@ -139,7 +151,10 @@ impl Db {
 
     /// Updates all fields of an existing job. Returns not-found if the job does not exist.
     pub fn update_job(&self, job: &Job) -> Result<(), AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let schedule_json = serde_json::to_string(&job.schedule)
             .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
         let depends_on_json = serde_json::to_string(&job.depends_on)
@@ -238,7 +253,10 @@ impl Db {
 
     /// Returns all job IDs with their dependency lists for DAG cycle validation.
     pub fn get_all_jobs_for_dag(&self) -> Result<Vec<(Uuid, Vec<Uuid>)>, AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, depends_on_json FROM jobs")
             .map_err(AppError::Db)?;
