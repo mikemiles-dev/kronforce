@@ -214,48 +214,50 @@ impl Scheduler {
                 }
             }
             SchedulerCommand::CancelExecution(exec_id) => {
-                // Try local cancel first
-                if self.executor.cancel(exec_id).await {
-                    info!("cancelled local execution {}", exec_id);
-                    return;
-                }
-
-                // Check if it's running on an agent
-                let db = self.db.clone();
-                let exec = tokio::task::spawn_blocking(move || db.get_execution(exec_id))
-                    .await
-                    .unwrap_or(Ok(None));
-
-                if let Ok(Some(exec)) = exec
-                    && let Some(agent_id) = exec.agent_id
-                {
-                    let db = self.db.clone();
-                    if let Ok(Some(agent)) =
-                        tokio::task::spawn_blocking(move || db.get_agent(agent_id))
-                            .await
-                            .unwrap_or(Ok(None))
-                    {
-                        match self
-                            .agent_client
-                            .cancel_execution(&agent.address, agent.port, exec_id)
-                            .await
-                        {
-                            Ok(_) => info!(
-                                "cancelled remote execution {} on agent {}",
-                                exec_id, agent.name
-                            ),
-                            Err(e) => error!("failed to cancel on agent: {e}"),
-                        }
-                        return;
-                    }
-                }
-
-                warn!("cancel: execution {} not found or not running", exec_id);
+                self.cancel_execution(exec_id).await;
             }
             SchedulerCommand::EventOccurred(event) => {
                 self.handle_event(event).await;
             }
         }
+    }
+
+    /// Cancels an execution, trying locally first then on the remote agent.
+    async fn cancel_execution(&self, exec_id: Uuid) {
+        if self.executor.cancel(exec_id).await {
+            info!("cancelled local execution {}", exec_id);
+            return;
+        }
+
+        let db = self.db.clone();
+        let exec = tokio::task::spawn_blocking(move || db.get_execution(exec_id))
+            .await
+            .unwrap_or(Ok(None));
+
+        if let Ok(Some(exec)) = exec
+            && let Some(agent_id) = exec.agent_id
+        {
+            let db = self.db.clone();
+            if let Ok(Some(agent)) = tokio::task::spawn_blocking(move || db.get_agent(agent_id))
+                .await
+                .unwrap_or(Ok(None))
+            {
+                match self
+                    .agent_client
+                    .cancel_execution(&agent.address, agent.port, exec_id)
+                    .await
+                {
+                    Ok(_) => info!(
+                        "cancelled remote execution {} on agent {}",
+                        exec_id, agent.name
+                    ),
+                    Err(e) => error!("failed to cancel on agent: {e}"),
+                }
+                return;
+            }
+        }
+
+        warn!("cancel: execution {} not found or not running", exec_id);
     }
 
     async fn handle_event(&mut self, event: Event) {

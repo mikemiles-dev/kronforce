@@ -34,6 +34,42 @@ pub fn generate_api_key() -> (String, String) {
     (raw, prefix)
 }
 
+/// Validates a Bearer token from request headers against the database.
+/// Returns None if no keys are configured (auth disabled), or the matching ApiKey.
+async fn validate_bearer_token(
+    db: &crate::db::Db,
+    headers: &axum::http::HeaderMap,
+    missing_msg: &str,
+) -> Result<Option<ApiKey>, AppError> {
+    let key_count = db_call(db, move |db| db.count_api_keys()).await?;
+    if key_count == 0 {
+        return Ok(None);
+    }
+
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+
+    let raw_key = match auth_header {
+        Some(ref h) if h.starts_with("Bearer ") => &h[7..],
+        _ => return Err(AppError::Unauthorized(missing_msg.into())),
+    };
+
+    let hash = hash_api_key(raw_key);
+    let api_key = db_call(db, move |db| db.get_api_key_by_hash(&hash)).await?;
+
+    match api_key {
+        Some(key) => {
+            let key_id = key.id;
+            let now = Utc::now();
+            let _ = db_call(db, move |db| db.update_api_key_last_used(key_id, now)).await;
+            Ok(Some(key))
+        }
+        None => Err(AppError::Unauthorized("invalid API key".into())),
+    }
+}
+
 /// Middleware that authenticates agent-facing endpoints using Bearer tokens.
 /// Skips auth if no API keys are configured (first-time setup).
 pub(crate) async fn agent_auth_middleware(
@@ -41,44 +77,18 @@ pub(crate) async fn agent_auth_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    // Check if any API keys exist — if not, skip auth (first-time setup)
-    let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
-
-    if key_count == 0 {
+    let Some(key) =
+        validate_bearer_token(&state.db, req.headers(), "agent API key required").await?
+    else {
         return Ok(next.run(req).await);
-    }
-
-    let auth_header = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
-
-    let raw_key = match auth_header {
-        Some(ref h) if h.starts_with("Bearer ") => &h[7..],
-        _ => {
-            return Err(AppError::Unauthorized("agent API key required".into()));
-        }
     };
 
-    let hash = hash_api_key(raw_key);
-    let api_key = db_call(&state.db, move |db| db.get_api_key_by_hash(&hash)).await?;
-
-    match api_key {
-        Some(key) if key.role.is_agent() || key.role.can_manage_keys() => {
-            // Agent keys and admin keys can access agent endpoints
-            let key_id = key.id;
-            let now = Utc::now();
-            let _ = db_call(&state.db, move |db| {
-                db.update_api_key_last_used(key_id, now)
-            })
-            .await;
-            Ok(next.run(req).await)
-        }
-        Some(_) => Err(AppError::Forbidden(
+    if key.role.is_agent() || key.role.can_manage_keys() {
+        Ok(next.run(req).await)
+    } else {
+        Err(AppError::Forbidden(
             "this API key does not have agent access".into(),
-        )),
-        None => Err(AppError::Unauthorized("invalid API key".into())),
+        ))
     }
 }
 
@@ -89,47 +99,18 @@ pub(crate) async fn auth_middleware(
     mut req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    // Check if auth is enabled (any keys exist)
-    let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
-
-    // If no keys exist, skip auth (first-time setup)
-    if key_count == 0 {
+    let Some(key) = validate_bearer_token(
+        &state.db,
+        req.headers(),
+        "missing or invalid Authorization header",
+    )
+    .await?
+    else {
         return Ok(next.run(req).await);
-    }
-
-    let auth_header = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string());
-
-    let raw_key = match auth_header {
-        Some(ref h) if h.starts_with("Bearer ") => &h[7..],
-        _ => {
-            return Err(AppError::Unauthorized(
-                "missing or invalid Authorization header".into(),
-            ));
-        }
     };
 
-    let hash = hash_api_key(raw_key);
-    let api_key = db_call(&state.db, move |db| db.get_api_key_by_hash(&hash)).await?;
-
-    match api_key {
-        Some(key) => {
-            // Update last_used_at
-            let key_id = key.id;
-            let now = Utc::now();
-            let _ = db_call(&state.db, move |db| {
-                db.update_api_key_last_used(key_id, now)
-            })
-            .await;
-
-            req.extensions_mut().insert(key);
-            Ok(next.run(req).await)
-        }
-        None => Err(AppError::Unauthorized("invalid API key".into())),
-    }
+    req.extensions_mut().insert(key);
+    Ok(next.run(req).await)
 }
 
 /// Extractor for the authenticated API key. Returns None if auth is disabled.

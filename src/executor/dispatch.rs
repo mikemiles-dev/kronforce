@@ -146,8 +146,8 @@ impl super::Executor {
             .ok_or_else(|| AppError::AgentError("failed to dispatch to any agent".to_string()))
     }
 
-    /// Dispatches a job to a specific agent, creating an execution record and handling the response.
-    /// Custom agents use pull-based queue dispatch; standard agents use push-based HTTP dispatch.
+    /// Dispatches a job to a specific agent, creating an execution record and routing
+    /// to queue-based or HTTP-based dispatch depending on agent type.
     pub(crate) async fn dispatch_to_specific_agent(
         &self,
         agent: &Agent,
@@ -171,45 +171,68 @@ impl super::Executor {
 
         let callback_url = format!("{}/api/callbacks/execution-result", callback_base_url);
 
-        // Custom agents use pull-based queue
         if agent.agent_type == AgentType::Custom {
-            let db = self.db.clone();
-            let queue_id = Uuid::new_v4();
-            let job_id = job.id;
-            let task = job.task.clone();
-            let run_as = job.run_as.clone();
-            let timeout = job.timeout_secs;
-            let agent_id = agent.id;
-            let cb = callback_url.clone();
-            tokio::task::spawn_blocking(move || {
-                db.enqueue_job(
-                    queue_id,
-                    exec_id,
-                    agent_id,
-                    job_id,
-                    &task,
-                    run_as.as_deref(),
-                    timeout,
-                    &cb,
-                )
-            })
-            .await
-            .unwrap()?;
-            info!(
-                "queued job {} for custom agent {} -> execution {}",
-                job.name, agent.name, exec_id
-            );
-            return Ok(exec_id);
+            self.dispatch_via_queue(exec_id, agent, job, &callback_url)
+                .await
+        } else {
+            self.dispatch_via_http(exec_id, rec, agent, job, &callback_url)
+                .await
         }
+    }
 
-        // Standard agents use push
+    /// Enqueues a job for a custom agent to pick up via polling.
+    async fn dispatch_via_queue(
+        &self,
+        exec_id: Uuid,
+        agent: &Agent,
+        job: &Job,
+        callback_url: &str,
+    ) -> Result<Uuid, AppError> {
+        let db = self.db.clone();
+        let queue_id = Uuid::new_v4();
+        let job_id = job.id;
+        let task = job.task.clone();
+        let run_as = job.run_as.clone();
+        let timeout = job.timeout_secs;
+        let agent_id = agent.id;
+        let cb = callback_url.to_string();
+        tokio::task::spawn_blocking(move || {
+            db.enqueue_job(
+                queue_id,
+                exec_id,
+                agent_id,
+                job_id,
+                &task,
+                run_as.as_deref(),
+                timeout,
+                &cb,
+            )
+        })
+        .await
+        .unwrap()?;
+        info!(
+            "queued job {} for custom agent {} -> execution {}",
+            job.name, agent.name, exec_id
+        );
+        Ok(exec_id)
+    }
+
+    /// Pushes a job to a standard agent via HTTP and handles the response.
+    async fn dispatch_via_http(
+        &self,
+        exec_id: Uuid,
+        rec: ExecutionRecord,
+        agent: &Agent,
+        job: &Job,
+        callback_url: &str,
+    ) -> Result<Uuid, AppError> {
         let dispatch = JobDispatchRequest {
             execution_id: exec_id,
             job_id: job.id,
             task: job.task.clone(),
             run_as: job.run_as.clone(),
             timeout_secs: job.timeout_secs,
-            callback_url,
+            callback_url: callback_url.to_string(),
         };
 
         match self
@@ -218,7 +241,6 @@ impl super::Executor {
             .await
         {
             Ok(resp) if resp.accepted => {
-                // Update to Running
                 let db = self.db.clone();
                 let mut running_rec = rec;
                 running_rec.status = ExecutionStatus::Running;
@@ -232,24 +254,24 @@ impl super::Executor {
             }
             Ok(resp) => {
                 let msg = resp.message.unwrap_or_else(|| "rejected".into());
-                // Mark as failed
-                let db = self.db.clone();
-                let mut failed_rec = rec;
-                failed_rec.status = ExecutionStatus::Failed;
-                failed_rec.stderr = format!("agent rejected: {msg}");
-                failed_rec.finished_at = Some(Utc::now());
-                let _ = tokio::task::spawn_blocking(move || db.update_execution(&failed_rec)).await;
+                self.fail_execution(rec, &format!("agent rejected: {msg}"))
+                    .await;
                 Err(AppError::AgentError(msg))
             }
             Err(e) => {
-                let db = self.db.clone();
-                let mut failed_rec = rec;
-                failed_rec.status = ExecutionStatus::Failed;
-                failed_rec.stderr = format!("dispatch failed: {e}");
-                failed_rec.finished_at = Some(Utc::now());
-                let _ = tokio::task::spawn_blocking(move || db.update_execution(&failed_rec)).await;
+                self.fail_execution(rec, &format!("dispatch failed: {e}"))
+                    .await;
                 Err(e)
             }
         }
+    }
+
+    /// Marks an execution as failed with the given error message.
+    async fn fail_execution(&self, mut rec: ExecutionRecord, stderr: &str) {
+        rec.status = ExecutionStatus::Failed;
+        rec.stderr = stderr.to_string();
+        rec.finished_at = Some(Utc::now());
+        let db = self.db.clone();
+        let _ = tokio::task::spawn_blocking(move || db.update_execution(&rec)).await;
     }
 }

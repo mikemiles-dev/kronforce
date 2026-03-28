@@ -20,6 +20,97 @@ enum FieldSpec {
     Values(Vec<u32>),
 }
 
+/// Mutable cursor tracking the current position while searching for a cron match.
+struct CronCursor {
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+}
+
+impl CronCursor {
+    fn from_after(after: &DateTime<Utc>) -> Self {
+        let mut c = Self {
+            year: after.year(),
+            month: after.month(),
+            day: after.day(),
+            hour: after.hour(),
+            minute: after.minute(),
+            second: after.second() + 1,
+        };
+        // Carry over
+        if c.second >= 60 {
+            c.second = 0;
+            c.minute += 1;
+        }
+        if c.minute >= 60 {
+            c.minute = 0;
+            c.hour += 1;
+        }
+        if c.hour >= 24 {
+            c.hour = 0;
+            c.day += 1;
+        }
+        c
+    }
+
+    fn reset_to_day(&mut self) {
+        self.hour = 0;
+        self.minute = 0;
+        self.second = 0;
+    }
+    fn reset_to_hour(&mut self) {
+        self.minute = 0;
+        self.second = 0;
+    }
+    fn reset_to_minute(&mut self) {
+        self.second = 0;
+    }
+
+    fn advance_month(&mut self) {
+        self.month += 1;
+        self.day = 1;
+        self.reset_to_day();
+        if self.month > 12 {
+            self.month = 1;
+            self.year += 1;
+        }
+    }
+
+    fn advance_day(&mut self, days_in_month: u32) {
+        self.day += 1;
+        self.reset_to_day();
+        if self.day > days_in_month {
+            self.advance_month();
+        }
+    }
+
+    fn advance_hour(&mut self, days_in_month: u32) {
+        self.hour += 1;
+        self.reset_to_hour();
+        if self.hour >= 24 {
+            self.hour = 0;
+            self.advance_day(days_in_month);
+        }
+    }
+
+    fn advance_minute(&mut self, days_in_month: u32) {
+        self.minute += 1;
+        self.reset_to_minute();
+        if self.minute >= 60 {
+            self.minute = 0;
+            self.advance_hour(days_in_month);
+        }
+    }
+
+    fn to_datetime(&self, hour: u32, minute: u32, second: u32) -> Option<DateTime<Utc>> {
+        Utc.with_ymd_and_hms(self.year, self.month, self.day, hour, minute, second)
+            .single()
+    }
+}
+
 impl CronSchedule {
     /// Parse a 6-field cron expression: "sec min hour dom month dow"
     pub fn parse(expr: &str) -> Result<Self, AppError> {
@@ -42,198 +133,115 @@ impl CronSchedule {
 
     /// Find the next datetime after `after` that matches this cron expression.
     pub fn next_after(&self, after: DateTime<Utc>) -> Option<DateTime<Utc>> {
-        // Start from the next second
-        let mut year = after.year();
-        let mut month = after.month();
-        let mut day = after.day();
-        let mut hour = after.hour();
-        let mut minute = after.minute();
-        let mut second = after.second() + 1;
+        let mut c = CronCursor::from_after(&after);
+        let max_year = c.year + 5;
 
-        // Carry over
-        if second >= 60 {
-            second = 0;
-            minute += 1;
-        }
-        if minute >= 60 {
-            minute = 0;
-            hour += 1;
-        }
-        if hour >= 24 {
-            hour = 0;
-            day += 1;
+        while c.year <= max_year {
+            if !self.advance_to_matching_date(&mut c, max_year) {
+                return None;
+            }
+            if c.year > max_year {
+                return None;
+            }
+
+            let dim = days_in_month(c.year, c.month);
+
+            if let Some(dt) = self.find_matching_time(&mut c, dim) {
+                return Some(dt);
+            }
         }
 
-        let max_year = year + 5;
+        None
+    }
 
-        while year <= max_year {
+    /// Advances the cursor to the next date (year/month/day) that matches the cron fields.
+    /// Returns false if no match is possible within the year limit.
+    fn advance_to_matching_date(&self, c: &mut CronCursor, max_year: i32) -> bool {
+        loop {
+            if c.year > max_year {
+                return false;
+            }
+
             // Find next matching month
-            let Some(m) = self.month.next_match(month, 1, 12) else {
-                year += 1;
-                month = 1;
-                day = 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
+            let Some(m) = self.month.next_match(c.month, 1, 12) else {
+                c.year += 1;
+                c.month = 1;
+                c.day = 1;
+                c.reset_to_day();
                 continue;
             };
-            if m > month {
-                month = m;
-                day = 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
+            if m > c.month {
+                c.month = m;
+                c.day = 1;
+                c.reset_to_day();
             }
 
-            let days_in_month = days_in_month(year, month);
+            let dim = days_in_month(c.year, c.month);
 
-            // Find next matching day
-            let Some(d) = self.day_of_month.next_match(day, 1, days_in_month) else {
-                month += 1;
-                day = 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
-                if month > 12 {
-                    month = 1;
-                    year += 1;
-                }
+            // Find next matching day of month
+            let Some(d) = self.day_of_month.next_match(c.day, 1, dim) else {
+                c.advance_month();
                 continue;
             };
-
-            if d > day {
-                day = d;
-                hour = 0;
-                minute = 0;
-                second = 0;
+            if d > c.day {
+                c.day = d;
+                c.reset_to_day();
             }
 
-            // Validate day exists
-            if day > days_in_month {
-                month += 1;
-                day = 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
-                if month > 12 {
-                    month = 1;
-                    year += 1;
-                }
+            if c.day > dim {
+                c.advance_month();
                 continue;
             }
 
             // Check day of week
-            if let Some(date) = NaiveDate::from_ymd_opt(year, month, day) {
-                let dow = date.weekday().num_days_from_sunday();
-                if !self.day_of_week.matches(dow) {
-                    day += 1;
-                    hour = 0;
-                    minute = 0;
-                    second = 0;
-                    if day > days_in_month {
-                        month += 1;
-                        day = 1;
-                        if month > 12 {
-                            month = 1;
-                            year += 1;
-                        }
-                    }
-                    continue;
-                }
-            } else {
-                month += 1;
-                day = 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
-                if month > 12 {
-                    month = 1;
-                    year += 1;
-                }
-                continue;
-            }
-
-            // Find next matching hour
-            let Some(h) = self.hours.next_match(hour, 0, 23) else {
-                day += 1;
-                hour = 0;
-                minute = 0;
-                second = 0;
-                if day > days_in_month {
-                    month += 1;
-                    day = 1;
-                    if month > 12 {
-                        month = 1;
-                        year += 1;
-                    }
-                }
+            let Some(date) = NaiveDate::from_ymd_opt(c.year, c.month, c.day) else {
+                c.advance_month();
                 continue;
             };
-            if h > hour {
-                hour = h;
-                minute = 0;
-                second = 0;
-            }
-
-            // Find next matching minute
-            let Some(min) = self.minutes.next_match(minute, 0, 59) else {
-                hour += 1;
-                minute = 0;
-                second = 0;
-                if hour >= 24 {
-                    hour = 0;
-                    day += 1;
-                    if day > days_in_month {
-                        month += 1;
-                        day = 1;
-                        if month > 12 {
-                            month = 1;
-                            year += 1;
-                        }
-                    }
-                }
-                continue;
-            };
-            if min > minute {
-                minute = min;
-                second = 0;
-            }
-
-            // Find next matching second
-            let Some(s) = self.seconds.next_match(second, 0, 59) else {
-                minute += 1;
-                second = 0;
-                if minute >= 60 {
-                    minute = 0;
-                    hour += 1;
-                    if hour >= 24 {
-                        hour = 0;
-                        day += 1;
-                        if day > days_in_month {
-                            month += 1;
-                            day = 1;
-                            if month > 12 {
-                                month = 1;
-                                year += 1;
-                            }
-                        }
-                    }
-                }
-                continue;
-            };
-
-            // Build the result
-            if let Some(dt) = Utc
-                .with_ymd_and_hms(year, month, day, hour, min, s)
-                .single()
+            if !self
+                .day_of_week
+                .matches(date.weekday().num_days_from_sunday())
             {
-                return Some(dt);
+                c.advance_day(dim);
+                continue;
             }
 
-            // Shouldn't happen, but advance
-            second = s + 1;
+            return true;
+        }
+    }
+
+    /// Given a cursor on a valid date, finds the next matching hour:minute:second.
+    /// Returns None and advances the cursor if no time matches on this date.
+    fn find_matching_time(&self, c: &mut CronCursor, dim: u32) -> Option<DateTime<Utc>> {
+        let Some(h) = self.hours.next_match(c.hour, 0, 23) else {
+            c.advance_day(dim);
+            return None;
+        };
+        if h > c.hour {
+            c.hour = h;
+            c.reset_to_hour();
         }
 
+        let Some(min) = self.minutes.next_match(c.minute, 0, 59) else {
+            c.advance_hour(dim);
+            return None;
+        };
+        if min > c.minute {
+            c.minute = min;
+            c.reset_to_minute();
+        }
+
+        let Some(s) = self.seconds.next_match(c.second, 0, 59) else {
+            c.advance_minute(dim);
+            return None;
+        };
+
+        if let Some(dt) = c.to_datetime(h, min, s) {
+            return Some(dt);
+        }
+
+        // Shouldn't happen, but advance
+        c.second = s + 1;
         None
     }
 }
@@ -268,63 +276,59 @@ fn parse_field(field: &str, min: u32, max: u32) -> Result<FieldSpec, AppError> {
     if field == "*" {
         return Ok(FieldSpec::All);
     }
-
-    // Handle step: */N or M-N/S
-    if let Some((base, step_str)) = field.split_once('/') {
-        let step: u32 = step_str
-            .parse()
-            .map_err(|_| AppError::BadRequest(format!("invalid step value: {step_str}")))?;
-        if step == 0 {
-            return Err(AppError::BadRequest("step cannot be zero".into()));
-        }
-        let (start, end) = if base == "*" {
-            (min, max)
-        } else if let Some((lo, hi)) = base.split_once('-') {
-            let lo: u32 = lo
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid range start: {lo}")))?;
-            let hi: u32 = hi
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid range end: {hi}")))?;
-            (lo, hi)
-        } else {
-            let start: u32 = base
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid field: {base}")))?;
-            (start, max)
-        };
-        let mut vals = Vec::new();
-        let mut v = start;
-        while v <= end {
-            vals.push(v);
-            v += step;
-        }
-        vals.sort();
-        return Ok(FieldSpec::Values(vals));
+    if let Some(pos) = field.find('/') {
+        return parse_step_field(field, pos, min, max);
     }
+    parse_range_or_list(field, min, max)
+}
 
-    // Handle comma-separated values and ranges
+/// Parses a step field like `*/N` or `M-N/S`.
+fn parse_step_field(
+    field: &str,
+    slash_pos: usize,
+    min: u32,
+    max: u32,
+) -> Result<FieldSpec, AppError> {
+    let base = &field[..slash_pos];
+    let step_str = &field[slash_pos + 1..];
+    let step: u32 = step_str
+        .parse()
+        .map_err(|_| AppError::BadRequest(format!("invalid step value: {step_str}")))?;
+    if step == 0 {
+        return Err(AppError::BadRequest("step cannot be zero".into()));
+    }
+    let (start, end) = if base == "*" {
+        (min, max)
+    } else if let Some((lo, hi)) = base.split_once('-') {
+        (parse_u32(lo, "range start")?, parse_u32(hi, "range end")?)
+    } else {
+        (parse_u32(base, "field")?, max)
+    };
+    let mut vals = Vec::new();
+    let mut v = start;
+    while v <= end {
+        vals.push(v);
+        v += step;
+    }
+    vals.sort();
+    Ok(FieldSpec::Values(vals))
+}
+
+/// Parses a comma-separated list of values and/or ranges like `1,3,5` or `1-5,10`.
+fn parse_range_or_list(field: &str, min: u32, max: u32) -> Result<FieldSpec, AppError> {
     let mut vals = Vec::new();
     for part in field.split(',') {
         if let Some((lo, hi)) = part.split_once('-') {
-            let lo: u32 = lo
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid range start: {lo}")))?;
-            let hi: u32 = hi
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid range end: {hi}")))?;
+            let lo = parse_u32(lo, "range start")?;
+            let hi = parse_u32(hi, "range end")?;
             if lo > hi || lo < min || hi > max {
                 return Err(AppError::BadRequest(format!(
                     "range {lo}-{hi} out of bounds ({min}-{max})"
                 )));
             }
-            for v in lo..=hi {
-                vals.push(v);
-            }
+            vals.extend(lo..=hi);
         } else {
-            let v: u32 = part
-                .parse()
-                .map_err(|_| AppError::BadRequest(format!("invalid value: {part}")))?;
+            let v = parse_u32(part, "value")?;
             if v < min || v > max {
                 return Err(AppError::BadRequest(format!(
                     "value {v} out of bounds ({min}-{max})"
@@ -336,6 +340,12 @@ fn parse_field(field: &str, min: u32, max: u32) -> Result<FieldSpec, AppError> {
     vals.sort();
     vals.dedup();
     Ok(FieldSpec::Values(vals))
+}
+
+/// Parses a string as u32 with a descriptive error label.
+fn parse_u32(s: &str, label: &str) -> Result<u32, AppError> {
+    s.parse()
+        .map_err(|_| AppError::BadRequest(format!("invalid {label}: {s}")))
 }
 
 fn days_in_month(year: i32, month: u32) -> u32 {
