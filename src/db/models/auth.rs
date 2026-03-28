@@ -42,6 +42,28 @@ impl ApiKey {
             raw_key,
         )
     }
+
+    /// Constructs an ApiKey from a rusqlite row.
+    pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        use crate::db::helpers::{parse_datetime, parse_uuid};
+
+        let id_str: String = row.get(0)?;
+        let role_str: String = row.get(4)?;
+        let created_str: String = row.get(5)?;
+        let last_used_str: Option<String> = row.get(6)?;
+        let active_int: i32 = row.get(7)?;
+
+        Ok(ApiKey {
+            id: parse_uuid(&id_str)?,
+            key_prefix: row.get(1)?,
+            key_hash: row.get(2)?,
+            name: row.get(3)?,
+            role: ApiKeyRole::from_str(&role_str).unwrap_or(ApiKeyRole::Viewer),
+            created_at: parse_datetime(&created_str)?,
+            last_used_at: last_used_str.map(|s| parse_datetime(&s)).transpose()?,
+            active: active_int != 0,
+        })
+    }
 }
 
 /// Permission role assigned to an API key.

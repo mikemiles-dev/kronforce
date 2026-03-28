@@ -126,7 +126,7 @@ pub(crate) async fn list_jobs(
     let responses: Vec<JobResponse> = db_call(&state.db, move |db| {
         Ok(jobs
             .into_iter()
-            .map(|job| build_job_response(job, db))
+            .map(|job| JobResponse::from_job(job, db))
             .collect())
     })
     .await?;
@@ -216,7 +216,7 @@ pub(crate) async fn create_job(
     )
     .await;
 
-    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
+    let resp = db_call(&state.db, move |db| Ok(JobResponse::from_job(job, db))).await?;
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
 
@@ -229,7 +229,7 @@ pub(crate) async fn get_job_handler(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
-    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
+    let resp = db_call(&state.db, move |db| Ok(JobResponse::from_job(job, db))).await?;
     Ok(Json(resp))
 }
 
@@ -336,7 +336,7 @@ pub(crate) async fn update_job(
     )
     .await;
 
-    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
+    let resp = db_call(&state.db, move |db| Ok(JobResponse::from_job(job, db))).await?;
     Ok(Json(resp))
 }
 
@@ -399,83 +399,84 @@ pub(crate) async fn trigger_job(
     }))
 }
 
-fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
-    match &job.schedule {
-        ScheduleKind::Cron(expr) => {
-            let schedule = CronSchedule::parse(&expr.0).ok()?;
-            schedule.next_after(Utc::now())
+impl JobResponse {
+    /// Builds an enriched job response from a job and database.
+    pub(crate) fn from_job(job: Job, db: &Db) -> Self {
+        let next = Self::compute_next_fire(&job);
+        let last_execution = db
+            .get_latest_execution_for_job(job.id)
+            .ok()
+            .flatten()
+            .map(|e| LastExecution {
+                id: e.id,
+                status: e.status,
+                exit_code: e.exit_code,
+                finished_at: e.finished_at,
+            });
+        let (total, succeeded, failed) = db.get_execution_counts(job.id).unwrap_or((0, 0, 0));
+        let (deps_satisfied, deps_status) = Self::evaluate_deps(db, &job.depends_on);
+
+        JobResponse {
+            job,
+            next_fire_time: next,
+            last_execution,
+            execution_counts: ExecutionCounts {
+                total,
+                succeeded,
+                failed,
+            },
+            deps_satisfied,
+            deps_status,
         }
-        ScheduleKind::OneShot(t) => {
-            if *t > Utc::now() {
-                Some(*t)
-            } else {
-                None
+    }
+
+    fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
+        match &job.schedule {
+            ScheduleKind::Cron(expr) => {
+                let schedule = CronSchedule::parse(&expr.0).ok()?;
+                schedule.next_after(Utc::now())
             }
-        }
-        ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
-    }
-}
-
-/// Builds an enriched job response with next fire time, execution stats, and dependency status.
-pub(crate) fn build_job_response(job: Job, db: &Db) -> JobResponse {
-    let next = compute_next_fire(&job);
-    let last_execution = db
-        .get_latest_execution_for_job(job.id)
-        .ok()
-        .flatten()
-        .map(|e| LastExecution {
-            id: e.id,
-            status: e.status,
-            exit_code: e.exit_code,
-            finished_at: e.finished_at,
-        });
-    let (total, succeeded, failed) = db.get_execution_counts(job.id).unwrap_or((0, 0, 0));
-    let (deps_satisfied, deps_status) = evaluate_deps(db, &job.depends_on);
-
-    JobResponse {
-        job,
-        next_fire_time: next,
-        last_execution,
-        execution_counts: ExecutionCounts {
-            total,
-            succeeded,
-            failed,
-        },
-        deps_satisfied,
-        deps_status,
-    }
-}
-
-/// Evaluates whether each dependency is satisfied and returns the overall status.
-fn evaluate_deps(db: &Db, deps: &[Dependency]) -> (bool, Vec<DepStatus>) {
-    let now = chrono::Utc::now();
-    let mut all_satisfied = true;
-    let statuses: Vec<DepStatus> = deps
-        .iter()
-        .map(|dep| {
-            let dep_name = db.get_job(dep.job_id).ok().flatten().map(|j| j.name);
-            let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
-                Some(exec) if exec.status == ExecutionStatus::Succeeded => {
-                    if let Some(within) = dep.within_secs {
-                        exec.finished_at
-                            .map(|f| (now - f).num_seconds() <= within as i64)
-                            .unwrap_or(false)
-                    } else {
-                        true
-                    }
+            ScheduleKind::OneShot(t) => {
+                if *t > Utc::now() {
+                    Some(*t)
+                } else {
+                    None
                 }
-                _ => false,
-            };
-            if !satisfied {
-                all_satisfied = false;
             }
-            DepStatus {
-                job_id: dep.job_id,
-                job_name: dep_name,
-                within_secs: dep.within_secs,
-                satisfied,
-            }
-        })
-        .collect();
-    (all_satisfied, statuses)
+            ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
+        }
+    }
+
+    fn evaluate_deps(db: &Db, deps: &[Dependency]) -> (bool, Vec<DepStatus>) {
+        let now = chrono::Utc::now();
+        let mut all_satisfied = true;
+        let statuses: Vec<DepStatus> = deps
+            .iter()
+            .map(|dep| {
+                let dep_name = db.get_job(dep.job_id).ok().flatten().map(|j| j.name);
+                let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
+                    Some(exec) if exec.status == ExecutionStatus::Succeeded => {
+                        if let Some(within) = dep.within_secs {
+                            exec.finished_at
+                                .map(|f| (now - f).num_seconds() <= within as i64)
+                                .unwrap_or(false)
+                        } else {
+                            true
+                        }
+                    }
+                    _ => false,
+                };
+                if !satisfied {
+                    all_satisfied = false;
+                }
+                DepStatus {
+                    job_id: dep.job_id,
+                    job_name: dep_name,
+                    within_secs: dep.within_secs,
+                    satisfied,
+                }
+            })
+            .collect();
+        (all_satisfied, statuses)
+    }
 }

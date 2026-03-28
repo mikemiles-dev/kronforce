@@ -3,7 +3,6 @@ use rusqlite::params;
 use uuid::Uuid;
 
 use super::Db;
-use super::helpers::*;
 use crate::db::models::*;
 use crate::error::AppError;
 
@@ -34,7 +33,7 @@ impl Db {
             .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys WHERE key_hash = ?1 AND active = 1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![hash], row_to_api_key)
+            .query_map(params![hash], ApiKey::from_row)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(key)) => Ok(Some(key)),
@@ -49,7 +48,7 @@ impl Db {
         let mut stmt = conn
             .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys ORDER BY created_at DESC")
             .map_err(AppError::Db)?;
-        let rows = stmt.query_map([], row_to_api_key).map_err(AppError::Db)?;
+        let rows = stmt.query_map([], ApiKey::from_row).map_err(AppError::Db)?;
         let mut keys = Vec::new();
         for row in rows {
             keys.push(row.map_err(AppError::Db)?);

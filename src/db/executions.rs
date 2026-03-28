@@ -89,7 +89,7 @@ impl Db {
             .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![id.to_string()], row_to_execution)
+            .query_map(params![id.to_string()], ExecutionRecord::from_row)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(rec)) => Ok(Some(rec)),
@@ -111,7 +111,7 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string(), limit, offset], |row| {
-                row_to_execution(row)
+                ExecutionRecord::from_row(row)
             })
             .map_err(AppError::Db)?;
         let mut recs = Vec::new();
@@ -170,7 +170,7 @@ impl Db {
         );
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
         let rows = stmt
-            .query_map(f.to_params().as_slice(), row_to_execution)
+            .query_map(f.to_params().as_slice(), ExecutionRecord::from_row)
             .map_err(AppError::Db)?;
         let mut recs = Vec::new();
         for row in rows {

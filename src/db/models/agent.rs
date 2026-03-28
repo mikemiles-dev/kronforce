@@ -81,3 +81,37 @@ pub struct Agent {
     #[serde(default)]
     pub task_types: Vec<TaskTypeDefinition>,
 }
+
+impl Agent {
+    /// Constructs an Agent from a rusqlite row.
+    pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        use crate::db::helpers::{parse_datetime, parse_uuid};
+
+        let id_str: String = row.get(0)?;
+        let tags_json: String = row.get(2)?;
+        let agent_type_str: String = row.get(6).unwrap_or_else(|_| "standard".to_string());
+        let status_str: String = row.get(7)?;
+        let hb_str: Option<String> = row.get(8)?;
+        let reg_str: String = row.get(9)?;
+        let task_types_str: Option<String> = row.get(10).unwrap_or(None);
+
+        Ok(Agent {
+            id: parse_uuid(&id_str)?,
+            name: row.get(1)?,
+            tags: serde_json::from_str(&tags_json).unwrap_or_default(),
+            hostname: row.get(3)?,
+            address: row.get(4)?,
+            port: {
+                let p: i64 = row.get(5)?;
+                p as u16
+            },
+            agent_type: AgentType::from_str(&agent_type_str),
+            status: AgentStatus::from_str(&status_str).unwrap_or(AgentStatus::Offline),
+            last_heartbeat: hb_str.map(|s| parse_datetime(&s)).transpose()?,
+            registered_at: parse_datetime(&reg_str)?,
+            task_types: task_types_str
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default(),
+        })
+    }
+}
