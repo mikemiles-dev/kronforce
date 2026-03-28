@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use super::Db;
 use super::helpers::*;
+use crate::db::models::*;
 use crate::error::AppError;
-use crate::models::*;
 
 impl Db {
     /// Inserts a new execution record.

@@ -1,5 +1,5 @@
 use crate::db::Db;
-use crate::models::{EventSeverity, ExecutionStatus, JobNotificationConfig};
+use crate::db::models::{EventSeverity, ExecutionStatus, JobNotificationConfig};
 use serde::{Deserialize, Serialize};
 
 /// SMTP email delivery configuration.

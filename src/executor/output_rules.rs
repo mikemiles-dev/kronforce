@@ -4,7 +4,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::db::Db;
-use crate::models::{
+use crate::db::models::{
     Event, EventSeverity, ExecutionStatus, ExtractionRule, Job, OutputAssertion, OutputTrigger,
 };
 

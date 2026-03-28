@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use super::{AppState, PaginatedResponse};
 use crate::db::db_call;
+use crate::db::models::Event;
 use crate::error::AppError;
-use crate::models::Event;
 
 /// Query parameters for paginated event listing.
 #[derive(Deserialize)]

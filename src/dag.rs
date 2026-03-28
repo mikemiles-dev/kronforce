@@ -6,8 +6,8 @@ use petgraph::graph::{DiGraph, NodeIndex};
 use uuid::Uuid;
 
 use crate::db::Db;
+use crate::db::models::{Dependency, ExecutionStatus};
 use crate::error::AppError;
-use crate::models::{Dependency, ExecutionStatus};
 
 /// Resolves job dependency graphs and detects cycles.
 #[derive(Clone)]

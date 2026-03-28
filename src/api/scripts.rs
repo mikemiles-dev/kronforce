@@ -4,9 +4,9 @@ use serde::Deserialize;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
+use crate::db::models::*;
 use crate::error::AppError;
-use crate::models::*;
-use crate::scripts::{ScriptFull, ScriptInfo};
+use crate::executor::scripts::{ScriptFull, ScriptInfo};
 
 /// Request body for saving a script.
 #[derive(Deserialize)]

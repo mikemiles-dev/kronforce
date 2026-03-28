@@ -1,0 +1,148 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
+/// A selectable option for a task field (e.g., dropdown value).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FieldOption {
+    pub value: String,
+    pub label: String,
+}
+
+/// Schema definition for a single field within a task type.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskFieldDefinition {
+    pub name: String,
+    pub label: String,
+    pub field_type: String,
+    #[serde(default)]
+    pub required: Option<bool>,
+    pub placeholder: Option<String>,
+    pub options: Option<Vec<FieldOption>>,
+}
+
+/// Describes a custom task type with its name, description, and required fields.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskTypeDefinition {
+    pub name: String,
+    pub description: Option<String>,
+    pub fields: Vec<TaskFieldDefinition>,
+}
+
+/// The work a job performs. Each variant represents a different execution backend.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TaskType {
+    /// Execute a shell command on the target host.
+    Shell { command: String },
+    /// Run a SQL query against a database.
+    Sql {
+        driver: SqlDriver,
+        connection_string: String,
+        query: String,
+    },
+    /// Transfer a file via FTP, FTPS, or SFTP.
+    Ftp {
+        protocol: FtpProtocol,
+        host: String,
+        port: Option<u16>,
+        username: String,
+        password: String,
+        direction: TransferDirection,
+        remote_path: String,
+        local_path: String,
+    },
+    /// Make an HTTP request.
+    Http {
+        method: HttpMethod,
+        url: String,
+        headers: Option<HashMap<String, String>>,
+        body: Option<String>,
+        expect_status: Option<u16>,
+    },
+    /// Run a stored Rhai script by name.
+    Script { script_name: String },
+    /// Agent-defined custom task type with arbitrary JSON data.
+    Custom {
+        agent_task_type: String,
+        data: serde_json::Value,
+    },
+    /// Push a file (base64-encoded) to the target host.
+    FilePush {
+        filename: String,
+        destination: String,
+        content_base64: String,
+        permissions: Option<String>,
+        #[serde(default)]
+        overwrite: bool,
+    },
+    /// Publish a message to a Kafka topic.
+    Kafka {
+        broker: String,
+        topic: String,
+        message: String,
+        key: Option<String>,
+        properties: Option<String>,
+    },
+    /// Publish a message to a RabbitMQ exchange.
+    Rabbitmq {
+        url: String,
+        exchange: String,
+        routing_key: String,
+        message: String,
+        content_type: Option<String>,
+    },
+    /// Publish a message to an MQTT topic.
+    Mqtt {
+        broker: String,
+        topic: String,
+        message: String,
+        port: Option<u16>,
+        qos: Option<u8>,
+        username: Option<String>,
+        password: Option<String>,
+        client_id: Option<String>,
+    },
+    /// Publish a message to a Redis channel.
+    Redis {
+        url: String,
+        channel: String,
+        message: String,
+    },
+}
+
+/// Supported SQL database drivers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SqlDriver {
+    Postgres,
+    Mysql,
+    Sqlite,
+}
+
+/// File transfer protocol variant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FtpProtocol {
+    Ftp,
+    Ftps,
+    Sftp,
+}
+
+/// Direction of a file transfer operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransferDirection {
+    Upload,
+    Download,
+}
+
+/// HTTP method for HTTP task requests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+}

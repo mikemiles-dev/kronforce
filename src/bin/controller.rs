@@ -8,8 +8,8 @@ use kronforce::executor::Executor;
 use kronforce::scheduler::Scheduler;
 
 fn create_admin_key(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
-    let (key, raw) = kronforce::models::ApiKey::bootstrap(
-        kronforce::models::ApiKeyRole::Admin,
+    let (key, raw) = kronforce::db::models::ApiKey::bootstrap(
+        kronforce::db::models::ApiKeyRole::Admin,
         "admin (reset)",
         None,
     );
@@ -63,8 +63,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Bootstrap admin API key if none exist
     if db.count_api_keys()? == 0 {
         let admin_preset = std::env::var("KRONFORCE_BOOTSTRAP_ADMIN_KEY").ok();
-        let (admin_key, admin_raw) = kronforce::models::ApiKey::bootstrap(
-            kronforce::models::ApiKeyRole::Admin,
+        let (admin_key, admin_raw) = kronforce::db::models::ApiKey::bootstrap(
+            kronforce::db::models::ApiKeyRole::Admin,
             "admin (bootstrap)",
             admin_preset,
         );
@@ -76,8 +76,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("=============================================================");
 
         let agent_preset = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY").ok();
-        let (agent_key, agent_raw) = kronforce::models::ApiKey::bootstrap(
-            kronforce::models::ApiKeyRole::Agent,
+        let (agent_key, agent_raw) = kronforce::db::models::ApiKey::bootstrap(
+            kronforce::db::models::ApiKeyRole::Agent,
             "agent (bootstrap)",
             agent_preset,
         );
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
 
     let agent_client = AgentClient::new();
-    let script_store = kronforce::scripts::ScriptStore::new(&config.scripts_dir)?;
+    let script_store = kronforce::executor::scripts::ScriptStore::new(&config.scripts_dir)?;
     info!("scripts directory: {}", config.scripts_dir);
     let executor = Executor::new(
         db.clone(),
@@ -159,7 +159,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .list_agents()
                     .unwrap_or_default()
                     .into_iter()
-                    .filter(|a| a.status == kronforce::models::AgentStatus::Online)
+                    .filter(|a| a.status == kronforce::db::models::AgentStatus::Online)
                     .map(|a| (a.id, a.name.clone()))
                     .collect();
                 let _ = db_tick.expire_agents(timeout);
@@ -167,11 +167,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut went_offline = Vec::new();
                 for (id, name) in &before {
                     if let Some(a) = after.iter().find(|a| a.id == *id)
-                        && a.status == kronforce::models::AgentStatus::Offline
+                        && a.status == kronforce::db::models::AgentStatus::Offline
                     {
                         let _ = db_tick.log_event(
                             "agent.offline",
-                            kronforce::models::EventSeverity::Warning,
+                            kronforce::db::models::EventSeverity::Warning,
                             &format!("Agent '{}' went offline (heartbeat timeout)", name),
                             None,
                             Some(*id),
@@ -197,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Send notifications for agents that went offline
             if !offline_agents.is_empty() {
                 let db_notif = health_db.clone();
-                let alerts = kronforce::notifications::load_system_alerts(&db_notif);
+                let alerts = kronforce::executor::notifications::load_system_alerts(&db_notif);
                 if alerts.agent_offline {
                     for (name, hostname) in &offline_agents {
                         let subject = format!("[Kronforce] Agent '{}' went offline", name);
@@ -207,7 +207,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             hostname,
                             chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
                         );
-                        kronforce::notifications::send_notification(
+                        kronforce::executor::notifications::send_notification(
                             &db_notif, &subject, &body, None,
                         )
                         .await;

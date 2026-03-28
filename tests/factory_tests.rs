@@ -1,5 +1,5 @@
 use chrono::{TimeZone, Utc};
-use kronforce::models::*;
+use kronforce::db::models::*;
 use uuid::Uuid;
 
 // --- ExecutionRecord::new() tests ---

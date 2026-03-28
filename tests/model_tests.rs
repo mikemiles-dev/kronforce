@@ -1,4 +1,4 @@
-use kronforce::models::*;
+use kronforce::db::models::*;
 
 // --- TaskType serialization ---
 

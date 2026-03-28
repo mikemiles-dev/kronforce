@@ -10,10 +10,10 @@ use uuid::Uuid;
 
 use tracing::{error, info, warn};
 
-use crate::executor::run_task;
-use crate::protocol::{
+use crate::agent::protocol::{
     CancelRequest, ExecutionResultReport, JobDispatchRequest, JobDispatchResponse,
 };
+use crate::executor::run_task;
 
 /// Shared state for the agent HTTP server, holding identity, controller URL, and running executions.
 #[derive(Clone)]

@@ -1,5 +1,5 @@
 use chrono::{TimeZone, Utc};
-use kronforce::cron_parser::CronSchedule;
+use kronforce::scheduler::cron_parser::CronSchedule;
 
 // --- Valid parse tests ---
 

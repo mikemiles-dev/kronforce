@@ -4,7 +4,7 @@ use axum::extract::State;
 use super::AppState;
 use crate::db::db_call;
 use crate::error::AppError;
-use crate::notifications::send_test;
+use crate::executor::notifications::send_test;
 
 /// Returns all system settings as a key-value map.
 pub(crate) async fn get_settings(

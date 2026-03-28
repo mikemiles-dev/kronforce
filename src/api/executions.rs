@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 use super::{AppState, PaginatedResponse};
 use crate::db::db_call;
+use crate::db::models::*;
 use crate::error::AppError;
-use crate::models::*;
 use crate::scheduler::SchedulerCommand;
 
 /// Query parameters for listing executions of a specific job.

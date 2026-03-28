@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
+use crate::db::models::*;
 
 /// Reusable query filter builder for dynamic WHERE clauses with parameterized indices.
 pub(super) struct QueryFilters {

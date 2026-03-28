@@ -2,8 +2,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 
 use super::Db;
+use crate::db::models::Variable;
 use crate::error::AppError;
-use crate::models::Variable;
 
 fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
     let updated_str: String = row.get(2)?;
