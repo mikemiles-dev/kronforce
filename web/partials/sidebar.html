@@ -1,0 +1,20 @@
+<aside class="sidebar">
+    <div class="sidebar-header" onclick="showPage('dashboard')" style="cursor:pointer" title="Dashboard">
+        <div class="logo">Kron<span>force</span></div>
+    </div>
+    <nav class="sidebar-nav">
+        <button class="nav-tab active" id="tab-dashboard" onclick="showPage('dashboard')"><span class="tab-icon">&#9632;</span> Dashboard</button>
+        <button class="nav-tab" id="tab-jobs" onclick="showPage('jobs')"><span class="tab-icon">&#9776;</span> Jobs</button>
+        <button class="nav-tab" id="tab-executions" onclick="showPage('executions')"><span class="tab-icon">&#9654;</span> Executions</button>
+        <button class="nav-tab" id="tab-map" onclick="showPage('map')"><span class="tab-icon">&#9741;</span> Map</button>
+        <button class="nav-tab" id="tab-agents" onclick="showPage('agents')"><span class="tab-icon">&#128421;</span> Agents</button>
+        <button class="nav-tab" id="tab-scripts" onclick="showPage('scripts')"><span class="tab-icon">&#128220;</span> Scripts</button>
+        <button class="nav-tab" id="tab-events" onclick="showPage('events')"><span class="tab-icon">&#128276;</span> Events</button>
+        <button class="nav-tab" id="tab-variables" onclick="showPage('variables')"><span class="tab-icon">&#120299;</span> Variables</button>
+        <button class="nav-tab" id="tab-docs" onclick="showPage('docs')"><span class="tab-icon">&#128218;</span> Docs</button>
+        <button class="nav-tab" id="tab-settings" onclick="showPage('settings')"><span class="tab-icon">&#9881;</span> Settings</button>
+    </nav>
+    <div class="sidebar-footer">
+        <span class="health-text"><span id="health-dot" class="health-dot"></span><span id="health-text">checking...</span></span>
+    </div>
+</aside>

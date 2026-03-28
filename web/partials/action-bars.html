@@ -1,0 +1,147 @@
+<div class="action-bar" id="jobs-action-bar">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="search-input" type="text" placeholder="Search jobs..." oninput="jobSearch.onSearch()">
+                <button id="search-clear" class="search-clear" onclick="jobSearch.clearSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="status-filters">
+                <button class="status-btn active" data-status="" onclick="jobSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" data-status="scheduled" onclick="jobSearch.setStatusFilter(this, 'scheduled')">Scheduled</button>
+                <button class="status-btn s-paused" data-status="paused" onclick="jobSearch.setStatusFilter(this, 'paused')">Paused</button>
+                <button class="status-btn s-completed" data-status="unscheduled" onclick="jobSearch.setStatusFilter(this, 'unscheduled')">Unscheduled</button>
+                <button class="status-btn s-paused" data-status="blocked" onclick="jobSearch.setStatusFilter(this, 'blocked')">Waiting</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button id="refresh-toggle" class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span id="refresh-label">On</span>
+                </button>
+                <span id="refresh-countdown" class="refresh-countdown"></span>
+                <select id="refresh-interval" class="refresh-interval-select" onchange="changeRefreshInterval()" title="Refresh interval">
+                    <option value="2">2s</option>
+                    <option value="5" selected>5s</option>
+                    <option value="10">10s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                </select>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('jobs',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-jobs">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-jobs" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-bar" id="agents-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="agent-search-input" type="text" placeholder="Search agents..." oninput="agentSearch.onSearch()">
+                <button id="agent-search-clear" class="search-clear" onclick="agentSearch.clearSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="agent-status-filters">
+                <button class="status-btn active" onclick="agentSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="agentSearch.setStatusFilter(this, 'online')">Online</button>
+                <button class="status-btn s-danger" onclick="agentSearch.setStatusFilter(this, 'offline')">Offline</button>
+                <button class="status-btn s-paused" onclick="agentSearch.setStatusFilter(this, 'draining')">Draining</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+        </div>
+    </div>
+</div>
+
+<div class="action-bar" id="events-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="event-search-input" type="text" placeholder="Search events..." oninput="eventSearch.onSearch()">
+                <button id="event-search-clear" class="search-clear" onclick="eventSearch.clearSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="event-type-filters">
+                <button class="status-btn active" onclick="eventSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="eventSearch.setStatusFilter(this, 'success')">Success</button>
+                <button class="status-btn s-danger" onclick="eventSearch.setStatusFilter(this, 'error')">Error</button>
+                <button class="status-btn s-paused" onclick="eventSearch.setStatusFilter(this, 'warning')">Warning</button>
+                <button class="status-btn s-completed" onclick="eventSearch.setStatusFilter(this, 'info')">Info</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('events',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-events">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-events" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-bar" id="executions-action-bar" style="display:none">
+    <div class="action-bar-inner">
+        <div class="action-bar-left">
+            <div class="search-wrap">
+                <span class="search-icon">&#128269;</span>
+                <input id="exec-search-input" type="text" placeholder="Search executions..." oninput="execSearch.onSearch()">
+                <button id="exec-search-clear" class="search-clear" onclick="execSearch.clearSearch()" style="display:none">&times;</button>
+            </div>
+            <div class="status-filters" id="exec-status-filters">
+                <button class="status-btn active" onclick="execSearch.setStatusFilter(this, '')">All</button>
+                <button class="status-btn s-active" onclick="execSearch.setStatusFilter(this, 'succeeded')">Succeeded</button>
+                <button class="status-btn s-danger" onclick="execSearch.setStatusFilter(this, 'failed')">Failed</button>
+                <button class="status-btn s-paused" onclick="execSearch.setStatusFilter(this, 'timed_out')">Timed Out</button>
+                <button class="status-btn s-completed" onclick="execSearch.setStatusFilter(this, 'running')">Running</button>
+                <button class="status-btn s-paused" onclick="execSearch.setStatusFilter(this, 'pending')">Pending</button>
+            </div>
+        </div>
+        <div class="action-bar-right">
+            <div class="refresh-control">
+                <button class="refresh-toggle active" onclick="toggleAutoRefresh()" title="Toggle auto-refresh">
+                    <span class="refresh-icon">&#x21BB;</span>
+                    <span>On</span>
+                </button>
+                <button class="refresh-now" onclick="refreshNow()" title="Refresh now">Refresh</button>
+            </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+            <div class="time-range-wrap">
+                <button class="time-range-trigger" onclick="toggleTimeRangePopup('execs',event)">
+                    <span class="tr-icon">&#128339;</span>
+                    <span class="tr-label" id="tr-label-execs">All time</span>
+                    <span style="font-size:9px">&#9660;</span>
+                </button>
+                <div class="time-range-popup" id="tr-popup-execs" style="display:none"></div>
+            </div>
+        </div>
+    </div>
+</div>
