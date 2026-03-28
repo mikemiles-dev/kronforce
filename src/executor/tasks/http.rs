@@ -25,10 +25,10 @@ fn validate_url(url: &str) -> Result<(), String> {
         return Err(format!("URL targets a cloud metadata endpoint: {host}"));
     }
     // Block common private ranges
-    if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
-        if ip.is_loopback() || ip.is_private() || ip.is_link_local() {
-            return Err(format!("URL targets a private IP: {ip}"));
-        }
+    if let Ok(ip) = host.parse::<std::net::Ipv4Addr>()
+        && (ip.is_loopback() || ip.is_private() || ip.is_link_local())
+    {
+        return Err(format!("URL targets a private IP: {ip}"));
     }
     Ok(())
 }

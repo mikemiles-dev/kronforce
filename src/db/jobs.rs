@@ -20,19 +20,19 @@ impl Db {
         let target_json = job
             .target
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize target: {e}")))?;
         let output_rules_json = job
             .output_rules
             .as_ref()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize output_rules: {e}")))?;
         let notifications_json = job
             .notifications
             .as_ref()
-            .map(|n| serde_json::to_string(n))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let task_json = serde_json::to_string(&job.task)
@@ -162,7 +162,7 @@ impl Db {
         let target_json = job
             .target
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize target: {e}")))?;
         let task_json = serde_json::to_string(&job.task)
@@ -170,13 +170,13 @@ impl Db {
         let output_rules_json = job
             .output_rules
             .as_ref()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize output_rules: {e}")))?;
         let notifications_json = job
             .notifications
             .as_ref()
-            .map(|n| serde_json::to_string(n))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let changed = conn

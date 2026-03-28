@@ -51,12 +51,12 @@ pub(crate) struct CreateVariableRequest {
 
 /// Checks that the authenticated user has write access.
 fn require_write(auth: &AuthUser) -> Result<(), AppError> {
-    if let Some(ref key) = auth.0 {
-        if !key.role.can_write() {
-            return Err(AppError::Forbidden(
-                "write access required (admin or operator role)".into(),
-            ));
-        }
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
     }
     Ok(())
 }

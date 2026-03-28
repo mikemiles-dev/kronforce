@@ -23,7 +23,7 @@ impl Db {
                 rec.id.to_string(),
                 rec.job_id.to_string(),
                 rec.agent_id.map(|a| a.to_string()),
-                rec.task_snapshot.as_ref().map(|t| serde_json::to_string(t)).transpose().map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
+                rec.task_snapshot.as_ref().map(serde_json::to_string).transpose().map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
