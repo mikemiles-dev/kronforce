@@ -16,18 +16,18 @@ fn main() {
     let mut includes_found = true;
     while includes_found {
         includes_found = false;
-        if let Some(start) = html.find(include_prefix) {
-            if let Some(end) = html[start..].find(include_suffix) {
-                let marker_end = start + end + include_suffix.len();
-                let path_start = start + include_prefix.len();
-                let path_end = start + end;
-                let rel_path = html[path_start..path_end].to_string();
-                let full_path = web_dir.join(&rel_path);
-                let content = fs::read_to_string(&full_path)
-                    .unwrap_or_else(|_| panic!("failed to read web/{}", rel_path));
-                html = format!("{}{}{}", &html[..start], content, &html[marker_end..]);
-                includes_found = true;
-            }
+        if let Some(start) = html.find(include_prefix)
+            && let Some(end) = html[start..].find(include_suffix)
+        {
+            let marker_end = start + end + include_suffix.len();
+            let path_start = start + include_prefix.len();
+            let path_end = start + end;
+            let rel_path = html[path_start..path_end].to_string();
+            let full_path = web_dir.join(&rel_path);
+            let content = fs::read_to_string(&full_path)
+                .unwrap_or_else(|_| panic!("failed to read web/{}", rel_path));
+            html = format!("{}{}{}", &html[..start], content, &html[marker_end..]);
+            includes_found = true;
         }
     }
 
