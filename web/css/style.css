@@ -1687,6 +1687,63 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     .dash-grid { grid-template-columns: 1fr; }
 }
 
+.dash-charts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 1000px) {
+    .dash-charts { grid-template-columns: 1fr; }
+}
+
+.donut-chart {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px 0;
+}
+
+.donut-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.donut-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.donut-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.donut-legend-label {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.donut-legend-value {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-family: var(--font-mono);
+}
+
+.donut-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 30px 20px;
+    font-size: 13px;
+}
+
 .dash-mini-table {
     font-size: 12px;
 }

@@ -11,6 +11,7 @@ mod executions;
 mod jobs;
 mod scripts;
 mod settings;
+mod stats;
 mod variables;
 
 use axum::middleware;
@@ -115,6 +116,7 @@ pub fn router(state: AppState) -> Router {
             get(settings::get_settings).put(settings::update_settings),
         )
         .route("/api/notifications/test", post(settings::test_notification))
+        .route("/api/stats/charts", get(stats::chart_stats))
         .route(
             "/api/variables",
             get(variables::list_variables).post(variables::create_variable),
