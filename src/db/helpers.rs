@@ -95,4 +95,3 @@ pub(crate) fn parse_json<T: serde::de::DeserializeOwned>(s: &str) -> rusqlite::R
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
     })
 }
-
