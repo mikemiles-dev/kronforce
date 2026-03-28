@@ -303,24 +303,29 @@ impl Db {
                 .ok()
                 .and_then(|v| {
                     // Format: {"type": "shell", ...} or {"Shell": {...}}
-                    let key = v.get("type").and_then(|t| t.as_str().map(String::from))
+                    let key = v
+                        .get("type")
+                        .and_then(|t| t.as_str().map(String::from))
                         .or_else(|| v.as_object()?.keys().next().cloned())?;
                     Some(key)
                 })
-                .map(|k| match k.to_lowercase().as_str() {
-                    "shell" => "Shell Command",
-                    "http" => "HTTP Request",
-                    "script" => "Rhai Script",
-                    "sql" => "SQL Query",
-                    "ftp" => "FTP Transfer",
-                    "file_push" | "filepush" => "File Push",
-                    "kafka" => "Kafka",
-                    "rabbitmq" => "RabbitMQ",
-                    "mqtt" => "MQTT",
-                    "redis" => "Redis",
-                    "custom" => "Custom Agent",
-                    _ => return k,
-                }.to_string())
+                .map(|k| {
+                    match k.to_lowercase().as_str() {
+                        "shell" => "Shell Command",
+                        "http" => "HTTP Request",
+                        "script" => "Rhai Script",
+                        "sql" => "SQL Query",
+                        "ftp" => "FTP Transfer",
+                        "file_push" | "filepush" => "File Push",
+                        "kafka" => "Kafka",
+                        "rabbitmq" => "RabbitMQ",
+                        "mqtt" => "MQTT",
+                        "redis" => "Redis",
+                        "custom" => "Custom Agent",
+                        _ => return k,
+                    }
+                    .to_string()
+                })
                 .unwrap_or_else(|| "Unknown".to_string());
             *counts.entry(type_name).or_insert(0) += 1;
         }
@@ -328,7 +333,9 @@ impl Db {
     }
 
     /// Returns job counts grouped by schedule kind for chart display.
-    pub fn get_schedule_type_counts(&self) -> Result<std::collections::HashMap<String, u32>, AppError> {
+    pub fn get_schedule_type_counts(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u32>, AppError> {
         let conn = self
             .conn
             .lock()
@@ -346,7 +353,9 @@ impl Db {
                 .ok()
                 .and_then(|v| {
                     // Format: {"type": "cron", "value": "..."} or {"Cron": "..."} or "OnDemand"
-                    let key = v.get("type").and_then(|t| t.as_str().map(String::from))
+                    let key = v
+                        .get("type")
+                        .and_then(|t| t.as_str().map(String::from))
                         .or_else(|| {
                             if let Some(s) = v.as_str() {
                                 Some(s.to_string())

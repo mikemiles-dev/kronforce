@@ -365,8 +365,13 @@ impl Db {
     }
 
     /// Returns execution counts grouped by status for chart display.
-    pub fn get_execution_outcome_counts(&self) -> Result<std::collections::HashMap<String, u32>, AppError> {
-        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+    pub fn get_execution_outcome_counts(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u32>, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT status, COUNT(*) FROM executions GROUP BY status")
             .map_err(AppError::Db)?;
