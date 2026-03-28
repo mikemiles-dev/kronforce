@@ -24,6 +24,7 @@ use crate::scheduler::SchedulerCommand;
 
 pub use auth::{generate_api_key, hash_api_key};
 
+/// Shared application state passed to all API route handlers.
 #[derive(Clone)]
 pub struct AppState {
     pub db: Db,
@@ -36,6 +37,7 @@ pub struct AppState {
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
 
+/// Generic paginated API response wrapper.
 #[derive(Serialize)]
 pub(crate) struct PaginatedResponse<T: serde::Serialize> {
     data: T,
@@ -50,6 +52,7 @@ struct HealthResponse {
     status: String,
 }
 
+/// Builds the complete Axum router with all API, agent, and public routes.
 pub fn router(state: AppState) -> Router {
     // Routes that require auth
     let authed = Router::new()

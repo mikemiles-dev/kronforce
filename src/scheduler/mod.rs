@@ -14,13 +14,19 @@ use crate::db::Db;
 use crate::executor::Executor;
 use crate::models::*;
 
+/// Commands sent to the scheduler via its mpsc channel.
 pub enum SchedulerCommand {
+    /// Invalidate the job cache and reload from the database.
     Reload,
+    /// Immediately fire the job with the given ID.
     TriggerNow(Uuid),
+    /// Cancel the execution with the given ID.
     CancelExecution(Uuid),
+    /// Notify the scheduler of a new event for event-triggered jobs.
     EventOccurred(Event),
 }
 
+/// Core scheduling loop that fires jobs based on cron, one-shot, and event triggers.
 pub struct Scheduler {
     db: Db,
     executor: Executor,
@@ -34,6 +40,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
+    /// Creates a new scheduler with the provided dependencies and configuration.
     pub fn new(
         db: Db,
         executor: Executor,
@@ -55,6 +62,7 @@ impl Scheduler {
         }
     }
 
+    /// Starts the scheduler tick loop, consuming `self`. Runs until the process exits.
     pub async fn run(mut self) {
         tracing::info!("scheduler started, tick interval: {:?}", self.tick_interval);
         let mut interval = tokio::time::interval(self.tick_interval);

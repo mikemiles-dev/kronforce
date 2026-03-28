@@ -9,12 +9,14 @@ use crate::db::Db;
 use crate::error::AppError;
 use crate::models::{Dependency, ExecutionStatus};
 
+/// Resolves job dependency graphs and detects cycles.
 #[derive(Clone)]
 pub struct DagResolver {
     db: Db,
 }
 
 impl DagResolver {
+    /// Creates a new resolver backed by the given database.
     pub fn new(db: Db) -> Self {
         Self { db }
     }

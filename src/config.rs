@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+/// Configuration for the Kronforce controller server.
 pub struct ControllerConfig {
     pub db_path: String,
     pub bind_addr: String,
@@ -10,6 +11,7 @@ pub struct ControllerConfig {
 }
 
 impl ControllerConfig {
+    /// Builds a `ControllerConfig` from `KRONFORCE_*` environment variables with defaults.
     pub fn from_env() -> Self {
         let bind_addr =
             std::env::var("KRONFORCE_BIND").unwrap_or_else(|_| "0.0.0.0:8080".to_string());
@@ -37,6 +39,7 @@ impl ControllerConfig {
     }
 }
 
+/// Configuration for a Kronforce agent process.
 pub struct AgentConfig {
     pub controller_url: String,
     pub bind_addr: String,
@@ -49,6 +52,7 @@ pub struct AgentConfig {
 }
 
 impl AgentConfig {
+    /// Builds an `AgentConfig` from `KRONFORCE_AGENT_*` environment variables with defaults.
     pub fn from_env() -> Self {
         let bind_addr =
             std::env::var("KRONFORCE_AGENT_BIND").unwrap_or_else(|_| "0.0.0.0:8081".to_string());

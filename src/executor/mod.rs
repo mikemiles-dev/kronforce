@@ -27,6 +27,7 @@ struct RunningJob {
     cancel_tx: oneshot::Sender<()>,
 }
 
+/// Runs jobs locally or dispatches them to remote agents.
 #[derive(Clone)]
 pub struct Executor {
     db: Db,
@@ -37,6 +38,7 @@ pub struct Executor {
 }
 
 impl Executor {
+    /// Creates a new executor with the given database, agent client, and scheduler channel.
     pub fn new(
         db: Db,
         agent_client: AgentClient,
@@ -52,6 +54,7 @@ impl Executor {
         }
     }
 
+    /// Executes a job, routing it locally or to an agent based on `job.target`.
     pub async fn execute(
         &self,
         job: &Job,
@@ -87,6 +90,7 @@ impl Executor {
         }
     }
 
+    /// Cancels a running local execution by its ID, returning `true` if found.
     pub async fn cancel(&self, execution_id: Uuid) -> bool {
         let mut running = self.running.lock().await;
         if let Some(job) = running.remove(&execution_id) {
