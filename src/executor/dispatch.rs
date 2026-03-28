@@ -172,9 +172,11 @@ impl super::Executor {
         let callback_url = format!("{}/api/callbacks/execution-result", callback_base_url);
 
         if agent.agent_type == AgentType::Custom {
-            self.dispatch_via_queue(exec_id, agent, job, &callback_url).await
+            self.dispatch_via_queue(exec_id, agent, job, &callback_url)
+                .await
         } else {
-            self.dispatch_via_http(exec_id, rec, agent, job, &callback_url).await
+            self.dispatch_via_http(exec_id, rec, agent, job, &callback_url)
+                .await
         }
     }
 
@@ -195,11 +197,23 @@ impl super::Executor {
         let agent_id = agent.id;
         let cb = callback_url.to_string();
         tokio::task::spawn_blocking(move || {
-            db.enqueue_job(queue_id, exec_id, agent_id, job_id, &task, run_as.as_deref(), timeout, &cb)
+            db.enqueue_job(
+                queue_id,
+                exec_id,
+                agent_id,
+                job_id,
+                &task,
+                run_as.as_deref(),
+                timeout,
+                &cb,
+            )
         })
         .await
         .unwrap()?;
-        info!("queued job {} for custom agent {} -> execution {}", job.name, agent.name, exec_id);
+        info!(
+            "queued job {} for custom agent {} -> execution {}",
+            job.name, agent.name, exec_id
+        );
         Ok(exec_id)
     }
 
@@ -221,22 +235,32 @@ impl super::Executor {
             callback_url: callback_url.to_string(),
         };
 
-        match self.agent_client.dispatch_job(&agent.address, agent.port, &dispatch).await {
+        match self
+            .agent_client
+            .dispatch_job(&agent.address, agent.port, &dispatch)
+            .await
+        {
             Ok(resp) if resp.accepted => {
                 let db = self.db.clone();
                 let mut running_rec = rec;
                 running_rec.status = ExecutionStatus::Running;
-                let _ = tokio::task::spawn_blocking(move || db.update_execution(&running_rec)).await;
-                info!("dispatched job {} to agent {} -> execution {}", job.name, agent.name, exec_id);
+                let _ =
+                    tokio::task::spawn_blocking(move || db.update_execution(&running_rec)).await;
+                info!(
+                    "dispatched job {} to agent {} -> execution {}",
+                    job.name, agent.name, exec_id
+                );
                 Ok(exec_id)
             }
             Ok(resp) => {
                 let msg = resp.message.unwrap_or_else(|| "rejected".into());
-                self.fail_execution(rec, &format!("agent rejected: {msg}")).await;
+                self.fail_execution(rec, &format!("agent rejected: {msg}"))
+                    .await;
                 Err(AppError::AgentError(msg))
             }
             Err(e) => {
-                self.fail_execution(rec, &format!("dispatch failed: {e}")).await;
+                self.fail_execution(rec, &format!("dispatch failed: {e}"))
+                    .await;
                 Err(e)
             }
         }

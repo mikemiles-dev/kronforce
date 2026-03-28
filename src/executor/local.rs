@@ -95,9 +95,7 @@ async fn handle_execution_complete(
     // Persist execution result
     let db2 = db.clone();
     let updated2 = updated.clone();
-    if let Err(e) =
-        tokio::task::spawn_blocking(move || db2.update_execution(&updated2)).await
-    {
+    if let Err(e) = tokio::task::spawn_blocking(move || db2.update_execution(&updated2)).await {
         error!("failed to update execution {}: {e}", exec_id);
     }
 
@@ -144,7 +142,14 @@ async fn run_output_rules(db: &Db, updated: &ExecutionRecord, exec_id: Uuid) -> 
     let exec_status = updated.status;
     tokio::task::spawn_blocking(move || {
         if let Ok(Some(job)) = db_rules.get_job(job_id) {
-            process_post_execution(&db_rules, &job, exec_id, &stdout_clone, &stderr_clone, exec_status)
+            process_post_execution(
+                &db_rules,
+                &job,
+                exec_id,
+                &stdout_clone,
+                &stderr_clone,
+                exec_status,
+            )
         } else {
             Vec::new()
         }

@@ -238,17 +238,19 @@ impl Scheduler {
             && let Some(agent_id) = exec.agent_id
         {
             let db = self.db.clone();
-            if let Ok(Some(agent)) =
-                tokio::task::spawn_blocking(move || db.get_agent(agent_id))
-                    .await
-                    .unwrap_or(Ok(None))
+            if let Ok(Some(agent)) = tokio::task::spawn_blocking(move || db.get_agent(agent_id))
+                .await
+                .unwrap_or(Ok(None))
             {
                 match self
                     .agent_client
                     .cancel_execution(&agent.address, agent.port, exec_id)
                     .await
                 {
-                    Ok(_) => info!("cancelled remote execution {} on agent {}", exec_id, agent.name),
+                    Ok(_) => info!(
+                        "cancelled remote execution {} on agent {}",
+                        exec_id, agent.name
+                    ),
                     Err(e) => error!("failed to cancel on agent: {e}"),
                 }
                 return;

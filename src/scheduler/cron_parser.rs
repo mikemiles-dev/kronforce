@@ -41,39 +41,68 @@ impl CronCursor {
             second: after.second() + 1,
         };
         // Carry over
-        if c.second >= 60 { c.second = 0; c.minute += 1; }
-        if c.minute >= 60 { c.minute = 0; c.hour += 1; }
-        if c.hour >= 24 { c.hour = 0; c.day += 1; }
+        if c.second >= 60 {
+            c.second = 0;
+            c.minute += 1;
+        }
+        if c.minute >= 60 {
+            c.minute = 0;
+            c.hour += 1;
+        }
+        if c.hour >= 24 {
+            c.hour = 0;
+            c.day += 1;
+        }
         c
     }
 
-    fn reset_to_day(&mut self) { self.hour = 0; self.minute = 0; self.second = 0; }
-    fn reset_to_hour(&mut self) { self.minute = 0; self.second = 0; }
-    fn reset_to_minute(&mut self) { self.second = 0; }
+    fn reset_to_day(&mut self) {
+        self.hour = 0;
+        self.minute = 0;
+        self.second = 0;
+    }
+    fn reset_to_hour(&mut self) {
+        self.minute = 0;
+        self.second = 0;
+    }
+    fn reset_to_minute(&mut self) {
+        self.second = 0;
+    }
 
     fn advance_month(&mut self) {
         self.month += 1;
         self.day = 1;
         self.reset_to_day();
-        if self.month > 12 { self.month = 1; self.year += 1; }
+        if self.month > 12 {
+            self.month = 1;
+            self.year += 1;
+        }
     }
 
     fn advance_day(&mut self, days_in_month: u32) {
         self.day += 1;
         self.reset_to_day();
-        if self.day > days_in_month { self.advance_month(); }
+        if self.day > days_in_month {
+            self.advance_month();
+        }
     }
 
     fn advance_hour(&mut self, days_in_month: u32) {
         self.hour += 1;
         self.reset_to_hour();
-        if self.hour >= 24 { self.hour = 0; self.advance_day(days_in_month); }
+        if self.hour >= 24 {
+            self.hour = 0;
+            self.advance_day(days_in_month);
+        }
     }
 
     fn advance_minute(&mut self, days_in_month: u32) {
         self.minute += 1;
         self.reset_to_minute();
-        if self.minute >= 60 { self.minute = 0; self.advance_hour(days_in_month); }
+        if self.minute >= 60 {
+            self.minute = 0;
+            self.advance_hour(days_in_month);
+        }
     }
 
     fn to_datetime(&self, hour: u32, minute: u32, second: u32) -> Option<DateTime<Utc>> {
@@ -129,14 +158,23 @@ impl CronSchedule {
     /// Returns false if no match is possible within the year limit.
     fn advance_to_matching_date(&self, c: &mut CronCursor, max_year: i32) -> bool {
         loop {
-            if c.year > max_year { return false; }
+            if c.year > max_year {
+                return false;
+            }
 
             // Find next matching month
             let Some(m) = self.month.next_match(c.month, 1, 12) else {
-                c.year += 1; c.month = 1; c.day = 1; c.reset_to_day();
+                c.year += 1;
+                c.month = 1;
+                c.day = 1;
+                c.reset_to_day();
                 continue;
             };
-            if m > c.month { c.month = m; c.day = 1; c.reset_to_day(); }
+            if m > c.month {
+                c.month = m;
+                c.day = 1;
+                c.reset_to_day();
+            }
 
             let dim = days_in_month(c.year, c.month);
 
@@ -145,16 +183,25 @@ impl CronSchedule {
                 c.advance_month();
                 continue;
             };
-            if d > c.day { c.day = d; c.reset_to_day(); }
+            if d > c.day {
+                c.day = d;
+                c.reset_to_day();
+            }
 
-            if c.day > dim { c.advance_month(); continue; }
+            if c.day > dim {
+                c.advance_month();
+                continue;
+            }
 
             // Check day of week
             let Some(date) = NaiveDate::from_ymd_opt(c.year, c.month, c.day) else {
                 c.advance_month();
                 continue;
             };
-            if !self.day_of_week.matches(date.weekday().num_days_from_sunday()) {
+            if !self
+                .day_of_week
+                .matches(date.weekday().num_days_from_sunday())
+            {
                 c.advance_day(dim);
                 continue;
             }
@@ -170,13 +217,19 @@ impl CronSchedule {
             c.advance_day(dim);
             return None;
         };
-        if h > c.hour { c.hour = h; c.reset_to_hour(); }
+        if h > c.hour {
+            c.hour = h;
+            c.reset_to_hour();
+        }
 
         let Some(min) = self.minutes.next_match(c.minute, 0, 59) else {
             c.advance_hour(dim);
             return None;
         };
-        if min > c.minute { c.minute = min; c.reset_to_minute(); }
+        if min > c.minute {
+            c.minute = min;
+            c.reset_to_minute();
+        }
 
         let Some(s) = self.seconds.next_match(c.second, 0, 59) else {
             c.advance_minute(dim);
@@ -230,7 +283,12 @@ fn parse_field(field: &str, min: u32, max: u32) -> Result<FieldSpec, AppError> {
 }
 
 /// Parses a step field like `*/N` or `M-N/S`.
-fn parse_step_field(field: &str, slash_pos: usize, min: u32, max: u32) -> Result<FieldSpec, AppError> {
+fn parse_step_field(
+    field: &str,
+    slash_pos: usize,
+    min: u32,
+    max: u32,
+) -> Result<FieldSpec, AppError> {
     let base = &field[..slash_pos];
     let step_str = &field[slash_pos + 1..];
     let step: u32 = step_str

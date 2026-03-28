@@ -77,7 +77,9 @@ pub(crate) async fn agent_auth_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let Some(key) = validate_bearer_token(&state.db, req.headers(), "agent API key required").await? else {
+    let Some(key) =
+        validate_bearer_token(&state.db, req.headers(), "agent API key required").await?
+    else {
         return Ok(next.run(req).await);
     };
 
@@ -97,7 +99,13 @@ pub(crate) async fn auth_middleware(
     mut req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let Some(key) = validate_bearer_token(&state.db, req.headers(), "missing or invalid Authorization header").await? else {
+    let Some(key) = validate_bearer_token(
+        &state.db,
+        req.headers(),
+        "missing or invalid Authorization header",
+    )
+    .await?
+    else {
         return Ok(next.run(req).await);
     };
 
