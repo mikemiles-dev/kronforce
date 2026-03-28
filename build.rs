@@ -70,7 +70,11 @@ fn main() {
         let mut description = String::new();
         for line in content.lines() {
             if let Some(v) = line.strip_prefix("-- version:") {
-                version = Some(v.trim().parse().expect("invalid version number in migration"));
+                version = Some(
+                    v.trim()
+                        .parse()
+                        .expect("invalid version number in migration"),
+                );
             }
             if let Some(d) = line.strip_prefix("-- description:") {
                 description = d.trim().to_string();
@@ -79,7 +83,8 @@ fn main() {
                 break;
             }
         }
-        let ver = version.unwrap_or_else(|| panic!("migration {} missing -- version: header", file));
+        let ver =
+            version.unwrap_or_else(|| panic!("migration {} missing -- version: header", file));
         if description.is_empty() {
             panic!("migration {} missing -- description: header", file);
         }
