@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use regex::Regex;
+use tracing::{error, warn};
 
 use chrono::Utc;
 use tokio::sync::{Mutex, oneshot};
@@ -20,6 +21,8 @@ use crate::db::Db;
 use crate::error::AppError;
 use crate::models::*;
 use crate::protocol::JobDispatchRequest;
+use crate::scheduler::SchedulerCommand;
+use crate::scripts::ScriptStore;
 
 pub use local::{CapturedOutput, CommandResult};
 
@@ -32,8 +35,8 @@ struct RunningJob {
 pub struct Executor {
     db: Db,
     agent_client: AgentClient,
-    scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>,
-    script_store: crate::scripts::ScriptStore,
+    scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
+    script_store: ScriptStore,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
 }
 
@@ -42,8 +45,8 @@ impl Executor {
     pub fn new(
         db: Db,
         agent_client: AgentClient,
-        scheduler_tx: tokio::sync::mpsc::Sender<crate::scheduler::SchedulerCommand>,
-        script_store: crate::scripts::ScriptStore,
+        scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
+        script_store: ScriptStore,
     ) -> Self {
         Self {
             db,
@@ -124,7 +127,7 @@ pub fn substitute_variables(task: &TaskType, vars: &HashMap<String, String>) -> 
             // Strip the surrounding quotes since we're inside an existing JSON string
             escaped[1..escaped.len() - 1].to_string()
         } else {
-            tracing::warn!("unresolved variable reference: {{{{{}}}}}", var_name);
+            warn!("unresolved variable reference: {{{{{}}}}}", var_name);
             caps[0].to_string()
         }
     });
@@ -136,7 +139,7 @@ pub fn substitute_variables(task: &TaskType, vars: &HashMap<String, String>) -> 
     match serde_json::from_str(&result) {
         Ok(new_task) => Some(new_task),
         Err(e) => {
-            tracing::error!("variable substitution produced invalid JSON: {}", e);
+            error!("variable substitution produced invalid JSON: {}", e);
             None
         }
     }

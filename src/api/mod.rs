@@ -21,6 +21,7 @@ use crate::dag::DagResolver;
 use crate::db::Db;
 use crate::models::*;
 use crate::scheduler::SchedulerCommand;
+use crate::scripts::ScriptStore;
 
 pub use auth::{generate_api_key, hash_api_key};
 
@@ -32,7 +33,7 @@ pub struct AppState {
     pub scheduler_tx: mpsc::Sender<SchedulerCommand>,
     pub agent_client: AgentClient,
     pub callback_base_url: String,
-    pub script_store: crate::scripts::ScriptStore,
+    pub script_store: ScriptStore,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));

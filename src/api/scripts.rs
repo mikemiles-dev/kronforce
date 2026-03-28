@@ -6,6 +6,7 @@ use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
 use crate::error::AppError;
 use crate::models::*;
+use crate::scripts::{ScriptFull, ScriptInfo};
 
 #[derive(Deserialize)]
 pub(crate) struct SaveScriptRequest {
@@ -14,7 +15,7 @@ pub(crate) struct SaveScriptRequest {
 
 pub(crate) async fn list_scripts(
     State(state): State<AppState>,
-) -> Result<Json<Vec<crate::scripts::ScriptInfo>>, AppError> {
+) -> Result<Json<Vec<ScriptInfo>>, AppError> {
     let store = state.script_store.clone();
     let scripts = tokio::task::spawn_blocking(move || store.list())
         .await
@@ -25,7 +26,7 @@ pub(crate) async fn list_scripts(
 pub(crate) async fn get_script(
     State(state): State<AppState>,
     Path(name): Path<String>,
-) -> Result<Json<crate::scripts::ScriptFull>, AppError> {
+) -> Result<Json<ScriptFull>, AppError> {
     let store = state.script_store.clone();
     let script = tokio::task::spawn_blocking(move || store.get(&name))
         .await

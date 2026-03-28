@@ -4,6 +4,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
+use tracing::{debug, error, info, warn};
+
 use kronforce::agent;
 use kronforce::config::AgentConfig;
 use kronforce::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
@@ -39,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         task_types: None,
     };
 
-    tracing::info!("registering with controller at {}", config.controller_url);
+    info!("registering with controller at {}", config.controller_url);
 
     let reg_url = format!("{}/api/agents/register", config.controller_url);
     let mut req = http_client.post(&reg_url).json(&reg);
@@ -51,12 +53,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
         if status.as_u16() == 401 || status.as_u16() == 403 {
-            tracing::error!(
-                "authentication failed — set KRONFORCE_AGENT_KEY with a valid agent API key"
-            );
-            tracing::error!("server response: {}", body);
+            error!("authentication failed — set KRONFORCE_AGENT_KEY with a valid agent API key");
+            error!("server response: {}", body);
         } else {
-            tracing::error!("registration failed ({}): {}", status, body);
+            error!("registration failed ({}): {}", status, body);
         }
         std::process::exit(1);
     }
@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent_id = resp.agent_id;
     let heartbeat_interval = std::time::Duration::from_secs(resp.heartbeat_interval_secs);
-    tracing::info!("registered as agent {} (id: {})", config.name, agent_id);
+    info!("registered as agent {} (id: {})", config.name, agent_id);
 
     // Start heartbeat loop
     let hb_client = http_client.clone();
@@ -91,8 +91,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 req = req.header("Authorization", format!("Bearer {}", key));
             }
             match req.send().await {
-                Ok(_) => tracing::debug!("heartbeat sent"),
-                Err(e) => tracing::warn!("heartbeat failed: {e}"),
+                Ok(_) => debug!("heartbeat sent"),
+                Err(e) => warn!("heartbeat failed: {e}"),
             }
         }
     });
@@ -108,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = agent::server::router(state);
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
-    tracing::info!("agent listening on {}", config.bind_addr);
+    info!("agent listening on {}", config.bind_addr);
     axum::serve(listener, app).await?;
 
     Ok(())

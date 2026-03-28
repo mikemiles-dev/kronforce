@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::notifications::NotificationRecipients;
+
 /// A selectable option for a task field (e.g., dropdown value).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FieldOption {
@@ -263,7 +265,7 @@ pub struct JobNotificationConfig {
     #[serde(default)]
     pub on_assertion_failure: bool,
     #[serde(default)]
-    pub recipients: Option<crate::notifications::NotificationRecipients>,
+    pub recipients: Option<NotificationRecipients>,
 }
 
 /// A scheduled job definition including its task, schedule, dependencies, and targeting.

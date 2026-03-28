@@ -1,3 +1,5 @@
+use tracing::{error, info};
+
 use super::*;
 
 impl super::Executor {
@@ -127,10 +129,9 @@ impl super::Executor {
                     }
                 }
                 Err(e) => {
-                    tracing::error!(
+                    error!(
                         "failed to dispatch to agent {} ({}): {e}",
-                        agent.name,
-                        agent.id
+                        agent.name, agent.id
                     );
                 }
             }
@@ -187,11 +188,9 @@ impl super::Executor {
             })
             .await
             .unwrap()?;
-            tracing::info!(
+            info!(
                 "queued job {} for custom agent {} -> execution {}",
-                job.name,
-                agent.name,
-                exec_id
+                job.name, agent.name, exec_id
             );
             return Ok(exec_id);
         }
@@ -218,11 +217,9 @@ impl super::Executor {
                 running_rec.status = ExecutionStatus::Running;
                 let _ =
                     tokio::task::spawn_blocking(move || db.update_execution(&running_rec)).await;
-                tracing::info!(
+                info!(
                     "dispatched job {} to agent {} -> execution {}",
-                    job.name,
-                    agent.name,
-                    exec_id
+                    job.name, agent.name, exec_id
                 );
                 Ok(exec_id)
             }

@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
+use tracing::{error, info, warn};
+use uuid::Uuid;
+
 use crate::db::Db;
 use crate::models::{
     Event, EventSeverity, ExecutionStatus, ExtractionRule, Job, OutputAssertion, OutputTrigger,
 };
-use std::collections::HashMap;
-use uuid::Uuid;
 
 /// Run extraction rules against stdout, returning extracted key-value pairs.
 pub fn run_extractions(stdout: &str, rules: &[ExtractionRule]) -> HashMap<String, String> {
@@ -116,7 +119,7 @@ pub fn process_post_execution(
         let extracted = run_extractions(stdout, &rules.extractions);
         if !extracted.is_empty() {
             if let Err(e) = db.update_execution_extracted(exec_id, &serde_json::json!(extracted)) {
-                tracing::warn!("failed to update extracted values for {}: {}", exec_id, e);
+                warn!("failed to update extracted values for {}: {}", exec_id, e);
             }
             // Write-back: update global variables for rules with write_to_variable
             for rule in &rules.extractions {
@@ -124,9 +127,9 @@ pub fn process_post_execution(
                     && let Some(value) = extracted.get(&rule.name)
                 {
                     if let Err(e) = db.upsert_variable(var_name, value) {
-                        tracing::error!("failed to write variable {}: {}", var_name, e);
+                        error!("failed to write variable {}: {}", var_name, e);
                     } else {
-                        tracing::info!("variable {} updated from extraction", var_name);
+                        info!("variable {} updated from extraction", var_name);
                     }
                 }
             }
@@ -139,9 +142,9 @@ pub fn process_post_execution(
         if !failures.is_empty() {
             let msg = failures.join("; ");
             if let Err(e) = db.fail_execution_assertion(exec_id, &msg) {
-                tracing::warn!("failed to update assertion failure for {}: {}", exec_id, e);
+                warn!("failed to update assertion failure for {}: {}", exec_id, e);
             }
-            tracing::warn!("execution {} failed assertion: {}", exec_id, msg);
+            warn!("execution {} failed assertion: {}", exec_id, msg);
         }
     }
 
@@ -170,7 +173,7 @@ pub fn process_post_execution(
             timestamp: chrono::Utc::now(),
         };
         if let Err(e) = db.insert_event(&event) {
-            tracing::warn!("failed to insert output trigger event: {}", e);
+            warn!("failed to insert output trigger event: {}", e);
         }
         events.push(event);
     }

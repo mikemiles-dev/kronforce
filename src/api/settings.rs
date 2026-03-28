@@ -4,6 +4,7 @@ use axum::extract::State;
 use super::AppState;
 use crate::db::db_call;
 use crate::error::AppError;
+use crate::notifications::send_test;
 
 pub(crate) async fn get_settings(
     State(state): State<AppState>,
@@ -29,7 +30,7 @@ pub(crate) async fn update_settings(
 pub(crate) async fn test_notification(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let result = crate::notifications::send_test(&state.db).await;
+    let result = send_test(&state.db).await;
     match result {
         Ok(msg) => Ok(Json(serde_json::json!({ "status": "ok", "message": msg }))),
         Err(e) => Ok(Json(serde_json::json!({ "status": "error", "message": e }))),

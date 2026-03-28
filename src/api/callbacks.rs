@@ -1,11 +1,14 @@
 use axum::Json;
 use axum::extract::State;
+use tracing::info;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
 use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
+use crate::notifications::notify_execution_complete;
+use crate::output_rules::process_post_execution;
 use crate::protocol::ExecutionResultReport;
 use crate::scheduler::SchedulerCommand;
 
@@ -58,14 +61,7 @@ pub(crate) async fn execution_result_callback(
         let stderr_r = stderr_for_rules;
         let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
             if let Ok(Some(job)) = db_r.get_job(job_id_for_rules) {
-                crate::output_rules::process_post_execution(
-                    &db_r,
-                    &job,
-                    exec_id_for_rules,
-                    &stdout_r,
-                    &stderr_r,
-                    status,
-                )
+                process_post_execution(&db_r, &job, exec_id_for_rules, &stdout_r, &stderr_r, status)
             } else {
                 Vec::new()
             }
@@ -96,7 +92,7 @@ pub(crate) async fn execution_result_callback(
                 _ => return,
             };
             if let Some(ref notif) = job.notifications {
-                crate::notifications::notify_execution_complete(
+                notify_execution_complete(
                     &db_notif,
                     notif,
                     &job.name,
@@ -134,11 +130,9 @@ pub(crate) async fn execution_result_callback(
     )
     .await;
 
-    tracing::info!(
+    info!(
         "received execution result {} from agent {}: {:?}",
-        result.execution_id,
-        result.agent_id,
-        status
+        result.execution_id, result.agent_id, status
     );
 
     Ok(Json(serde_json::json!({"status": "ok"})))
