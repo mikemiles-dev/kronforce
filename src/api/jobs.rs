@@ -430,16 +430,30 @@ pub(crate) fn build_job_response(job: Job, db: &Db) -> JobResponse {
             finished_at: e.finished_at,
         });
     let (total, succeeded, failed) = db.get_execution_counts(job.id).unwrap_or((0, 0, 0));
+    let (deps_satisfied, deps_status) = evaluate_deps(db, &job.depends_on);
 
-    // Check dependency status
+    JobResponse {
+        job,
+        next_fire_time: next,
+        last_execution,
+        execution_counts: ExecutionCounts {
+            total,
+            succeeded,
+            failed,
+        },
+        deps_satisfied,
+        deps_status,
+    }
+}
+
+/// Evaluates whether each dependency is satisfied and returns the overall status.
+fn evaluate_deps(db: &Db, deps: &[Dependency]) -> (bool, Vec<DepStatus>) {
     let now = chrono::Utc::now();
     let mut all_satisfied = true;
-    let deps_status: Vec<DepStatus> = job
-        .depends_on
+    let statuses: Vec<DepStatus> = deps
         .iter()
         .map(|dep| {
-            let dep_job = db.get_job(dep.job_id).ok().flatten();
-            let dep_name = dep_job.map(|j| j.name);
+            let dep_name = db.get_job(dep.job_id).ok().flatten().map(|j| j.name);
             let satisfied = match db.get_latest_execution_for_job(dep.job_id).ok().flatten() {
                 Some(exec) if exec.status == ExecutionStatus::Succeeded => {
                     if let Some(within) = dep.within_secs {
@@ -463,17 +477,5 @@ pub(crate) fn build_job_response(job: Job, db: &Db) -> JobResponse {
             }
         })
         .collect();
-
-    JobResponse {
-        job,
-        next_fire_time: next,
-        last_execution,
-        execution_counts: ExecutionCounts {
-            total,
-            succeeded,
-            failed,
-        },
-        deps_satisfied: all_satisfied,
-        deps_status,
-    }
+    (all_satisfied, statuses)
 }

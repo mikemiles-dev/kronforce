@@ -76,103 +76,111 @@ impl super::Executor {
                 extracted: None,
             };
 
-            let db2 = db.clone();
-            let updated2 = updated.clone();
-            if let Err(e) =
-                tokio::task::spawn_blocking(move || db2.update_execution(&updated2)).await
-            {
-                error!("failed to update execution {}: {e}", exec_id);
-            }
-            // Run output rules (extraction + triggers)
-            {
-                let db_rules = db.clone();
-                let stdout_clone = updated.stdout.clone();
-                let stderr_clone = updated.stderr.clone();
-                let job_id = updated.job_id;
-                let exec_id_rules = exec_id;
-                let exec_status = updated.status;
-                let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
-                    if let Ok(Some(job)) = db_rules.get_job(job_id) {
-                        process_post_execution(
-                            &db_rules,
-                            &job,
-                            exec_id_rules,
-                            &stdout_clone,
-                            &stderr_clone,
-                            exec_status,
-                        )
-                    } else {
-                        Vec::new()
-                    }
-                })
-                .await
-                .unwrap_or_default();
-                // Notify scheduler of output.matched events so event-triggered jobs can fire
-                for event in output_events {
-                    let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
-                }
-            }
-
-            // Send notifications based on job config
-            {
-                let db_notif = db.clone();
-                let job_id_notif = updated.job_id;
-                let exec_status = updated.status;
-                let exec_id_short = exec_id.to_string()[..8].to_string();
-                let stderr_excerpt = updated.stderr.chars().take(500).collect::<String>();
-                tokio::spawn(async move {
-                    let job = match tokio::task::spawn_blocking({
-                        let db = db_notif.clone();
-                        move || db.get_job(job_id_notif)
-                    })
-                    .await
-                    {
-                        Ok(Ok(Some(j))) => j,
-                        _ => return,
-                    };
-                    if let Some(ref notif) = job.notifications {
-                        notify_execution_complete(
-                            &db_notif,
-                            notif,
-                            &job.name,
-                            &exec_id_short,
-                            exec_status,
-                            &stderr_excerpt,
-                        )
-                        .await;
-                    }
-                });
-            }
-
+            handle_execution_complete(exec_id, &updated, &db, &sched_tx).await;
             running.lock().await.remove(&exec_id);
-            info!("execution {} finished: {:?}", exec_id, updated.status);
-
-            let severity = match updated.status {
-                ExecutionStatus::Succeeded => EventSeverity::Success,
-                ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
-                ExecutionStatus::Cancelled => EventSeverity::Warning,
-                _ => EventSeverity::Info,
-            };
-            let event = Event {
-                id: Uuid::new_v4(),
-                kind: "execution.completed".to_string(),
-                severity,
-                message: format!("Execution {} finished: {:?}", exec_id, updated.status),
-                job_id: Some(updated.job_id),
-                agent_id: None,
-                api_key_id: None,
-                api_key_name: None,
-                details: None,
-                timestamp: chrono::Utc::now(),
-            };
-            let db3 = db.clone();
-            let event2 = event.clone();
-            let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
-            let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
         });
 
         Ok(exec_id)
     }
+}
+
+/// Handles all post-execution work: persists the result, runs output rules,
+/// sends notifications, and logs the completion event.
+async fn handle_execution_complete(
+    exec_id: Uuid,
+    updated: &ExecutionRecord,
+    db: &Db,
+    sched_tx: &tokio::sync::mpsc::Sender<SchedulerCommand>,
+) {
+    // Persist execution result
+    let db2 = db.clone();
+    let updated2 = updated.clone();
+    if let Err(e) =
+        tokio::task::spawn_blocking(move || db2.update_execution(&updated2)).await
+    {
+        error!("failed to update execution {}: {e}", exec_id);
+    }
+
+    // Run output rules (extraction + triggers)
+    let output_events = run_output_rules(db, updated, exec_id).await;
+    for event in output_events {
+        let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
+    }
+
+    // Send notifications
+    send_execution_notifications(db, updated, exec_id).await;
+
+    // Log completion event
+    info!("execution {} finished: {:?}", exec_id, updated.status);
+    let severity = match updated.status {
+        ExecutionStatus::Succeeded => EventSeverity::Success,
+        ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
+        ExecutionStatus::Cancelled => EventSeverity::Warning,
+        _ => EventSeverity::Info,
+    };
+    let event = Event {
+        id: Uuid::new_v4(),
+        kind: "execution.completed".to_string(),
+        severity,
+        message: format!("Execution {} finished: {:?}", exec_id, updated.status),
+        job_id: Some(updated.job_id),
+        agent_id: None,
+        api_key_id: None,
+        api_key_name: None,
+        details: None,
+        timestamp: chrono::Utc::now(),
+    };
+    let db3 = db.clone();
+    let event2 = event.clone();
+    let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
+    let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
+}
+
+async fn run_output_rules(db: &Db, updated: &ExecutionRecord, exec_id: Uuid) -> Vec<Event> {
+    let db_rules = db.clone();
+    let stdout_clone = updated.stdout.clone();
+    let stderr_clone = updated.stderr.clone();
+    let job_id = updated.job_id;
+    let exec_status = updated.status;
+    tokio::task::spawn_blocking(move || {
+        if let Ok(Some(job)) = db_rules.get_job(job_id) {
+            process_post_execution(&db_rules, &job, exec_id, &stdout_clone, &stderr_clone, exec_status)
+        } else {
+            Vec::new()
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+async fn send_execution_notifications(db: &Db, updated: &ExecutionRecord, exec_id: Uuid) {
+    let db_notif = db.clone();
+    let job_id_notif = updated.job_id;
+    let exec_status = updated.status;
+    let exec_id_short = exec_id.to_string()[..8].to_string();
+    let stderr_excerpt = updated.stderr.chars().take(500).collect::<String>();
+    tokio::spawn(async move {
+        let job = match tokio::task::spawn_blocking({
+            let db = db_notif.clone();
+            move || db.get_job(job_id_notif)
+        })
+        .await
+        {
+            Ok(Ok(Some(j))) => j,
+            _ => return,
+        };
+        if let Some(ref notif) = job.notifications {
+            notify_execution_complete(
+                &db_notif,
+                notif,
+                &job.name,
+                &exec_id_short,
+                exec_status,
+                &stderr_excerpt,
+            )
+            .await;
+        }
+    });
 }
 
 /// Run a task based on its type.
