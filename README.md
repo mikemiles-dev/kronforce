@@ -16,8 +16,8 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
-- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent). Bootstrap keys generated on first startup.
-- **Docker ready** — single Dockerfile in `deploy/docker/`, separate compose files for controller and agent, pre-set key bootstrapping
+- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent). Bootstrap keys auto-generated on first startup and saved to `bootstrap-keys.txt`.
+- **Docker ready** — single Dockerfile in `deploy/docker/`, separate compose files for controller and agent, auto-generated keys saved to data volume
 
 ## Quick Start
 
@@ -27,7 +27,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 cargo run --bin kronforce
 ```
 
-Opens on `http://localhost:8080` with web dashboard, REST API, scheduler, and SQLite database.
+Opens on `http://localhost:8080` with web dashboard, REST API, scheduler, and SQLite database. On first startup, bootstrap API keys are printed to the console and saved to `bootstrap-keys.txt`.
 
 ### Standard Agent
 

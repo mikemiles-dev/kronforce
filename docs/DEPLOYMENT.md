@@ -100,17 +100,21 @@ sha256sum -c checksums-sha256.txt
 
 ### Local Development — Full Stack
 
-Run the controller and a standard agent together with pre-set keys:
+Run the controller and a standard agent together:
 
 ```bash
 docker compose -f deploy/docker/docker-compose.full.yml up -d
 ```
 
-- Dashboard: http://localhost:8080
-- Admin key: `kf_docker_admin_key_change_in_prod`
-- Agent key: `kf_docker_agent_key_change_in_prod`
+On first startup, keys are auto-generated and saved to the data volume. Retrieve them:
 
-To use custom keys:
+```bash
+docker compose -f deploy/docker/docker-compose.full.yml exec controller cat /data/bootstrap-keys.txt
+```
+
+- Dashboard: http://localhost:8080
+
+To pre-set keys instead of auto-generating:
 
 ```bash
 KRONFORCE_ADMIN_KEY=kf_myadminkey KRONFORCE_AGENT_KEY=kf_myagentkey \
@@ -123,11 +127,20 @@ KRONFORCE_ADMIN_KEY=kf_myadminkey KRONFORCE_AGENT_KEY=kf_myagentkey \
 docker compose -f deploy/docker/docker-compose.yml up -d
 ```
 
-On first startup, the controller generates and prints bootstrap API keys:
+On first startup, the controller auto-generates bootstrap API keys. They are printed to the logs and saved to a file next to the database:
 
 ```bash
+# From logs
 docker compose -f deploy/docker/docker-compose.yml logs controller | grep "key"
+
+# From file (Docker)
+docker compose -f deploy/docker/docker-compose.yml exec controller cat /data/bootstrap-keys.txt
+
+# From file (binary)
+cat bootstrap-keys.txt
 ```
+
+The keys file is created with restricted permissions (600). Store the keys securely and delete the file when no longer needed.
 
 You'll see two keys:
 - **Admin key** (`kf_...`) — use this to log into the dashboard

@@ -3,8 +3,12 @@
 # Start:
 #   docker compose -f docker-compose.full.yml up -d
 #
-# Uses pre-set keys so both services can communicate immediately.
-# Change the keys before using in production.
+# On first startup, keys are auto-generated and saved to the data volume.
+# Retrieve keys:
+#   docker compose -f docker-compose.full.yml exec controller cat /data/bootstrap-keys.txt
+#
+# Or pre-set keys via environment:
+#   KRONFORCE_ADMIN_KEY=kf_mykey KRONFORCE_AGENT_KEY=kf_agentkey docker compose -f docker-compose.full.yml up -d
 
 services:
   controller:
@@ -22,8 +26,8 @@ services:
       - KRONFORCE_BIND=0.0.0.0:8080
       - KRONFORCE_SCRIPTS_DIR=/scripts
       - KRONFORCE_CALLBACK_URL=http://controller:8080
-      - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${KRONFORCE_ADMIN_KEY:-kf_docker_admin_key_change_in_prod}
-      - KRONFORCE_BOOTSTRAP_AGENT_KEY=${KRONFORCE_AGENT_KEY:-kf_docker_agent_key_change_in_prod}
+      - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${KRONFORCE_ADMIN_KEY:-}
+      - KRONFORCE_BOOTSTRAP_AGENT_KEY=${KRONFORCE_AGENT_KEY:-}
       - RUST_LOG=kronforce=info
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
@@ -39,9 +43,11 @@ services:
     depends_on:
       controller:
         condition: service_healthy
+    volumes:
+      - kronforce-data:/data:ro
     environment:
       - KRONFORCE_CONTROLLER_URL=http://controller:8080
-      - KRONFORCE_AGENT_KEY=${KRONFORCE_AGENT_KEY:-kf_docker_agent_key_change_in_prod}
+      - KRONFORCE_AGENT_KEY=${KRONFORCE_AGENT_KEY:-}
       - KRONFORCE_AGENT_NAME=docker-agent-1
       - KRONFORCE_AGENT_TAGS=docker,linux
       - KRONFORCE_AGENT_ADDRESS=agent
