@@ -1,0 +1,31 @@
+    <section id="variables-view" style="display:none">
+        <div class="card">
+            <div class="card-header">
+                <h3>Global Variables</h3>
+                <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
+            </div>
+            <div id="add-variable-form" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px">
+                <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                    <div>
+                        <label class="settings-label" style="margin-bottom:4px">Name</label>
+                        <input type="text" id="new-var-name" placeholder="MY_VARIABLE" style="width:200px" pattern="[A-Za-z0-9_]+" title="Alphanumeric and underscores only">
+                    </div>
+                    <div style="flex:1;min-width:200px">
+                        <label class="settings-label" style="margin-bottom:4px">Value</label>
+                        <input type="text" id="new-var-value" placeholder="value" style="width:100%">
+                    </div>
+                    <div style="display:flex;gap:4px">
+                        <button class="btn btn-primary btn-sm" onclick="createVariable()">Save</button>
+                        <button class="btn btn-ghost btn-sm" onclick="hideAddVariableForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <div id="variables-empty" style="display:none;padding:24px;text-align:center;color:var(--text-muted)">
+                No variables defined. Click "+ Add Variable" to create one.
+            </div>
+            <table id="variables-table" class="exec-table" style="display:none">
+                <thead><tr><th>Name</th><th>Value</th><th>Updated</th><th style="width:80px"></th></tr></thead>
+                <tbody id="variables-tbody"></tbody>
+            </table>
+        </div>
+    </section>

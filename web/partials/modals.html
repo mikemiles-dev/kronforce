@@ -1,0 +1,520 @@
+<div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('create-modal')">
+    <div class="modal-card">
+        <div class="modal-header">
+            <h3 id="modal-title">Create Job</h3>
+        </div>
+        <div style="padding:12px 24px 0">
+            <div class="form-group" style="margin-bottom:8px">
+                <label>Name</label>
+                <input id="f-name" type="text" placeholder="my-job">
+            </div>
+        </div>
+        <div class="modal-tabs">
+            <button class="modal-tab active" onclick="switchJobTab('task',this)">Task</button>
+            <button class="modal-tab" onclick="switchJobTab('schedule',this)">Schedule</button>
+            <button class="modal-tab" onclick="switchJobTab('target',this)">Target</button>
+            <button class="modal-tab" onclick="switchJobTab('rules',this)">Rules</button>
+            <button class="modal-tab" onclick="switchJobTab('notifications',this)">Alerts</button>
+            <button class="modal-tab" onclick="switchJobTab('advanced',this)">Advanced</button>
+        </div>
+        <div class="modal-body">
+        <div class="modal-tab-content active" id="job-tab-task">
+            <div class="form-group">
+                <label>Execution Mode</label>
+                <div class="radio-group">
+                    <label class="pill-green"><input type="radio" name="exec-mode" value="standard" checked onchange="updateExecutionMode()"> &#9654; Standard</label>
+                    <label class="pill-purple"><input type="radio" name="exec-mode" value="custom" onchange="updateExecutionMode()"> &#9881; Custom Agent</label>
+                </div>
+            </div>
+        <div id="custom-agent-section" style="display:none">
+            <div class="form-group">
+                <label>Custom Agent</label>
+                <select id="f-custom-agent" onchange="onCustomAgentSelected()"><option value="">Select a custom agent...</option></select>
+            </div>
+            <div class="form-group" id="custom-task-type-group" style="display:none">
+                <label>Task Type</label>
+                <div class="radio-group" id="custom-task-types"></div>
+            </div>
+            <div id="custom-task-fields"></div>
+        </div>
+        <div id="builtin-task-section">
+        <div class="form-group">
+            <label>Task Type</label>
+            <div class="radio-group">
+                <label class="pill-green"><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()"> &#9654; Shell</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> &#127760; HTTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> &#128451; SQL</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> &#128193; FTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> &#128220; Script</label>
+                <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> &#128228; File Push</label>
+            </div>
+            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues</label>
+            <div class="radio-group">
+                <label class="pill-purple"><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> &#9889; Kafka</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> &#128007; RabbitMQ</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> &#128225; MQTT</label>
+                <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> &#9879; Redis</label>
+            </div>
+        </div>
+        <div id="task-shell-fields">
+            <div class="form-group">
+                <label>Command</label>
+                <textarea id="f-command" placeholder="echo hello"></textarea>
+            </div>
+        </div>
+        <div id="task-http-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:120px">
+                    <label>Method</label>
+                    <select id="f-http-method"><option>get</option><option>post</option><option>put</option><option>delete</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>URL</label>
+                    <input id="f-http-url" type="text" placeholder="https://api.example.com/endpoint">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Headers (JSON, optional)</label>
+                <input id="f-http-headers" type="text" placeholder='{"Content-Type": "application/json"}'>
+            </div>
+            <div class="form-group">
+                <label>Body (optional)</label>
+                <textarea id="f-http-body" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label>Expected Status (optional)</label>
+                <input id="f-http-expect" type="number" placeholder="200">
+            </div>
+        </div>
+        <div id="task-sql-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:140px">
+                    <label>Driver</label>
+                    <select id="f-sql-driver"><option value="postgres">Postgres</option><option value="mysql">MySQL</option><option value="sqlite">SQLite</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>Connection String</label>
+                    <input id="f-sql-conn" type="text" placeholder="postgresql://user:pass@host/db">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Query</label>
+                <textarea id="f-sql-query" placeholder="SELECT * FROM users LIMIT 10;" style="font-family:var(--font-mono)"></textarea>
+            </div>
+        </div>
+        <div id="task-ftp-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:120px">
+                    <label>Protocol</label>
+                    <select id="f-ftp-proto"><option value="sftp">SFTP</option><option value="ftps">FTPS</option><option value="ftp">FTP</option></select>
+                </div>
+                <div style="width:120px">
+                    <label>Direction</label>
+                    <select id="f-ftp-dir"><option value="download">Download</option><option value="upload">Upload</option></select>
+                </div>
+                <div style="flex:1">
+                    <label>Host</label>
+                    <input id="f-ftp-host" type="text" placeholder="ftp.example.com">
+                </div>
+                <div style="width:80px">
+                    <label>Port</label>
+                    <input id="f-ftp-port" type="number" placeholder="22">
+                </div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Username</label>
+                    <input id="f-ftp-user" type="text" placeholder="user">
+                </div>
+                <div style="flex:1">
+                    <label>Password</label>
+                    <input id="f-ftp-pass" type="password" placeholder="password">
+                </div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Remote Path</label>
+                    <input id="f-ftp-remote" type="text" placeholder="/uploads/file.csv">
+                </div>
+                <div style="flex:1">
+                    <label>Local Path</label>
+                    <input id="f-ftp-local" type="text" placeholder="/data/file.csv">
+                </div>
+            </div>
+        </div>
+        <div id="task-script-fields" style="display:none">
+            <div class="form-group">
+                <label>Script</label>
+                <select id="f-script-name" style="width:100%">
+                    <option value="">Select a script...</option>
+                </select>
+                <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
+            </div>
+        </div>
+        <div id="task-filepush-fields" style="display:none">
+            <div class="form-group">
+                <label>File</label>
+                <input type="file" id="f-filepush-file" onchange="onFilePushFileSelected(this)">
+                <div id="f-filepush-info" style="display:none;margin-top:4px;font-size:12px;color:var(--text-secondary)"></div>
+            </div>
+            <div class="form-group">
+                <label>Destination Path</label>
+                <input id="f-filepush-dest" type="text" placeholder="/opt/configs/app.conf">
+                <div class="form-hint">Full path where the file will be written on the agent</div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Permissions (optional)</label>
+                    <input id="f-filepush-perms" type="text" placeholder="644">
+                    <div class="form-hint">Unix octal mode (e.g., 644, 755)</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:4px;padding-top:18px">
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="f-filepush-overwrite" checked> Overwrite if exists</label>
+                </div>
+            </div>
+        </div>
+        <div id="task-kafka-fields" style="display:none">
+            <div class="form-group">
+                <label>Broker URL</label>
+                <input id="f-kafka-broker" type="text" placeholder="localhost:9092">
+            </div>
+            <div class="form-group">
+                <label>Topic</label>
+                <input id="f-kafka-topic" type="text" placeholder="my-topic">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-kafka-message" placeholder='{"event": "user.created", "data": {...}}'></textarea>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Key (optional)</label>
+                    <input id="f-kafka-key" type="text" placeholder="partition-key">
+                </div>
+                <div style="flex:1">
+                    <label>Extra flags (optional)</label>
+                    <input id="f-kafka-props" type="text" placeholder="--producer-property acks=all">
+                </div>
+            </div>
+        </div>
+        <div id="task-rabbitmq-fields" style="display:none">
+            <div class="form-group">
+                <label>AMQP URL</label>
+                <input id="f-rabbitmq-url" type="text" placeholder="amqp://user:pass@localhost:5672/vhost">
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Exchange</label>
+                    <input id="f-rabbitmq-exchange" type="text" placeholder="my-exchange">
+                </div>
+                <div style="flex:1">
+                    <label>Routing Key</label>
+                    <input id="f-rabbitmq-routing" type="text" placeholder="events.user.created">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-rabbitmq-message" placeholder='{"event": "user.created"}'></textarea>
+            </div>
+            <div class="form-group">
+                <label>Content Type (optional)</label>
+                <input id="f-rabbitmq-ctype" type="text" placeholder="application/json">
+            </div>
+        </div>
+        <div id="task-mqtt-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Broker Host</label>
+                    <input id="f-mqtt-broker" type="text" placeholder="localhost">
+                </div>
+                <div style="width:80px">
+                    <label>Port</label>
+                    <input id="f-mqtt-port" type="number" placeholder="1883">
+                </div>
+                <div style="width:80px">
+                    <label>QoS</label>
+                    <select id="f-mqtt-qos"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option></select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Topic</label>
+                <input id="f-mqtt-topic" type="text" placeholder="sensors/temperature">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-mqtt-message" placeholder="22.5"></textarea>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>Username (optional)</label>
+                    <input id="f-mqtt-user" type="text" placeholder="device1">
+                </div>
+                <div style="flex:1">
+                    <label>Password (optional)</label>
+                    <input id="f-mqtt-pass" type="password">
+                </div>
+                <div style="flex:1">
+                    <label>Client ID (optional)</label>
+                    <input id="f-mqtt-clientid" type="text" placeholder="kronforce-pub">
+                </div>
+            </div>
+        </div>
+        <div id="task-redis-fields" style="display:none">
+            <div class="form-group">
+                <label>Redis URL</label>
+                <input id="f-redis-url" type="text" placeholder="redis://localhost:6379">
+            </div>
+            <div class="form-group">
+                <label>Channel</label>
+                <input id="f-redis-channel" type="text" placeholder="notifications">
+            </div>
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="f-redis-message" placeholder='{"type": "alert", "text": "..."}'></textarea>
+            </div>
+        </div>
+        </div><!-- end builtin-task-section -->
+        </div><!-- end job-tab-task -->
+        <div class="modal-tab-content" id="job-tab-schedule">
+        <div class="form-group">
+            <label>Schedule</label>
+            <div class="radio-group">
+                <label class="pill-green"><input type="radio" name="sched-type" value="one_shot" checked onchange="updateSchedFields()"> &#128197; One-Shot</label>
+                <label class="pill-green"><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> &#128336; Cron</label>
+                <label class="pill-orange"><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> &#9889; On-Demand</label>
+                <label class="pill-purple"><input type="radio" name="sched-type" value="event" onchange="updateSchedFields()"> &#128276; Event</label>
+            </div>
+        </div>
+        <div class="form-group" id="oneshot-field">
+            <label>Run At</label>
+            <input id="f-oneshot" type="datetime-local">
+        </div>
+        <div id="cron-field" style="display:none">
+            <div class="form-group">
+                <label>Cron Schedule</label>
+                <div class="output-tabs" style="margin-bottom:0">
+                    <button type="button" class="output-tab active" onclick="switchCronMode('builder',this)">Builder</button>
+                    <button type="button" class="output-tab" onclick="switchCronMode('raw',this)">Expression</button>
+                </div>
+            </div>
+            <div id="cron-builder">
+                <div class="cron-builder-grid">
+                    <div class="cron-field-group">
+                        <label>Run every</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="cb-interval" type="number" min="1" value="1" style="width:60px" onchange="buildCronFromUI()">
+                            <select id="cb-unit" onchange="buildCronFromUI();updateCronOptions()">
+                                <option value="minute">minute(s)</option>
+                                <option value="hour">hour(s)</option>
+                                <option value="day">day(s)</option>
+                                <option value="week">week(s)</option>
+                                <option value="month">month(s)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-at-time-group" style="display:none">
+                        <label>At time</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input id="cb-hour" type="number" min="0" max="23" value="0" style="width:50px" onchange="buildCronFromUI()">
+                            <span>:</span>
+                            <input id="cb-minute" type="number" min="0" max="59" value="0" style="width:50px" onchange="buildCronFromUI()">
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-dow-group" style="display:none">
+                        <label>On days</label>
+                        <div class="cron-dow-buttons">
+                            <button type="button" class="cron-dow" data-dow="1" onclick="toggleDow(this)">Mon</button>
+                            <button type="button" class="cron-dow" data-dow="2" onclick="toggleDow(this)">Tue</button>
+                            <button type="button" class="cron-dow" data-dow="3" onclick="toggleDow(this)">Wed</button>
+                            <button type="button" class="cron-dow" data-dow="4" onclick="toggleDow(this)">Thu</button>
+                            <button type="button" class="cron-dow" data-dow="5" onclick="toggleDow(this)">Fri</button>
+                            <button type="button" class="cron-dow" data-dow="6" onclick="toggleDow(this)">Sat</button>
+                            <button type="button" class="cron-dow" data-dow="0" onclick="toggleDow(this)">Sun</button>
+                        </div>
+                    </div>
+                    <div class="cron-field-group" id="cb-dom-group" style="display:none">
+                        <label>On day of month</label>
+                        <input id="cb-dom" type="number" min="1" max="31" value="1" style="width:60px" onchange="buildCronFromUI()">
+                    </div>
+                </div>
+                <div class="cron-preview">
+                    <label>Expression</label>
+                    <code id="cb-preview">0 * * * * *</code>
+                    <span id="cb-description" class="cron-description"></span>
+                </div>
+            </div>
+            <div id="cron-raw" style="display:none">
+                <div class="form-group" style="margin-bottom:0">
+                    <input id="f-cron" type="text" placeholder="0 * * * * *" style="font-family:var(--font-mono)" oninput="updateCronPreviewFromRaw()">
+                    <div class="form-hint" style="margin-top:4px">Format: sec min hour day_of_month month day_of_week</div>
+                </div>
+            </div>
+        </div>
+        <div id="event-field" style="display:none">
+            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--text-secondary);line-height:1.5">
+                <strong style="color:var(--text-primary)">How event triggers work:</strong> This job fires automatically when a matching system event occurs.
+                Events are emitted when jobs complete, output patterns match, agents change status, etc.
+                <br><br>
+                <strong>Example:</strong> To react when job "health-check" outputs an error pattern:<br>
+                &bull; On "health-check", add an <em>Output Trigger</em> with pattern "ERROR" and severity "error"<br>
+                &bull; On <em>this</em> job, set Event Kind to <code>output.matched</code>, Severity to <code>error</code>, Source Job to <code>health-check</code>
+            </div>
+            <div class="form-group">
+                <label>When this event occurs</label>
+                <select id="f-event-kind-select" style="width:100%" onchange="onEventKindSelect()">
+                    <option value="*">All events (*)</option>
+                    <optgroup label="Job Events">
+                        <option value="job.*">Any job event (job.*)</option>
+                        <option value="job.created">Job created</option>
+                        <option value="job.updated">Job updated</option>
+                        <option value="job.deleted">Job deleted</option>
+                        <option value="job.triggered">Job triggered</option>
+                    </optgroup>
+                    <optgroup label="Execution Events">
+                        <option value="execution.*">Any execution event (execution.*)</option>
+                        <option value="execution.completed">Execution completed</option>
+                    </optgroup>
+                    <optgroup label="Output Events">
+                        <option value="output.*">Any output event (output.*)</option>
+                        <option value="output.matched">Output pattern matched</option>
+                    </optgroup>
+                    <optgroup label="Agent Events">
+                        <option value="agent.*">Any agent event (agent.*)</option>
+                        <option value="agent.registered">Agent registered</option>
+                        <option value="agent.offline">Agent went offline</option>
+                        <option value="agent.unpaired">Agent unpaired</option>
+                    </optgroup>
+                    <optgroup label="Key Events">
+                        <option value="key.*">Any key event (key.*)</option>
+                        <option value="key.created">Key created</option>
+                        <option value="key.revoked">Key revoked</option>
+                    </optgroup>
+                    <option value="__custom__">Custom pattern...</option>
+                </select>
+                <input id="f-event-kind-custom" type="text" style="display:none;margin-top:4px" placeholder="e.g. output.matched, my.custom.event">
+                <input type="hidden" id="f-event-kind" value="*">
+                <div class="form-hint" style="margin-top:4px">Use * for wildcards: "output.*" matches all output events</div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1">
+                    <label>With severity (optional)</label>
+                    <select id="f-event-severity">
+                        <option value="">Any severity</option>
+                        <option value="success">Success</option>
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                    <div class="form-hint">Only trigger when the event has this severity level</div>
+                </div>
+                <div style="flex:1">
+                    <label>From source job (optional)</label>
+                    <input id="f-event-job-filter" type="text" placeholder="e.g. health-check">
+                    <div class="form-hint">Only trigger when the event came from a job with this name</div>
+                </div>
+            </div>
+        </div>
+        </div><!-- end job-tab-schedule -->
+        <div class="modal-tab-content" id="job-tab-target">
+        <div id="standard-target-section">
+            <div class="form-group">
+                <label>Target</label>
+                <div class="radio-group">
+                    <label class="pill-green"><input type="radio" name="target-type" value="local" checked onchange="updateTargetFields()"> &#127968; Controller</label>
+                    <label><input type="radio" name="target-type" value="agent" onchange="updateTargetFields()"> &#128421; Specific Agent</label>
+                    <label class="pill-orange"><input type="radio" name="target-type" value="any" onchange="updateTargetFields()"> &#127922; Any Agent</label>
+                    <label class="pill-red"><input type="radio" name="target-type" value="all" onchange="updateTargetFields()"> &#127760; All Agents</label>
+                </div>
+            </div>
+            <div class="form-group" id="agent-select-field" style="display:none">
+                <label>Agent</label>
+                <select id="f-agent"><option value="">Loading agents...</option></select>
+            </div>
+        </div><!-- end standard-target-section -->
+        </div><!-- end job-tab-target -->
+        <div class="modal-tab-content" id="job-tab-rules">
+            <div class="form-group">
+                <label>&#128279; Dependencies</label>
+                <div class="form-hint">Only run if selected jobs completed successfully within the time window.</div>
+                <div id="deps-container">
+                    <div id="deps-entries"></div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addDepEntry()" id="add-dep-btn" style="margin-top:6px">+ Add Dependency</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>&#128270; Output Extractions</label>
+                <div class="form-hint">Extract values from stdout using regex or JSON path. Captured values are shown in the execution detail. Optionally write to a global variable for use in other jobs via <code>{{VAR_NAME}}</code>.</div>
+                <div id="extractions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addExtractionRow()" style="margin-top:4px">+ Add Extraction</button>
+            </div>
+            <div class="form-group">
+                <label>&#9889; Output Triggers</label>
+                <div class="form-hint">Emit events when output matches a pattern. Use with event-triggered jobs to react to output.</div>
+                <div id="triggers-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addTriggerRow()" style="margin-top:4px">+ Add Trigger</button>
+            </div>
+            <div class="form-group">
+                <label>&#10004; Output Assertions</label>
+                <div class="form-hint">Fail the execution if expected patterns are NOT found in stdout. Only checked on successful runs.</div>
+                <div id="assertions-container"></div>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addAssertionRow()" style="margin-top:4px">+ Add Assertion</button>
+            </div>
+        </div><!-- end job-tab-rules -->
+        <div class="modal-tab-content" id="job-tab-notifications">
+            <div class="form-group">
+                <label>&#128276; Alert Conditions</label>
+                <div class="form-hint">Send email/SMS alerts when this job's executions match these conditions. Configure notification channels in Settings.</div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+                    <label class="pill-red" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-failure" style="display:none"> &#10060; On failure</label>
+                    <label class="pill-green" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-success" style="display:none"> &#10004; On success</label>
+                    <label class="pill-orange" style="font-size:12px;display:flex;align-items:center;gap:4px;padding:6px 14px;border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="checkbox" id="f-notif-assertion" style="display:none"> &#9888; On assertion failure</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>&#128231; Recipient Override (optional)</label>
+                <div class="form-hint">Override the global notification recipients for this job. Leave blank to use the default recipients from Settings.</div>
+                <input id="f-notif-emails" type="text" placeholder="ops@example.com, oncall@example.com" style="margin-top:4px">
+            </div>
+        </div><!-- end job-tab-notifications -->
+        <div class="modal-tab-content" id="job-tab-advanced">
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input id="f-desc" type="text" placeholder="What this job does">
+            </div>
+            <div class="form-group">
+                <label>Run As (optional)</label>
+                <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
+            </div>
+            <div class="form-group">
+                <label>Timeout (seconds, optional)</label>
+                <input id="f-timeout" type="number" min="1" placeholder="300">
+            </div>
+        </div><!-- end job-tab-advanced -->
+        </div><!-- end modal-body -->
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeCreateModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="submitJobForm()">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="exec-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('exec-modal')">
+    <div class="modal-card exec-modal-card">
+        <div class="modal-header"><h3>Execution Details</h3></div>
+        <div class="modal-body" id="exec-detail-content"></div>
+        <div class="form-actions">
+            <button id="exec-cancel-btn" class="btn btn-danger btn-sm" style="display:none" onclick="cancelExec()">Cancel Execution</button>
+            <button class="btn btn-ghost" onclick="closeExecModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('waiting-modal')">
+    <div class="modal-card">
+        <div class="modal-header"><h3>Waiting on Dependencies</h3></div>
+        <div class="modal-body" id="waiting-detail-content"></div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeWaitingModal()">Close</button>
+        </div>
+    </div>
+</div>

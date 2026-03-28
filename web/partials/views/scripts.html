@@ -1,0 +1,48 @@
+    <section id="scripts-view" style="display:none">
+        <div style="display:flex;gap:12px;margin-bottom:16px;justify-content:space-between">
+            <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+        </div>
+        <div id="scripts-list-wrap"></div>
+        <div id="script-editor" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <h3 id="script-editor-title">New Script</h3>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-primary btn-sm" onclick="saveCurrentScript()">Save</button>
+                        <button class="btn btn-ghost btn-sm" onclick="closeScriptEditor()">Cancel</button>
+                    </div>
+                </div>
+                <div class="form-group" id="script-name-group">
+                    <label>Name</label>
+                    <input id="script-name" type="text" placeholder="my-health-check">
+                    <div class="form-hint">Alphanumeric, dashes, and underscores only. Saved as {name}.rhai</div>
+                </div>
+                <div class="form-group">
+                    <label>Code</label>
+                    <div class="script-editor-wrap">
+                        <div class="script-highlight" id="script-highlight"></div>
+                        <textarea id="script-code" class="script-textarea" spellcheck="false" oninput="highlightScript()" onscroll="syncScriptScroll()"></textarea>
+                    </div>
+                </div>
+                <div class="script-reference">
+                    <label>Available Functions</label>
+                    <ul>
+                        <li><code>print(msg)</code> — append to job output</li>
+                        <li><code>http_get(url)</code> — returns <code>#{status, body}</code></li>
+                        <li><code>http_post(url, body)</code> — returns <code>#{status, body}</code></li>
+                        <li><code>shell_exec(cmd)</code> — returns <code>#{exit_code, stdout, stderr}</code></li>
+                        <li><code>env_var(name)</code> — read environment variable</li>
+                        <li><code>sleep_ms(ms)</code> — pause execution</li>
+                        <li><code>fail(msg)</code> — mark execution as failed</li>
+                        <li><code>udp_send(addr, data)</code> — returns <code>#{sent, error}</code></li>
+                        <li><code>tcp_send(addr, data)</code> — returns <code>#{response, error}</code></li>
+                        <li><code>udp_send_hex(addr, hex)</code> — send raw bytes via UDP</li>
+                        <li><code>tcp_send_hex(addr, hex)</code> — returns <code>#{response_hex, response, error}</code></li>
+                        <li><code>hex_encode(string)</code> — string to hex</li>
+                        <li><code>hex_decode(hex)</code> — hex to string</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>

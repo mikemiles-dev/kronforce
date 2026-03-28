@@ -1,0 +1,414 @@
+    <section id="docs-view" style="display:none">
+        <div class="docs-layout">
+            <nav class="docs-sidebar">
+                <button class="docs-topic active" onclick="scrollToDocTopic('doc-custom-agents')">Custom Agents</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting (Rhai)</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
+            </nav>
+            <div class="docs-content" id="docs-content">
+
+                <div class="docs-section" id="doc-custom-agents">
+                    <h2>Custom Agents</h2>
+                    <p>Custom agents use a <strong>pull-based</strong> model &mdash; they poll the controller for work, execute it however they want, and post the result back. Build agents in any language with just an HTTP client. No server needed.</p>
+
+                    <h3>How It Works</h3>
+                    <p>Custom agents separate <strong>workflow definition</strong> from <strong>implementation</strong>:</p>
+                    <ul>
+                        <li><strong>The UI defines the workflow</strong> &mdash; admins configure task types (name, description, form fields) on the agent card in the dashboard</li>
+                        <li><strong>The agent code defines the implementation</strong> &mdash; the agent handles whatever task data it receives</li>
+                    </ul>
+                    <p>This means you can reconfigure task types without restarting the agent, and non-developers can set up workflows through the dashboard.</p>
+
+                    <h3>Setup</h3>
+                    <ol>
+                        <li><strong>Start the agent</strong> &mdash; it registers with <code>agent_type: "custom"</code> and begins polling</li>
+                        <li><strong>Configure task types in the UI</strong> &mdash; go to Agents page, click the custom agent card, add task types with field definitions, and save</li>
+                        <li><strong>Create a job</strong> &mdash; select "Custom Agent" execution mode, pick your agent, fill in the dynamic form, and trigger</li>
+                    </ol>
+
+                    <h3>Protocol</h3>
+                    <p>All agent endpoints require <strong>no API key</strong>.</p>
+
+                    <h4>1. Register</h4>
+<pre><code>POST /api/agents/register
+{
+    "name": "my-python-agent",
+    "tags": ["python", "ml"],
+    "hostname": "ml-box",
+    "address": "0.0.0.0",
+    "port": 0,
+    "agent_type": "custom"
+}
+// Returns: {"agent_id": "uuid", "heartbeat_interval_secs": 10}</code></pre>
+
+                    <h4>2. Discover Task Types (optional)</h4>
+<pre><code>GET /api/agents/{agent_id}/task-types
+// Returns: [{"name": "python", "fields": [...]}, ...]</code></pre>
+                    <p>Useful for logging on startup or validating that your agent handles the configured types.</p>
+
+                    <h4>3. Poll for Work</h4>
+<pre><code>GET /api/agent-queue/{agent_id}/next
+// Returns 204 if no work, or 200 with job JSON:</code></pre>
+<pre><code>{
+    "queue_id": "uuid",
+    "execution_id": "uuid",
+    "job_id": "uuid",
+    "agent_id": "uuid",
+    "task": {
+        "type": "custom",
+        "agent_task_type": "python",
+        "data": {"script": "print('hello')", "args": "--verbose"}
+    },
+    "callback_url": "http://controller:8080/api/callbacks/execution-result"
+}</code></pre>
+                    <p>Your agent switches on <code>task.agent_task_type</code> and reads field values from <code>task.data</code>.</p>
+
+                    <h4>4. Report Result</h4>
+<pre><code>POST {callback_url}
+{
+    "execution_id": "...", "job_id": "...", "agent_id": "...",
+    "status": "succeeded", "exit_code": 0,
+    "stdout": "output", "stderr": "",
+    "stdout_truncated": false, "stderr_truncated": false,
+    "started_at": "2026-03-25T10:00:00Z",
+    "finished_at": "2026-03-25T10:00:05Z"
+}</code></pre>
+
+                    <h3>Task Type Definitions</h3>
+                    <p>Configured per-agent in the UI. Each definition has a name, optional description, and a fields array:</p>
+<pre><code>{
+    "name": "python",
+    "description": "Run a Python script",
+    "fields": [
+        {"name": "script", "label": "Script", "field_type": "textarea", "required": true},
+        {"name": "args", "label": "Arguments", "field_type": "text", "required": false}
+    ]
+}</code></pre>
+                    <p><strong>Supported field types:</strong> <code>text</code>, <code>textarea</code>, <code>number</code>, <code>select</code>, <code>password</code></p>
+                    <p>Select fields include an <code>options</code> array with <code>value</code>/<code>label</code> pairs.</p>
+                    <p>Task types can also be managed via the API: <code>GET/PUT /api/agents/{id}/task-types</code></p>
+
+                    <h3>Queue Behavior</h3>
+                    <ul>
+                        <li>Jobs are <strong>queued</strong> in the controller database until the agent polls</li>
+                        <li>Unclaimed jobs are failed after <strong>5 minutes</strong></li>
+                        <li>Claimed but unreported jobs are failed after <strong>10 minutes</strong></li>
+                        <li>The UI shows a "queued" badge (amber) for pending custom agent jobs</li>
+                        <li>Polling also acts as a heartbeat &mdash; no separate call needed</li>
+                    </ul>
+
+                    <h3>Execution Modes</h3>
+                    <table>
+                        <tr><th>Mode</th><th>Task Types</th><th>Targets</th></tr>
+                        <tr><td>Standard</td><td>Shell, HTTP, SQL, FTP, Script</td><td>Controller / Specific Agent / Any / All</td></tr>
+                        <tr><td>Custom Agent</td><td>Defined per agent in UI</td><td>Specific custom agent</td></tr>
+                    </table>
+
+                    <h3>Python Example</h3>
+                    <p>A complete working example is at <code>examples/custom_agent.py</code>:</p>
+<pre><code>pip install requests
+python3 examples/custom_agent.py
+
+# Configure with:
+KRONFORCE_URL=http://controller:8080 \
+AGENT_NAME=my-agent \
+AGENT_TAGS=python,ml \
+python3 examples/custom_agent.py</code></pre>
+                </div>
+
+                <div class="docs-section" id="doc-scripting">
+                    <h2>Scripting (Rhai)</h2>
+                    <p>The <code>script</code> task type runs custom logic written in <a href="https://rhai.rs" style="color:var(--accent)">Rhai</a>, a lightweight scripting language embedded in the Rust binary. Scripts are stored as <code>.rhai</code> files in the scripts directory.</p>
+
+                    <h3>Managing Scripts</h3>
+                    <p>Use the <strong>Scripts</strong> page in the dashboard (with syntax-highlighted editor), the API, or drop <code>.rhai</code> files in the scripts directory.</p>
+<pre><code># Create/update via API
+curl -X PUT http://localhost:8080/api/scripts/health-check \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"code": "let resp = http_get(\"https://api.example.com/health\");\nif resp.status != 200 { fail(\"down\"); }\nprint(\"OK\");"}'
+
+# Or drop a file
+echo 'print("hello");' &gt; ./scripts/hello.rhai</code></pre>
+
+                    <h3>Available Functions</h3>
+                    <table>
+                        <tr><th>Function</th><th>Returns</th><th>Description</th></tr>
+                        <tr><td><code>print(msg)</code></td><td>&mdash;</td><td>Appends to job output</td></tr>
+                        <tr><td><code>http_get(url)</code></td><td><code>#{status, body}</code></td><td>HTTP GET request</td></tr>
+                        <tr><td><code>http_post(url, body)</code></td><td><code>#{status, body}</code></td><td>HTTP POST request</td></tr>
+                        <tr><td><code>shell_exec(cmd)</code></td><td><code>#{exit_code, stdout, stderr}</code></td><td>Run a shell command</td></tr>
+                        <tr><td><code>env_var(name)</code></td><td><code>string</code></td><td>Read environment variable</td></tr>
+                        <tr><td><code>sleep_ms(ms)</code></td><td>&mdash;</td><td>Sleep for N milliseconds</td></tr>
+                        <tr><td><code>fail(msg)</code></td><td>&mdash;</td><td>Mark execution as failed</td></tr>
+                        <tr><td><code>udp_send(addr, data)</code></td><td><code>#{sent, error}</code></td><td>Send string via UDP</td></tr>
+                        <tr><td><code>tcp_send(addr, data)</code></td><td><code>#{response, error}</code></td><td>Send string via TCP</td></tr>
+                        <tr><td><code>udp_send_hex(addr, hex)</code></td><td><code>#{sent, error}</code></td><td>Send raw bytes via UDP</td></tr>
+                        <tr><td><code>tcp_send_hex(addr, hex)</code></td><td><code>#{response_hex, response, error}</code></td><td>Send raw bytes via TCP</td></tr>
+                        <tr><td><code>hex_encode(s)</code></td><td><code>string</code></td><td>String to hex</td></tr>
+                        <tr><td><code>hex_decode(hex)</code></td><td><code>string</code></td><td>Hex to string</td></tr>
+                    </table>
+
+                    <h3>Examples</h3>
+                    <h4>Health check with Slack notification</h4>
+<pre><code>let resp = http_get("https://api.example.com/health");
+if resp.status != 200 {
+    http_post("https://hooks.slack.com/services/T00/B00/xxx",
+        `{"text": "API is DOWN! Status: ${resp.status}"}`);
+    fail("Health check failed");
+}
+print("API is healthy");</code></pre>
+
+                    <h4>Run command and check output</h4>
+<pre><code>let result = shell_exec("df -h / | tail -1 | awk '{print $5}'");
+print("Disk usage: " + result.stdout);
+if parse_int(result.stdout.replace("%", "")) &gt; 90 {
+    fail("Disk usage critical");
+}</code></pre>
+
+                    <h4>TCP protocol check</h4>
+<pre><code>let result = tcp_send("192.168.1.10:6379", "PING\r\n");
+if result.error != "" {
+    fail("Redis unreachable: " + result.error);
+}
+print("Redis: " + result.response);</code></pre>
+
+                    <h3>Sandboxing</h3>
+                    <ul>
+                        <li><strong>1,000,000 operations</strong> max (prevents infinite loops)</li>
+                        <li><strong>256KB string size</strong> max</li>
+                        <li><strong>Timeout</strong> enforced by the job's <code>timeout_secs</code> setting</li>
+                        <li>No direct file system access (use <code>shell_exec</code>)</li>
+                    </ul>
+                </div>
+
+                <div class="docs-section" id="doc-task-types">
+                    <h2>Task Types</h2>
+                    <table>
+                        <tr><th>Type</th><th>Execution</th><th>Config Fields</th></tr>
+                        <tr><td><code>shell</code></td><td>Runs <code>sh -c</code> (or <code>sudo -n -u</code> with run_as)</td><td>command</td></tr>
+                        <tr><td><code>http</code></td><td>In-process HTTP request via reqwest</td><td>method, url, headers, body, expect_status</td></tr>
+                        <tr><td><code>sql</code></td><td>Shells out to psql/mysql/sqlite3</td><td>driver, connection_string, query</td></tr>
+                        <tr><td><code>ftp</code></td><td>Uses curl for FTP/FTPS/SFTP</td><td>protocol, host, port, username, password, direction, remote_path, local_path</td></tr>
+                        <tr><td><code>script</code></td><td>Rhai scripting engine</td><td>script_name</td></tr>
+                        <tr><td><code>custom</code></td><td>Dispatched to custom agent</td><td>agent_task_type, data (fields defined per agent in UI)</td></tr>
+                        <tr><td><code>file_push</code></td><td>Base64 decode + write to filesystem</td><td>filename, destination, content_base64, permissions, overwrite</td></tr>
+                        <tr><td><code>kafka</code></td><td><code>kafka-console-producer</code> via shell</td><td>broker, topic, message, key, properties</td></tr>
+                        <tr><td><code>rabbitmq</code></td><td><code>amqp-publish</code> via shell</td><td>url, exchange, routing_key, message, content_type</td></tr>
+                        <tr><td><code>mqtt</code></td><td><code>mosquitto_pub</code> via shell</td><td>broker, port, topic, message, qos, username, password</td></tr>
+                        <tr><td><code>redis</code></td><td><code>redis-cli PUBLISH</code> via shell</td><td>url, channel, message</td></tr>
+                    </table>
+                    <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents. File Push deploys files to agents. Message queue types (Kafka, RabbitMQ, MQTT, Redis) shell out to CLI tools.</p>
+
+                    <h3>Shell</h3>
+                    <p>Runs a command via <code>sh -c</code>. Supports <code>run_as</code> for sudo execution.</p>
+<pre><code>{"type": "shell", "command": "echo hello"}</code></pre>
+
+                    <h3>HTTP</h3>
+                    <p>Makes an in-process HTTP request. Response body is captured as stdout, status code as exit code.</p>
+<pre><code>{"type": "http", "method": "get", "url": "https://api.example.com/health", "expect_status": 200}</code></pre>
+
+                    <h3>SQL</h3>
+                    <p>Executes a query via psql, mysql, or sqlite3 CLI tools. Query results are captured as output.</p>
+<pre><code>{"type": "sql", "driver": "postgres", "connection_string": "postgresql://user:pass@host/db", "query": "SELECT count(*) FROM orders"}</code></pre>
+
+                    <h3>FTP/SFTP</h3>
+                    <p>File transfers via curl. Supports FTP, FTPS, and SFTP protocols.</p>
+<pre><code>{"type": "ftp", "protocol": "sftp", "host": "ftp.example.com", "username": "user", "password": "pass", "direction": "upload", "local_path": "/data/report.csv", "remote_path": "/uploads/report.csv"}</code></pre>
+
+                    <h3>Custom</h3>
+                    <p>Dispatched to a custom agent. Task types and fields are defined per-agent in the UI. Cannot run locally.</p>
+<pre><code>{"type": "custom", "agent_task_type": "python", "data": {"script": "print('hello')", "args": "--verbose"}}</code></pre>
+
+                    <h3>File Push</h3>
+                    <p>Upload a file in the job form and deploy it to an agent. Content is base64-encoded in the task JSON (5MB limit).</p>
+<pre><code>{"type": "file_push", "filename": "app.conf", "destination": "/opt/app/app.conf", "content_base64": "...", "permissions": "644", "overwrite": true}</code></pre>
+
+                    <h3>Kafka</h3>
+                    <p>Publish a message to a Kafka topic via <code>kafka-console-producer</code>.</p>
+<pre><code>{"type": "kafka", "broker": "localhost:9092", "topic": "events", "message": "{\"event\":\"test\"}", "key": "user-123"}</code></pre>
+
+                    <h3>RabbitMQ</h3>
+                    <p>Publish a message to a RabbitMQ exchange via <code>amqp-publish</code>.</p>
+<pre><code>{"type": "rabbitmq", "url": "amqp://guest:guest@localhost:5672", "exchange": "events", "routing_key": "user.created", "message": "{\"user\":\"alice\"}"}</code></pre>
+
+                    <h3>MQTT</h3>
+                    <p>Publish a message to an MQTT topic via <code>mosquitto_pub</code>.</p>
+<pre><code>{"type": "mqtt", "broker": "localhost", "port": 1883, "topic": "sensors/temp", "message": "22.5", "qos": 1}</code></pre>
+
+                    <h3>Redis</h3>
+                    <p>Publish a message to a Redis Pub/Sub channel via <code>redis-cli</code>.</p>
+<pre><code>{"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"}</code></pre>
+                </div>
+
+                <div class="docs-section" id="doc-api">
+                    <h2>API Reference</h2>
+                    <p>All <code>/api/*</code> endpoints (except health, agent registration, polling, and callbacks) require an API key via the <code>Authorization: Bearer kf_...</code> header.</p>
+
+                    <h3>Jobs</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs</code></td><td>List all jobs (paginated, filterable by status, searchable)</td></tr>
+                        <tr><td>POST</td><td><code>/api/jobs</code></td><td>Create a job</td></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/{id}</code></td><td>Get job details</td></tr>
+                        <tr><td>PUT</td><td><code>/api/jobs/{id}</code></td><td>Update a job</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/jobs/{id}</code></td><td>Delete a job</td></tr>
+                        <tr><td>POST</td><td><code>/api/jobs/{id}/trigger</code></td><td>Trigger a job now</td></tr>
+                    </table>
+
+                    <h3>Executions</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/{id}/executions</code></td><td>List executions for a job</td></tr>
+                        <tr><td>GET</td><td><code>/api/executions</code></td><td>List all executions (filterable, searchable)</td></tr>
+                        <tr><td>GET</td><td><code>/api/executions/{id}</code></td><td>Get execution details with output</td></tr>
+                        <tr><td>POST</td><td><code>/api/executions/{id}/cancel</code></td><td>Cancel a running execution</td></tr>
+                    </table>
+
+                    <h3>Agents</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/agents</code></td><td>Yes</td><td>List all agents</td></tr>
+                        <tr><td>GET</td><td><code>/api/agents/{id}</code></td><td>Yes</td><td>Get agent details</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/agents/{id}</code></td><td>Yes</td><td>Deregister an agent</td></tr>
+                        <tr><td>PUT</td><td><code>/api/agents/{id}/task-types</code></td><td>Yes</td><td>Update custom agent task type definitions</td></tr>
+                        <tr><td>GET</td><td><code>/api/agents/{id}/task-types</code></td><td>No</td><td>Get task type definitions (for agent discovery)</td></tr>
+                        <tr><td>POST</td><td><code>/api/agents/register</code></td><td>No</td><td>Register an agent</td></tr>
+                        <tr><td>GET</td><td><code>/api/agent-queue/{id}/next</code></td><td>No</td><td>Poll for work (custom agents)</td></tr>
+                        <tr><td>POST</td><td><code>/api/agents/{id}/heartbeat</code></td><td>No</td><td>Agent heartbeat</td></tr>
+                        <tr><td>POST</td><td><code>/api/callbacks/execution-result</code></td><td>No</td><td>Report execution result</td></tr>
+                    </table>
+
+                    <h3>Events</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/events</code></td><td>List events (paginated)</td></tr>
+                    </table>
+
+                    <h3>Scripts</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/scripts</code></td><td>List all scripts</td></tr>
+                        <tr><td>GET</td><td><code>/api/scripts/{name}</code></td><td>Get script code</td></tr>
+                        <tr><td>PUT</td><td><code>/api/scripts/{name}</code></td><td>Create or update script</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/scripts/{name}</code></td><td>Delete a script</td></tr>
+                    </table>
+
+                    <h3>API Keys</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/keys</code></td><td>List API keys</td></tr>
+                        <tr><td>POST</td><td><code>/api/keys</code></td><td>Create a key (name, role: admin/operator/viewer)</td></tr>
+                        <tr><td>DELETE</td><td><code>/api/keys/{id}</code></td><td>Revoke a key</td></tr>
+                    </table>
+
+                    <h3>Other</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/health</code></td><td>Health check (no auth)</td></tr>
+                        <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current key info</td></tr>
+                    </table>
+                </div>
+
+                <div class="docs-section" id="doc-variables">
+                    <h2>Global Variables</h2>
+                    <p>Global variables are shared key-value pairs that can be referenced in any task field. Manage them in the <strong>Variables</strong> page or via the <code>/api/variables</code> API.</p>
+
+                    <h4>Using Variables in Tasks</h4>
+                    <p>Reference variables using <code>{{VAR_NAME}}</code> syntax in any task field &mdash; shell commands, HTTP URLs, SQL queries, message bodies, etc.</p>
+                    <table>
+                        <tr><th>Task Field</th><th>Example</th></tr>
+                        <tr><td>Shell command</td><td><code>curl {{API_HOST}}/health</code></td></tr>
+                        <tr><td>HTTP URL</td><td><code>{{BASE_URL}}/api/status</code></td></tr>
+                        <tr><td>Kafka topic</td><td><code>{{ENV}}_events</code></td></tr>
+                    </table>
+                    <p>Variables are resolved <strong>controller-side</strong> before execution, so they work for both local and remote agent jobs. Shell variables like <code>${HOME}</code> are unaffected.</p>
+
+                    <h4>Updating Variables from Job Output</h4>
+                    <p>Set the <strong>"Write to variable"</strong> field on an output extraction rule to automatically update a global variable with the extracted value after each run.</p>
+                    <p><strong>Example pipeline:</strong></p>
+                    <ol>
+                        <li>Job A runs <code>deploy.sh</code> and outputs <code>version=2.4.1</code></li>
+                        <li>An extraction rule captures <code>version</code> with <code>write_to_variable: "DEPLOY_VERSION"</code></li>
+                        <li>Job B uses <code>echo "Deployed {{DEPLOY_VERSION}}"</code> in its command</li>
+                    </ol>
+
+                    <h4>Variable Name Rules</h4>
+                    <p>Names must match <code>[A-Za-z0-9_]+</code> (letters, numbers, underscores only).</p>
+
+                    <h4>Unresolved Variables</h4>
+                    <p>If a <code>{{VAR}}</code> reference doesn't match any defined variable, the placeholder is left as-is and a warning is logged. The job still runs.</p>
+                </div>
+
+                <div class="docs-section" id="doc-cron">
+                    <h2>Cron Expressions</h2>
+                    <p>6-field cron with second-level precision: <code>sec min hour dom month dow</code></p>
+                    <table>
+                        <tr><th>Expression</th><th>Description</th></tr>
+                        <tr><td><code>* * * * * *</code></td><td>Every second</td></tr>
+                        <tr><td><code>0 * * * * *</code></td><td>Every minute</td></tr>
+                        <tr><td><code>0 0 * * * *</code></td><td>Every hour</td></tr>
+                        <tr><td><code>0 0 9 * * *</code></td><td>Daily at 9:00 AM</td></tr>
+                        <tr><td><code>0 0 9 * * 1-5</code></td><td>Weekdays at 9:00 AM</td></tr>
+                        <tr><td><code>0 */5 * * * *</code></td><td>Every 5 minutes</td></tr>
+                        <tr><td><code>*/30 * * * * *</code></td><td>Every 30 seconds</td></tr>
+                    </table>
+                    <p>Supports: <code>*</code>, ranges (<code>1-5</code>), lists (<code>1,3,5</code>), steps (<code>*/5</code>, <code>1-30/5</code>).</p>
+
+                    <h3>Schedule Types</h3>
+                    <table>
+                        <tr><th>Type</th><th>JSON</th><th>Description</th></tr>
+                        <tr><td>One-shot</td><td><code>{"type": "one_shot", "value": "2026-04-01T00:00:00Z"}</code></td><td>Fires once</td></tr>
+                        <tr><td>Cron</td><td><code>{"type": "cron", "value": "0 * * * * *"}</code></td><td>Recurring schedule</td></tr>
+                        <tr><td>On-demand</td><td><code>{"type": "on_demand"}</code></td><td>Triggered manually only</td></tr>
+                        <tr><td>Event</td><td><code>{"type": "event", "value": {...}}</code></td><td>Fires on system events</td></tr>
+                    </table>
+
+                    <h3>Event Triggers</h3>
+                    <p>Jobs can fire reactively when system events occur. Set a job's schedule to "Event" and configure what to listen for.</p>
+
+                    <h4>Available Event Kinds</h4>
+                    <table>
+                        <tr><th>Kind</th><th>When it fires</th></tr>
+                        <tr><td><code>job.created</code></td><td>A job is created</td></tr>
+                        <tr><td><code>job.updated</code></td><td>A job is edited</td></tr>
+                        <tr><td><code>job.deleted</code></td><td>A job is deleted</td></tr>
+                        <tr><td><code>job.triggered</code></td><td>A job is manually triggered</td></tr>
+                        <tr><td><code>execution.completed</code></td><td>A job execution finishes (success or failure)</td></tr>
+                        <tr><td><code>output.matched</code></td><td>An output trigger pattern matched stdout/stderr</td></tr>
+                        <tr><td><code>agent.registered</code></td><td>An agent registers</td></tr>
+                        <tr><td><code>agent.offline</code></td><td>An agent heartbeat times out</td></tr>
+                        <tr><td><code>agent.unpaired</code></td><td>An agent is removed</td></tr>
+                        <tr><td><code>key.created</code></td><td>An API key is created</td></tr>
+                        <tr><td><code>key.revoked</code></td><td>An API key is revoked</td></tr>
+                    </table>
+
+                    <h4>Trigger Configuration</h4>
+                    <table>
+                        <tr><th>Field</th><th>Description</th></tr>
+                        <tr><td><strong>Event Kind</strong></td><td>Which event to listen for. Use wildcards: <code>output.*</code>, <code>job.*</code>, or <code>*</code> for all.</td></tr>
+                        <tr><td><strong>Severity</strong></td><td>Optional. Only trigger on events with this severity (error, warning, info, success).</td></tr>
+                        <tr><td><strong>Source Job</strong></td><td>Optional. Only trigger when the event came from a job with this name. Matches as a substring.</td></tr>
+                    </table>
+
+                    <h4>Example: React to Output Patterns</h4>
+                    <p>This is the most powerful pattern &mdash; chain jobs based on what another job outputs:</p>
+                    <ol>
+                        <li><strong>Job A</strong> ("health-check"): In the Advanced section, add an <strong>Output Trigger</strong> with pattern <code>ERROR</code> and severity <code>error</code></li>
+                        <li><strong>Job B</strong> ("restart-service"): Set schedule to <strong>Event</strong>, pick <code>output.matched</code>, set severity to <code>error</code>, set Source Job to <code>health-check</code></li>
+                        <li>When Job A runs and its output contains "ERROR", Job B fires automatically</li>
+                    </ol>
+
+                    <h4>Example: React to Job Failures</h4>
+                    <ol>
+                        <li><strong>Job B</strong> ("cleanup"): Set schedule to <strong>Event</strong>, pick <code>execution.completed</code>, set severity to <code>error</code>, set Source Job to <code>etl-pipeline</code></li>
+                        <li>Whenever "etl-pipeline" fails, "cleanup" fires automatically</li>
+                    </ol>
+                </div>
+
+            </div>
+        </div>
+    </section>

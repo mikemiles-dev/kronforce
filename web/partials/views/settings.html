@@ -1,0 +1,150 @@
+    <section id="settings-view" style="display:none">
+        <div style="display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:0">
+            <button class="btn btn-ghost btn-sm settings-tab active" onclick="showSettingsTab('general')" id="stab-general" style="border-radius:6px 6px 0 0;padding:6px 16px">General</button>
+            <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('auth')" id="stab-auth" style="border-radius:6px 6px 0 0;padding:6px 16px">Auth &amp; Keys</button>
+            <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('notifications')" id="stab-notifications" style="border-radius:6px 6px 0 0;padding:6px 16px">Notifications</button>
+        </div>
+
+        <!-- General Tab -->
+        <div id="settings-panel-general">
+            <div class="card">
+                <div class="card-header"><h3>Appearance</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Theme</label>
+                    <div class="theme-switcher">
+                        <button class="theme-btn" id="theme-dark" onclick="setTheme('dark')">
+                            <span class="theme-btn-icon">&#127769;</span>
+                            <span>Dark</span>
+                        </button>
+                        <button class="theme-btn" id="theme-light" onclick="setTheme('light')">
+                            <span class="theme-btn-icon">&#9728;</span>
+                            <span>Light</span>
+                        </button>
+                        <button class="theme-btn" id="theme-system" onclick="setTheme('system')">
+                            <span class="theme-btn-icon">&#128187;</span>
+                            <span>System</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Data Retention</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Auto-purge executions and events older than</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <select id="retention-days" onchange="saveRetention()" style="width:160px">
+                            <option value="1">1 day</option>
+                            <option value="3">3 days</option>
+                            <option value="7">7 days</option>
+                            <option value="14">14 days</option>
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                            <option value="0">Never (keep all)</option>
+                        </select>
+                        <span id="retention-status" style="font-size:11px;color:var(--text-muted)"></span>
+                    </div>
+                    <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth & Keys Tab -->
+        <div id="settings-panel-auth" style="display:none">
+            <div class="card">
+                <div class="card-header"><h3>Authentication</h3></div>
+                <div class="settings-group">
+                    <div id="auth-info"></div>
+                </div>
+                <div class="settings-group">
+                    <button class="btn btn-danger" onclick="doLogout()">Sign Out</button>
+                </div>
+            </div>
+            <div class="card" id="keys-card" style="display:none">
+                <div class="card-header">
+                    <h3>API Keys</h3>
+                    <button class="btn btn-primary btn-sm" onclick="showCreateKeyForm()">+ Create Key</button>
+                </div>
+                <div id="create-key-form" style="display:none;margin-bottom:16px">
+                    <div style="display:flex;gap:8px;align-items:flex-end">
+                        <div class="form-group" style="flex:1;margin-bottom:0">
+                            <label>Name</label>
+                            <input id="new-key-name" type="text" placeholder="Key name">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label>Role</label>
+                            <select id="new-key-role">
+                                <option value="admin">Admin</option>
+                                <option value="operator" selected>Operator</option>
+                                <option value="viewer">Viewer</option>
+                                <option value="agent">Agent</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary" onclick="createKey()">Create</button>
+                        <button class="btn btn-ghost" onclick="hideCreateKeyForm()">Cancel</button>
+                    </div>
+                </div>
+                <div id="new-key-display" style="display:none" class="new-key-display"></div>
+                <div id="keys-list"></div>
+            </div>
+        </div>
+
+        <!-- Notifications Tab -->
+        <div id="settings-panel-notifications" style="display:none">
+            <div class="card">
+                <div class="card-header"><h3>Notifications</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Email (SMTP)</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-email-enabled"> Enabled</label>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:6px">
+                        <input id="notif-smtp-host" type="text" placeholder="smtp.gmail.com" style="flex:1">
+                        <input id="notif-smtp-port" type="number" placeholder="587" style="width:70px">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-smtp-user" type="text" placeholder="username" style="flex:1">
+                        <input id="notif-smtp-pass" type="password" placeholder="password" style="flex:1">
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-smtp-from" type="text" placeholder="alerts@example.com" style="flex:1">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-smtp-tls" checked> TLS</label>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">SMS (Webhook)</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-sms-enabled"> Enabled</label>
+                    </div>
+                    <input id="notif-sms-url" type="text" placeholder="https://api.twilio.com/..." style="width:100%;margin-top:6px">
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <input id="notif-sms-user" type="text" placeholder="auth user (optional)" style="flex:1">
+                        <input id="notif-sms-pass" type="password" placeholder="auth pass (optional)" style="flex:1">
+                        <input id="notif-sms-from" type="text" placeholder="from number" style="width:120px">
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Recipients</label>
+                    <div style="display:flex;gap:8px">
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:var(--text-muted)">Email addresses (one per line)</label>
+                            <textarea id="notif-emails" rows="3" style="width:100%;font-size:12px" placeholder="ops@example.com&#10;oncall@example.com"></textarea>
+                        </div>
+                        <div style="flex:1">
+                            <label style="font-size:11px;color:var(--text-muted)">Phone numbers (one per line)</label>
+                            <textarea id="notif-phones" rows="3" style="width:100%;font-size:12px" placeholder="+12345678900"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">System Alerts</label>
+                    <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-alert-agent-offline"> Agent went offline</label>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                    <button class="btn btn-primary btn-sm" onclick="saveNotificationSettings()">Save</button>
+                    <button class="btn btn-ghost btn-sm" onclick="testNotification()">Send Test</button>
+                    <span id="notif-status" style="font-size:11px;color:var(--text-muted);align-self:center"></span>
+                </div>
+            </div>
+        </div>
+    </section>

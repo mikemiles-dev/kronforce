@@ -7,8 +7,29 @@ fn main() {
     let out_path = Path::new(&out_dir).join("dashboard.html");
 
     // Read HTML template
-    let html =
+    let mut html =
         fs::read_to_string(web_dir.join("index.html")).expect("failed to read web/index.html");
+
+    // Process INCLUDE markers — replace <!-- INCLUDE:path --> with file contents
+    let include_prefix = "<!-- INCLUDE:";
+    let include_suffix = " -->";
+    let mut includes_found = true;
+    while includes_found {
+        includes_found = false;
+        if let Some(start) = html.find(include_prefix) {
+            if let Some(end) = html[start..].find(include_suffix) {
+                let marker_end = start + end + include_suffix.len();
+                let path_start = start + include_prefix.len();
+                let path_end = start + end;
+                let rel_path = html[path_start..path_end].to_string();
+                let full_path = web_dir.join(&rel_path);
+                let content = fs::read_to_string(&full_path)
+                    .unwrap_or_else(|_| panic!("failed to read web/{}", rel_path));
+                html = format!("{}{}{}", &html[..start], content, &html[marker_end..]);
+                includes_found = true;
+            }
+        }
+    }
 
     // Read CSS
     let css = fs::read_to_string(web_dir.join("css/style.css"))
@@ -47,6 +68,22 @@ fn main() {
     for file in &js_files {
         println!("cargo::rerun-if-changed=web/js/{}", file);
     }
+
+    // Rerun if any partial file changes
+    println!("cargo::rerun-if-changed=web/partials");
+    fn register_partials(dir: &Path) {
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.filter_map(|e| e.ok()) {
+                let path = entry.path();
+                if path.is_dir() {
+                    register_partials(&path);
+                } else {
+                    println!("cargo::rerun-if-changed={}", path.display());
+                }
+            }
+        }
+    }
+    register_partials(Path::new("web/partials"));
 
     // --- Migrations ---
     let migrations_dir = Path::new("migrations");
