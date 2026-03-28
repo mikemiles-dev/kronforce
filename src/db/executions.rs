@@ -125,6 +125,24 @@ impl Db {
         .map_err(AppError::Db)
     }
 
+    fn build_exec_filters(
+        status_filter: Option<&str>,
+        search: Option<&str>,
+        since: Option<&str>,
+    ) -> QueryFilters {
+        let mut f = QueryFilters::new();
+        if let Some(s) = status_filter {
+            f.add_eq("e.status", s);
+        }
+        if let Some(q) = search {
+            f.add_search(q, &["j.name", "e.stdout"]);
+        }
+        if let Some(s) = since {
+            f.add_gte("e.started_at", s);
+        }
+        f
+    }
+
     pub fn list_all_executions(
         &self,
         status_filter: Option<&str>,
@@ -134,46 +152,17 @@ impl Db {
         offset: u32,
     ) -> Result<Vec<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut where_clauses = Vec::new();
-        let mut param_values: Vec<String> = Vec::new();
-
-        if let Some(s) = status_filter {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("e.status = ?{}", param_values.len()));
-        }
-        if let Some(q) = search {
-            let like = format!("%{}%", q);
-            param_values.push(like);
-            let idx = param_values.len();
-            where_clauses.push(format!("(j.name LIKE ?{} OR e.stdout LIKE ?{})", idx, idx));
-        }
-        if let Some(s) = since {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("e.started_at >= ?{}", param_values.len()));
-        }
-
-        param_values.push(limit.to_string());
-        let limit_idx = param_values.len();
-        param_values.push(offset.to_string());
-        let offset_idx = param_values.len();
-
-        let where_sql = if where_clauses.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", where_clauses.join(" AND "))
-        };
+        let mut f = Self::build_exec_filters(status_filter, search, since);
+        let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
-            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
-            where_sql, limit_idx, offset_idx
+            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
+            f.where_sql(),
+            li,
+            oi
         );
-
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
-            .iter()
-            .map(|s| s as &dyn rusqlite::types::ToSql)
-            .collect();
         let rows = stmt
-            .query_map(params.as_slice(), row_to_execution)
+            .query_map(f.to_params().as_slice(), row_to_execution)
             .map_err(AppError::Db)?;
         let mut recs = Vec::new();
         for row in rows {
@@ -189,40 +178,13 @@ impl Db {
         since: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut where_clauses = Vec::new();
-        let mut param_values: Vec<String> = Vec::new();
-
-        if let Some(s) = status_filter {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("e.status = ?{}", param_values.len()));
-        }
-        if let Some(q) = search {
-            let like = format!("%{}%", q);
-            param_values.push(like);
-            let idx = param_values.len();
-            where_clauses.push(format!("(j.name LIKE ?{} OR e.stdout LIKE ?{})", idx, idx));
-        }
-        if let Some(s) = since {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("e.started_at >= ?{}", param_values.len()));
-        }
-
-        let where_sql = if where_clauses.is_empty() {
-            String::new()
-        } else {
-            format!("WHERE {}", where_clauses.join(" AND "))
-        };
+        let f = Self::build_exec_filters(status_filter, search, since);
         let sql = format!(
-            "SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id {}",
-            where_sql
+            "SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{}",
+            f.where_sql()
         );
-
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
-            .iter()
-            .map(|s| s as &dyn rusqlite::types::ToSql)
-            .collect();
-        stmt.query_row(params.as_slice(), |row| row.get(0))
+        stmt.query_row(f.to_params().as_slice(), |row| row.get(0))
             .map_err(AppError::Db)
     }
 

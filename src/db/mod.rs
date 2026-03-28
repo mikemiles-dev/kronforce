@@ -226,3 +226,28 @@ impl Db {
         Ok(())
     }
 }
+
+impl Db {
+    pub fn with_transaction<F, T>(&self, f: F) -> Result<T, AppError>
+    where
+        F: FnOnce(&rusqlite::Transaction) -> Result<T, AppError>,
+    {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction().map_err(AppError::Db)?;
+        let result = f(&tx)?;
+        tx.commit().map_err(AppError::Db)?;
+        Ok(result)
+    }
+}
+
+/// Generic async wrapper for database operations. Handles clone, spawn_blocking, and error mapping.
+pub async fn db_call<F, T>(db: &Db, f: F) -> Result<T, AppError>
+where
+    F: FnOnce(&Db) -> Result<T, AppError> + Send + 'static,
+    T: Send + 'static,
+{
+    let db = db.clone();
+    tokio::task::spawn_blocking(move || f(&db))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+}

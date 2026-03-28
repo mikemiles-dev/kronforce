@@ -1,5 +1,5 @@
 use crate::db::Db;
-use crate::models::EventSeverity;
+use crate::models::{EventSeverity, ExecutionStatus, JobNotificationConfig};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,6 +149,54 @@ pub async fn send_notification(
 
 fn bod_clone(s: &str) -> String {
     s.to_string()
+}
+
+/// Check if notification should be sent for a completed execution, and send it if so.
+pub async fn notify_execution_complete(
+    db: &Db,
+    notif: &JobNotificationConfig,
+    job_name: &str,
+    exec_id_short: &str,
+    exec_status: ExecutionStatus,
+    stderr_excerpt: &str,
+) {
+    let should_notify = match exec_status {
+        ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
+            notif.on_failure || notif.on_assertion_failure
+        }
+        ExecutionStatus::Succeeded => notif.on_success,
+        _ => false,
+    };
+    if !should_notify {
+        return;
+    }
+    let subject = format!(
+        "[Kronforce] Job '{}' {}",
+        job_name,
+        match exec_status {
+            ExecutionStatus::Succeeded => "succeeded",
+            ExecutionStatus::Failed => "failed",
+            ExecutionStatus::TimedOut => "timed out",
+            _ => "completed",
+        }
+    );
+    let body = format!(
+        "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
+        job_name,
+        exec_status,
+        exec_id_short,
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+        if !stderr_excerpt.is_empty() {
+            format!("\nError output:\n{}", stderr_excerpt)
+        } else {
+            String::new()
+        }
+    );
+    let recipients = notif.recipients.as_ref().map(|r| NotificationRecipients {
+        emails: r.emails.clone(),
+        phones: r.phones.clone(),
+    });
+    send_notification(db, &subject, &body, recipients.as_ref()).await;
 }
 
 pub async fn send_email(

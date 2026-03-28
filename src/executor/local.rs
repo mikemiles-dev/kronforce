@@ -124,55 +124,17 @@ impl super::Executor {
                         Ok(Ok(Some(j))) => j,
                         _ => return,
                     };
-                    let notif = match &job.notifications {
-                        Some(n) => n,
-                        None => return,
-                    };
-                    let should_notify = match exec_status {
-                        ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
-                            notif.on_failure || notif.on_assertion_failure
-                        }
-                        ExecutionStatus::Succeeded => notif.on_success,
-                        _ => false,
-                    };
-                    if !should_notify {
-                        return;
+                    if let Some(ref notif) = job.notifications {
+                        crate::notifications::notify_execution_complete(
+                            &db_notif,
+                            notif,
+                            &job.name,
+                            &exec_id_short,
+                            exec_status,
+                            &stderr_excerpt,
+                        )
+                        .await;
                     }
-                    let subject = format!(
-                        "[Kronforce] Job '{}' {}",
-                        job.name,
-                        match exec_status {
-                            ExecutionStatus::Succeeded => "succeeded",
-                            ExecutionStatus::Failed => "failed",
-                            ExecutionStatus::TimedOut => "timed out",
-                            _ => "completed",
-                        }
-                    );
-                    let body = format!(
-                        "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
-                        job.name,
-                        exec_status,
-                        exec_id_short,
-                        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-                        if !stderr_excerpt.is_empty() {
-                            format!("\nError output:\n{}", stderr_excerpt)
-                        } else {
-                            String::new()
-                        }
-                    );
-                    let recipients = notif.recipients.as_ref().map(|r| {
-                        crate::notifications::NotificationRecipients {
-                            emails: r.emails.clone(),
-                            phones: r.phones.clone(),
-                        }
-                    });
-                    crate::notifications::send_notification(
-                        &db_notif,
-                        &subject,
-                        &body,
-                        recipients.as_ref(),
-                    )
-                    .await;
                 });
             }
 
@@ -218,30 +180,23 @@ pub async fn run_task(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     match task {
-        TaskType::Shell { command } => run_command(command, run_as, timeout_secs, cancel_rx).await,
+        TaskType::Shell { command } => {
+            run_shell_task(command, run_as, timeout_secs, cancel_rx).await
+        }
         TaskType::Sql {
             driver,
             connection_string,
             query,
         } => {
-            let cmd = match driver {
-                SqlDriver::Postgres => format!(
-                    "psql {} -c {}",
-                    shell_escape(connection_string),
-                    shell_escape(query)
-                ),
-                SqlDriver::Mysql => format!(
-                    "mysql {} -e {}",
-                    shell_escape(connection_string),
-                    shell_escape(query)
-                ),
-                SqlDriver::Sqlite => format!(
-                    "sqlite3 {} {}",
-                    shell_escape(connection_string),
-                    shell_escape(query)
-                ),
-            };
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+            run_sql_task(
+                driver,
+                connection_string,
+                query,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Ftp {
             protocol,
@@ -253,30 +208,20 @@ pub async fn run_task(
             remote_path,
             local_path,
         } => {
-            let port_part = port.map(|p| format!(":{}", p)).unwrap_or_default();
-            let proto = match protocol {
-                FtpProtocol::Ftp => "ftp",
-                FtpProtocol::Ftps => "ftps",
-                FtpProtocol::Sftp => "sftp",
-            };
-            let url = format!("{}://{}{}{}", proto, host, port_part, remote_path);
-            let cmd = match direction {
-                TransferDirection::Download => format!(
-                    "curl -u {}:{} {} -o {}",
-                    shell_escape(username),
-                    shell_escape(password),
-                    shell_escape(&url),
-                    shell_escape(local_path)
-                ),
-                TransferDirection::Upload => format!(
-                    "curl -u {}:{} -T {} {}",
-                    shell_escape(username),
-                    shell_escape(password),
-                    shell_escape(local_path),
-                    shell_escape(&url)
-                ),
-            };
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+            run_ftp_task(
+                protocol,
+                host,
+                *port,
+                username,
+                password,
+                direction,
+                remote_path,
+                local_path,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Http {
             method,
@@ -285,7 +230,7 @@ pub async fn run_task(
             body,
             expect_status,
         } => {
-            run_http(
+            run_http_task(
                 method,
                 url,
                 headers.as_ref(),
@@ -297,41 +242,7 @@ pub async fn run_task(
             .await
         }
         TaskType::Script { script_name } => {
-            let store = match script_store {
-                Some(s) => s,
-                None => {
-                    return CommandResult {
-                        status: ExecutionStatus::Failed,
-                        exit_code: None,
-                        stdout: CapturedOutput {
-                            text: String::new(),
-                            truncated: false,
-                        },
-                        stderr: CapturedOutput {
-                            text: "script store not available on agent".to_string(),
-                            truncated: false,
-                        },
-                    };
-                }
-            };
-            let code = match store.read_code(script_name) {
-                Ok(c) => c,
-                Err(e) => {
-                    return CommandResult {
-                        status: ExecutionStatus::Failed,
-                        exit_code: None,
-                        stdout: CapturedOutput {
-                            text: String::new(),
-                            truncated: false,
-                        },
-                        stderr: CapturedOutput {
-                            text: format!("script error: {e}"),
-                            truncated: false,
-                        },
-                    };
-                }
-            };
-            run_script(&code, timeout_secs, cancel_rx).await
+            run_script_task(script_name, script_store, timeout_secs, cancel_rx).await
         }
         TaskType::Custom { .. } => CommandResult {
             status: ExecutionStatus::Failed,
@@ -351,105 +262,13 @@ pub async fn run_task(
             content_base64,
             permissions,
             overwrite,
-        } => {
-            use base64::Engine;
-            let decoded = match base64::engine::general_purpose::STANDARD.decode(content_base64) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    return CommandResult {
-                        status: ExecutionStatus::Failed,
-                        exit_code: Some(1),
-                        stdout: CapturedOutput {
-                            text: String::new(),
-                            truncated: false,
-                        },
-                        stderr: CapturedOutput {
-                            text: format!("base64 decode error: {e}"),
-                            truncated: false,
-                        },
-                    };
-                }
-            };
-
-            let dest = std::path::Path::new(destination);
-
-            // Check overwrite
-            if !overwrite && dest.exists() {
-                return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: Some(1),
-                    stdout: CapturedOutput {
-                        text: String::new(),
-                        truncated: false,
-                    },
-                    stderr: CapturedOutput {
-                        text: format!("file already exists: {} (overwrite=false)", destination),
-                        truncated: false,
-                    },
-                };
-            }
-
-            // Create parent dirs
-            if let Some(parent) = dest.parent()
-                && let Err(e) = std::fs::create_dir_all(parent)
-            {
-                return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: Some(1),
-                    stdout: CapturedOutput {
-                        text: String::new(),
-                        truncated: false,
-                    },
-                    stderr: CapturedOutput {
-                        text: format!("failed to create directory {}: {e}", parent.display()),
-                        truncated: false,
-                    },
-                };
-            }
-
-            // Write file
-            let size = decoded.len();
-            if let Err(e) = std::fs::write(dest, &decoded) {
-                return CommandResult {
-                    status: ExecutionStatus::Failed,
-                    exit_code: Some(1),
-                    stdout: CapturedOutput {
-                        text: String::new(),
-                        truncated: false,
-                    },
-                    stderr: CapturedOutput {
-                        text: format!("failed to write file: {e}"),
-                        truncated: false,
-                    },
-                };
-            }
-
-            // Set permissions (Unix only)
-            #[cfg(unix)]
-            if let Some(perm_str) = permissions
-                && let Ok(mode) = u32::from_str_radix(perm_str, 8)
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let perms = std::fs::Permissions::from_mode(mode);
-                let _ = std::fs::set_permissions(dest, perms);
-            }
-
-            CommandResult {
-                status: ExecutionStatus::Succeeded,
-                exit_code: Some(0),
-                stdout: CapturedOutput {
-                    text: format!(
-                        "File '{}' written to {} ({} bytes)",
-                        filename, destination, size
-                    ),
-                    truncated: false,
-                },
-                stderr: CapturedOutput {
-                    text: String::new(),
-                    truncated: false,
-                },
-            }
-        }
+        } => run_file_push_task(
+            filename,
+            destination,
+            content_base64,
+            permissions.as_deref(),
+            *overwrite,
+        ),
         TaskType::Kafka {
             broker,
             topic,
@@ -457,26 +276,17 @@ pub async fn run_task(
             key,
             properties,
         } => {
-            let mut cmd = format!(
-                "echo {} | kafka-console-producer --broker-list {} --topic {}",
-                shell_escape(message),
-                shell_escape(broker),
-                shell_escape(topic)
-            );
-            if let Some(k) = key {
-                cmd = format!(
-                    "echo {}:{} | kafka-console-producer --broker-list {} --topic {} --property parse.key=true --property key.separator=:",
-                    shell_escape(k),
-                    shell_escape(message),
-                    shell_escape(broker),
-                    shell_escape(topic)
-                );
-            }
-            if let Some(props) = properties {
-                cmd.push(' ');
-                cmd.push_str(props);
-            }
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+            run_kafka_task(
+                broker,
+                topic,
+                message,
+                key.as_deref(),
+                properties.as_deref(),
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Rabbitmq {
             url,
@@ -485,17 +295,17 @@ pub async fn run_task(
             message,
             content_type,
         } => {
-            let mut cmd = format!(
-                "amqp-publish --url {} --exchange {} --routing-key {} --body {}",
-                shell_escape(url),
-                shell_escape(exchange),
-                shell_escape(routing_key),
-                shell_escape(message)
-            );
-            if let Some(ct) = content_type {
-                cmd.push_str(&format!(" --content-type {}", shell_escape(ct)));
-            }
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+            run_rabbitmq_task(
+                url,
+                exchange,
+                routing_key,
+                message,
+                content_type.as_deref(),
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Mqtt {
             broker,
@@ -507,42 +317,385 @@ pub async fn run_task(
             password,
             client_id,
         } => {
-            let p = port.unwrap_or(1883);
-            let mut cmd = format!(
-                "mosquitto_pub -h {} -p {} -t {} -m {}",
-                shell_escape(broker),
-                p,
-                shell_escape(topic),
-                shell_escape(message)
-            );
-            if let Some(q) = qos {
-                cmd.push_str(&format!(" -q {}", q));
-            }
-            if let Some(u) = username {
-                cmd.push_str(&format!(" -u {}", shell_escape(u)));
-            }
-            if let Some(pw) = password {
-                cmd.push_str(&format!(" -P {}", shell_escape(pw)));
-            }
-            if let Some(cid) = client_id {
-                cmd.push_str(&format!(" -i {}", shell_escape(cid)));
-            }
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+            run_mqtt_task(
+                broker,
+                topic,
+                message,
+                *port,
+                *qos,
+                username.as_deref(),
+                password.as_deref(),
+                client_id.as_deref(),
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
         TaskType::Redis {
             url,
             channel,
             message,
-        } => {
-            let cmd = format!(
-                "redis-cli -u {} PUBLISH {} {}",
-                shell_escape(url),
-                shell_escape(channel),
-                shell_escape(message)
-            );
-            run_command(&cmd, run_as, timeout_secs, cancel_rx).await
-        }
+        } => run_redis_task(url, channel, message, run_as, timeout_secs, cancel_rx).await,
     }
+}
+
+async fn run_shell_task(
+    command: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    run_command(command, run_as, timeout_secs, cancel_rx).await
+}
+
+async fn run_sql_task(
+    driver: &SqlDriver,
+    connection_string: &str,
+    query: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let cmd = match driver {
+        SqlDriver::Postgres => format!(
+            "psql {} -c {}",
+            shell_escape(connection_string),
+            shell_escape(query)
+        ),
+        SqlDriver::Mysql => format!(
+            "mysql {} -e {}",
+            shell_escape(connection_string),
+            shell_escape(query)
+        ),
+        SqlDriver::Sqlite => format!(
+            "sqlite3 {} {}",
+            shell_escape(connection_string),
+            shell_escape(query)
+        ),
+    };
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_ftp_task(
+    protocol: &FtpProtocol,
+    host: &str,
+    port: Option<u16>,
+    username: &str,
+    password: &str,
+    direction: &TransferDirection,
+    remote_path: &str,
+    local_path: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let port_part = port.map(|p| format!(":{}", p)).unwrap_or_default();
+    let proto = match protocol {
+        FtpProtocol::Ftp => "ftp",
+        FtpProtocol::Ftps => "ftps",
+        FtpProtocol::Sftp => "sftp",
+    };
+    let url = format!("{}://{}{}{}", proto, host, port_part, remote_path);
+    let cmd = match direction {
+        TransferDirection::Download => format!(
+            "curl -u {}:{} {} -o {}",
+            shell_escape(username),
+            shell_escape(password),
+            shell_escape(&url),
+            shell_escape(local_path)
+        ),
+        TransferDirection::Upload => format!(
+            "curl -u {}:{} -T {} {}",
+            shell_escape(username),
+            shell_escape(password),
+            shell_escape(local_path),
+            shell_escape(&url)
+        ),
+    };
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+}
+
+async fn run_http_task(
+    method: &HttpMethod,
+    url: &str,
+    headers: Option<&std::collections::HashMap<String, String>>,
+    body: Option<&str>,
+    expect_status: Option<u16>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    run_http(
+        method,
+        url,
+        headers,
+        body,
+        expect_status,
+        timeout_secs,
+        cancel_rx,
+    )
+    .await
+}
+
+async fn run_script_task(
+    script_name: &str,
+    script_store: Option<&crate::scripts::ScriptStore>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let store = match script_store {
+        Some(s) => s,
+        None => {
+            return CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: "script store not available on agent".to_string(),
+                    truncated: false,
+                },
+            };
+        }
+    };
+    let code = match store.read_code(script_name) {
+        Ok(c) => c,
+        Err(e) => {
+            return CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: format!("script error: {e}"),
+                    truncated: false,
+                },
+            };
+        }
+    };
+    run_script(&code, timeout_secs, cancel_rx).await
+}
+
+fn run_file_push_task(
+    filename: &str,
+    destination: &str,
+    content_base64: &str,
+    permissions: Option<&str>,
+    overwrite: bool,
+) -> CommandResult {
+    use base64::Engine;
+    let decoded = match base64::engine::general_purpose::STANDARD.decode(content_base64) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            return CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: Some(1),
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: format!("base64 decode error: {e}"),
+                    truncated: false,
+                },
+            };
+        }
+    };
+
+    let dest = std::path::Path::new(destination);
+
+    // Check overwrite
+    if !overwrite && dest.exists() {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: Some(1),
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: format!("file already exists: {} (overwrite=false)", destination),
+                truncated: false,
+            },
+        };
+    }
+
+    // Create parent dirs
+    if let Some(parent) = dest.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: Some(1),
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: format!("failed to create directory {}: {e}", parent.display()),
+                truncated: false,
+            },
+        };
+    }
+
+    // Write file
+    let size = decoded.len();
+    if let Err(e) = std::fs::write(dest, &decoded) {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: Some(1),
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: format!("failed to write file: {e}"),
+                truncated: false,
+            },
+        };
+    }
+
+    // Set permissions (Unix only)
+    #[cfg(unix)]
+    if let Some(perm_str) = permissions
+        && let Ok(mode) = u32::from_str_radix(perm_str, 8)
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(mode);
+        let _ = std::fs::set_permissions(dest, perms);
+    }
+
+    CommandResult {
+        status: ExecutionStatus::Succeeded,
+        exit_code: Some(0),
+        stdout: CapturedOutput {
+            text: format!(
+                "File '{}' written to {} ({} bytes)",
+                filename, destination, size
+            ),
+            truncated: false,
+        },
+        stderr: CapturedOutput {
+            text: String::new(),
+            truncated: false,
+        },
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_kafka_task(
+    broker: &str,
+    topic: &str,
+    message: &str,
+    key: Option<&str>,
+    properties: Option<&str>,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let mut cmd = format!(
+        "echo {} | kafka-console-producer --broker-list {} --topic {}",
+        shell_escape(message),
+        shell_escape(broker),
+        shell_escape(topic)
+    );
+    if let Some(k) = key {
+        cmd = format!(
+            "echo {}:{} | kafka-console-producer --broker-list {} --topic {} --property parse.key=true --property key.separator=:",
+            shell_escape(k),
+            shell_escape(message),
+            shell_escape(broker),
+            shell_escape(topic)
+        );
+    }
+    if let Some(props) = properties {
+        cmd.push(' ');
+        cmd.push_str(props);
+    }
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_rabbitmq_task(
+    url: &str,
+    exchange: &str,
+    routing_key: &str,
+    message: &str,
+    content_type: Option<&str>,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let mut cmd = format!(
+        "amqp-publish --url {} --exchange {} --routing-key {} --body {}",
+        shell_escape(url),
+        shell_escape(exchange),
+        shell_escape(routing_key),
+        shell_escape(message)
+    );
+    if let Some(ct) = content_type {
+        cmd.push_str(&format!(" --content-type {}", shell_escape(ct)));
+    }
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_mqtt_task(
+    broker: &str,
+    topic: &str,
+    message: &str,
+    port: Option<u16>,
+    qos: Option<u8>,
+    username: Option<&str>,
+    password: Option<&str>,
+    client_id: Option<&str>,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let p = port.unwrap_or(1883);
+    let mut cmd = format!(
+        "mosquitto_pub -h {} -p {} -t {} -m {}",
+        shell_escape(broker),
+        p,
+        shell_escape(topic),
+        shell_escape(message)
+    );
+    if let Some(q) = qos {
+        cmd.push_str(&format!(" -q {}", q));
+    }
+    if let Some(u) = username {
+        cmd.push_str(&format!(" -u {}", shell_escape(u)));
+    }
+    if let Some(pw) = password {
+        cmd.push_str(&format!(" -P {}", shell_escape(pw)));
+    }
+    if let Some(cid) = client_id {
+        cmd.push_str(&format!(" -i {}", shell_escape(cid)));
+    }
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
+}
+
+async fn run_redis_task(
+    url: &str,
+    channel: &str,
+    message: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    let cmd = format!(
+        "redis-cli -u {} PUBLISH {} {}",
+        shell_escape(url),
+        shell_escape(channel),
+        shell_escape(message)
+    );
+    run_command(&cmd, run_as, timeout_secs, cancel_rx).await
 }
 
 fn shell_escape(s: &str) -> String {

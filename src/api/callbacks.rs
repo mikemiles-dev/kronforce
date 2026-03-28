@@ -3,6 +3,7 @@ use axum::extract::State;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
+use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
 use crate::protocol::ExecutionResultReport;
@@ -12,14 +13,10 @@ pub(crate) async fn execution_result_callback(
     State(state): State<AppState>,
     Json(result): Json<ExecutionResultReport>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let db = state.db.clone();
     let exec_id = result.execution_id;
 
     // Get existing execution to preserve triggered_by
-    let db2 = db.clone();
-    let existing = tokio::task::spawn_blocking(move || db2.get_execution(exec_id))
-        .await
-        .unwrap()?;
+    let existing = db_call(&state.db, move |db| db.get_execution(exec_id)).await?;
 
     let task_snap = existing.as_ref().and_then(|e| e.task_snapshot.clone());
     let triggered_by = existing
@@ -50,9 +47,7 @@ pub(crate) async fn execution_result_callback(
     let exec_id_for_rules = rec.id;
 
     let status = rec.status;
-    tokio::task::spawn_blocking(move || db.update_execution(&rec))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.update_execution(&rec)).await?;
 
     // Run output rules (extraction + triggers) and notify scheduler
     let db_rules = state.db.clone();
@@ -100,57 +95,17 @@ pub(crate) async fn execution_result_callback(
                 Ok(Ok(Some(j))) => j,
                 _ => return,
             };
-            let notif = match &job.notifications {
-                Some(n) => n,
-                None => return,
-            };
-            let should_notify = match exec_status {
-                ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
-                    notif.on_failure || notif.on_assertion_failure
-                }
-                ExecutionStatus::Succeeded => notif.on_success,
-                _ => false,
-            };
-            if !should_notify {
-                return;
+            if let Some(ref notif) = job.notifications {
+                crate::notifications::notify_execution_complete(
+                    &db_notif,
+                    notif,
+                    &job.name,
+                    &exec_id_short,
+                    exec_status,
+                    &stderr_excerpt,
+                )
+                .await;
             }
-            let subject = format!(
-                "[Kronforce] Job '{}' {}",
-                job.name,
-                match exec_status {
-                    ExecutionStatus::Succeeded => "succeeded",
-                    ExecutionStatus::Failed => "failed",
-                    ExecutionStatus::TimedOut => "timed out",
-                    _ => "completed",
-                }
-            );
-            let body = format!(
-                "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
-                job.name,
-                exec_status,
-                exec_id_short,
-                chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-                if !stderr_excerpt.is_empty() {
-                    format!("\nError output:\n{}", stderr_excerpt)
-                } else {
-                    String::new()
-                }
-            );
-            let recipients =
-                notif
-                    .recipients
-                    .as_ref()
-                    .map(|r| crate::notifications::NotificationRecipients {
-                        emails: r.emails.clone(),
-                        phones: r.phones.clone(),
-                    });
-            crate::notifications::send_notification(
-                &db_notif,
-                &subject,
-                &body,
-                recipients.as_ref(),
-            )
-            .await;
         });
     }
 
@@ -163,9 +118,8 @@ pub(crate) async fn execution_result_callback(
     let no_auth = AuthUser(None);
     let msg = format!("Execution {} finished: {:?}", result.execution_id, status);
     // Mark queue item complete (for custom agents)
-    let db_q = state.db.clone();
     let eid = result.execution_id;
-    let _ = tokio::task::spawn_blocking(move || db_q.complete_queue_item(eid)).await;
+    let _ = db_call(&state.db, move |db| db.complete_queue_item(eid)).await;
 
     log_and_notify(
         &state.db,
