@@ -1,6 +1,5 @@
 use axum::Json;
 use axum::extract::State;
-use uuid::Uuid;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
@@ -63,58 +62,18 @@ pub(crate) async fn execution_result_callback(
         let stdout_r = stdout_for_rules;
         let stderr_r = stderr_for_rules;
         let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
-            let mut events = Vec::new();
-            if let Ok(Some(job)) = db_r.get_job(job_id_for_rules)
-                && let Some(ref rules) = job.output_rules
-            {
-                if !rules.extractions.is_empty() {
-                    let extracted =
-                        crate::output_rules::run_extractions(&stdout_r, &rules.extractions);
-                    if !extracted.is_empty() {
-                        let _ = db_r.update_execution_extracted(
-                            exec_id_for_rules,
-                            &serde_json::json!(extracted),
-                        );
-                    }
-                }
-                // Assertions — only on successful executions
-                if status == ExecutionStatus::Succeeded && !rules.assertions.is_empty() {
-                    let failures =
-                        crate::output_rules::run_assertions(&stdout_r, &rules.assertions);
-                    if !failures.is_empty() {
-                        let msg = failures.join("; ");
-                        let _ = db_r.fail_execution_assertion(exec_id_for_rules, &msg);
-                    }
-                }
-                let matches =
-                    crate::output_rules::run_triggers(&stdout_r, &stderr_r, &rules.triggers);
-                for (pattern, severity) in &matches {
-                    let sev = match severity.as_str() {
-                        "error" => EventSeverity::Error,
-                        "warning" => EventSeverity::Warning,
-                        "success" => EventSeverity::Success,
-                        _ => EventSeverity::Info,
-                    };
-                    let event = Event {
-                        id: Uuid::new_v4(),
-                        kind: "output.matched".to_string(),
-                        severity: sev,
-                        message: format!(
-                            "Output pattern matched: '{}' in job '{}'",
-                            pattern, job.name
-                        ),
-                        job_id: Some(job_id_for_rules),
-                        agent_id: None,
-                        api_key_id: None,
-                        api_key_name: None,
-                        details: None,
-                        timestamp: chrono::Utc::now(),
-                    };
-                    let _ = db_r.insert_event(&event);
-                    events.push(event);
-                }
+            if let Ok(Some(job)) = db_r.get_job(job_id_for_rules) {
+                crate::output_rules::process_post_execution(
+                    &db_r,
+                    &job,
+                    exec_id_for_rules,
+                    &stdout_r,
+                    &stderr_r,
+                    status,
+                )
+            } else {
+                Vec::new()
             }
-            events
         })
         .await
         .unwrap_or_default();

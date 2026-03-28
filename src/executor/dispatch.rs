@@ -150,22 +150,10 @@ impl super::Executor {
         let exec_id = Uuid::new_v4();
         let now = Utc::now();
 
-        let rec = ExecutionRecord {
-            id: exec_id,
-            job_id: job.id,
-            agent_id: Some(agent.id),
-            task_snapshot: Some(job.task.clone()),
-            status: ExecutionStatus::Pending,
-            exit_code: None,
-            stdout: String::new(),
-            stderr: String::new(),
-            stdout_truncated: false,
-            stderr_truncated: false,
-            started_at: Some(now),
-            finished_at: None,
-            triggered_by: trigger,
-            extracted: None,
-        };
+        let rec = ExecutionRecord::new(exec_id, job.id, trigger)
+            .with_agent_id(agent.id)
+            .with_task_snapshot(job.task.clone())
+            .with_started_at(now);
 
         let db = self.db.clone();
         let rec_clone = rec.clone();

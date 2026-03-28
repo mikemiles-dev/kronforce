@@ -16,22 +16,10 @@ impl super::Executor {
         let exec_id = Uuid::new_v4();
         let now = Utc::now();
 
-        let rec = ExecutionRecord {
-            id: exec_id,
-            job_id: job.id,
-            agent_id: None,
-            task_snapshot: Some(job.task.clone()),
-            status: ExecutionStatus::Running,
-            exit_code: None,
-            stdout: String::new(),
-            stderr: String::new(),
-            stdout_truncated: false,
-            stderr_truncated: false,
-            started_at: Some(now),
-            finished_at: None,
-            triggered_by: trigger,
-            extracted: None,
-        };
+        let rec = ExecutionRecord::new(exec_id, job.id, trigger)
+            .with_status(ExecutionStatus::Running)
+            .with_task_snapshot(job.task.clone())
+            .with_started_at(now);
 
         let db = self.db.clone();
         let rec_clone = rec.clone();
@@ -96,92 +84,18 @@ impl super::Executor {
                 let exec_id_rules = exec_id;
                 let exec_status = updated.status;
                 let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
-                    let mut events = Vec::new();
-                    if let Ok(Some(job)) = db_rules.get_job(job_id)
-                        && let Some(ref rules) = job.output_rules
-                    {
-                        // Extractions
-                        if !rules.extractions.is_empty() {
-                            let extracted = crate::output_rules::run_extractions(
-                                &stdout_clone,
-                                &rules.extractions,
-                            );
-                            if !extracted.is_empty() {
-                                let _ = db_rules.update_execution_extracted(
-                                    exec_id_rules,
-                                    &serde_json::json!(extracted),
-                                );
-                                // Write-back: update global variables for rules with write_to_variable
-                                for rule in &rules.extractions {
-                                    if let Some(ref var_name) = rule.write_to_variable
-                                        && let Some(value) = extracted.get(&rule.name)
-                                    {
-                                        if let Err(e) = db_rules.upsert_variable(var_name, value) {
-                                            tracing::error!(
-                                                "failed to write variable {}: {}",
-                                                var_name,
-                                                e
-                                            );
-                                        } else {
-                                            tracing::info!(
-                                                "variable {} updated from extraction",
-                                                var_name
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        // Assertions — only on successful executions
-                        if exec_status == ExecutionStatus::Succeeded && !rules.assertions.is_empty()
-                        {
-                            let failures = crate::output_rules::run_assertions(
-                                &stdout_clone,
-                                &rules.assertions,
-                            );
-                            if !failures.is_empty() {
-                                let msg = failures.join("; ");
-                                let _ = db_rules.fail_execution_assertion(exec_id_rules, &msg);
-                                tracing::warn!(
-                                    "execution {} failed assertion: {}",
-                                    exec_id_rules,
-                                    msg
-                                );
-                            }
-                        }
-                        // Triggers
-                        let matches = crate::output_rules::run_triggers(
+                    if let Ok(Some(job)) = db_rules.get_job(job_id) {
+                        crate::output_rules::process_post_execution(
+                            &db_rules,
+                            &job,
+                            exec_id_rules,
                             &stdout_clone,
                             &stderr_clone,
-                            &rules.triggers,
-                        );
-                        for (pattern, severity) in &matches {
-                            let sev = match severity.as_str() {
-                                "error" => crate::models::EventSeverity::Error,
-                                "warning" => crate::models::EventSeverity::Warning,
-                                "success" => crate::models::EventSeverity::Success,
-                                _ => crate::models::EventSeverity::Info,
-                            };
-                            let event = Event {
-                                id: Uuid::new_v4(),
-                                kind: "output.matched".to_string(),
-                                severity: sev,
-                                message: format!(
-                                    "Output pattern matched: '{}' in job '{}'",
-                                    pattern, job.name
-                                ),
-                                job_id: Some(job_id),
-                                agent_id: None,
-                                api_key_id: None,
-                                api_key_name: None,
-                                details: None,
-                                timestamp: chrono::Utc::now(),
-                            };
-                            let _ = db_rules.insert_event(&event);
-                            events.push(event);
-                        }
+                            exec_status,
+                        )
+                    } else {
+                        Vec::new()
                     }
-                    events
                 })
                 .await
                 .unwrap_or_default();
@@ -764,7 +678,7 @@ async fn run_script(
     let code = code.to_string();
     let timeout = timeout_secs
         .map(std::time::Duration::from_secs)
-        .unwrap_or(std::time::Duration::from_secs(60));
+        .unwrap_or(std::time::Duration::from_secs(DEFAULT_SCRIPT_TIMEOUT_SECS));
 
     let script_future = tokio::task::spawn_blocking(move || {
         let mut engine = Engine::new();
@@ -772,8 +686,8 @@ async fn run_script(
         let errors = StdArc::new(StdMutex::new(Vec::<String>::new()));
 
         // Limit execution
-        engine.set_max_operations(1_000_000);
-        engine.set_max_string_size(256 * 1024);
+        engine.set_max_operations(MAX_SCRIPT_OPERATIONS);
+        engine.set_max_string_size(MAX_SCRIPT_STRING_SIZE);
 
         // print() -> captures to output
         let out = output.clone();
@@ -1152,7 +1066,7 @@ async fn run_script(
                 status: ExecutionStatus::TimedOut,
                 exit_code: None,
                 stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: format!("script timed out after {}s", timeout_secs.unwrap_or(60)), truncated: false },
+                stderr: CapturedOutput { text: format!("script timed out after {}s", timeout_secs.unwrap_or(DEFAULT_SCRIPT_TIMEOUT_SECS)), truncated: false },
             }
         }
         _ = cancel_rx => {
@@ -1168,6 +1082,9 @@ async fn run_script(
 
 /// Max bytes stored per stream (10MB). Output beyond this is truncated from the front (keeps tail).
 const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
+const DEFAULT_SCRIPT_TIMEOUT_SECS: u64 = 60;
+const MAX_SCRIPT_OPERATIONS: u64 = 1_000_000;
+const MAX_SCRIPT_STRING_SIZE: usize = 256 * 1024;
 
 pub struct CapturedOutput {
     pub text: String,

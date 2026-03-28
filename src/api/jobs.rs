@@ -185,7 +185,7 @@ pub(crate) async fn create_job(
         timeout_secs: req.timeout_secs,
         depends_on,
         target: req.target,
-        created_by: None, // TODO: set from auth context
+        created_by: auth.0.as_ref().map(|k| k.id),
         created_at: now,
         updated_at: now,
         output_rules: req.output_rules,

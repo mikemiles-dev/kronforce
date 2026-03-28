@@ -63,7 +63,7 @@ impl Db {
             .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![id.to_string()], |row| Ok(row_to_job(row)))
+            .query_map(params![id.to_string()], row_to_job)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(job)) => Ok(Some(job)),
@@ -162,7 +162,7 @@ impl Db {
             .map(|s| s as &dyn rusqlite::types::ToSql)
             .collect();
         let rows = stmt
-            .query_map(params.as_slice(), |row| Ok(row_to_job(row)))
+            .query_map(params.as_slice(), row_to_job)
             .map_err(AppError::Db)?;
         let mut jobs = Vec::new();
         for row in rows {

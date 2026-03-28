@@ -399,6 +399,47 @@ pub struct ExecutionRecord {
     pub extracted: Option<serde_json::Value>,
 }
 
+impl ExecutionRecord {
+    pub fn new(id: Uuid, job_id: Uuid, trigger: TriggerSource) -> Self {
+        Self {
+            id,
+            job_id,
+            agent_id: None,
+            task_snapshot: None,
+            status: ExecutionStatus::Pending,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            started_at: None,
+            finished_at: None,
+            triggered_by: trigger,
+            extracted: None,
+        }
+    }
+
+    pub fn with_status(mut self, status: ExecutionStatus) -> Self {
+        self.status = status;
+        self
+    }
+
+    pub fn with_agent_id(mut self, agent_id: Uuid) -> Self {
+        self.agent_id = Some(agent_id);
+        self
+    }
+
+    pub fn with_task_snapshot(mut self, task: TaskType) -> Self {
+        self.task_snapshot = Some(task);
+        self
+    }
+
+    pub fn with_started_at(mut self, at: DateTime<Utc>) -> Self {
+        self.started_at = Some(at);
+        self
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub id: Uuid,
@@ -455,6 +496,33 @@ pub struct ApiKey {
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
     pub active: bool,
+}
+
+const KEY_PREFIX_LEN: usize = 11;
+
+impl ApiKey {
+    pub fn bootstrap(role: ApiKeyRole, name: &str, preset_key: Option<String>) -> (Self, String) {
+        let (raw_key, prefix) = if let Some(preset) = preset_key.filter(|k| !k.is_empty()) {
+            let pfx = preset.get(..KEY_PREFIX_LEN).unwrap_or(&preset).to_string();
+            (preset, pfx)
+        } else {
+            crate::api::generate_api_key()
+        };
+        let hash = crate::api::hash_api_key(&raw_key);
+        (
+            ApiKey {
+                id: Uuid::new_v4(),
+                key_prefix: prefix,
+                key_hash: hash,
+                name: name.to_string(),
+                role,
+                created_at: Utc::now(),
+                last_used_at: None,
+                active: true,
+            },
+            raw_key,
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
