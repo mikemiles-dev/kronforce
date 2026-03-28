@@ -3,8 +3,8 @@ use rusqlite::params;
 use uuid::Uuid;
 
 use super::Db;
-use crate::error::AppError;
 use crate::db::models::*;
+use crate::error::AppError;
 
 impl Db {
     /// Inserts a new event record.

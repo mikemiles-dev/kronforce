@@ -12,8 +12,8 @@ use crate::agent::AgentClient;
 use crate::config::ControllerConfig;
 use crate::dag::DagResolver;
 use crate::db::Db;
-use crate::executor::Executor;
 use crate::db::models::*;
+use crate::executor::Executor;
 
 /// Commands sent to the scheduler via its mpsc channel.
 pub enum SchedulerCommand {

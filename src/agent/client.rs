@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
-use crate::error::AppError;
 use crate::agent::protocol::{CancelRequest, JobDispatchRequest, JobDispatchResponse};
+use crate::error::AppError;
 
 /// HTTP client used by the controller to communicate with remote agents.
 #[derive(Clone)]

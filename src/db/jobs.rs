@@ -3,8 +3,8 @@ use uuid::Uuid;
 
 use super::Db;
 use super::helpers::*;
-use crate::error::AppError;
 use crate::db::models::*;
+use crate::error::AppError;
 
 impl Db {
     /// Inserts a new job. Returns a conflict error if the job name already exists.

@@ -6,8 +6,8 @@ use serde::Deserialize;
 use super::AppState;
 use super::auth::AuthUser;
 use crate::db::db_call;
-use crate::error::AppError;
 use crate::db::models::Variable;
+use crate::error::AppError;
 
 /// Returns all global variables.
 pub(crate) async fn list_variables(

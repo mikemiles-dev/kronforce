@@ -25,8 +25,8 @@ use crate::agent::AgentClient;
 use crate::dag::DagResolver;
 use crate::db::Db;
 use crate::db::models::*;
-use crate::scheduler::SchedulerCommand;
 use crate::executor::scripts::ScriptStore;
+use crate::scheduler::SchedulerCommand;
 
 pub use auth::{generate_api_key, hash_api_key};
 

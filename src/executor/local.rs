@@ -4,8 +4,8 @@ use super::*;
 
 use crate::executor::notifications::notify_execution_complete;
 use crate::executor::output_rules::process_post_execution;
-use crate::scheduler::SchedulerCommand;
 use crate::executor::scripts::ScriptStore;
+use crate::scheduler::SchedulerCommand;
 
 use std::time::Duration;
 

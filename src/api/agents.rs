@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 use super::AppState;
 use crate::db::db_call;
-use crate::error::AppError;
 use crate::db::models::*;
+use crate::error::AppError;
 use tracing::info;
 
 use crate::agent::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
