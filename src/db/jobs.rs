@@ -65,7 +65,7 @@ impl Db {
             .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![id.to_string()], row_to_job)
+            .query_map(params![id.to_string()], Job::from_row)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(job)) => Ok(Some(job)),
@@ -118,7 +118,7 @@ impl Db {
         );
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
         let rows = stmt
-            .query_map(f.to_params().as_slice(), row_to_job)
+            .query_map(f.to_params().as_slice(), Job::from_row)
             .map_err(AppError::Db)?;
         let mut jobs = Vec::new();
         for row in rows {

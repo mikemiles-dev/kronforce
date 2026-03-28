@@ -160,3 +160,49 @@ pub struct Job {
     #[serde(default)]
     pub notifications: Option<JobNotificationConfig>,
 }
+
+impl Job {
+    /// Constructs a Job from a rusqlite row.
+    ///
+    /// Columns: id(0), name(1), description(2), task_json(3), run_as(4), schedule_json(5), status(6),
+    ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14)
+    pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
+
+        let id_str: String = row.get(0)?;
+        let run_as: Option<String> = row.get(4)?;
+        let schedule_json: String = row.get(5)?;
+        let status_str: String = row.get(6)?;
+        let timeout: Option<i64> = row.get(7)?;
+        let depends_json: String = row.get(8)?;
+        let target_json: Option<String> = row.get(9)?;
+        let created_by_str: Option<String> = row.get(10)?;
+        let created_str: String = row.get(11)?;
+        let updated_str: String = row.get(12)?;
+        let task_json: String = row.get(3)?;
+
+        Ok(Job {
+            id: parse_uuid(&id_str)?,
+            name: row.get(1)?,
+            description: row.get(2)?,
+            task: parse_json(&task_json)?,
+            run_as,
+            schedule: parse_json(&schedule_json)?,
+            status: JobStatus::from_str(&status_str).unwrap_or(JobStatus::Unscheduled),
+            timeout_secs: timeout.map(|t| t as u64),
+            depends_on: serde_json::from_str(&depends_json).unwrap_or_default(),
+            target: target_json.and_then(|s| serde_json::from_str(&s).ok()),
+            created_by: created_by_str.and_then(|s| Uuid::parse_str(&s).ok()),
+            created_at: parse_datetime(&created_str)?,
+            updated_at: parse_datetime(&updated_str)?,
+            output_rules: {
+                let or_json: Option<String> = row.get(13).unwrap_or(None);
+                or_json.and_then(|s| serde_json::from_str(&s).ok())
+            },
+            notifications: {
+                let n_json: Option<String> = row.get(14).unwrap_or(None);
+                n_json.and_then(|s| serde_json::from_str(&s).ok())
+            },
+        })
+    }
+}

@@ -121,4 +121,43 @@ impl ExecutionRecord {
         self.started_at = Some(at);
         self
     }
+
+    /// Constructs an ExecutionRecord from a rusqlite row.
+    ///
+    /// Columns: id(0), job_id(1), agent_id(2), task_snapshot_json(3), status(4), exit_code(5),
+    ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13)
+    pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
+        use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
+
+        let id_str: String = row.get(0)?;
+        let job_id_str: String = row.get(1)?;
+        let agent_id_str: Option<String> = row.get(2)?;
+        let task_snap_json: Option<String> = row.get(3)?;
+        let status_str: String = row.get(4)?;
+        let stdout_trunc: i32 = row.get(8)?;
+        let stderr_trunc: i32 = row.get(9)?;
+        let started_str: Option<String> = row.get(10)?;
+        let finished_str: Option<String> = row.get(11)?;
+        let triggered_json: String = row.get(12)?;
+
+        Ok(ExecutionRecord {
+            id: parse_uuid(&id_str)?,
+            job_id: parse_uuid(&job_id_str)?,
+            agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
+            task_snapshot: task_snap_json.and_then(|s| serde_json::from_str(&s).ok()),
+            status: ExecutionStatus::from_str(&status_str).unwrap_or(ExecutionStatus::Failed),
+            exit_code: row.get(5)?,
+            stdout: row.get(6)?,
+            stderr: row.get(7)?,
+            stdout_truncated: stdout_trunc != 0,
+            stderr_truncated: stderr_trunc != 0,
+            started_at: started_str.map(|s| parse_datetime(&s)).transpose()?,
+            finished_at: finished_str.map(|s| parse_datetime(&s)).transpose()?,
+            triggered_by: parse_json(&triggered_json)?,
+            extracted: {
+                let ex_json: Option<String> = row.get(13).unwrap_or(None);
+                ex_json.and_then(|s| serde_json::from_str(&s).ok())
+            },
+        })
+    }
 }

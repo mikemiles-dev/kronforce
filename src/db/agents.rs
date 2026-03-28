@@ -3,7 +3,6 @@ use rusqlite::params;
 use uuid::Uuid;
 
 use super::Db;
-use super::helpers::*;
 use crate::db::models::*;
 use crate::error::AppError;
 
@@ -50,7 +49,7 @@ impl Db {
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![id.to_string()], row_to_agent)
+            .query_map(params![id.to_string()], Agent::from_row)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(a)) => Ok(Some(a)),
@@ -66,7 +65,7 @@ impl Db {
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE name = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
-            .query_map(params![name], row_to_agent)
+            .query_map(params![name], Agent::from_row)
             .map_err(AppError::Db)?;
         match rows.next() {
             Some(Ok(a)) => Ok(Some(a)),
@@ -81,7 +80,7 @@ impl Db {
         let mut stmt = conn
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents ORDER BY name")
             .map_err(AppError::Db)?;
-        let rows = stmt.query_map([], row_to_agent).map_err(AppError::Db)?;
+        let rows = stmt.query_map([], Agent::from_row).map_err(AppError::Db)?;
         let mut agents = Vec::new();
         for row in rows {
             agents.push(row.map_err(AppError::Db)?);

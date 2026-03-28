@@ -277,7 +277,7 @@ impl Scheduler {
             }
 
             if let ScheduleKind::Event(ref config) = job.schedule {
-                if !event_matches(&event, config) {
+                if !Self::event_matches(&event, config) {
                     continue;
                 }
 
@@ -310,47 +310,39 @@ impl Scheduler {
         self.jobs_cache = None;
         self.next_fire_times.clear();
     }
-}
 
-fn event_matches(event: &Event, config: &EventTriggerConfig) -> bool {
-    // Match kind pattern
-    if !pattern_matches(&config.kind_pattern, &event.kind) {
-        return false;
-    }
-
-    // Match severity filter
-    if let Some(ref sev) = config.severity
-        && event.severity != *sev
-    {
-        return false;
-    }
-
-    // Match job name filter (prefix match on the event message or related job)
-    if let Some(ref name_filter) = config.job_name_filter {
-        // Check if the event message contains the job name
-        if !event
-            .message
-            .to_lowercase()
-            .contains(&name_filter.to_lowercase())
+    fn event_matches(event: &Event, config: &EventTriggerConfig) -> bool {
+        if !Self::pattern_matches(&config.kind_pattern, &event.kind) {
+            return false;
+        }
+        if let Some(ref sev) = config.severity
+            && event.severity != *sev
         {
             return false;
         }
+        if let Some(ref name_filter) = config.job_name_filter
+            && !event
+                .message
+                .to_lowercase()
+                .contains(&name_filter.to_lowercase())
+        {
+            return false;
+        }
+        true
     }
 
-    true
-}
-
-fn pattern_matches(pattern: &str, value: &str) -> bool {
-    if pattern == "*" {
-        return true;
+    fn pattern_matches(pattern: &str, value: &str) -> bool {
+        if pattern == "*" {
+            return true;
+        }
+        if let Some(prefix) = pattern.strip_suffix(".*") {
+            return value.starts_with(prefix)
+                && value.len() > prefix.len()
+                && value.as_bytes()[prefix.len()] == b'.';
+        }
+        if let Some(prefix) = pattern.strip_suffix('*') {
+            return value.starts_with(prefix);
+        }
+        pattern == value
     }
-    if let Some(prefix) = pattern.strip_suffix(".*") {
-        return value.starts_with(prefix)
-            && value.len() > prefix.len()
-            && value.as_bytes()[prefix.len()] == b'.';
-    }
-    if let Some(prefix) = pattern.strip_suffix('*') {
-        return value.starts_with(prefix);
-    }
-    pattern == value
 }
