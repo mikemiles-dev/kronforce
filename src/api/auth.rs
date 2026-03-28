@@ -60,14 +60,15 @@ async fn validate_bearer_token(
     let api_key = db_call(db, move |db| db.get_api_key_by_hash(&hash)).await?;
 
     match api_key {
-        Some(key) => {
-            let key_id = key.id;
-            let now = Utc::now();
-            let _ = db_call(db, move |db| db.update_api_key_last_used(key_id, now)).await;
-            Ok(Some(key))
-        }
+        Some(key) => Ok(Some(key)),
         None => Err(AppError::Unauthorized("invalid API key".into())),
     }
+}
+
+/// Updates the last-used timestamp for an API key. Called after permission checks pass.
+async fn touch_api_key(db: &crate::db::Db, key_id: Uuid) {
+    let now = Utc::now();
+    let _ = db_call(db, move |db| db.update_api_key_last_used(key_id, now)).await;
 }
 
 /// Middleware that authenticates agent-facing endpoints using Bearer tokens.
@@ -84,6 +85,7 @@ pub(crate) async fn agent_auth_middleware(
     };
 
     if key.role.is_agent() || key.role.can_manage_keys() {
+        touch_api_key(&state.db, key.id).await;
         Ok(next.run(req).await)
     } else {
         Err(AppError::Forbidden(
@@ -109,6 +111,7 @@ pub(crate) async fn auth_middleware(
         return Ok(next.run(req).await);
     };
 
+    touch_api_key(&state.db, key.id).await;
     req.extensions_mut().insert(key);
     Ok(next.run(req).await)
 }
