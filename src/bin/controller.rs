@@ -86,6 +86,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::info!("  Set KRONFORCE_AGENT_KEY={} on your agents.", agent_raw);
         tracing::info!("  Save this key — it will not be shown again.");
         tracing::info!("=============================================================");
+
+        // Write keys to file next to the database for easy retrieval
+        let db_path = std::path::Path::new(&config.db_path);
+        let keys_path = db_path
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("bootstrap-keys.txt");
+        let keys_content = format!(
+            "# Kronforce Bootstrap Keys\n# Generated: {}\n# Store these securely and delete this file.\n\nADMIN_KEY={}\nAGENT_KEY={}\n",
+            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
+            admin_raw,
+            agent_raw,
+        );
+        match std::fs::write(&keys_path, &keys_content) {
+            Ok(()) => {
+                // Restrict file permissions on Unix
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(
+                        &keys_path,
+                        std::fs::Permissions::from_mode(0o600),
+                    );
+                }
+                tracing::info!("  Keys saved to: {}", keys_path.display());
+                tracing::info!("  Retrieve with: cat {}", keys_path.display());
+            }
+            Err(e) => {
+                tracing::warn!("  Could not write keys file: {}", e);
+            }
+        }
     }
 
     let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
