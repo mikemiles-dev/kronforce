@@ -84,7 +84,7 @@ impl Executor {
             Ok::<_, AppError>(substitute_variables(&task_clone, &vars))
         })
         .await
-        .unwrap()?;
+        .map_err(|e| AppError::Internal(e.to_string()))??;
         if let Some(new_task) = substituted {
             job.task = new_task;
         }
@@ -127,14 +127,20 @@ pub fn substitute_variables(task: &TaskType, vars: &HashMap<String, String>) -> 
         return None;
     }
 
-    let re = Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}").unwrap();
+    let re = match Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}") {
+        Ok(re) => re,
+        Err(_) => return None,
+    };
     let mut had_substitution = false;
     let result = re.replace_all(&json_str, |caps: &regex::Captures| {
         let var_name = &caps[1];
         if let Some(value) = vars.get(var_name) {
             had_substitution = true;
             // JSON-escape the value for safe embedding in a JSON string
-            let escaped = serde_json::to_string(value).unwrap();
+            let escaped = match serde_json::to_string(value) {
+                Ok(s) => s,
+                Err(_) => return caps[0].to_string(),
+            };
             // Strip the surrounding quotes since we're inside an existing JSON string
             escaped[1..escaped.len() - 1].to_string()
         } else {

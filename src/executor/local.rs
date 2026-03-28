@@ -33,7 +33,7 @@ impl super::Executor {
         let rec_clone = rec.clone();
         tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone))
             .await
-            .unwrap()?;
+            .map_err(|e| AppError::Internal(e.to_string()))??;
 
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
         {
@@ -397,6 +397,24 @@ pub async fn run_command(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     let mut cmd = if let Some(user) = run_as {
+        // Validate run_as username: only allow alphanumeric, dash, underscore, dot
+        if !user
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+        {
+            return CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: format!("invalid run_as user: {user}"),
+                    truncated: false,
+                },
+            };
+        }
         let mut c = Command::new("sudo");
         c.args(["-n", "-u", user, "sh", "-c", command]);
         c

@@ -27,7 +27,14 @@ fn extract_value(stdout: &str, pattern: &str, rule_type: &str) -> Option<String>
     }
 }
 
+/// Maximum allowed regex pattern length to prevent ReDoS.
+const MAX_REGEX_PATTERN_LEN: usize = 1024;
+
 fn extract_regex(stdout: &str, pattern: &str) -> Option<String> {
+    if pattern.len() > MAX_REGEX_PATTERN_LEN {
+        tracing::warn!("regex pattern too long ({} chars), skipping", pattern.len());
+        return None;
+    }
     let re = regex::Regex::new(pattern).ok()?;
     let caps = re.captures(stdout)?;
     // Try named groups first, then group 1

@@ -10,8 +10,12 @@ use crate::error::AppError;
 impl Db {
     /// Inserts a new execution record.
     pub fn insert_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
-        let triggered_by_json = serde_json::to_string(&rec.triggered_by).unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let triggered_by_json = serde_json::to_string(&rec.triggered_by)
+            .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
         conn.execute(
             "INSERT INTO executions (id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
@@ -19,7 +23,7 @@ impl Db {
                 rec.id.to_string(),
                 rec.job_id.to_string(),
                 rec.agent_id.map(|a| a.to_string()),
-                rec.task_snapshot.as_ref().map(|t| serde_json::to_string(t).unwrap()),
+                rec.task_snapshot.as_ref().map(serde_json::to_string).transpose().map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
                 rec.status.as_str(),
                 rec.exit_code,
                 rec.stdout,
@@ -37,7 +41,10 @@ impl Db {
 
     /// Updates an existing execution record's status, output, and timestamps.
     pub fn update_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "UPDATE executions SET agent_id=?1, status=?2, exit_code=?3, stdout=?4, stderr=?5, stdout_truncated=?6, stderr_truncated=?7, started_at=?8, finished_at=?9 WHERE id=?10",
             params![
@@ -63,10 +70,17 @@ impl Db {
         id: Uuid,
         extracted: &serde_json::Value,
     ) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "UPDATE executions SET extracted_json = ?1 WHERE id = ?2",
-            params![serde_json::to_string(extracted).unwrap(), id.to_string()],
+            params![
+                serde_json::to_string(extracted)
+                    .map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
+                id.to_string()
+            ],
         )
         .map_err(AppError::Db)?;
         Ok(())
@@ -74,7 +88,10 @@ impl Db {
 
     /// Marks an execution as failed and appends the assertion failure message to stderr.
     pub fn fail_execution_assertion(&self, id: Uuid, message: &str) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "UPDATE executions SET status = 'failed', stderr = COALESCE(stderr, '') || ?1 WHERE id = ?2",
             params![format!("\n[assertion failed] {}", message), id.to_string()],
@@ -84,7 +101,10 @@ impl Db {
 
     /// Looks up an execution record by its UUID.
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
@@ -105,7 +125,10 @@ impl Db {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<ExecutionRecord>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
@@ -123,7 +146,10 @@ impl Db {
 
     /// Returns the total number of executions for a specific job.
     pub fn count_executions_for_job(&self, job_id: Uuid) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.query_row(
             "SELECT COUNT(*) FROM executions WHERE job_id = ?1",
             params![job_id.to_string()],
@@ -159,7 +185,10 @@ impl Db {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<ExecutionRecord>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut f = Self::build_exec_filters(status_filter, search, since);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
@@ -186,7 +215,10 @@ impl Db {
         search: Option<&str>,
         since: Option<&str>,
     ) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let f = Self::build_exec_filters(status_filter, search, since);
         let sql = format!(
             "SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{}",
@@ -199,7 +231,10 @@ impl Db {
 
     /// Returns (total, succeeded, failed) execution counts for a job.
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let total: u32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM executions WHERE job_id = ?1",
@@ -231,7 +266,10 @@ impl Db {
         job_id: Option<Uuid>,
         minutes: u32,
     ) -> Result<Vec<(String, u32, u32, u32)>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::minutes(minutes as i64)).to_rfc3339();
 
         let (sql, params_vec): (String, Vec<String>) = match job_id {
@@ -292,7 +330,10 @@ impl Db {
         &self,
         bucket: &str,
     ) -> Result<Vec<(String, String, u32)>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let bucket_start = format!("{}:00", bucket);
         let bucket_end = format!("{}:59", bucket);
         let mut stmt = conn.prepare(

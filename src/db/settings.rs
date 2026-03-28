@@ -7,7 +7,10 @@ use crate::error::AppError;
 impl Db {
     /// Returns the value of a setting by key, or None if not set.
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let result = conn.query_row(
             "SELECT value FROM settings WHERE key = ?1",
             params![key],
@@ -22,7 +25,10 @@ impl Db {
 
     /// Creates or updates a setting by key.
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             params![key, value],
@@ -32,7 +38,10 @@ impl Db {
 
     /// Returns all settings as a key-value map.
     pub fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT key, value FROM settings")
             .map_err(AppError::Db)?;
@@ -51,7 +60,10 @@ impl Db {
 
     /// Deletes finished executions older than the specified retention period.
     pub fn purge_old_executions(&self, retention_days: i64) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
         let deleted = conn
             .execute(
@@ -64,7 +76,10 @@ impl Db {
 
     /// Deletes events older than the specified retention period.
     pub fn purge_old_events(&self, retention_days: i64) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
         let deleted = conn
             .execute("DELETE FROM events WHERE timestamp < ?1", params![cutoff])
@@ -74,7 +89,10 @@ impl Db {
 
     /// Deletes completed queue items older than the specified retention period.
     pub fn purge_old_queue_items(&self, retention_days: i64) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
         let deleted = conn
             .execute(

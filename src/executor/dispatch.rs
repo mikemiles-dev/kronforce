@@ -14,7 +14,7 @@ impl super::Executor {
         let db = self.db.clone();
         let agent = tokio::task::spawn_blocking(move || db.get_agent(agent_id))
             .await
-            .unwrap()?
+            .map_err(|e| AppError::Internal(e.to_string()))??
             .ok_or_else(|| AppError::AgentUnavailable(format!("agent {agent_id} not found")))?;
 
         if agent.status != AgentStatus::Online {
@@ -44,7 +44,7 @@ impl super::Executor {
         let agents: Vec<_> =
             tokio::task::spawn_blocking(move || db.get_online_agents_by_tag(&tag_owned))
                 .await
-                .unwrap()?
+                .map_err(|e| AppError::Internal(e.to_string()))??
                 .into_iter()
                 .filter(|a| a.agent_type == required_type)
                 .collect();
@@ -85,7 +85,7 @@ impl super::Executor {
         let agents =
             tokio::task::spawn_blocking(move || db.get_online_agents_by_type(required_type))
                 .await
-                .unwrap()?;
+                .map_err(|e| AppError::Internal(e.to_string()))??;
 
         if agents.is_empty() {
             return Err(AppError::AgentUnavailable(format!(
@@ -113,7 +113,7 @@ impl super::Executor {
         let agents =
             tokio::task::spawn_blocking(move || db.get_online_agents_by_type(required_type))
                 .await
-                .unwrap()?;
+                .map_err(|e| AppError::Internal(e.to_string()))??;
 
         if agents.is_empty() {
             return Err(AppError::AgentUnavailable(format!(
@@ -167,7 +167,7 @@ impl super::Executor {
         let rec_clone = rec.clone();
         tokio::task::spawn_blocking(move || db.insert_execution(&rec_clone))
             .await
-            .unwrap()?;
+            .map_err(|e| AppError::Internal(e.to_string()))??;
 
         let callback_url = format!("{}/api/callbacks/execution-result", callback_base_url);
 
@@ -209,7 +209,7 @@ impl super::Executor {
             )
         })
         .await
-        .unwrap()?;
+        .map_err(|e| AppError::Internal(e.to_string()))??;
         info!(
             "queued job {} for custom agent {} -> execution {}",
             job.name, agent.name, exec_id

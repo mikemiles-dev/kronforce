@@ -9,7 +9,10 @@ use crate::error::AppError;
 impl Db {
     /// Inserts a new event record.
     pub fn insert_event(&self, event: &Event) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "INSERT INTO events (id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
@@ -97,7 +100,10 @@ impl Db {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<Event>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let sql = match since {
             Some(_) => {
                 "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events WHERE timestamp >= ?3 ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
@@ -127,7 +133,13 @@ impl Db {
                     let details: Option<String> = row.get(8)?;
                     let ts_str: String = row.get(9)?;
                     Ok(Event {
-                        id: Uuid::parse_str(&id_str).unwrap(),
+                        id: Uuid::parse_str(&id_str).map_err(|_| {
+                            rusqlite::Error::InvalidColumnType(
+                                0,
+                                "id".into(),
+                                rusqlite::types::Type::Text,
+                            )
+                        })?,
                         kind: row.get(1)?,
                         severity: EventSeverity::from_str(&severity_str)
                             .unwrap_or(EventSeverity::Info),
@@ -138,7 +150,13 @@ impl Db {
                         api_key_name,
                         details,
                         timestamp: DateTime::parse_from_rfc3339(&ts_str)
-                            .unwrap()
+                            .map_err(|_| {
+                                rusqlite::Error::InvalidColumnType(
+                                    9,
+                                    "timestamp".into(),
+                                    rusqlite::types::Type::Text,
+                                )
+                            })?
                             .with_timezone(&Utc),
                     })
                 },
@@ -153,7 +171,10 @@ impl Db {
 
     /// Returns the total number of events, optionally filtered by a start timestamp.
     pub fn count_events(&self, since: Option<&str>) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         match since {
             Some(s) => conn.query_row(
                 "SELECT COUNT(*) FROM events WHERE timestamp >= ?1",

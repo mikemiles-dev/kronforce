@@ -21,7 +21,7 @@ impl AgentClient {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
-            .unwrap();
+            .unwrap_or_else(|_| reqwest::Client::new());
         Self { client }
     }
 

@@ -72,6 +72,17 @@ pub(crate) async fn list_events(
     }))
 }
 
+fn to_timeline_buckets(data: Vec<(String, u32, u32, u32)>) -> Vec<TimelineBucket> {
+    data.into_iter()
+        .map(|(t, s, f, o)| TimelineBucket {
+            time: t,
+            succeeded: s,
+            failed: f,
+            other: o,
+        })
+        .collect()
+}
+
 /// Returns execution counts per minute for the global timeline.
 pub(crate) async fn get_timeline(
     State(state): State<AppState>,
@@ -82,16 +93,7 @@ pub(crate) async fn get_timeline(
         db.get_execution_timeline(None, minutes)
     })
     .await?;
-    Ok(Json(
-        data.into_iter()
-            .map(|(t, s, f, o)| TimelineBucket {
-                time: t,
-                succeeded: s,
-                failed: f,
-                other: o,
-            })
-            .collect(),
-    ))
+    Ok(Json(to_timeline_buckets(data)))
 }
 
 /// Returns execution counts per minute for a specific job.
@@ -105,16 +107,7 @@ pub(crate) async fn get_job_timeline(
         db.get_execution_timeline(Some(job_id), minutes)
     })
     .await?;
-    Ok(Json(
-        data.into_iter()
-            .map(|(t, s, f, o)| TimelineBucket {
-                time: t,
-                succeeded: s,
-                failed: f,
-                other: o,
-            })
-            .collect(),
-    ))
+    Ok(Json(to_timeline_buckets(data)))
 }
 
 /// Returns per-job execution details for a specific minute bucket.

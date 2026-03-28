@@ -146,14 +146,45 @@ pub(crate) async fn list_jobs(
     }))
 }
 
+/// Maximum allowed length for job names.
+const MAX_JOB_NAME_LEN: usize = 255;
+/// Maximum allowed length for cron expressions.
+const MAX_CRON_EXPR_LEN: usize = 200;
+
+fn validate_job_name(name: &str) -> Result<(), AppError> {
+    if name.is_empty() {
+        return Err(AppError::BadRequest("job name cannot be empty".into()));
+    }
+    if name.len() > MAX_JOB_NAME_LEN {
+        return Err(AppError::BadRequest(format!(
+            "job name exceeds {} character limit",
+            MAX_JOB_NAME_LEN
+        )));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == ' ' || c == '-' || c == '_' || c == '.')
+    {
+        return Err(AppError::BadRequest(
+            "job name may only contain alphanumeric characters, spaces, hyphens, underscores, and dots".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Creates a new job, validates its cron expression and dependencies, and notifies the scheduler.
 pub(crate) async fn create_job(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(req): Json<CreateJobRequest>,
 ) -> Result<(axum::http::StatusCode, Json<JobResponse>), AppError> {
+    validate_job_name(&req.name)?;
+
     // Validate cron expression
     if let ScheduleKind::Cron(ref expr) = req.schedule {
+        if expr.0.len() > MAX_CRON_EXPR_LEN {
+            return Err(AppError::BadRequest("cron expression too long".into()));
+        }
         CronSchedule::parse(&expr.0)?;
     }
 
@@ -175,7 +206,7 @@ pub(crate) async fn create_job(
         let deps = depends_on.clone();
         tokio::task::spawn_blocking(move || dag.validate_no_cycle(job_id, &deps))
             .await
-            .unwrap()?;
+            .map_err(|e| AppError::Internal(e.to_string()))??;
     }
 
     let now = Utc::now();
@@ -251,6 +282,7 @@ pub(crate) async fn update_job(
     let old_run_as = job.run_as.clone();
 
     if let Some(name) = req.name {
+        validate_job_name(&name)?;
         job.name = name;
     }
     if let Some(desc) = req.description {
@@ -261,6 +293,9 @@ pub(crate) async fn update_job(
     }
     if let Some(schedule) = req.schedule {
         if let ScheduleKind::Cron(ref expr) = schedule {
+            if expr.0.len() > MAX_CRON_EXPR_LEN {
+                return Err(AppError::BadRequest("cron expression too long".into()));
+            }
             CronSchedule::parse(&expr.0)?;
         }
         job.schedule = schedule;
@@ -369,7 +404,7 @@ pub(crate) async fn trigger_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     auth: AuthUser,
-) -> Result<Json<TriggerResponse>, AppError> {
+) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
     let _ = db_call(&state.db, move |db| db.get_job(id))
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
@@ -393,10 +428,13 @@ pub(crate) async fn trigger_job(
     )
     .await;
 
-    Ok(Json(TriggerResponse {
-        message: "job triggered".to_string(),
-        job_id: id,
-    }))
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(TriggerResponse {
+            message: "job triggered".to_string(),
+            job_id: id,
+        }),
+    ))
 }
 
 impl JobResponse {
