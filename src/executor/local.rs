@@ -15,6 +15,7 @@ use tokio::process::Command;
 use reqwest;
 
 impl super::Executor {
+    /// Executes a job locally on the controller, spawning the task in a background tokio task.
     pub(crate) async fn execute_local(
         &self,
         job: &Job,

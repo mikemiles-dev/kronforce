@@ -3,6 +3,7 @@ use tracing::{error, info};
 use super::*;
 
 impl super::Executor {
+    /// Dispatches a job to a specific agent by ID.
     pub(crate) async fn dispatch_to_agent(
         &self,
         agent_id: Uuid,
@@ -28,6 +29,7 @@ impl super::Executor {
             .await
     }
 
+    /// Dispatches a job to a random online agent matching the given tag.
     pub(crate) async fn dispatch_to_tagged(
         &self,
         tag: &str,
@@ -63,6 +65,7 @@ impl super::Executor {
             .await
     }
 
+    /// Returns the agent type required to execute the given task type.
     pub(crate) fn required_agent_type(task: &TaskType) -> AgentType {
         match task {
             TaskType::Custom { .. } => AgentType::Custom,
@@ -70,6 +73,7 @@ impl super::Executor {
         }
     }
 
+    /// Dispatches a job to a random online agent of the required type.
     pub(crate) async fn dispatch_to_any(
         &self,
         job: &Job,
@@ -97,6 +101,7 @@ impl super::Executor {
             .await
     }
 
+    /// Dispatches a job to all online agents of the required type.
     pub(crate) async fn dispatch_to_all(
         &self,
         job: &Job,
@@ -141,6 +146,8 @@ impl super::Executor {
             .ok_or_else(|| AppError::AgentError("failed to dispatch to any agent".to_string()))
     }
 
+    /// Dispatches a job to a specific agent, creating an execution record and handling the response.
+    /// Custom agents use pull-based queue dispatch; standard agents use push-based HTTP dispatch.
     pub(crate) async fn dispatch_to_specific_agent(
         &self,
         agent: &Agent,

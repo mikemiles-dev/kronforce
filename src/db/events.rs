@@ -7,6 +7,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    /// Inserts a new event record.
     pub fn insert_event(&self, event: &Event) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -27,6 +28,7 @@ impl Db {
         Ok(())
     }
 
+    /// Convenience method to log a system event without API key attribution.
     pub fn log_event(
         &self,
         kind: &str,
@@ -38,6 +40,7 @@ impl Db {
         self.log_event_full(kind, severity, message, job_id, agent_id, None, None, None)
     }
 
+    /// Logs an audit event attributed to a specific API key.
     pub fn log_audit(
         &self,
         kind: &str,
@@ -59,6 +62,7 @@ impl Db {
         )
     }
 
+    /// Logs an event with all optional fields (API key, details, job/agent IDs).
     #[allow(clippy::too_many_arguments)]
     pub fn log_event_full(
         &self,
@@ -86,6 +90,7 @@ impl Db {
         self.insert_event(&event)
     }
 
+    /// Returns a paginated list of events, optionally filtered by a start timestamp.
     pub fn list_events(
         &self,
         since: Option<&str>,
@@ -146,6 +151,7 @@ impl Db {
         Ok(events)
     }
 
+    /// Returns the total number of events, optionally filtered by a start timestamp.
     pub fn count_events(&self, since: Option<&str>) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         match since {

@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::models::{ExecutionStatus, TaskType, TaskTypeDefinition};
 
+/// Registration payload sent by an agent when it first connects to the controller.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistration {
     pub name: String,
@@ -15,18 +16,21 @@ pub struct AgentRegistration {
     pub task_types: Option<Vec<TaskTypeDefinition>>,
 }
 
+/// Controller's response to a successful agent registration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistrationResponse {
     pub agent_id: Uuid,
     pub heartbeat_interval_secs: u64,
 }
 
+/// Periodic heartbeat sent by an agent to report liveness and running executions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentHeartbeat {
     pub agent_id: Uuid,
     pub running_executions: Vec<Uuid>,
 }
 
+/// Request from the controller to an agent to execute a job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobDispatchRequest {
     pub execution_id: Uuid,
@@ -37,12 +41,14 @@ pub struct JobDispatchRequest {
     pub callback_url: String,
 }
 
+/// Agent's response indicating whether a dispatched job was accepted.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobDispatchResponse {
     pub accepted: bool,
     pub message: Option<String>,
 }
 
+/// Result payload sent by an agent back to the controller after a job finishes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionResultReport {
     pub execution_id: Uuid,
@@ -58,6 +64,7 @@ pub struct ExecutionResultReport {
     pub finished_at: DateTime<Utc>,
 }
 
+/// Request from the controller to cancel a running execution on an agent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CancelRequest {
     pub execution_id: Uuid,

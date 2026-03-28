@@ -7,6 +7,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    /// Inserts a new job. Returns a conflict error if the job name already exists.
     pub fn insert_job(&self, job: &Job) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
@@ -57,6 +58,7 @@ impl Db {
         Ok(())
     }
 
+    /// Looks up a job by its UUID.
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -83,6 +85,7 @@ impl Db {
         f
     }
 
+    /// Returns the total number of jobs matching the given filters.
     pub fn count_jobs(
         &self,
         status_filter: Option<&str>,
@@ -96,6 +99,7 @@ impl Db {
             .map_err(AppError::Db)
     }
 
+    /// Returns a paginated list of jobs with optional status and search filters.
     pub fn list_jobs(
         &self,
         status_filter: Option<&str>,
@@ -123,6 +127,7 @@ impl Db {
         Ok(jobs)
     }
 
+    /// Updates all fields of an existing job. Returns not-found if the job does not exist.
     pub fn update_job(&self, job: &Job) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let schedule_json = serde_json::to_string(&job.schedule).unwrap();
@@ -157,6 +162,7 @@ impl Db {
         Ok(())
     }
 
+    /// Deletes a job. Returns a conflict error if other jobs depend on it.
     pub fn delete_job(&self, id: Uuid) -> Result<(), AppError> {
         self.with_transaction(|tx| {
             // Check if other jobs depend on this one
@@ -197,10 +203,12 @@ impl Db {
         })
     }
 
+    /// Returns all jobs with a "scheduled" status for cron evaluation.
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {
         self.list_jobs(Some("scheduled"), None, u32::MAX, 0)
     }
 
+    /// Returns all job IDs with their dependency lists for DAG cycle validation.
     pub fn get_all_jobs_for_dag(&self) -> Result<Vec<(Uuid, Vec<Uuid>)>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn

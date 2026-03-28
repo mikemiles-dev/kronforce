@@ -9,6 +9,7 @@ use crate::error::AppError;
 use crate::models::*;
 use crate::scheduler::SchedulerCommand;
 
+/// Query parameters for listing executions of a specific job.
 #[derive(Deserialize)]
 pub(crate) struct ListExecsQuery {
     limit: Option<u32>,
@@ -16,6 +17,7 @@ pub(crate) struct ListExecsQuery {
     per_page: Option<u32>,
 }
 
+/// Query parameters for listing all executions across jobs.
 #[derive(Deserialize)]
 pub(crate) struct ListAllExecsQuery {
     status: Option<String>,
@@ -25,6 +27,7 @@ pub(crate) struct ListAllExecsQuery {
     per_page: Option<u32>,
 }
 
+/// Returns a paginated list of executions for a specific job.
 pub(crate) async fn list_executions(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
@@ -56,6 +59,7 @@ pub(crate) async fn list_executions(
     }))
 }
 
+/// Returns a paginated list of all executions with optional status, search, and time filters.
 pub(crate) async fn list_all_executions(
     State(state): State<AppState>,
     Query(query): Query<ListAllExecsQuery>,
@@ -101,6 +105,7 @@ pub(crate) async fn list_all_executions(
     }))
 }
 
+/// Returns a single execution by ID.
 pub(crate) async fn get_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -111,6 +116,7 @@ pub(crate) async fn get_execution(
     Ok(Json(rec))
 }
 
+/// Sends a cancel request for a running execution to the scheduler.
 pub(crate) async fn cancel_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

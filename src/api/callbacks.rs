@@ -12,6 +12,8 @@ use crate::output_rules::process_post_execution;
 use crate::protocol::ExecutionResultReport;
 use crate::scheduler::SchedulerCommand;
 
+/// Receives execution results from agents, updates the execution record,
+/// runs output rules, sends notifications, and logs the completion event.
 pub(crate) async fn execution_result_callback(
     State(state): State<AppState>,
     Json(result): Json<ExecutionResultReport>,

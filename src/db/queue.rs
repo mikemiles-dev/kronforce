@@ -8,6 +8,7 @@ use crate::models::*;
 
 impl Db {
     #[allow(clippy::too_many_arguments)]
+    /// Adds a job to the agent queue for poll-based dispatch.
     pub fn enqueue_job(
         &self,
         id: Uuid,
@@ -37,6 +38,7 @@ impl Db {
         Ok(())
     }
 
+    /// Dequeues the oldest pending job for the given agent, marking it as claimed.
     pub fn dequeue_job(&self, agent_id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -82,6 +84,7 @@ impl Db {
         }
     }
 
+    /// Marks a queue item as completed by its execution ID.
     pub fn complete_queue_item(&self, execution_id: Uuid) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -92,6 +95,7 @@ impl Db {
         Ok(())
     }
 
+    /// Returns the number of pending items in the queue for a given agent.
     pub fn queue_depth(&self, agent_id: Uuid) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
@@ -102,6 +106,7 @@ impl Db {
         .map_err(AppError::Db)
     }
 
+    /// Fails pending queue items older than the max age and marks their executions as failed.
     pub fn fail_stale_pending_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
@@ -129,6 +134,7 @@ impl Db {
         Ok(count)
     }
 
+    /// Fails claimed queue items older than the max age that never reported a result.
     pub fn fail_stale_claimed_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();

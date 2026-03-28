@@ -1,3 +1,8 @@
+//! REST API layer for the Kronforce controller.
+//!
+//! Defines all HTTP routes, request/response types, authentication middleware,
+//! and the shared application state used by handlers.
+
 mod agents;
 pub mod auth;
 mod callbacks;

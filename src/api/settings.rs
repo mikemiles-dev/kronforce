@@ -6,6 +6,7 @@ use crate::db::db_call;
 use crate::error::AppError;
 use crate::notifications::send_test;
 
+/// Returns all system settings as a key-value map.
 pub(crate) async fn get_settings(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, AppError> {
@@ -13,6 +14,7 @@ pub(crate) async fn get_settings(
     Ok(Json(serde_json::json!(settings)))
 }
 
+/// Updates one or more settings from a key-value map.
 pub(crate) async fn update_settings(
     State(state): State<AppState>,
     Json(body): Json<std::collections::HashMap<String, String>>,
@@ -27,6 +29,7 @@ pub(crate) async fn update_settings(
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
+/// Sends a test notification using the currently configured notification channel.
 pub(crate) async fn test_notification(
     State(state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, AppError> {

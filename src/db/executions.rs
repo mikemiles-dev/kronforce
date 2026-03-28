@@ -8,6 +8,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    /// Inserts a new execution record.
     pub fn insert_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let triggered_by_json = serde_json::to_string(&rec.triggered_by).unwrap();
@@ -34,6 +35,7 @@ impl Db {
         Ok(())
     }
 
+    /// Updates an existing execution record's status, output, and timestamps.
     pub fn update_execution(&self, rec: &ExecutionRecord) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -55,6 +57,7 @@ impl Db {
         Ok(())
     }
 
+    /// Stores extracted key-value data from output rules on an execution.
     pub fn update_execution_extracted(
         &self,
         id: Uuid,
@@ -69,6 +72,7 @@ impl Db {
         Ok(())
     }
 
+    /// Marks an execution as failed and appends the assertion failure message to stderr.
     pub fn fail_execution_assertion(&self, id: Uuid, message: &str) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -78,6 +82,7 @@ impl Db {
         Ok(())
     }
 
+    /// Looks up an execution record by its UUID.
     pub fn get_execution(&self, id: Uuid) -> Result<Option<ExecutionRecord>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -93,6 +98,7 @@ impl Db {
         }
     }
 
+    /// Returns a paginated list of executions for a specific job, newest first.
     pub fn list_executions_for_job(
         &self,
         job_id: Uuid,
@@ -115,6 +121,7 @@ impl Db {
         Ok(recs)
     }
 
+    /// Returns the total number of executions for a specific job.
     pub fn count_executions_for_job(&self, job_id: Uuid) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
@@ -143,6 +150,7 @@ impl Db {
         f
     }
 
+    /// Returns a paginated list of all executions across jobs with optional filters.
     pub fn list_all_executions(
         &self,
         status_filter: Option<&str>,
@@ -171,6 +179,7 @@ impl Db {
         Ok(recs)
     }
 
+    /// Returns the total number of executions matching the given filters.
     pub fn count_all_executions(
         &self,
         status_filter: Option<&str>,
@@ -188,6 +197,7 @@ impl Db {
             .map_err(AppError::Db)
     }
 
+    /// Returns (total, succeeded, failed) execution counts for a job.
     pub fn get_execution_counts(&self, job_id: Uuid) -> Result<(u32, u32, u32), AppError> {
         let conn = self.conn.lock().unwrap();
         let total: u32 = conn
@@ -304,6 +314,7 @@ impl Db {
         Ok(result)
     }
 
+    /// Returns the most recent execution for a job, if any.
     pub fn get_latest_execution_for_job(
         &self,
         job_id: Uuid,

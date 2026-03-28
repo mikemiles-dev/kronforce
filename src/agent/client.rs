@@ -3,6 +3,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::protocol::{CancelRequest, JobDispatchRequest, JobDispatchResponse};
 
+/// HTTP client used by the controller to communicate with remote agents.
 #[derive(Clone)]
 pub struct AgentClient {
     client: reqwest::Client,
@@ -15,6 +16,7 @@ impl Default for AgentClient {
 }
 
 impl AgentClient {
+    /// Creates a new agent client with a 10-second request timeout.
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
@@ -23,6 +25,7 @@ impl AgentClient {
         Self { client }
     }
 
+    /// Sends a job dispatch request to an agent and returns its acceptance response.
     pub async fn dispatch_job(
         &self,
         agent_address: &str,
@@ -51,6 +54,7 @@ impl AgentClient {
             .map_err(|e| AppError::AgentError(format!("invalid agent response: {e}")))
     }
 
+    /// Sends a cancellation request to an agent for the given execution.
     pub async fn cancel_execution(
         &self,
         agent_address: &str,
@@ -73,6 +77,7 @@ impl AgentClient {
         Ok(())
     }
 
+    /// Sends a best-effort shutdown request to an agent. Does not fail if the agent is unreachable.
     pub async fn shutdown_agent(
         &self,
         agent_address: &str,

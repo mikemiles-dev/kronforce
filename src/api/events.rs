@@ -8,6 +8,7 @@ use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::Event;
 
+/// Query parameters for paginated event listing.
 #[derive(Deserialize)]
 pub(crate) struct ListEventsQuery {
     page: Option<u32>,
@@ -15,11 +16,13 @@ pub(crate) struct ListEventsQuery {
     since: Option<String>,
 }
 
+/// Query parameters for timeline endpoints.
 #[derive(Deserialize)]
 pub(crate) struct TimelineQuery {
     minutes: Option<u32>,
 }
 
+/// A single time bucket in the execution timeline with success/failure/other counts.
 #[derive(Serialize)]
 pub(crate) struct TimelineBucket {
     time: String,
@@ -28,6 +31,7 @@ pub(crate) struct TimelineBucket {
     other: u32,
 }
 
+/// Per-job breakdown within a single timeline bucket.
 #[derive(Serialize)]
 pub(crate) struct TimelineDetailEntry {
     job_name: String,
@@ -35,6 +39,7 @@ pub(crate) struct TimelineDetailEntry {
     count: u32,
 }
 
+/// Returns a paginated list of system events.
 pub(crate) async fn list_events(
     State(state): State<AppState>,
     Query(query): Query<ListEventsQuery>,
@@ -67,6 +72,7 @@ pub(crate) async fn list_events(
     }))
 }
 
+/// Returns execution counts per minute for the global timeline.
 pub(crate) async fn get_timeline(
     State(state): State<AppState>,
     Query(query): Query<TimelineQuery>,
@@ -88,6 +94,7 @@ pub(crate) async fn get_timeline(
     ))
 }
 
+/// Returns execution counts per minute for a specific job.
 pub(crate) async fn get_job_timeline(
     State(state): State<AppState>,
     Path(job_id): Path<Uuid>,
@@ -110,6 +117,7 @@ pub(crate) async fn get_job_timeline(
     ))
 }
 
+/// Returns per-job execution details for a specific minute bucket.
 pub(crate) async fn get_timeline_detail(
     State(state): State<AppState>,
     Path(bucket): Path<String>,

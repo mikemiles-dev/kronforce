@@ -8,11 +8,13 @@ use crate::error::AppError;
 use crate::models::*;
 use crate::scripts::{ScriptFull, ScriptInfo};
 
+/// Request body for saving a script.
 #[derive(Deserialize)]
 pub(crate) struct SaveScriptRequest {
     code: String,
 }
 
+/// Returns metadata for all stored scripts.
 pub(crate) async fn list_scripts(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ScriptInfo>>, AppError> {
@@ -23,6 +25,7 @@ pub(crate) async fn list_scripts(
     Ok(Json(scripts))
 }
 
+/// Returns a script's metadata and code by name.
 pub(crate) async fn get_script(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -34,6 +37,7 @@ pub(crate) async fn get_script(
     Ok(Json(script))
 }
 
+/// Creates or updates a script by name.
 pub(crate) async fn save_script(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -63,6 +67,7 @@ pub(crate) async fn save_script(
     Ok(Json(serde_json::json!({"status": "ok", "name": name})))
 }
 
+/// Deletes a script by name.
 pub(crate) async fn delete_script(
     State(state): State<AppState>,
     Path(name): Path<String>,

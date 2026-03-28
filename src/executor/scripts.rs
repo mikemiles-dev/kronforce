@@ -2,11 +2,13 @@ use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
+/// File-based store for Rhai scripts used by script-type tasks.
 #[derive(Clone)]
 pub struct ScriptStore {
     dir: PathBuf,
 }
 
+/// Metadata about a stored script (name, size, last modified).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptInfo {
     pub name: String,
@@ -14,6 +16,7 @@ pub struct ScriptInfo {
     pub modified: Option<String>,
 }
 
+/// A script with its full code content.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScriptFull {
     pub name: String,
@@ -22,6 +25,7 @@ pub struct ScriptFull {
 }
 
 impl ScriptStore {
+    /// Creates a new script store, ensuring the directory exists.
     pub fn new(dir: &str) -> Result<Self, AppError> {
         let path = Path::new(dir);
         if !path.exists() {
@@ -33,6 +37,7 @@ impl ScriptStore {
         })
     }
 
+    /// Returns metadata for all `.rhai` scripts in the store directory.
     pub fn list(&self) -> Result<Vec<ScriptInfo>, AppError> {
         let mut scripts = Vec::new();
         let entries = std::fs::read_dir(&self.dir)
@@ -61,6 +66,7 @@ impl ScriptStore {
         Ok(scripts)
     }
 
+    /// Reads a script's full content by name.
     pub fn get(&self, name: &str) -> Result<ScriptFull, AppError> {
         let path = self.script_path(name);
         if !path.exists() {
@@ -76,6 +82,7 @@ impl ScriptStore {
         })
     }
 
+    /// Saves a script by name after validating the name format.
     pub fn save(&self, name: &str, code: &str) -> Result<(), AppError> {
         // Validate name (alphanumeric, dashes, underscores only)
         if !name
@@ -92,6 +99,7 @@ impl ScriptStore {
         Ok(())
     }
 
+    /// Deletes a script by name.
     pub fn delete(&self, name: &str) -> Result<(), AppError> {
         let path = self.script_path(name);
         if !path.exists() {
@@ -102,6 +110,7 @@ impl ScriptStore {
         Ok(())
     }
 
+    /// Reads just the code content of a script by name.
     pub fn read_code(&self, name: &str) -> Result<String, AppError> {
         self.get(name).map(|s| s.code)
     }

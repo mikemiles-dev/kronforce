@@ -9,6 +9,7 @@ use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::Variable;
 
+/// Returns all global variables.
 pub(crate) async fn list_variables(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Variable>>, AppError> {
@@ -16,6 +17,7 @@ pub(crate) async fn list_variables(
     Ok(Json(vars))
 }
 
+/// Returns a single variable by name.
 pub(crate) async fn get_variable(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -27,6 +29,7 @@ pub(crate) async fn get_variable(
     }
 }
 
+/// Validates that a variable name contains only alphanumeric characters and underscores.
 fn validate_variable_name(name: &str) -> Result<(), AppError> {
     if name.is_empty() {
         return Err(AppError::BadRequest("variable name cannot be empty".into()));
@@ -39,12 +42,14 @@ fn validate_variable_name(name: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Request body for creating a new variable.
 #[derive(Deserialize)]
 pub(crate) struct CreateVariableRequest {
     name: String,
     value: String,
 }
 
+/// Creates a new global variable after validating the name.
 pub(crate) async fn create_variable(
     State(state): State<AppState>,
     _auth: AuthUser,
@@ -62,11 +67,13 @@ pub(crate) async fn create_variable(
     Ok((axum::http::StatusCode::CREATED, Json(var)))
 }
 
+/// Request body for updating a variable's value.
 #[derive(Deserialize)]
 pub(crate) struct UpdateVariableRequest {
     value: String,
 }
 
+/// Updates an existing variable's value.
 pub(crate) async fn update_variable(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -85,6 +92,7 @@ pub(crate) async fn update_variable(
     Ok(Json(var))
 }
 
+/// Deletes a variable by name.
 pub(crate) async fn delete_variable(
     State(state): State<AppState>,
     Path(name): Path<String>,

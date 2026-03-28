@@ -17,6 +17,7 @@ fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
 }
 
 impl Db {
+    /// Returns all global variables ordered by name.
     pub fn list_variables(&self) -> Result<Vec<Variable>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -30,6 +31,7 @@ impl Db {
         Ok(vars)
     }
 
+    /// Looks up a global variable by name.
     pub fn get_variable(&self, name: &str) -> Result<Option<Variable>, AppError> {
         let conn = self.conn.lock().unwrap();
         let result = conn.query_row(
@@ -44,6 +46,7 @@ impl Db {
         }
     }
 
+    /// Inserts a new global variable.
     pub fn insert_variable(&self, var: &Variable) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -54,6 +57,7 @@ impl Db {
         Ok(())
     }
 
+    /// Updates a variable's value. Returns true if the variable existed.
     pub fn update_variable(&self, name: &str, value: &str) -> Result<bool, AppError> {
         let conn = self.conn.lock().unwrap();
         let now = Utc::now().to_rfc3339();
@@ -66,6 +70,7 @@ impl Db {
         Ok(changed > 0)
     }
 
+    /// Deletes a variable by name. Returns true if the variable existed.
     pub fn delete_variable(&self, name: &str) -> Result<bool, AppError> {
         let conn = self.conn.lock().unwrap();
         let changed = conn
@@ -74,6 +79,7 @@ impl Db {
         Ok(changed > 0)
     }
 
+    /// Creates or updates a variable by name.
     pub fn upsert_variable(&self, name: &str, value: &str) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let now = Utc::now().to_rfc3339();
@@ -85,6 +91,7 @@ impl Db {
         Ok(())
     }
 
+    /// Returns all variables as a name-to-value map for template substitution.
     pub fn get_all_variables_map(
         &self,
     ) -> Result<std::collections::HashMap<String, String>, AppError> {

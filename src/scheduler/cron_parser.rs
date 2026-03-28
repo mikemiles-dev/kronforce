@@ -2,6 +2,7 @@ use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Timelike, Utc};
 
 use crate::error::AppError;
 
+/// A parsed 6-field cron expression (sec min hour dom month dow) that can compute next fire times.
 #[derive(Debug, Clone)]
 pub struct CronSchedule {
     seconds: FieldSpec,
@@ -12,6 +13,7 @@ pub struct CronSchedule {
     day_of_week: FieldSpec,
 }
 
+/// Represents a single cron field: either all values (`*`) or a specific set.
 #[derive(Debug, Clone)]
 enum FieldSpec {
     All,
@@ -261,6 +263,7 @@ impl FieldSpec {
     }
 }
 
+/// Parses a single cron field string into a `FieldSpec`, handling `*`, ranges, steps, and lists.
 fn parse_field(field: &str, min: u32, max: u32) -> Result<FieldSpec, AppError> {
     if field == "*" {
         return Ok(FieldSpec::All);
