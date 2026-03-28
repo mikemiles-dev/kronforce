@@ -98,7 +98,7 @@ pub async fn send_notification(
     {
         let to = recipients.emails.clone();
         let subj = subject.to_string();
-        let bod = bod_clone(body);
+        let bod = body.to_string();
         let db_clone = db.clone();
         tokio::spawn(async move {
             match send_email(&email_config, &to, &subj, &bod).await {
@@ -128,7 +128,7 @@ pub async fn send_notification(
         && !recipients.phones.is_empty()
     {
         let to = recipients.phones.clone();
-        let bod = bod_clone(body);
+        let bod = body.to_string();
         let subj = subject.to_string();
         let db_clone = db.clone();
         tokio::spawn(async move {
@@ -154,10 +154,6 @@ pub async fn send_notification(
             }
         });
     }
-}
-
-fn bod_clone(s: &str) -> String {
-    s.to_string()
 }
 
 /// Check if notification should be sent for a completed execution, and send it if so.

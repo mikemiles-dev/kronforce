@@ -20,7 +20,7 @@ impl Db {
         timeout_secs: Option<u64>,
         callback_url: &str,
     ) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "INSERT INTO job_queue (id, execution_id, agent_id, job_id, task_json, run_as, timeout_secs, callback_url, status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending', ?9)",
             params![
@@ -28,7 +28,7 @@ impl Db {
                 execution_id.to_string(),
                 agent_id.to_string(),
                 job_id.to_string(),
-                serde_json::to_string(task).unwrap(),
+                serde_json::to_string(task).map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
                 run_as,
                 timeout_secs.map(|t| t as i64),
                 callback_url,
@@ -40,7 +40,7 @@ impl Db {
 
     /// Dequeues the oldest pending job for the given agent, marking it as claimed.
     pub fn dequeue_job(&self, agent_id: Uuid) -> Result<Option<serde_json::Value>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url, job_id FROM job_queue WHERE agent_id = ?1 AND status = 'pending' ORDER BY created_at ASC LIMIT 1")
             .map_err(AppError::Db)?;
@@ -86,7 +86,7 @@ impl Db {
 
     /// Marks a queue item as completed by its execution ID.
     pub fn complete_queue_item(&self, execution_id: Uuid) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "UPDATE job_queue SET status = 'completed' WHERE execution_id = ?1",
             params![execution_id.to_string()],
@@ -97,7 +97,7 @@ impl Db {
 
     /// Returns the number of pending items in the queue for a given agent.
     pub fn queue_depth(&self, agent_id: Uuid) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.query_row(
             "SELECT COUNT(*) FROM job_queue WHERE agent_id = ?1 AND status = 'pending'",
             params![agent_id.to_string()],
@@ -108,7 +108,7 @@ impl Db {
 
     /// Fails pending queue items older than the max age and marks their executions as failed.
     pub fn fail_stale_pending_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
         let mut stmt = conn.prepare(
             "SELECT id, execution_id FROM job_queue WHERE status = 'pending' AND created_at < ?1"
@@ -136,7 +136,7 @@ impl Db {
 
     /// Fails claimed queue items older than the max age that never reported a result.
     pub fn fail_stale_claimed_queue_items(&self, max_age_secs: i64) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::seconds(max_age_secs)).to_rfc3339();
         let mut stmt = conn.prepare(
             "SELECT id, execution_id FROM job_queue WHERE status = 'claimed' AND claimed_at < ?1"

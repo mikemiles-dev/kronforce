@@ -45,7 +45,7 @@ impl Db {
 
     /// Applies all pending schema migrations in order.
     pub fn migrate(&self) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
 
         // Schema versioning table
         conn.execute_batch(
@@ -117,7 +117,7 @@ impl Db {
     where
         F: FnOnce(&rusqlite::Transaction) -> Result<T, AppError>,
     {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let tx = conn.transaction().map_err(AppError::Db)?;
         let result = f(&tx)?;
         tx.commit().map_err(AppError::Db)?;

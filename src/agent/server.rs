@@ -89,10 +89,9 @@ async fn execute_job(
             finished_at,
         };
 
-        // POST result back to controller
-        let mut attempts = 0;
-        loop {
-            attempts += 1;
+        // POST result back to controller with exponential backoff
+        let max_attempts = 5u32;
+        for attempt in 1..=max_attempts {
             let mut cb_req = client.post(&req.callback_url).json(&report);
             if let Some(ref key) = agent_key {
                 cb_req = cb_req.header("Authorization", format!("Bearer {}", key));
@@ -103,17 +102,26 @@ async fn execute_job(
                     break;
                 }
                 Ok(resp) => {
-                    warn!("callback failed for {exec_id}: status {}", resp.status());
+                    warn!(
+                        "callback failed for {exec_id} (attempt {attempt}/{max_attempts}): status {}",
+                        resp.status()
+                    );
                 }
                 Err(e) => {
-                    warn!("callback failed for {exec_id}: {e}");
+                    warn!(
+                        "callback failed for {exec_id} (attempt {attempt}/{max_attempts}): {e}"
+                    );
                 }
             }
-            if attempts >= 5 {
-                error!("giving up on callback for execution {exec_id} after {attempts} attempts");
+            if attempt >= max_attempts {
+                error!(
+                    "giving up on callback for execution {exec_id} after {max_attempts} attempts — result lost"
+                );
                 break;
             }
-            tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempts))).await;
+            // Backoff: 2s, 4s, 8s, 16s (capped)
+            let delay = std::time::Duration::from_secs(2u64.pow(attempt).min(16));
+            tokio::time::sleep(delay).await;
         }
     });
 

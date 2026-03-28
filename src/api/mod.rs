@@ -19,6 +19,7 @@ use axum::routing::{delete, get, post, put};
 use axum::{Json, Router};
 use serde::Serialize;
 use tokio::sync::mpsc;
+use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
 
 use crate::agent::AgentClient;
@@ -158,7 +159,33 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .with_state(state);
 
-    public.merge(authed).merge(agent_authed)
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let security_headers = axum::middleware::from_fn(add_security_headers);
+
+    public
+        .merge(authed)
+        .merge(agent_authed)
+        .layer(cors)
+        .layer(security_headers)
+}
+
+async fn add_security_headers(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let mut resp = next.run(req).await;
+    let headers = resp.headers_mut();
+    headers.insert("X-Frame-Options", "DENY".parse().unwrap());
+    headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+    headers.insert(
+        "Referrer-Policy",
+        "strict-origin-when-cross-origin".parse().unwrap(),
+    );
+    resp
 }
 
 async fn dashboard() -> Html<&'static str> {

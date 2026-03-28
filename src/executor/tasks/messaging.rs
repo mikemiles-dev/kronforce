@@ -29,8 +29,11 @@ pub async fn run_kafka_task(
         );
     }
     if let Some(props) = properties {
-        cmd.push(' ');
-        cmd.push_str(props);
+        // Escape each property individually to prevent command injection
+        for prop in props.split_whitespace() {
+            cmd.push(' ');
+            cmd.push_str(&shell_escape(prop));
+        }
     }
     run_command(&cmd, run_as, timeout_secs, cancel_rx).await
 }

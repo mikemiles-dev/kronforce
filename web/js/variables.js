@@ -46,7 +46,7 @@ async function createVariable() {
     const value = document.getElementById('new-var-value').value;
     if (!name) return;
     if (!/^[A-Za-z0-9_]+$/.test(name)) {
-        alert('Variable name must contain only letters, numbers, and underscores.');
+        toast('Variable name must contain only letters, numbers, and underscores.', 'error');
         return;
     }
     try {
@@ -54,7 +54,7 @@ async function createVariable() {
         hideAddVariableForm();
         fetchVariables();
     } catch (e) {
-        alert('Error: ' + e.message);
+        toast('Error: ' + e.message, 'error');
     }
 }
 
@@ -63,7 +63,7 @@ async function updateVariable(name, value) {
         await api('PUT', '/api/variables/' + encodeURIComponent(name), { value });
         fetchVariables();
     } catch (e) {
-        alert('Error: ' + e.message);
+        toast('Error: ' + e.message, 'error');
     }
 }
 
@@ -73,7 +73,7 @@ async function deleteVariable(name) {
         await api('DELETE', '/api/variables/' + encodeURIComponent(name));
         fetchVariables();
     } catch (e) {
-        alert('Error: ' + e.message);
+        toast('Error: ' + e.message, 'error');
     }
 }
 

@@ -304,9 +304,11 @@ impl Scheduler {
             }
             Ok(Err(e)) => {
                 error!("failed to load jobs: {e}");
+                // Keep stale cache so jobs still fire rather than silently skipping
             }
             Err(e) => {
                 error!("failed to load jobs (join): {e}");
+                // Keep stale cache so jobs still fire rather than silently skipping
             }
         }
     }
@@ -336,11 +338,17 @@ impl Scheduler {
         true
     }
 
+    /// Matches event kind patterns:
+    /// - `"*"` matches everything
+    /// - `"foo.*"` matches `"foo.bar"`, `"foo.baz.qux"` (namespace match: requires dot separator)
+    /// - `"foo*"` matches anything starting with `"foo"` (prefix match)
+    /// - exact string equality otherwise
     fn pattern_matches(pattern: &str, value: &str) -> bool {
         if pattern == "*" {
             return true;
         }
         if let Some(prefix) = pattern.strip_suffix(".*") {
+            // Namespace match: value must start with prefix followed by a dot
             return value.starts_with(prefix)
                 && value.len() > prefix.len()
                 && value.as_bytes()[prefix.len()] == b'.';

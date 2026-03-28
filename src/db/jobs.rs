@@ -9,21 +9,31 @@ use crate::error::AppError;
 impl Db {
     /// Inserts a new job. Returns a conflict error if the job name already exists.
     pub fn insert_job(&self, job: &Job) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
-        let schedule_json = serde_json::to_string(&job.schedule).unwrap();
-        let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let schedule_json = serde_json::to_string(&job.schedule)
+            .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
+        let depends_on_json = serde_json::to_string(&job.depends_on)
+            .map_err(|e| AppError::Internal(format!("serialize depends_on: {e}")))?;
         let target_json = job
             .target
             .as_ref()
-            .map(|t| serde_json::to_string(t).unwrap());
+            .map(|t| serde_json::to_string(t))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize target: {e}")))?;
         let output_rules_json = job
             .output_rules
             .as_ref()
-            .map(|r| serde_json::to_string(r).unwrap());
+            .map(|r| serde_json::to_string(r))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize output_rules: {e}")))?;
         let notifications_json = job
             .notifications
             .as_ref()
-            .map(|n| serde_json::to_string(n).unwrap());
+            .map(|n| serde_json::to_string(n))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
+        let task_json = serde_json::to_string(&job.task)
+            .map_err(|e| AppError::Internal(format!("serialize task: {e}")))?;
         conn.execute(
             "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
@@ -31,7 +41,7 @@ impl Db {
                 job.id.to_string(),
                 job.name,
                 job.description,
-                serde_json::to_string(&job.task).unwrap(),
+                task_json,
                 job.run_as,
                 schedule_json,
                 job.status.as_str(),
@@ -60,7 +70,7 @@ impl Db {
 
     /// Looks up a job by its UUID.
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
@@ -91,7 +101,7 @@ impl Db {
         status_filter: Option<&str>,
         search: Option<&str>,
     ) -> Result<u32, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let f = Self::build_job_filters(status_filter, search);
         let sql = format!("SELECT COUNT(*) FROM jobs{}", f.where_sql());
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
@@ -107,7 +117,7 @@ impl Db {
         limit: u32,
         offset: u32,
     ) -> Result<Vec<Job>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut f = Self::build_job_filters(status_filter, search);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
@@ -129,20 +139,38 @@ impl Db {
 
     /// Updates all fields of an existing job. Returns not-found if the job does not exist.
     pub fn update_job(&self, job: &Job) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
-        let schedule_json = serde_json::to_string(&job.schedule).unwrap();
-        let depends_on_json = serde_json::to_string(&job.depends_on).unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let schedule_json = serde_json::to_string(&job.schedule)
+            .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
+        let depends_on_json = serde_json::to_string(&job.depends_on)
+            .map_err(|e| AppError::Internal(format!("serialize depends_on: {e}")))?;
         let target_json = job
             .target
             .as_ref()
-            .map(|t| serde_json::to_string(t).unwrap());
+            .map(|t| serde_json::to_string(t))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize target: {e}")))?;
+        let task_json = serde_json::to_string(&job.task)
+            .map_err(|e| AppError::Internal(format!("serialize task: {e}")))?;
+        let output_rules_json = job
+            .output_rules
+            .as_ref()
+            .map(|r| serde_json::to_string(r))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize output_rules: {e}")))?;
+        let notifications_json = job
+            .notifications
+            .as_ref()
+            .map(|n| serde_json::to_string(n))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let changed = conn
             .execute(
                 "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12 WHERE id=?13",
                 params![
                     job.name,
                     job.description,
-                    serde_json::to_string(&job.task).unwrap(),
+                    task_json,
                     job.run_as,
                     schedule_json,
                     job.status.as_str(),
@@ -150,8 +178,8 @@ impl Db {
                     depends_on_json,
                     target_json,
                     job.updated_at.to_rfc3339(),
-                    job.output_rules.as_ref().map(|r| serde_json::to_string(r).unwrap()),
-                    job.notifications.as_ref().map(|n| serde_json::to_string(n).unwrap()),
+                    output_rules_json,
+                    notifications_json,
                     job.id.to_string(),
                 ],
             )
@@ -210,7 +238,7 @@ impl Db {
 
     /// Returns all job IDs with their dependency lists for DAG cycle validation.
     pub fn get_all_jobs_for_dag(&self) -> Result<Vec<(Uuid, Vec<Uuid>)>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, depends_on_json FROM jobs")
             .map_err(AppError::Db)?;
@@ -224,7 +252,8 @@ impl Db {
         let mut result = Vec::new();
         for row in rows {
             let (id_str, deps_json) = row.map_err(AppError::Db)?;
-            let id = Uuid::parse_str(&id_str).unwrap();
+            let id = Uuid::parse_str(&id_str)
+                .map_err(|e| AppError::Internal(format!("invalid UUID in db: {e}")))?;
             // Support both old Vec<Uuid> and new Vec<Dependency> formats
             let deps: Vec<Uuid> =
                 if let Ok(dep_objs) = serde_json::from_str::<Vec<Dependency>>(&deps_json) {

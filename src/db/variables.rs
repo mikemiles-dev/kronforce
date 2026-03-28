@@ -19,7 +19,7 @@ fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
 impl Db {
     /// Returns all global variables ordered by name.
     pub fn list_variables(&self) -> Result<Vec<Variable>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT name, value, updated_at FROM variables ORDER BY name")
             .map_err(AppError::Db)?;
@@ -33,7 +33,7 @@ impl Db {
 
     /// Looks up a global variable by name.
     pub fn get_variable(&self, name: &str) -> Result<Option<Variable>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let result = conn.query_row(
             "SELECT name, value, updated_at FROM variables WHERE name = ?1",
             params![name],
@@ -48,7 +48,7 @@ impl Db {
 
     /// Inserts a new global variable.
     pub fn insert_variable(&self, var: &Variable) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         conn.execute(
             "INSERT INTO variables (name, value, updated_at) VALUES (?1, ?2, ?3)",
             params![var.name, var.value, var.updated_at.to_rfc3339()],
@@ -59,7 +59,7 @@ impl Db {
 
     /// Updates a variable's value. Returns true if the variable existed.
     pub fn update_variable(&self, name: &str, value: &str) -> Result<bool, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let now = Utc::now().to_rfc3339();
         let changed = conn
             .execute(
@@ -72,7 +72,7 @@ impl Db {
 
     /// Deletes a variable by name. Returns true if the variable existed.
     pub fn delete_variable(&self, name: &str) -> Result<bool, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let changed = conn
             .execute("DELETE FROM variables WHERE name = ?1", params![name])
             .map_err(AppError::Db)?;
@@ -81,7 +81,7 @@ impl Db {
 
     /// Creates or updates a variable by name.
     pub fn upsert_variable(&self, name: &str, value: &str) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let now = Utc::now().to_rfc3339();
         conn.execute(
             "INSERT INTO variables (name, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
@@ -95,7 +95,7 @@ impl Db {
     pub fn get_all_variables_map(
         &self,
     ) -> Result<std::collections::HashMap<String, String>, AppError> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT name, value FROM variables")
             .map_err(AppError::Db)?;

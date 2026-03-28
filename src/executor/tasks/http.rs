@@ -6,6 +6,33 @@ use crate::db::models::{ExecutionStatus, HttpMethod};
 
 use super::super::{CapturedOutput, CommandResult};
 
+/// Validates a URL is not targeting internal/private networks (SSRF protection).
+fn validate_url(url: &str) -> Result<(), String> {
+    let parsed = url::Url::parse(url).map_err(|e| format!("invalid URL: {e}"))?;
+    let host = parsed.host_str().unwrap_or_default();
+
+    // Block common internal addresses
+    if host == "localhost"
+        || host == "127.0.0.1"
+        || host == "::1"
+        || host == "0.0.0.0"
+        || host.ends_with(".local")
+    {
+        return Err(format!("URL targets a local address: {host}"));
+    }
+    // Block AWS/cloud metadata endpoints
+    if host == "169.254.169.254" || host == "metadata.google.internal" {
+        return Err(format!("URL targets a cloud metadata endpoint: {host}"));
+    }
+    // Block common private ranges
+    if let Ok(ip) = host.parse::<std::net::Ipv4Addr>() {
+        if ip.is_loopback() || ip.is_private() || ip.is_link_local() {
+            return Err(format!("URL targets a private IP: {ip}"));
+        }
+    }
+    Ok(())
+}
+
 pub async fn run_http_task(
     method: &HttpMethod,
     url: &str,
@@ -15,6 +42,22 @@ pub async fn run_http_task(
     timeout_secs: Option<u64>,
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
+    // SSRF protection: block internal/private URLs
+    if let Err(e) = validate_url(url) {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: None,
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: e,
+                truncated: false,
+            },
+        };
+    }
+
     let client = reqwest::Client::builder()
         .timeout(
             timeout_secs
@@ -22,7 +65,8 @@ pub async fn run_http_task(
                 .unwrap_or(std::time::Duration::from_secs(30)),
         )
         .build()
-        .unwrap();
+        .map_err(|e| format!("failed to build HTTP client: {e}"))
+        .unwrap_or_else(|_| reqwest::Client::new());
 
     let mut req = match method {
         HttpMethod::Get => client.get(url),
