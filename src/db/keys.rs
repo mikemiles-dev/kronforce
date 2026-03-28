@@ -8,6 +8,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    /// Inserts a new API key record.
     pub fn insert_api_key(&self, key: &ApiKey) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -26,6 +27,7 @@ impl Db {
         Ok(())
     }
 
+    /// Looks up an active API key by its SHA-256 hash.
     pub fn get_api_key_by_hash(&self, hash: &str) -> Result<Option<ApiKey>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -41,6 +43,7 @@ impl Db {
         }
     }
 
+    /// Returns all API keys (both active and revoked), newest first.
     pub fn list_api_keys(&self) -> Result<Vec<ApiKey>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -54,6 +57,7 @@ impl Db {
         Ok(keys)
     }
 
+    /// Updates the last-used timestamp for an API key.
     pub fn update_api_key_last_used(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -64,6 +68,7 @@ impl Db {
         Ok(())
     }
 
+    /// Returns the number of active API keys.
     pub fn count_api_keys(&self) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
@@ -74,10 +79,12 @@ impl Db {
         .map_err(AppError::Db)
     }
 
+    /// Deletes (revokes) an API key. Alias for `revoke_api_key`.
     pub fn delete_api_key(&self, id: Uuid) -> Result<(), AppError> {
         self.revoke_api_key(id)
     }
 
+    /// Soft-deletes an API key by setting it inactive.
     pub fn revoke_api_key(&self, id: Uuid) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(

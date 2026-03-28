@@ -12,6 +12,7 @@ use crate::error::AppError;
 use crate::models::*;
 use crate::scheduler::SchedulerCommand;
 
+/// Request body for creating a new job.
 #[derive(Deserialize)]
 pub(crate) struct CreateJobRequest {
     name: String,
@@ -26,6 +27,7 @@ pub(crate) struct CreateJobRequest {
     notifications: Option<JobNotificationConfig>,
 }
 
+/// Request body for updating an existing job. All fields are optional (partial update).
 #[derive(Deserialize)]
 pub(crate) struct UpdateJobRequest {
     name: Option<String>,
@@ -41,6 +43,7 @@ pub(crate) struct UpdateJobRequest {
     notifications: Option<JobNotificationConfig>,
 }
 
+/// Summary of a job's most recent execution.
 #[derive(Serialize)]
 pub(crate) struct LastExecution {
     id: uuid::Uuid,
@@ -64,6 +67,7 @@ struct DepStatus {
     satisfied: bool,
 }
 
+/// Enriched job response with next fire time, execution stats, and dependency status.
 #[derive(Serialize)]
 pub(crate) struct JobResponse {
     #[serde(flatten)]
@@ -75,6 +79,7 @@ pub(crate) struct JobResponse {
     deps_status: Vec<DepStatus>,
 }
 
+/// Query parameters for paginated job listing.
 #[derive(Deserialize)]
 pub(crate) struct ListJobsQuery {
     status: Option<String>,
@@ -83,12 +88,14 @@ pub(crate) struct ListJobsQuery {
     per_page: Option<u32>,
 }
 
+/// Response returned when a job is manually triggered.
 #[derive(Serialize)]
 pub(crate) struct TriggerResponse {
     message: String,
     job_id: Uuid,
 }
 
+/// Returns a paginated list of jobs with optional status and search filters.
 pub(crate) async fn list_jobs(
     State(state): State<AppState>,
     Query(query): Query<ListJobsQuery>,
@@ -139,6 +146,7 @@ pub(crate) async fn list_jobs(
     }))
 }
 
+/// Creates a new job, validates its cron expression and dependencies, and notifies the scheduler.
 pub(crate) async fn create_job(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -212,6 +220,7 @@ pub(crate) async fn create_job(
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
 
+/// Returns a single job by ID with enriched response data.
 pub(crate) async fn get_job_handler(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -224,6 +233,7 @@ pub(crate) async fn get_job_handler(
     Ok(Json(resp))
 }
 
+/// Updates a job with partial fields and logs an audit trail of the changes.
 pub(crate) async fn update_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -330,6 +340,7 @@ pub(crate) async fn update_job(
     Ok(Json(resp))
 }
 
+/// Deletes a job and notifies the scheduler to reload.
 pub(crate) async fn delete_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -353,6 +364,7 @@ pub(crate) async fn delete_job(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+/// Manually triggers a job execution outside of its schedule.
 pub(crate) async fn trigger_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -404,6 +416,7 @@ fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
     }
 }
 
+/// Builds an enriched job response with next fire time, execution stats, and dependency status.
 pub(crate) fn build_job_response(job: Job, db: &Db) -> JobResponse {
     let next = compute_next_fire(&job);
     let last_execution = db

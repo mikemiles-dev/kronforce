@@ -15,6 +15,7 @@ use crate::protocol::{
     CancelRequest, ExecutionResultReport, JobDispatchRequest, JobDispatchResponse,
 };
 
+/// Shared state for the agent HTTP server, holding identity, controller URL, and running executions.
 #[derive(Clone)]
 pub struct AgentState {
     pub agent_id: Uuid,
@@ -24,6 +25,7 @@ pub struct AgentState {
     pub agent_key: Option<String>,
 }
 
+/// Builds the agent's HTTP router with execute, cancel, health, and shutdown routes.
 pub fn router(state: AgentState) -> Router {
     Router::new()
         .route("/execute", post(execute_job))

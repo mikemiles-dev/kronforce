@@ -5,6 +5,7 @@ use super::Db;
 use crate::error::AppError;
 
 impl Db {
+    /// Returns the value of a setting by key, or None if not set.
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, AppError> {
         let conn = self.conn.lock().unwrap();
         let result = conn.query_row(
@@ -19,6 +20,7 @@ impl Db {
         }
     }
 
+    /// Creates or updates a setting by key.
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -28,6 +30,7 @@ impl Db {
         Ok(())
     }
 
+    /// Returns all settings as a key-value map.
     pub fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -46,6 +49,7 @@ impl Db {
         Ok(map)
     }
 
+    /// Deletes finished executions older than the specified retention period.
     pub fn purge_old_executions(&self, retention_days: i64) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
@@ -58,6 +62,7 @@ impl Db {
         Ok(deleted as u32)
     }
 
+    /// Deletes events older than the specified retention period.
     pub fn purge_old_events(&self, retention_days: i64) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();
@@ -67,6 +72,7 @@ impl Db {
         Ok(deleted as u32)
     }
 
+    /// Deletes completed queue items older than the specified retention period.
     pub fn purge_old_queue_items(&self, retention_days: i64) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff = (Utc::now() - chrono::Duration::days(retention_days)).to_rfc3339();

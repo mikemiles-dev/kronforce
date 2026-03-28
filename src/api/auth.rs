@@ -14,12 +14,14 @@ use crate::models::*;
 use axum::extract::Path;
 use axum::extract::State;
 
+/// Computes the SHA-256 hash of a raw API key for storage and lookup.
 pub fn hash_api_key(raw: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(raw.as_bytes());
     format!("{:x}", hasher.finalize())
 }
 
+/// Generates a new random API key, returning (raw_key, prefix).
 pub fn generate_api_key() -> (String, String) {
     use rand::Rng;
     let mut bytes = [0u8; 32];
@@ -32,6 +34,8 @@ pub fn generate_api_key() -> (String, String) {
     (raw, prefix)
 }
 
+/// Middleware that authenticates agent-facing endpoints using Bearer tokens.
+/// Skips auth if no API keys are configured (first-time setup).
 pub(crate) async fn agent_auth_middleware(
     State(state): State<AppState>,
     req: Request,
@@ -78,6 +82,8 @@ pub(crate) async fn agent_auth_middleware(
     }
 }
 
+/// Middleware that authenticates user-facing API endpoints using Bearer tokens.
+/// Skips auth if no API keys are configured (first-time setup).
 pub(crate) async fn auth_middleware(
     State(state): State<AppState>,
     mut req: Request,
@@ -141,6 +147,7 @@ impl<S: Send + Sync> axum::extract::FromRequestParts<S> for AuthUser {
     }
 }
 
+/// Guard that rejects requests unless the caller has admin privileges.
 pub(crate) fn require_admin(req: &Request) -> Result<(), AppError> {
     if let Some(key) = req.extensions().get::<ApiKey>() {
         if key.role.can_manage_keys() {
@@ -153,6 +160,7 @@ pub(crate) fn require_admin(req: &Request) -> Result<(), AppError> {
     }
 }
 
+/// Returns information about the currently authenticated API key.
 pub(crate) async fn auth_me(req: Request) -> Json<serde_json::Value> {
     if let Some(key) = req.extensions().get::<ApiKey>() {
         Json(serde_json::json!({
@@ -170,18 +178,21 @@ pub(crate) async fn auth_me(req: Request) -> Json<serde_json::Value> {
     }
 }
 
+/// Request body for creating a new API key.
 #[derive(Deserialize)]
 pub(crate) struct CreateApiKeyRequest {
     name: String,
     role: ApiKeyRole,
 }
 
+/// Response containing the newly created key and its raw (unhashed) value.
 #[derive(Serialize)]
 pub(crate) struct CreateApiKeyResponse {
     key: ApiKey,
     raw_key: String,
 }
 
+/// Creates a new API key. Requires admin privileges.
 pub(crate) async fn create_api_key(
     State(state): State<AppState>,
     req: Request,
@@ -226,6 +237,7 @@ pub(crate) async fn create_api_key(
     Ok(Json(CreateApiKeyResponse { key, raw_key }))
 }
 
+/// Lists all API keys. Requires admin privileges.
 pub(crate) async fn list_api_keys(
     State(state): State<AppState>,
     req: Request,
@@ -236,6 +248,7 @@ pub(crate) async fn list_api_keys(
     Ok(Json(keys))
 }
 
+/// Revokes an API key by ID. Requires admin privileges.
 pub(crate) async fn revoke_api_key(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,

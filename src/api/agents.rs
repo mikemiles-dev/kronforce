@@ -12,6 +12,7 @@ use tracing::info;
 
 use crate::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
+/// Handles agent registration or re-registration, upserting the agent record.
 pub(crate) async fn register_agent(
     State(state): State<AppState>,
     Json(req): Json<AgentRegistration>,
@@ -75,6 +76,7 @@ pub(crate) async fn register_agent(
     }))
 }
 
+/// Processes an agent heartbeat, updating its last-seen timestamp.
 pub(crate) async fn agent_heartbeat(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -85,6 +87,7 @@ pub(crate) async fn agent_heartbeat(
     Ok(Json(serde_json::json!({"status": "ok"})))
 }
 
+/// Returns all registered agents.
 pub(crate) async fn list_agents(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Agent>>, AppError> {
@@ -92,6 +95,7 @@ pub(crate) async fn list_agents(
     Ok(Json(agents))
 }
 
+/// Returns a single agent by ID.
 pub(crate) async fn get_agent_handler(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -102,6 +106,7 @@ pub(crate) async fn get_agent_handler(
     Ok(Json(agent))
 }
 
+/// Deregisters an agent, sends a shutdown signal, and deletes the record.
 pub(crate) async fn deregister_agent(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -134,6 +139,7 @@ pub(crate) async fn deregister_agent(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+/// Returns the task type definitions for a specific agent.
 pub(crate) async fn get_agent_task_types(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -145,6 +151,7 @@ pub(crate) async fn get_agent_task_types(
     }
 }
 
+/// Replaces the task type definitions for an agent.
 pub(crate) async fn update_agent_task_types(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -165,6 +172,7 @@ pub(crate) async fn update_agent_task_types(
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
+/// Polls the job queue for the next pending item for this agent. Also updates heartbeat.
 pub(crate) async fn poll_agent_queue(
     State(state): State<AppState>,
     Path(agent_id): Path<Uuid>,

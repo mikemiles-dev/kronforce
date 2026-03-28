@@ -8,6 +8,7 @@ use crate::error::AppError;
 use crate::models::*;
 
 impl Db {
+    /// Inserts a new agent or updates an existing one matched by name.
     pub fn upsert_agent(&self, agent: &Agent) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let tags_json = serde_json::to_string(&agent.tags).unwrap();
@@ -42,6 +43,7 @@ impl Db {
         Ok(())
     }
 
+    /// Looks up an agent by its UUID.
     pub fn get_agent(&self, id: Uuid) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -57,6 +59,7 @@ impl Db {
         }
     }
 
+    /// Looks up an agent by its unique name.
     pub fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -72,6 +75,7 @@ impl Db {
         }
     }
 
+    /// Returns all registered agents ordered by name.
     pub fn list_agents(&self) -> Result<Vec<Agent>, AppError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
@@ -85,6 +89,7 @@ impl Db {
         Ok(agents)
     }
 
+    /// Returns all agents with online status.
     pub fn get_online_agents(&self) -> Result<Vec<Agent>, AppError> {
         let agents = self.list_agents()?;
         Ok(agents
@@ -93,6 +98,7 @@ impl Db {
             .collect())
     }
 
+    /// Returns online agents filtered by agent type (standard or custom).
     pub fn get_online_agents_by_type(&self, agent_type: AgentType) -> Result<Vec<Agent>, AppError> {
         let agents = self.list_agents()?;
         Ok(agents
@@ -101,6 +107,7 @@ impl Db {
             .collect())
     }
 
+    /// Returns online agents that have the specified tag.
     pub fn get_online_agents_by_tag(&self, tag: &str) -> Result<Vec<Agent>, AppError> {
         let agents = self.list_agents()?;
         Ok(agents
@@ -109,6 +116,7 @@ impl Db {
             .collect())
     }
 
+    /// Updates the agent's last heartbeat timestamp and sets its status to online.
     pub fn update_agent_heartbeat(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -119,6 +127,7 @@ impl Db {
         Ok(())
     }
 
+    /// Marks online agents as offline if their last heartbeat is older than the given timeout.
     pub fn expire_agents(&self, timeout: std::time::Duration) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let cutoff =
@@ -131,6 +140,7 @@ impl Db {
         Ok(())
     }
 
+    /// Deletes an agent by its UUID.
     pub fn delete_agent(&self, id: Uuid) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM agents WHERE id = ?1", params![id.to_string()])
@@ -138,6 +148,7 @@ impl Db {
         Ok(())
     }
 
+    /// Replaces the task type definitions advertised by an agent.
     pub fn update_agent_task_types(
         &self,
         id: Uuid,

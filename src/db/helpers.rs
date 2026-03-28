@@ -10,6 +10,7 @@ pub(super) struct QueryFilters {
 }
 
 impl QueryFilters {
+    /// Creates an empty filter set with no conditions.
     pub fn new() -> Self {
         Self {
             where_clauses: Vec::new(),
@@ -17,22 +18,26 @@ impl QueryFilters {
         }
     }
 
+    /// Adds a `status = ?` filter clause.
     pub fn add_status(&mut self, status: &str) {
         self.add_eq("status", status);
     }
 
+    /// Adds a `column = ?` equality filter.
     pub fn add_eq(&mut self, column: &str, value: &str) {
         self.params.push(value.to_string());
         self.where_clauses
             .push(format!("{} = ?{}", column, self.params.len()));
     }
 
+    /// Adds a `column >= ?` greater-than-or-equal filter.
     pub fn add_gte(&mut self, column: &str, value: &str) {
         self.params.push(value.to_string());
         self.where_clauses
             .push(format!("{} >= ?{}", column, self.params.len()));
     }
 
+    /// Adds a LIKE search across multiple columns joined with OR.
     pub fn add_search(&mut self, query: &str, columns: &[&str]) {
         let like = format!("%{}%", query);
         let conditions: Vec<String> = columns
@@ -46,6 +51,7 @@ impl QueryFilters {
             .push(format!("({})", conditions.join(" OR ")));
     }
 
+    /// Adds LIMIT and OFFSET parameters, returning their 1-based parameter indices.
     pub fn add_limit_offset(&mut self, limit: u32, offset: u32) -> (usize, usize) {
         self.params.push(limit.to_string());
         let limit_idx = self.params.len();
@@ -54,6 +60,7 @@ impl QueryFilters {
         (limit_idx, offset_idx)
     }
 
+    /// Builds the WHERE clause string (including the leading ` WHERE`), or empty if no filters.
     pub fn where_sql(&self) -> String {
         if self.where_clauses.is_empty() {
             String::new()
@@ -62,6 +69,7 @@ impl QueryFilters {
         }
     }
 
+    /// Converts the accumulated parameters into a slice-compatible format for rusqlite.
     pub fn to_params(&self) -> Vec<&dyn rusqlite::types::ToSql> {
         self.params
             .iter()
