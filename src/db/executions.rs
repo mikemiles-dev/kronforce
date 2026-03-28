@@ -363,4 +363,39 @@ impl Db {
         let recs = self.list_executions_for_job(job_id, 1, 0)?;
         Ok(recs.into_iter().next())
     }
+
+    /// Returns execution counts grouped by status for chart display.
+    pub fn get_execution_outcome_counts(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u32>, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let mut stmt = conn
+            .prepare("SELECT status, COUNT(*) FROM executions GROUP BY status")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| {
+                let status: String = row.get(0)?;
+                let count: u32 = row.get(1)?;
+                Ok((status, count))
+            })
+            .map_err(AppError::Db)?;
+        let mut result = std::collections::HashMap::new();
+        for row in rows {
+            let (status, count) = row.map_err(AppError::Db)?;
+            let label = match status.as_str() {
+                "succeeded" => "Succeeded",
+                "failed" => "Failed",
+                "timed_out" => "Timed Out",
+                "cancelled" => "Cancelled",
+                "running" => "Running",
+                "pending" => "Pending",
+                _ => &status,
+            };
+            result.insert(label.to_string(), count);
+        }
+        Ok(result)
+    }
 }

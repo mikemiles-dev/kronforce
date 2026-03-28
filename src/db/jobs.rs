@@ -283,4 +283,97 @@ impl Db {
         }
         Ok(result)
     }
+
+    /// Returns job counts grouped by task type for chart display.
+    pub fn get_task_type_counts(&self) -> Result<std::collections::HashMap<String, u32>, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let mut stmt = conn
+            .prepare("SELECT task_json FROM jobs")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(AppError::Db)?;
+        let mut counts = std::collections::HashMap::new();
+        for row in rows {
+            let task_json = row.map_err(AppError::Db)?;
+            let type_name = serde_json::from_str::<serde_json::Value>(&task_json)
+                .ok()
+                .and_then(|v| {
+                    // Format: {"type": "shell", ...} or {"Shell": {...}}
+                    let key = v
+                        .get("type")
+                        .and_then(|t| t.as_str().map(String::from))
+                        .or_else(|| v.as_object()?.keys().next().cloned())?;
+                    Some(key)
+                })
+                .map(|k| {
+                    match k.to_lowercase().as_str() {
+                        "shell" => "Shell Command",
+                        "http" => "HTTP Request",
+                        "script" => "Rhai Script",
+                        "sql" => "SQL Query",
+                        "ftp" => "FTP Transfer",
+                        "file_push" | "filepush" => "File Push",
+                        "kafka" => "Kafka",
+                        "rabbitmq" => "RabbitMQ",
+                        "mqtt" => "MQTT",
+                        "redis" => "Redis",
+                        "custom" => "Custom Agent",
+                        _ => return k,
+                    }
+                    .to_string()
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
+            *counts.entry(type_name).or_insert(0) += 1;
+        }
+        Ok(counts)
+    }
+
+    /// Returns job counts grouped by schedule kind for chart display.
+    pub fn get_schedule_type_counts(
+        &self,
+    ) -> Result<std::collections::HashMap<String, u32>, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let mut stmt = conn
+            .prepare("SELECT schedule_json FROM jobs")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(AppError::Db)?;
+        let mut counts = std::collections::HashMap::new();
+        for row in rows {
+            let sched_json = row.map_err(AppError::Db)?;
+            let type_name = serde_json::from_str::<serde_json::Value>(&sched_json)
+                .ok()
+                .and_then(|v| {
+                    // Format: {"type": "cron", "value": "..."} or {"Cron": "..."} or "OnDemand"
+                    let key = v
+                        .get("type")
+                        .and_then(|t| t.as_str().map(String::from))
+                        .or_else(|| {
+                            if let Some(s) = v.as_str() {
+                                Some(s.to_string())
+                            } else {
+                                v.as_object()?.keys().find(|k| *k != "value").cloned()
+                            }
+                        })?;
+                    Some(match key.to_lowercase().as_str() {
+                        "cron" => "Cron Schedule".to_string(),
+                        "on_demand" | "ondemand" => "On Demand".to_string(),
+                        "one_shot" | "oneshot" => "One-Time".to_string(),
+                        "event" => "Event Trigger".to_string(),
+                        _ => key,
+                    })
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
+            *counts.entry(type_name).or_insert(0) += 1;
+        }
+        Ok(counts)
+    }
 }

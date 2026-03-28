@@ -1,5 +1,19 @@
     <section id="dashboard-view">
         <div class="dash-stats" id="dash-stats"></div>
+        <div class="dash-charts">
+            <div class="card">
+                <div class="card-header"><h3>Execution Outcomes</h3></div>
+                <div id="dash-chart-outcomes"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Task Types</h3></div>
+                <div id="dash-chart-tasks"></div>
+            </div>
+            <div class="card">
+                <div class="card-header"><h3>Schedule Types</h3></div>
+                <div id="dash-chart-schedules"></div>
+            </div>
+        </div>
         <div class="card" style="margin-bottom:16px">
             <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Execution Timeline (15 min) <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
             <div id="dash-timeline"></div>

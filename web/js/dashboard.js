@@ -140,6 +140,22 @@ async function fetchDashTimeline() {
     }
 }
 
+async function fetchChartStats() {
+    try {
+        const data = await api('GET', '/api/stats/charts');
+        renderDonutChart('dash-chart-outcomes', data.execution_outcomes);
+        renderDonutChart('dash-chart-tasks', data.task_types);
+        renderDonutChart('dash-chart-schedules', data.schedule_types);
+    } catch (e) {
+        console.error('fetchChartStats:', e);
+        // Show empty state on failure
+        ['dash-chart-outcomes', 'dash-chart-tasks', 'dash-chart-schedules'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<div class="donut-empty">No data</div>';
+        });
+    }
+}
+
 async function fetchJobTimeline(jobId) {
     try {
         const data = await api('GET', '/api/timeline/' + jobId + '?minutes=60');
@@ -254,6 +270,7 @@ async function renderDashboard() {
         // Mini map
         renderDashMap(jobs);
         fetchDashTimeline();
+        fetchChartStats();
 
     } catch (e) {
         console.error('renderDashboard:', e);
