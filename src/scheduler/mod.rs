@@ -1,3 +1,8 @@
+//! Job scheduling loop and cron expression parsing.
+//!
+//! Fires jobs based on cron schedules, one-shot timers, and event triggers.
+//! Accepts commands via an mpsc channel for reloads, manual triggers, and cancellations.
+
 pub mod cron_parser;
 
 use std::collections::HashMap;

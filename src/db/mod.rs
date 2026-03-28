@@ -1,3 +1,8 @@
+//! SQLite database layer.
+//!
+//! Provides the `Db` handle and query methods for jobs, executions, agents,
+//! events, API keys, settings, variables, and the agent job queue.
+
 mod agents;
 mod events;
 mod executions;

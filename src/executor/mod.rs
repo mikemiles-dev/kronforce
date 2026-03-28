@@ -1,3 +1,9 @@
+//! Job execution engine.
+//!
+//! Runs jobs locally or dispatches them to remote agents, handles post-execution
+//! processing (output rules, notifications, event logging), and manages
+//! variable substitution in task fields.
+
 mod dispatch;
 mod local;
 pub mod notifications;
