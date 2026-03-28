@@ -10,6 +10,7 @@ use crate::cron_parser::CronSchedule;
 use crate::db::{Db, db_call};
 use crate::error::AppError;
 use crate::models::*;
+use crate::scheduler::SchedulerCommand;
 
 #[derive(Deserialize)]
 pub(crate) struct CreateJobRequest {
@@ -43,7 +44,7 @@ pub(crate) struct UpdateJobRequest {
 #[derive(Serialize)]
 pub(crate) struct LastExecution {
     id: uuid::Uuid,
-    status: crate::models::ExecutionStatus,
+    status: ExecutionStatus,
     exit_code: Option<i32>,
     finished_at: Option<chrono::DateTime<Utc>>,
 }
@@ -192,10 +193,7 @@ pub(crate) async fn create_job(
     db_call(&state.db, move |db| db.insert_job(&job_clone)).await?;
 
     // Tell scheduler to reload
-    let _ = state
-        .scheduler_tx
-        .send(crate::scheduler::SchedulerCommand::Reload)
-        .await;
+    let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
     log_and_notify(
         &state.db,
@@ -291,10 +289,7 @@ pub(crate) async fn update_job(
     let job_clone = job.clone();
     db_call(&state.db, move |db| db.update_job(&job_clone)).await?;
 
-    let _ = state
-        .scheduler_tx
-        .send(crate::scheduler::SchedulerCommand::Reload)
-        .await;
+    let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
     // Build audit diff
     let mut changes = Vec::new();
@@ -342,10 +337,7 @@ pub(crate) async fn delete_job(
 ) -> Result<axum::http::StatusCode, AppError> {
     db_call(&state.db, move |db| db.delete_job(id)).await?;
 
-    let _ = state
-        .scheduler_tx
-        .send(crate::scheduler::SchedulerCommand::Reload)
-        .await;
+    let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
     log_and_notify(
         &state.db,
         &state.scheduler_tx,
@@ -372,7 +364,7 @@ pub(crate) async fn trigger_job(
 
     state
         .scheduler_tx
-        .send(crate::scheduler::SchedulerCommand::TriggerNow(id))
+        .send(SchedulerCommand::TriggerNow(id))
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 

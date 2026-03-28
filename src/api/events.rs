@@ -6,6 +6,7 @@ use uuid::Uuid;
 use super::{AppState, PaginatedResponse};
 use crate::db::db_call;
 use crate::error::AppError;
+use crate::models::Event;
 
 #[derive(Deserialize)]
 pub(crate) struct ListEventsQuery {
@@ -37,7 +38,7 @@ pub(crate) struct TimelineDetailEntry {
 pub(crate) async fn list_events(
     State(state): State<AppState>,
     Query(query): Query<ListEventsQuery>,
-) -> Result<Json<PaginatedResponse<Vec<crate::models::Event>>>, AppError> {
+) -> Result<Json<PaginatedResponse<Vec<Event>>>, AppError> {
     let page = query.page.unwrap_or(1).max(1);
     let per_page = query.per_page.unwrap_or(50).min(100);
     let offset = (page - 1) * per_page;

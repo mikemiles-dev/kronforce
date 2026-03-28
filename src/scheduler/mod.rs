@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use self::cron_parser::CronSchedule;
@@ -64,7 +65,7 @@ impl Scheduler {
 
     /// Starts the scheduler tick loop, consuming `self`. Runs until the process exits.
     pub async fn run(mut self) {
-        tracing::info!("scheduler started, tick interval: {:?}", self.tick_interval);
+        info!("scheduler started, tick interval: {:?}", self.tick_interval);
         let mut interval = tokio::time::interval(self.tick_interval);
 
         loop {
@@ -123,7 +124,7 @@ impl Scheduler {
             Some(t) => t,
             None => {
                 let Ok(schedule) = CronSchedule::parse(cron_expr) else {
-                    tracing::warn!("invalid cron for job {}: {}", job.name, cron_expr);
+                    warn!("invalid cron for job {}: {}", job.name, cron_expr);
                     return;
                 };
                 match schedule.next_after(now - chrono::Duration::seconds(1)) {
@@ -159,15 +160,14 @@ impl Scheduler {
             match satisfied {
                 Ok(true) => {}
                 Ok(false) => {
-                    tracing::debug!(
+                    debug!(
                         "skipping job {} ({}): dependencies not satisfied",
-                        job.name,
-                        job.id
+                        job.name, job.id
                     );
                     return;
                 }
                 Err(e) => {
-                    tracing::error!("error checking deps for job {}: {e}", job.name);
+                    error!("error checking deps for job {}: {e}", job.name);
                     return;
                 }
             }
@@ -179,15 +179,13 @@ impl Scheduler {
             .await
         {
             Ok(exec_id) => {
-                tracing::info!(
+                info!(
                     "fired job {} ({}) -> execution {}",
-                    job.name,
-                    job.id,
-                    exec_id
+                    job.name, job.id, exec_id
                 );
             }
             Err(e) => {
-                tracing::error!("failed to execute job {} ({}): {e}", job.name, job.id);
+                error!("failed to execute job {} ({}): {e}", job.name, job.id);
             }
         }
     }
@@ -195,7 +193,7 @@ impl Scheduler {
     async fn handle_command(&mut self, cmd: SchedulerCommand) {
         match cmd {
             SchedulerCommand::Reload => {
-                tracing::debug!("reloading jobs");
+                debug!("reloading jobs");
                 self.invalidate_cache();
             }
             SchedulerCommand::TriggerNow(job_id) => {
@@ -208,17 +206,17 @@ impl Scheduler {
                         self.fire_job(&job, TriggerSource::Api).await;
                     }
                     Ok(None) => {
-                        tracing::warn!("trigger: job {} not found", job_id);
+                        warn!("trigger: job {} not found", job_id);
                     }
                     Err(e) => {
-                        tracing::error!("trigger: error loading job {}: {e}", job_id);
+                        error!("trigger: error loading job {}: {e}", job_id);
                     }
                 }
             }
             SchedulerCommand::CancelExecution(exec_id) => {
                 // Try local cancel first
                 if self.executor.cancel(exec_id).await {
-                    tracing::info!("cancelled local execution {}", exec_id);
+                    info!("cancelled local execution {}", exec_id);
                     return;
                 }
 
@@ -242,18 +240,17 @@ impl Scheduler {
                             .cancel_execution(&agent.address, agent.port, exec_id)
                             .await
                         {
-                            Ok(_) => tracing::info!(
+                            Ok(_) => info!(
                                 "cancelled remote execution {} on agent {}",
-                                exec_id,
-                                agent.name
+                                exec_id, agent.name
                             ),
-                            Err(e) => tracing::error!("failed to cancel on agent: {e}"),
+                            Err(e) => error!("failed to cancel on agent: {e}"),
                         }
                         return;
                     }
                 }
 
-                tracing::warn!("cancel: execution {} not found or not running", exec_id);
+                warn!("cancel: execution {} not found or not running", exec_id);
             }
             SchedulerCommand::EventOccurred(event) => {
                 self.handle_event(event).await;
@@ -284,7 +281,7 @@ impl Scheduler {
 
                 // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
                 // (events from TriggerSource::Event executions)
-                tracing::info!("event '{}' matched job '{}', firing", event.kind, job.name);
+                info!("event '{}' matched job '{}', firing", event.kind, job.name);
                 self.fire_job(job, TriggerSource::Event { event_id: event.id })
                     .await;
             }
@@ -295,14 +292,14 @@ impl Scheduler {
         let db = self.db.clone();
         match tokio::task::spawn_blocking(move || db.get_active_cron_jobs()).await {
             Ok(Ok(jobs)) => {
-                tracing::debug!("loaded {} active jobs", jobs.len());
+                debug!("loaded {} active jobs", jobs.len());
                 self.jobs_cache = Some(jobs);
             }
             Ok(Err(e)) => {
-                tracing::error!("failed to load jobs: {e}");
+                error!("failed to load jobs: {e}");
             }
             Err(e) => {
-                tracing::error!("failed to load jobs (join): {e}");
+                error!("failed to load jobs (join): {e}");
             }
         }
     }

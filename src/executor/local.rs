@@ -1,4 +1,11 @@
+use tracing::{error, info};
+
 use super::*;
+
+use crate::notifications::notify_execution_complete;
+use crate::output_rules::process_post_execution;
+use crate::scheduler::SchedulerCommand;
+use crate::scripts::ScriptStore;
 
 use std::time::Duration;
 
@@ -73,7 +80,7 @@ impl super::Executor {
             if let Err(e) =
                 tokio::task::spawn_blocking(move || db2.update_execution(&updated2)).await
             {
-                tracing::error!("failed to update execution {}: {e}", exec_id);
+                error!("failed to update execution {}: {e}", exec_id);
             }
             // Run output rules (extraction + triggers)
             {
@@ -85,7 +92,7 @@ impl super::Executor {
                 let exec_status = updated.status;
                 let output_events: Vec<Event> = tokio::task::spawn_blocking(move || {
                     if let Ok(Some(job)) = db_rules.get_job(job_id) {
-                        crate::output_rules::process_post_execution(
+                        process_post_execution(
                             &db_rules,
                             &job,
                             exec_id_rules,
@@ -101,9 +108,7 @@ impl super::Executor {
                 .unwrap_or_default();
                 // Notify scheduler of output.matched events so event-triggered jobs can fire
                 for event in output_events {
-                    let _ = sched_tx
-                        .send(crate::scheduler::SchedulerCommand::EventOccurred(event))
-                        .await;
+                    let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
                 }
             }
 
@@ -125,7 +130,7 @@ impl super::Executor {
                         _ => return,
                     };
                     if let Some(ref notif) = job.notifications {
-                        crate::notifications::notify_execution_complete(
+                        notify_execution_complete(
                             &db_notif,
                             notif,
                             &job.name,
@@ -139,7 +144,7 @@ impl super::Executor {
             }
 
             running.lock().await.remove(&exec_id);
-            tracing::info!("execution {} finished: {:?}", exec_id, updated.status);
+            info!("execution {} finished: {:?}", exec_id, updated.status);
 
             let severity = match updated.status {
                 ExecutionStatus::Succeeded => EventSeverity::Success,
@@ -162,9 +167,7 @@ impl super::Executor {
             let db3 = db.clone();
             let event2 = event.clone();
             let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
-            let _ = sched_tx
-                .send(crate::scheduler::SchedulerCommand::EventOccurred(event))
-                .await;
+            let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
         });
 
         Ok(exec_id)
@@ -176,7 +179,7 @@ pub async fn run_task(
     task: &TaskType,
     run_as: Option<&str>,
     timeout_secs: Option<u64>,
-    script_store: Option<&crate::scripts::ScriptStore>,
+    script_store: Option<&ScriptStore>,
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     match task {
@@ -440,7 +443,7 @@ async fn run_http_task(
 
 async fn run_script_task(
     script_name: &str,
-    script_store: Option<&crate::scripts::ScriptStore>,
+    script_store: Option<&ScriptStore>,
     timeout_secs: Option<u64>,
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {

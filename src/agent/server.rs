@@ -8,6 +8,8 @@ use chrono::Utc;
 use tokio::sync::{Mutex, oneshot};
 use uuid::Uuid;
 
+use tracing::{error, info, warn};
+
 use crate::executor::run_task;
 use crate::protocol::{
     CancelRequest, ExecutionResultReport, JobDispatchRequest, JobDispatchResponse,
@@ -95,20 +97,18 @@ async fn execute_job(
             }
             match cb_req.send().await {
                 Ok(resp) if resp.status().is_success() => {
-                    tracing::info!("reported result for execution {exec_id}");
+                    info!("reported result for execution {exec_id}");
                     break;
                 }
                 Ok(resp) => {
-                    tracing::warn!("callback failed for {exec_id}: status {}", resp.status());
+                    warn!("callback failed for {exec_id}: status {}", resp.status());
                 }
                 Err(e) => {
-                    tracing::warn!("callback failed for {exec_id}: {e}");
+                    warn!("callback failed for {exec_id}: {e}");
                 }
             }
             if attempts >= 5 {
-                tracing::error!(
-                    "giving up on callback for execution {exec_id} after {attempts} attempts"
-                );
+                error!("giving up on callback for execution {exec_id} after {attempts} attempts");
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_secs(2u64.pow(attempts))).await;
@@ -135,7 +135,7 @@ async fn cancel_job(
 }
 
 async fn shutdown() -> Json<serde_json::Value> {
-    tracing::info!("shutdown requested by controller, exiting...");
+    info!("shutdown requested by controller, exiting...");
     // Spawn a delayed exit so the response can be sent first
     tokio::spawn(async {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;

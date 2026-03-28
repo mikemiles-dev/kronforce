@@ -8,6 +8,8 @@ use super::AppState;
 use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
+use tracing::info;
+
 use crate::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
 pub(crate) async fn register_agent(
@@ -52,7 +54,7 @@ pub(crate) async fn register_agent(
     let agent2 = agent.clone();
     db_call(&state.db, move |db| db.upsert_agent(&agent2)).await?;
 
-    tracing::info!("agent registered: {} ({})", agent.name, agent.id);
+    info!("agent registered: {} ({})", agent.name, agent.id);
 
     let agent_name = agent.name.clone();
     let agent_id_log = agent.id;
@@ -110,7 +112,7 @@ pub(crate) async fn deregister_agent(
     // Send shutdown signal to agent (best-effort)
     if let Some(ref a) = agent {
         let _ = state.agent_client.shutdown_agent(&a.address, a.port).await;
-        tracing::info!("sent shutdown to agent {} ({})", a.name, a.id);
+        info!("sent shutdown to agent {} ({})", a.name, a.id);
     }
 
     db_call(&state.db, move |db| db.delete_agent(id)).await?;
@@ -135,7 +137,7 @@ pub(crate) async fn deregister_agent(
 pub(crate) async fn get_agent_task_types(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Vec<crate::models::TaskTypeDefinition>>, AppError> {
+) -> Result<Json<Vec<TaskTypeDefinition>>, AppError> {
     let agent = db_call(&state.db, move |db| db.get_agent(id)).await?;
     match agent {
         Some(a) => Ok(Json(a.task_types)),
@@ -148,7 +150,7 @@ pub(crate) async fn update_agent_task_types(
     Path(id): Path<Uuid>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let task_types: Vec<crate::models::TaskTypeDefinition> = serde_json::from_value(
+    let task_types: Vec<TaskTypeDefinition> = serde_json::from_value(
         body.get("task_types")
             .cloned()
             .unwrap_or(serde_json::Value::Array(vec![])),

@@ -1,3 +1,5 @@
+use tracing::{info, warn};
+
 use kronforce::agent::AgentClient;
 use kronforce::config::ControllerConfig;
 use kronforce::dag::DagResolver;
@@ -42,7 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ControllerConfig::from_env();
 
-    tracing::info!("opening database: {}", config.db_path);
+    info!("opening database: {}", config.db_path);
     let db = Db::open(&config.db_path)?;
     db.migrate()?;
 
@@ -67,11 +69,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             admin_preset,
         );
         db.insert_api_key(&admin_key)?;
-        tracing::info!("=============================================================");
-        tracing::info!("  No API keys found. Bootstrap admin key created:");
-        tracing::info!("  {}", admin_raw);
-        tracing::info!("  Save this key — it will not be shown again.");
-        tracing::info!("=============================================================");
+        info!("=============================================================");
+        info!("  No API keys found. Bootstrap admin key created:");
+        info!("  {}", admin_raw);
+        info!("  Save this key — it will not be shown again.");
+        info!("=============================================================");
 
         let agent_preset = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY").ok();
         let (agent_key, agent_raw) = kronforce::models::ApiKey::bootstrap(
@@ -80,12 +82,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             agent_preset,
         );
         db.insert_api_key(&agent_key)?;
-        tracing::info!("=============================================================");
-        tracing::info!("  Bootstrap agent key created:");
-        tracing::info!("  {}", agent_raw);
-        tracing::info!("  Set KRONFORCE_AGENT_KEY={} on your agents.", agent_raw);
-        tracing::info!("  Save this key — it will not be shown again.");
-        tracing::info!("=============================================================");
+        info!("=============================================================");
+        info!("  Bootstrap agent key created:");
+        info!("  {}", agent_raw);
+        info!("  Set KRONFORCE_AGENT_KEY={} on your agents.", agent_raw);
+        info!("  Save this key — it will not be shown again.");
+        info!("=============================================================");
 
         // Write keys to file next to the database for easy retrieval
         let db_path = std::path::Path::new(&config.db_path);
@@ -110,11 +112,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         std::fs::Permissions::from_mode(0o600),
                     );
                 }
-                tracing::info!("  Keys saved to: {}", keys_path.display());
-                tracing::info!("  Retrieve with: cat {}", keys_path.display());
+                info!("  Keys saved to: {}", keys_path.display());
+                info!("  Retrieve with: cat {}", keys_path.display());
             }
             Err(e) => {
-                tracing::warn!("  Could not write keys file: {}", e);
+                warn!("  Could not write keys file: {}", e);
             }
         }
     }
@@ -123,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent_client = AgentClient::new();
     let script_store = kronforce::scripts::ScriptStore::new(&config.scripts_dir)?;
-    tracing::info!("scripts directory: {}", config.scripts_dir);
+    info!("scripts directory: {}", config.scripts_dir);
     let executor = Executor::new(
         db.clone(),
         agent_client.clone(),
@@ -226,7 +228,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = kronforce::api::router(state);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
-    tracing::info!("listening on {}", config.bind_addr);
+    info!("listening on {}", config.bind_addr);
     axum::serve(listener, app).await?;
 
     Ok(())

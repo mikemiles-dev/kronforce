@@ -218,13 +218,12 @@ impl Db {
             let (id_str, deps_json) = row.map_err(AppError::Db)?;
             let id = Uuid::parse_str(&id_str).unwrap();
             // Support both old Vec<Uuid> and new Vec<Dependency> formats
-            let deps: Vec<Uuid> = if let Ok(dep_objs) =
-                serde_json::from_str::<Vec<crate::models::Dependency>>(&deps_json)
-            {
-                dep_objs.iter().map(|d| d.job_id).collect()
-            } else {
-                serde_json::from_str(&deps_json).unwrap_or_default()
-            };
+            let deps: Vec<Uuid> =
+                if let Ok(dep_objs) = serde_json::from_str::<Vec<Dependency>>(&deps_json) {
+                    dep_objs.iter().map(|d| d.job_id).collect()
+                } else {
+                    serde_json::from_str(&deps_json).unwrap_or_default()
+                };
             result.push((id, deps));
         }
         Ok(result)

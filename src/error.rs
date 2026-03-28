@@ -2,6 +2,7 @@ use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
+use tracing::error;
 
 /// Application-wide error type that maps to HTTP status codes.
 #[derive(Debug, thiserror::Error)]
@@ -47,7 +48,7 @@ impl IntoResponse for AppError {
             AppError::AgentError(m) => (StatusCode::BAD_GATEWAY, m.clone()),
             AppError::AgentUnavailable(m) => (StatusCode::SERVICE_UNAVAILABLE, m.clone()),
             AppError::Db(e) => {
-                tracing::error!("database error: {e}");
+                error!("database error: {e}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal error".to_string(),

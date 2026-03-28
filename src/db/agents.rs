@@ -141,7 +141,7 @@ impl Db {
     pub fn update_agent_task_types(
         &self,
         id: Uuid,
-        task_types: &[crate::models::TaskTypeDefinition],
+        task_types: &[TaskTypeDefinition],
     ) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
         let json = if task_types.is_empty() {

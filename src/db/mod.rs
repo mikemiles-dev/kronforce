@@ -14,6 +14,8 @@ use std::sync::{Arc, Mutex};
 use chrono::Utc;
 use rusqlite::{Connection, params};
 
+use tracing::{debug, error, info};
+
 use crate::error::AppError;
 
 // Migrations loaded from migrations/*.sql files, embedded at compile time by build.rs
@@ -58,13 +60,13 @@ impl Db {
             )
             .unwrap_or(0);
 
-        tracing::info!("database schema version: {}", current_version);
+        info!("database schema version: {}", current_version);
 
         for (version, description, sql) in MIGRATIONS {
             if *version <= current_version {
                 continue;
             }
-            tracing::info!("applying migration v{}: {}", version, description);
+            info!("applying migration v{}: {}", version, description);
             // Execute each statement separately (ALTER TABLE can't be batched with others that might fail)
             for stmt in sql.split(';') {
                 let stmt = stmt.trim();
@@ -75,13 +77,12 @@ impl Db {
                     // Ignore "duplicate column" errors for idempotency
                     let err_str = e.to_string();
                     if err_str.contains("duplicate column") || err_str.contains("already exists") {
-                        tracing::debug!(
+                        debug!(
                             "migration v{}: skipping (already applied): {}",
-                            version,
-                            err_str
+                            version, err_str
                         );
                     } else {
-                        tracing::error!("migration v{} failed: {}", version, e);
+                        error!("migration v{} failed: {}", version, e);
                         return Err(AppError::Db(e));
                     }
                 }
@@ -91,11 +92,11 @@ impl Db {
                 params![version, Utc::now().to_rfc3339(), description],
             )
             .map_err(AppError::Db)?;
-            tracing::info!("migration v{} applied", version);
+            info!("migration v{} applied", version);
         }
 
         if current_version < MIGRATIONS.last().map_or(0, |(v, _, _)| *v) {
-            tracing::info!(
+            info!(
                 "database migrated to v{}",
                 MIGRATIONS.last().map_or(0, |(v, _, _)| *v)
             );
