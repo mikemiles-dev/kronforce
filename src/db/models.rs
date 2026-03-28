@@ -4,12 +4,14 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// A selectable option for a task field (e.g., dropdown value).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FieldOption {
     pub value: String,
     pub label: String,
 }
 
+/// Schema definition for a single field within a task type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskFieldDefinition {
     pub name: String,
@@ -21,6 +23,7 @@ pub struct TaskFieldDefinition {
     pub options: Option<Vec<FieldOption>>,
 }
 
+/// Describes a custom task type with its name, description, and required fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskTypeDefinition {
     pub name: String,
@@ -28,19 +31,26 @@ pub struct TaskTypeDefinition {
     pub fields: Vec<TaskFieldDefinition>,
 }
 
+/// A cron expression string (e.g., `"0 */5 * * *"`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CronExpr(pub String);
 
+/// How a job is scheduled to run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum ScheduleKind {
+    /// Recurring schedule driven by a cron expression.
     Cron(CronExpr),
+    /// Fires exactly once at the specified time.
     OneShot(DateTime<Utc>),
+    /// Only runs when triggered manually via the API.
     #[serde(alias = "manual")]
     OnDemand,
+    /// Fires in response to matching system events.
     Event(EventTriggerConfig),
 }
 
+/// Configuration for event-driven job triggers, with kind/severity/job-name filters.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventTriggerConfig {
     pub kind_pattern: String,
@@ -48,23 +58,26 @@ pub struct EventTriggerConfig {
     pub job_name_filter: Option<String>,
 }
 
+/// A dependency on another job, optionally constrained by a recency window.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dependency {
     pub job_id: Uuid,
     pub within_secs: Option<u64>,
 }
 
+/// The work a job performs. Each variant represents a different execution backend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TaskType {
-    Shell {
-        command: String,
-    },
+    /// Execute a shell command on the target host.
+    Shell { command: String },
+    /// Run a SQL query against a database.
     Sql {
         driver: SqlDriver,
         connection_string: String,
         query: String,
     },
+    /// Transfer a file via FTP, FTPS, or SFTP.
     Ftp {
         protocol: FtpProtocol,
         host: String,
@@ -75,6 +88,7 @@ pub enum TaskType {
         remote_path: String,
         local_path: String,
     },
+    /// Make an HTTP request.
     Http {
         method: HttpMethod,
         url: String,
@@ -82,13 +96,14 @@ pub enum TaskType {
         body: Option<String>,
         expect_status: Option<u16>,
     },
-    Script {
-        script_name: String,
-    },
+    /// Run a stored Rhai script by name.
+    Script { script_name: String },
+    /// Agent-defined custom task type with arbitrary JSON data.
     Custom {
         agent_task_type: String,
         data: serde_json::Value,
     },
+    /// Push a file (base64-encoded) to the target host.
     FilePush {
         filename: String,
         destination: String,
@@ -97,6 +112,7 @@ pub enum TaskType {
         #[serde(default)]
         overwrite: bool,
     },
+    /// Publish a message to a Kafka topic.
     Kafka {
         broker: String,
         topic: String,
@@ -104,6 +120,7 @@ pub enum TaskType {
         key: Option<String>,
         properties: Option<String>,
     },
+    /// Publish a message to a RabbitMQ exchange.
     Rabbitmq {
         url: String,
         exchange: String,
@@ -111,6 +128,7 @@ pub enum TaskType {
         message: String,
         content_type: Option<String>,
     },
+    /// Publish a message to an MQTT topic.
     Mqtt {
         broker: String,
         topic: String,
@@ -121,6 +139,7 @@ pub enum TaskType {
         password: Option<String>,
         client_id: Option<String>,
     },
+    /// Publish a message to a Redis channel.
     Redis {
         url: String,
         channel: String,
@@ -128,6 +147,7 @@ pub enum TaskType {
     },
 }
 
+/// Supported SQL database drivers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SqlDriver {
@@ -136,6 +156,7 @@ pub enum SqlDriver {
     Sqlite,
 }
 
+/// File transfer protocol variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FtpProtocol {
@@ -144,6 +165,7 @@ pub enum FtpProtocol {
     Sftp,
 }
 
+/// Direction of a file transfer operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransferDirection {
@@ -151,6 +173,7 @@ pub enum TransferDirection {
     Download,
 }
 
+/// HTTP method for HTTP task requests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HttpMethod {
@@ -160,15 +183,20 @@ pub enum HttpMethod {
     Delete,
 }
 
+/// Current scheduling state of a job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum JobStatus {
+    /// Job is active and will fire according to its schedule.
     Scheduled,
+    /// Job exists but is temporarily disabled.
     Paused,
+    /// Job has no future scheduled runs (e.g., one-shot that already fired).
     Unscheduled,
 }
 
 impl JobStatus {
+    /// Returns the string representation of this status.
     pub fn as_str(&self) -> &'static str {
         match self {
             JobStatus::Scheduled => "scheduled",
@@ -177,6 +205,7 @@ impl JobStatus {
         }
     }
 
+    /// Parses a status string, accepting legacy aliases (e.g., "enabled" -> Scheduled).
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -188,6 +217,7 @@ impl JobStatus {
     }
 }
 
+/// A rule for extracting named values from task output using regex or JSONPath.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtractionRule {
     pub name: String,
@@ -198,18 +228,21 @@ pub struct ExtractionRule {
     pub write_to_variable: Option<String>,
 }
 
+/// Matches a pattern in task output and raises an event at the given severity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputTrigger {
     pub pattern: String,
     pub severity: String, // "error", "warning", "info", "success"
 }
 
+/// A pattern that must appear in task output; if absent the execution is marked failed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputAssertion {
     pub pattern: String,
     pub message: Option<String>, // custom failure message
 }
 
+/// Post-execution output processing: extractions, triggers, and assertions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OutputRules {
     #[serde(default)]
@@ -220,6 +253,7 @@ pub struct OutputRules {
     pub assertions: Vec<OutputAssertion>,
 }
 
+/// Per-job notification preferences (on failure, success, or assertion failure).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JobNotificationConfig {
     #[serde(default)]
@@ -232,6 +266,7 @@ pub struct JobNotificationConfig {
     pub recipients: Option<crate::notifications::NotificationRecipients>,
 }
 
+/// A scheduled job definition including its task, schedule, dependencies, and targeting.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     pub id: Uuid,
@@ -253,24 +288,35 @@ pub struct Job {
     pub notifications: Option<JobNotificationConfig>,
 }
 
+/// Where a job should be executed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentTarget {
+    /// Run on the controller itself.
     Local,
+    /// Run on a specific agent by ID.
     Agent { agent_id: Uuid },
+    /// Run on any agent matching the given tag.
     Tagged { tag: String },
+    /// Run on any available online agent.
     Any,
+    /// Run on all online agents simultaneously.
     All,
 }
 
+/// Connectivity state of a remote agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentStatus {
+    /// Agent is connected and accepting work.
     Online,
+    /// Agent has not sent a heartbeat within the timeout window.
     Offline,
+    /// Agent is finishing current work but not accepting new jobs.
     Draining,
 }
 
+/// Whether an agent uses standard or custom task execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentType {
@@ -279,6 +325,7 @@ pub enum AgentType {
 }
 
 impl AgentType {
+    /// Returns the string representation of this agent type.
     pub fn as_str(&self) -> &'static str {
         match self {
             AgentType::Standard => "standard",
@@ -286,6 +333,7 @@ impl AgentType {
         }
     }
 
+    /// Parses a string into an `AgentType`, defaulting to `Standard`.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
@@ -296,6 +344,7 @@ impl AgentType {
 }
 
 impl AgentStatus {
+    /// Returns the string representation of this agent status.
     pub fn as_str(&self) -> &'static str {
         match self {
             AgentStatus::Online => "online",
@@ -304,6 +353,7 @@ impl AgentStatus {
         }
     }
 
+    /// Parses a status string into an `AgentStatus`.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -315,6 +365,7 @@ impl AgentStatus {
     }
 }
 
+/// A registered remote agent that can execute jobs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: Uuid,
@@ -331,6 +382,7 @@ pub struct Agent {
     pub task_types: Vec<TaskTypeDefinition>,
 }
 
+/// Lifecycle status of a single job execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecutionStatus {
@@ -344,6 +396,7 @@ pub enum ExecutionStatus {
 }
 
 impl ExecutionStatus {
+    /// Returns the string representation of this execution status.
     pub fn as_str(&self) -> &'static str {
         match self {
             ExecutionStatus::Pending => "pending",
@@ -356,6 +409,7 @@ impl ExecutionStatus {
         }
     }
 
+    /// Parses a status string into an `ExecutionStatus`.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -371,6 +425,7 @@ impl ExecutionStatus {
     }
 }
 
+/// What initiated a job execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TriggerSource {
@@ -380,6 +435,7 @@ pub enum TriggerSource {
     Event { event_id: Uuid },
 }
 
+/// Recorded result of a single job execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionRecord {
     pub id: Uuid,
@@ -400,6 +456,7 @@ pub struct ExecutionRecord {
 }
 
 impl ExecutionRecord {
+    /// Creates a new pending execution record.
     pub fn new(id: Uuid, job_id: Uuid, trigger: TriggerSource) -> Self {
         Self {
             id,
@@ -419,27 +476,32 @@ impl ExecutionRecord {
         }
     }
 
+    /// Sets the execution status via builder pattern.
     pub fn with_status(mut self, status: ExecutionStatus) -> Self {
         self.status = status;
         self
     }
 
+    /// Sets the executing agent ID via builder pattern.
     pub fn with_agent_id(mut self, agent_id: Uuid) -> Self {
         self.agent_id = Some(agent_id);
         self
     }
 
+    /// Attaches a snapshot of the task definition via builder pattern.
     pub fn with_task_snapshot(mut self, task: TaskType) -> Self {
         self.task_snapshot = Some(task);
         self
     }
 
+    /// Sets the execution start time via builder pattern.
     pub fn with_started_at(mut self, at: DateTime<Utc>) -> Self {
         self.started_at = Some(at);
         self
     }
 }
 
+/// An auditable system event (e.g., job fired, agent offline, API action).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
     pub id: Uuid,
@@ -454,6 +516,7 @@ pub struct Event {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Severity level for system events.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventSeverity {
@@ -464,6 +527,7 @@ pub enum EventSeverity {
 }
 
 impl EventSeverity {
+    /// Returns the string representation of this severity level.
     pub fn as_str(&self) -> &'static str {
         match self {
             EventSeverity::Info => "info",
@@ -473,6 +537,7 @@ impl EventSeverity {
         }
     }
 
+    /// Parses a severity string into an `EventSeverity`.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -485,6 +550,7 @@ impl EventSeverity {
     }
 }
 
+/// An API key used for authenticating requests to the controller.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKey {
     pub id: Uuid,
@@ -501,6 +567,7 @@ pub struct ApiKey {
 const KEY_PREFIX_LEN: usize = 11;
 
 impl ApiKey {
+    /// Creates a new API key (optionally from a preset), returning the key and its raw value.
     pub fn bootstrap(role: ApiKeyRole, name: &str, preset_key: Option<String>) -> (Self, String) {
         let (raw_key, prefix) = if let Some(preset) = preset_key.filter(|k| !k.is_empty()) {
             let pfx = preset.get(..KEY_PREFIX_LEN).unwrap_or(&preset).to_string();
@@ -525,6 +592,7 @@ impl ApiKey {
     }
 }
 
+/// Permission role assigned to an API key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ApiKeyRole {
@@ -535,6 +603,7 @@ pub enum ApiKeyRole {
 }
 
 impl ApiKeyRole {
+    /// Returns the string representation of this role.
     pub fn as_str(&self) -> &'static str {
         match self {
             ApiKeyRole::Admin => "admin",
@@ -544,6 +613,7 @@ impl ApiKeyRole {
         }
     }
 
+    /// Parses a role string into an `ApiKeyRole`.
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
@@ -555,19 +625,23 @@ impl ApiKeyRole {
         }
     }
 
+    /// Returns `true` if this role has write access (Admin or Operator).
     pub fn can_write(&self) -> bool {
         matches!(self, ApiKeyRole::Admin | ApiKeyRole::Operator)
     }
 
+    /// Returns `true` if this role can create and revoke API keys.
     pub fn can_manage_keys(&self) -> bool {
         matches!(self, ApiKeyRole::Admin)
     }
 
+    /// Returns `true` if this is an agent-scoped key.
     pub fn is_agent(&self) -> bool {
         matches!(self, ApiKeyRole::Agent)
     }
 }
 
+/// A named variable that can be substituted into task fields at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Variable {
     pub name: String,

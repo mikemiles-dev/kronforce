@@ -16,12 +16,14 @@ use rusqlite::{Connection, params};
 
 use crate::error::AppError;
 
+/// SQLite database handle with connection pooling via `Arc<Mutex>`.
 #[derive(Clone)]
 pub struct Db {
     conn: Arc<Mutex<Connection>>,
 }
 
 impl Db {
+    /// Opens (or creates) the SQLite database at `path` with WAL mode enabled.
     pub fn open(path: &str) -> Result<Self, AppError> {
         let conn = Connection::open(path).map_err(AppError::Db)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
@@ -31,6 +33,7 @@ impl Db {
         })
     }
 
+    /// Applies all pending schema migrations in order.
     pub fn migrate(&self) -> Result<(), AppError> {
         let conn = self.conn.lock().unwrap();
 
@@ -228,6 +231,7 @@ impl Db {
 }
 
 impl Db {
+    /// Runs the given closure inside a SQLite transaction, committing on success.
     pub fn with_transaction<F, T>(&self, f: F) -> Result<T, AppError>
     where
         F: FnOnce(&rusqlite::Transaction) -> Result<T, AppError>,

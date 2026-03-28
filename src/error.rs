@@ -3,24 +3,34 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
+/// Application-wide error type that maps to HTTP status codes.
 #[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    /// Resource was not found (404).
     #[error("not found: {0}")]
     NotFound(String),
+    /// Request conflicts with existing state (409).
     #[error("conflict: {0}")]
     Conflict(String),
+    /// Client sent an invalid request (400).
     #[error("bad request: {0}")]
     BadRequest(String),
+    /// Unexpected server-side failure (500).
     #[error("internal: {0}")]
     Internal(String),
+    /// Missing or invalid authentication credentials (401).
     #[error("unauthorized: {0}")]
     Unauthorized(String),
+    /// Authenticated but insufficient permissions (403).
     #[error("forbidden: {0}")]
     Forbidden(String),
+    /// Remote agent returned an error (502).
     #[error("agent error: {0}")]
     AgentError(String),
+    /// Remote agent is unreachable (503).
     #[error("agent unavailable: {0}")]
     AgentUnavailable(String),
+    /// SQLite database error.
     #[error(transparent)]
     Db(#[from] rusqlite::Error),
 }

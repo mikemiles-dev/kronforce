@@ -2,6 +2,7 @@ use crate::db::Db;
 use crate::models::{EventSeverity, ExecutionStatus, JobNotificationConfig};
 use serde::{Deserialize, Serialize};
 
+/// SMTP email delivery configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmailConfig {
     pub enabled: bool,
@@ -14,6 +15,7 @@ pub struct EmailConfig {
     pub tls: bool,
 }
 
+/// SMS delivery configuration via an HTTP webhook.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmsConfig {
     pub enabled: bool,
@@ -23,6 +25,7 @@ pub struct SmsConfig {
     pub from_number: Option<String>,
 }
 
+/// Email addresses and phone numbers that receive notifications.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NotificationRecipients {
     #[serde(default)]
@@ -31,6 +34,7 @@ pub struct NotificationRecipients {
     pub phones: Vec<String>,
 }
 
+/// Toggles for system-level alert notifications (e.g., agent going offline).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SystemAlerts {
     #[serde(default)]
@@ -41,6 +45,7 @@ fn default_true() -> bool {
     true
 }
 
+/// Loads the email configuration from the database, returning `None` if disabled.
 pub fn load_email_config(db: &Db) -> Option<EmailConfig> {
     db.get_setting("notification_email")
         .ok()
@@ -49,6 +54,7 @@ pub fn load_email_config(db: &Db) -> Option<EmailConfig> {
         .filter(|c: &EmailConfig| c.enabled)
 }
 
+/// Loads the SMS configuration from the database, returning `None` if disabled.
 pub fn load_sms_config(db: &Db) -> Option<SmsConfig> {
     db.get_setting("notification_sms")
         .ok()
@@ -57,6 +63,7 @@ pub fn load_sms_config(db: &Db) -> Option<SmsConfig> {
         .filter(|c: &SmsConfig| c.enabled)
 }
 
+/// Loads the global notification recipients from the database.
 pub fn load_recipients(db: &Db) -> NotificationRecipients {
     db.get_setting("notification_recipients")
         .ok()
@@ -65,6 +72,7 @@ pub fn load_recipients(db: &Db) -> NotificationRecipients {
         .unwrap_or_default()
 }
 
+/// Loads the system alert toggle settings from the database.
 pub fn load_system_alerts(db: &Db) -> SystemAlerts {
     db.get_setting("notification_system_alerts")
         .ok()
@@ -73,6 +81,7 @@ pub fn load_system_alerts(db: &Db) -> SystemAlerts {
         .unwrap_or_default()
 }
 
+/// Sends a notification via all enabled channels (email, SMS) to the given or global recipients.
 pub async fn send_notification(
     db: &Db,
     subject: &str,
@@ -199,6 +208,7 @@ pub async fn notify_execution_complete(
     send_notification(db, &subject, &body, recipients.as_ref()).await;
 }
 
+/// Sends an email to one or more recipients via SMTP.
 pub async fn send_email(
     config: &EmailConfig,
     to: &[String],
@@ -246,6 +256,7 @@ pub async fn send_email(
     Ok(())
 }
 
+/// Sends an SMS to one or more phone numbers via the configured webhook.
 pub async fn send_sms(config: &SmsConfig, to: &[String], body: &str) -> Result<(), String> {
     let client = reqwest::Client::new();
 
