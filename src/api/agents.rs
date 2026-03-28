@@ -5,6 +5,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use super::AppState;
+use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
 use crate::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
@@ -13,17 +14,11 @@ pub(crate) async fn register_agent(
     State(state): State<AppState>,
     Json(req): Json<AgentRegistration>,
 ) -> Result<Json<AgentRegistrationResponse>, AppError> {
-    let db = state.db.clone();
     let name = req.name.clone();
 
     // Check if agent with same name exists (re-registration)
-    let existing = tokio::task::spawn_blocking({
-        let db = db.clone();
-        let name = name.clone();
-        move || db.get_agent_by_name(&name)
-    })
-    .await
-    .unwrap()?;
+    let name_clone = name.clone();
+    let existing = db_call(&state.db, move |db| db.get_agent_by_name(&name_clone)).await?;
 
     let agent_id = existing.as_ref().map(|a| a.id).unwrap_or_else(Uuid::new_v4);
     let now = Utc::now();
@@ -54,19 +49,15 @@ pub(crate) async fn register_agent(
         task_types,
     };
 
-    let db2 = db.clone();
     let agent2 = agent.clone();
-    tokio::task::spawn_blocking(move || db2.upsert_agent(&agent2))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.upsert_agent(&agent2)).await?;
 
     tracing::info!("agent registered: {} ({})", agent.name, agent.id);
 
-    let db_log = state.db.clone();
     let agent_name = agent.name.clone();
     let agent_id_log = agent.id;
-    let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event(
+    let _ = db_call(&state.db, move |db| {
+        db.log_event(
             "agent.registered",
             EventSeverity::Success,
             &format!("Agent '{}' registered", agent_name),
@@ -87,21 +78,15 @@ pub(crate) async fn agent_heartbeat(
     Path(id): Path<Uuid>,
     Json(_hb): Json<AgentHeartbeat>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let db = state.db.clone();
     let now = Utc::now();
-    tokio::task::spawn_blocking(move || db.update_agent_heartbeat(id, now))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.update_agent_heartbeat(id, now)).await?;
     Ok(Json(serde_json::json!({"status": "ok"})))
 }
 
 pub(crate) async fn list_agents(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Agent>>, AppError> {
-    let db = state.db.clone();
-    let agents = tokio::task::spawn_blocking(move || db.list_agents())
-        .await
-        .unwrap()?;
+    let agents = db_call(&state.db, move |db| db.list_agents()).await?;
     Ok(Json(agents))
 }
 
@@ -109,10 +94,8 @@ pub(crate) async fn get_agent_handler(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Agent>, AppError> {
-    let db = state.db.clone();
-    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
-        .await
-        .unwrap()?
+    let agent = db_call(&state.db, move |db| db.get_agent(id))
+        .await?
         .ok_or_else(|| AppError::NotFound(format!("agent {id} not found")))?;
     Ok(Json(agent))
 }
@@ -122,10 +105,7 @@ pub(crate) async fn deregister_agent(
     Path(id): Path<Uuid>,
 ) -> Result<axum::http::StatusCode, AppError> {
     // Look up agent to get address before deleting
-    let db = state.db.clone();
-    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
-        .await
-        .unwrap()?;
+    let agent = db_call(&state.db, move |db| db.get_agent(id)).await?;
 
     // Send shutdown signal to agent (best-effort)
     if let Some(ref a) = agent {
@@ -133,16 +113,12 @@ pub(crate) async fn deregister_agent(
         tracing::info!("sent shutdown to agent {} ({})", a.name, a.id);
     }
 
-    let db = state.db.clone();
-    tokio::task::spawn_blocking(move || db.delete_agent(id))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.delete_agent(id)).await?;
 
     if let Some(a) = agent {
-        let db_log = state.db.clone();
         let name = a.name.clone();
-        let _ = tokio::task::spawn_blocking(move || {
-            db_log.log_event(
+        let _ = db_call(&state.db, move |db| {
+            db.log_event(
                 "agent.unpaired",
                 EventSeverity::Warning,
                 &format!("Agent '{}' unpaired and shut down", name),
@@ -160,10 +136,7 @@ pub(crate) async fn get_agent_task_types(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Vec<crate::models::TaskTypeDefinition>>, AppError> {
-    let db = state.db.clone();
-    let agent = tokio::task::spawn_blocking(move || db.get_agent(id))
-        .await
-        .unwrap()?;
+    let agent = db_call(&state.db, move |db| db.get_agent(id)).await?;
     match agent {
         Some(a) => Ok(Json(a.task_types)),
         None => Err(AppError::NotFound("agent not found".into())),
@@ -182,10 +155,10 @@ pub(crate) async fn update_agent_task_types(
     )
     .map_err(|e| AppError::BadRequest(format!("invalid task_types: {e}")))?;
 
-    let db = state.db.clone();
-    tokio::task::spawn_blocking(move || db.update_agent_task_types(id, &task_types))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| {
+        db.update_agent_task_types(id, &task_types)
+    })
+    .await?;
 
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
@@ -195,15 +168,11 @@ pub(crate) async fn poll_agent_queue(
     Path(agent_id): Path<Uuid>,
 ) -> Result<Response, AppError> {
     // Also update heartbeat
-    let db = state.db.clone();
     let now = Utc::now();
     let aid = agent_id;
-    let _ = tokio::task::spawn_blocking(move || db.update_agent_heartbeat(aid, now)).await;
+    let _ = db_call(&state.db, move |db| db.update_agent_heartbeat(aid, now)).await;
 
-    let db = state.db.clone();
-    let job = tokio::task::spawn_blocking(move || db.dequeue_job(agent_id))
-        .await
-        .unwrap()?;
+    let job = db_call(&state.db, move |db| db.dequeue_job(agent_id)).await?;
 
     match job {
         Some(j) => Ok(Json(j).into_response()),

@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::AppState;
+use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
 use axum::extract::Path;
@@ -37,10 +38,7 @@ pub(crate) async fn agent_auth_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     // Check if any API keys exist — if not, skip auth (first-time setup)
-    let db = state.db.clone();
-    let key_count = tokio::task::spawn_blocking(move || db.count_api_keys())
-        .await
-        .unwrap()?;
+    let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
 
     if key_count == 0 {
         return Ok(next.run(req).await);
@@ -60,19 +58,17 @@ pub(crate) async fn agent_auth_middleware(
     };
 
     let hash = hash_api_key(raw_key);
-    let db = state.db.clone();
-    let api_key = tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash))
-        .await
-        .unwrap()?;
+    let api_key = db_call(&state.db, move |db| db.get_api_key_by_hash(&hash)).await?;
 
     match api_key {
         Some(key) if key.role.is_agent() || key.role.can_manage_keys() => {
             // Agent keys and admin keys can access agent endpoints
-            let db = state.db.clone();
             let key_id = key.id;
             let now = Utc::now();
-            let _ =
-                tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+            let _ = db_call(&state.db, move |db| {
+                db.update_api_key_last_used(key_id, now)
+            })
+            .await;
             Ok(next.run(req).await)
         }
         Some(_) => Err(AppError::Forbidden(
@@ -88,10 +84,7 @@ pub(crate) async fn auth_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     // Check if auth is enabled (any keys exist)
-    let db = state.db.clone();
-    let key_count = tokio::task::spawn_blocking(move || db.count_api_keys())
-        .await
-        .unwrap()?;
+    let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
 
     // If no keys exist, skip auth (first-time setup)
     if key_count == 0 {
@@ -114,20 +107,17 @@ pub(crate) async fn auth_middleware(
     };
 
     let hash = hash_api_key(raw_key);
-    let db = state.db.clone();
-    let hash2 = hash.clone();
-    let api_key = tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash2))
-        .await
-        .unwrap()?;
+    let api_key = db_call(&state.db, move |db| db.get_api_key_by_hash(&hash)).await?;
 
     match api_key {
         Some(key) => {
             // Update last_used_at
-            let db = state.db.clone();
             let key_id = key.id;
             let now = Utc::now();
-            let _ =
-                tokio::task::spawn_blocking(move || db.update_api_key_last_used(key_id, now)).await;
+            let _ = db_call(&state.db, move |db| {
+                db.update_api_key_last_used(key_id, now)
+            })
+            .await;
 
             req.extensions_mut().insert(key);
             Ok(next.run(req).await)
@@ -218,16 +208,12 @@ pub(crate) async fn create_api_key(
         active: true,
     };
 
-    let db = state.db.clone();
     let key2 = key.clone();
-    tokio::task::spawn_blocking(move || db.insert_api_key(&key2))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.insert_api_key(&key2)).await?;
 
-    let db_log = state.db.clone();
     let key_name = key.name.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event(
+    let _ = db_call(&state.db, move |db| {
+        db.log_event(
             "key.created",
             EventSeverity::Info,
             &format!("API key '{}' created", key_name),
@@ -246,10 +232,7 @@ pub(crate) async fn list_api_keys(
 ) -> Result<Json<Vec<ApiKey>>, AppError> {
     require_admin(&req)?;
 
-    let db = state.db.clone();
-    let keys = tokio::task::spawn_blocking(move || db.list_api_keys())
-        .await
-        .unwrap()?;
+    let keys = db_call(&state.db, move |db| db.list_api_keys()).await?;
     Ok(Json(keys))
 }
 
@@ -260,14 +243,10 @@ pub(crate) async fn revoke_api_key(
 ) -> Result<axum::http::StatusCode, AppError> {
     require_admin(&req)?;
 
-    let db = state.db.clone();
-    tokio::task::spawn_blocking(move || db.delete_api_key(id))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.delete_api_key(id)).await?;
 
-    let db_log = state.db.clone();
-    let _ = tokio::task::spawn_blocking(move || {
-        db_log.log_event(
+    let _ = db_call(&state.db, move |db| {
+        db.log_event(
             "key.revoked",
             EventSeverity::Warning,
             &format!("API key {} revoked", id),

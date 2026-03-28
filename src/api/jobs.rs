@@ -7,7 +7,7 @@ use uuid::Uuid;
 use super::auth::AuthUser;
 use super::{AppState, PaginatedResponse, log_and_notify};
 use crate::cron_parser::CronSchedule;
-use crate::db::Db;
+use crate::db::{Db, db_call};
 use crate::error::AppError;
 use crate::models::*;
 
@@ -98,16 +98,14 @@ pub(crate) async fn list_jobs(
     let filter_owned = query.status.clone();
     let search_owned = query.search.clone();
 
-    let db = state.db.clone();
     let filter2 = filter_owned.clone();
     let search2 = search_owned.clone();
-    let total =
-        tokio::task::spawn_blocking(move || db.count_jobs(filter2.as_deref(), search2.as_deref()))
-            .await
-            .unwrap()?;
+    let total = db_call(&state.db, move |db| {
+        db.count_jobs(filter2.as_deref(), search2.as_deref())
+    })
+    .await?;
 
-    let db = state.db.clone();
-    let jobs = tokio::task::spawn_blocking(move || {
+    let jobs = db_call(&state.db, move |db| {
         db.list_jobs(
             filter_owned.as_deref(),
             search_owned.as_deref(),
@@ -115,17 +113,15 @@ pub(crate) async fn list_jobs(
             offset,
         )
     })
-    .await
-    .unwrap()?;
+    .await?;
 
-    let db2 = state.db.clone();
-    let responses: Vec<JobResponse> = tokio::task::spawn_blocking(move || {
-        jobs.into_iter()
-            .map(|job| build_job_response(job, &db2))
-            .collect()
+    let responses: Vec<JobResponse> = db_call(&state.db, move |db| {
+        Ok(jobs
+            .into_iter()
+            .map(|job| build_job_response(job, db))
+            .collect())
     })
-    .await
-    .unwrap();
+    .await?;
 
     let total_pages = if total == 0 {
         1
@@ -192,11 +188,8 @@ pub(crate) async fn create_job(
         notifications: req.notifications,
     };
 
-    let db = state.db.clone();
     let job_clone = job.clone();
-    tokio::task::spawn_blocking(move || db.insert_job(&job_clone))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.insert_job(&job_clone)).await?;
 
     // Tell scheduler to reload
     let _ = state
@@ -217,10 +210,7 @@ pub(crate) async fn create_job(
     )
     .await;
 
-    let db2 = state.db.clone();
-    let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
-        .await
-        .unwrap();
+    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
 
@@ -228,16 +218,11 @@ pub(crate) async fn get_job_handler(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<JobResponse>, AppError> {
-    let db = state.db.clone();
-    let job = tokio::task::spawn_blocking(move || db.get_job(id))
-        .await
-        .unwrap()?
+    let job = db_call(&state.db, move |db| db.get_job(id))
+        .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
-    let db2 = state.db.clone();
-    let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
-        .await
-        .unwrap();
+    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
     Ok(Json(resp))
 }
 
@@ -247,10 +232,8 @@ pub(crate) async fn update_job(
     auth: AuthUser,
     Json(req): Json<UpdateJobRequest>,
 ) -> Result<Json<JobResponse>, AppError> {
-    let db = state.db.clone();
-    let mut job = tokio::task::spawn_blocking(move || db.get_job(id))
-        .await
-        .unwrap()?
+    let mut job = db_call(&state.db, move |db| db.get_job(id))
+        .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
     // Snapshot before changes for audit diff
@@ -305,11 +288,8 @@ pub(crate) async fn update_job(
 
     job.updated_at = Utc::now();
 
-    let db = state.db.clone();
     let job_clone = job.clone();
-    tokio::task::spawn_blocking(move || db.update_job(&job_clone))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.update_job(&job_clone)).await?;
 
     let _ = state
         .scheduler_tx
@@ -351,10 +331,7 @@ pub(crate) async fn update_job(
     )
     .await;
 
-    let db2 = state.db.clone();
-    let resp = tokio::task::spawn_blocking(move || build_job_response(job, &db2))
-        .await
-        .unwrap();
+    let resp = db_call(&state.db, move |db| Ok(build_job_response(job, db))).await?;
     Ok(Json(resp))
 }
 
@@ -363,10 +340,7 @@ pub(crate) async fn delete_job(
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
-    let db = state.db.clone();
-    tokio::task::spawn_blocking(move || db.delete_job(id))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.delete_job(id)).await?;
 
     let _ = state
         .scheduler_tx
@@ -392,10 +366,8 @@ pub(crate) async fn trigger_job(
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<Json<TriggerResponse>, AppError> {
-    let db = state.db.clone();
-    let _ = tokio::task::spawn_blocking(move || db.get_job(id))
-        .await
-        .unwrap()?
+    let _ = db_call(&state.db, move |db| db.get_job(id))
+        .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
     state

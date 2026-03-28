@@ -72,43 +72,27 @@ impl Db {
         }
     }
 
+    fn build_job_filters(status_filter: Option<&str>, search: Option<&str>) -> QueryFilters {
+        let mut f = QueryFilters::new();
+        if let Some(s) = status_filter {
+            f.add_status(s);
+        }
+        if let Some(q) = search {
+            f.add_search(q, &["name", "task_json"]);
+        }
+        f
+    }
+
     pub fn count_jobs(
         &self,
         status_filter: Option<&str>,
         search: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut where_clauses = Vec::new();
-        let mut param_values: Vec<String> = Vec::new();
-
-        if let Some(s) = status_filter {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("status = ?{}", param_values.len()));
-        }
-        if let Some(q) = search {
-            let like = format!("%{}%", q);
-            param_values.push(like.clone());
-            let idx1 = param_values.len();
-            param_values.push(like);
-            let idx2 = param_values.len();
-            where_clauses.push(format!("(name LIKE ?{} OR task_json LIKE ?{})", idx1, idx2));
-        }
-
-        let sql = if where_clauses.is_empty() {
-            "SELECT COUNT(*) FROM jobs".to_string()
-        } else {
-            format!(
-                "SELECT COUNT(*) FROM jobs WHERE {}",
-                where_clauses.join(" AND ")
-            )
-        };
-
+        let f = Self::build_job_filters(status_filter, search);
+        let sql = format!("SELECT COUNT(*) FROM jobs{}", f.where_sql());
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
-            .iter()
-            .map(|s| s as &dyn rusqlite::types::ToSql)
-            .collect();
-        stmt.query_row(params.as_slice(), |row| row.get(0))
+        stmt.query_row(f.to_params().as_slice(), |row| row.get(0))
             .map_err(AppError::Db)
     }
 
@@ -120,49 +104,17 @@ impl Db {
         offset: u32,
     ) -> Result<Vec<Job>, AppError> {
         let conn = self.conn.lock().unwrap();
-        let mut where_clauses = Vec::new();
-        let mut param_values: Vec<String> = Vec::new();
-
-        if let Some(s) = status_filter {
-            param_values.push(s.to_string());
-            where_clauses.push(format!("status = ?{}", param_values.len()));
-        }
-        if let Some(q) = search {
-            let like = format!("%{}%", q);
-            param_values.push(like.clone());
-            let idx1 = param_values.len();
-            param_values.push(like);
-            let idx2 = param_values.len();
-            where_clauses.push(format!("(name LIKE ?{} OR task_json LIKE ?{})", idx1, idx2));
-        }
-
-        // limit and offset as trailing params
-        param_values.push(limit.to_string());
-        let limit_idx = param_values.len();
-        param_values.push(offset.to_string());
-        let offset_idx = param_values.len();
-
-        let sql = if where_clauses.is_empty() {
-            format!(
-                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs ORDER BY name LIMIT ?{} OFFSET ?{}",
-                limit_idx, offset_idx
-            )
-        } else {
-            format!(
-                "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE {} ORDER BY name LIMIT ?{} OFFSET ?{}",
-                where_clauses.join(" AND "),
-                limit_idx,
-                offset_idx
-            )
-        };
-
+        let mut f = Self::build_job_filters(status_filter, search);
+        let (li, oi) = f.add_limit_offset(limit, offset);
+        let sql = format!(
+            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
+            f.where_sql(),
+            li,
+            oi
+        );
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
-        let params: Vec<&dyn rusqlite::types::ToSql> = param_values
-            .iter()
-            .map(|s| s as &dyn rusqlite::types::ToSql)
-            .collect();
         let rows = stmt
-            .query_map(params.as_slice(), row_to_job)
+            .query_map(f.to_params().as_slice(), row_to_job)
             .map_err(AppError::Db)?;
         let mut jobs = Vec::new();
         for row in rows {
@@ -206,42 +158,43 @@ impl Db {
     }
 
     pub fn delete_job(&self, id: Uuid) -> Result<(), AppError> {
-        let conn = self.conn.lock().unwrap();
-        // Check if other jobs depend on this one
-        let dependents: Vec<String> = {
-            let mut stmt = conn
-                .prepare("SELECT name, depends_on_json FROM jobs WHERE id != ?1")
-                .map_err(AppError::Db)?;
-            let rows = stmt
-                .query_map(params![id.to_string()], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })
-                .map_err(AppError::Db)?;
-            let mut deps = Vec::new();
-            for row in rows {
-                let (name, json) = row.map_err(AppError::Db)?;
-                let ids: Vec<Uuid> = serde_json::from_str(&json).unwrap_or_default();
-                if ids.contains(&id) {
-                    deps.push(name);
+        self.with_transaction(|tx| {
+            // Check if other jobs depend on this one
+            let dependents: Vec<String> = {
+                let mut stmt = tx
+                    .prepare("SELECT name, depends_on_json FROM jobs WHERE id != ?1")
+                    .map_err(AppError::Db)?;
+                let rows = stmt
+                    .query_map(params![id.to_string()], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                    })
+                    .map_err(AppError::Db)?;
+                let mut deps = Vec::new();
+                for row in rows {
+                    let (name, json) = row.map_err(AppError::Db)?;
+                    let ids: Vec<Uuid> = serde_json::from_str(&json).unwrap_or_default();
+                    if ids.contains(&id) {
+                        deps.push(name);
+                    }
                 }
+                deps
+            };
+
+            if !dependents.is_empty() {
+                return Err(AppError::Conflict(format!(
+                    "cannot delete: jobs [{}] depend on this job",
+                    dependents.join(", ")
+                )));
             }
-            deps
-        };
 
-        if !dependents.is_empty() {
-            return Err(AppError::Conflict(format!(
-                "cannot delete: jobs [{}] depend on this job",
-                dependents.join(", ")
-            )));
-        }
-
-        let changed = conn
-            .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
-            .map_err(AppError::Db)?;
-        if changed == 0 {
-            return Err(AppError::NotFound(format!("job {} not found", id)));
-        }
-        Ok(())
+            let changed = tx
+                .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
+                .map_err(AppError::Db)?;
+            if changed == 0 {
+                return Err(AppError::NotFound(format!("job {} not found", id)));
+            }
+            Ok(())
+        })
     }
 
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {

@@ -4,6 +4,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use super::{AppState, PaginatedResponse};
+use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::*;
 use crate::scheduler::SchedulerCommand;
@@ -33,16 +34,12 @@ pub(crate) async fn list_executions(
     let per_page = query.per_page.unwrap_or(query.limit.unwrap_or(20)).min(100);
     let offset = (page - 1) * per_page;
 
-    let db = state.db.clone();
-    let total = tokio::task::spawn_blocking(move || db.count_executions_for_job(job_id))
-        .await
-        .unwrap()?;
+    let total = db_call(&state.db, move |db| db.count_executions_for_job(job_id)).await?;
 
-    let db = state.db.clone();
-    let recs =
-        tokio::task::spawn_blocking(move || db.list_executions_for_job(job_id, per_page, offset))
-            .await
-            .unwrap()?;
+    let recs = db_call(&state.db, move |db| {
+        db.list_executions_for_job(job_id, per_page, offset)
+    })
+    .await?;
 
     let total_pages = if total == 0 {
         1
@@ -70,18 +67,15 @@ pub(crate) async fn list_all_executions(
     let search = query.search.clone();
     let since = query.since.clone();
 
-    let db = state.db.clone();
     let s2 = status.clone();
     let q2 = search.clone();
     let t2 = since.clone();
-    let total = tokio::task::spawn_blocking(move || {
+    let total = db_call(&state.db, move |db| {
         db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref())
     })
-    .await
-    .unwrap()?;
+    .await?;
 
-    let db = state.db.clone();
-    let recs = tokio::task::spawn_blocking(move || {
+    let recs = db_call(&state.db, move |db| {
         db.list_all_executions(
             status.as_deref(),
             search.as_deref(),
@@ -90,8 +84,7 @@ pub(crate) async fn list_all_executions(
             offset,
         )
     })
-    .await
-    .unwrap()?;
+    .await?;
 
     let total_pages = if total == 0 {
         1
@@ -112,10 +105,8 @@ pub(crate) async fn get_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<ExecutionRecord>, AppError> {
-    let db = state.db.clone();
-    let rec = tokio::task::spawn_blocking(move || db.get_execution(id))
-        .await
-        .unwrap()?
+    let rec = db_call(&state.db, move |db| db.get_execution(id))
+        .await?
         .ok_or_else(|| AppError::NotFound(format!("execution {id} not found")))?;
     Ok(Json(rec))
 }

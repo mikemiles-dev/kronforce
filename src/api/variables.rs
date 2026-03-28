@@ -5,16 +5,14 @@ use serde::Deserialize;
 
 use super::AppState;
 use super::auth::AuthUser;
+use crate::db::db_call;
 use crate::error::AppError;
 use crate::models::Variable;
 
 pub(crate) async fn list_variables(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Variable>>, AppError> {
-    let db = state.db.clone();
-    let vars = tokio::task::spawn_blocking(move || db.list_variables())
-        .await
-        .unwrap()?;
+    let vars = db_call(&state.db, move |db| db.list_variables()).await?;
     Ok(Json(vars))
 }
 
@@ -22,10 +20,7 @@ pub(crate) async fn get_variable(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<Variable>, AppError> {
-    let db = state.db.clone();
-    let var = tokio::task::spawn_blocking(move || db.get_variable(&name))
-        .await
-        .unwrap()?;
+    let var = db_call(&state.db, move |db| db.get_variable(&name)).await?;
     match var {
         Some(v) => Ok(Json(v)),
         None => Err(AppError::NotFound("variable not found".into())),
@@ -62,11 +57,8 @@ pub(crate) async fn create_variable(
         value: req.value,
         updated_at: Utc::now(),
     };
-    let db = state.db.clone();
     let var_clone = var.clone();
-    tokio::task::spawn_blocking(move || db.insert_variable(&var_clone))
-        .await
-        .unwrap()?;
+    db_call(&state.db, move |db| db.insert_variable(&var_clone)).await?;
     Ok((axum::http::StatusCode::CREATED, Json(var)))
 }
 
@@ -81,19 +73,14 @@ pub(crate) async fn update_variable(
     _auth: AuthUser,
     Json(req): Json<UpdateVariableRequest>,
 ) -> Result<Json<Variable>, AppError> {
-    let db = state.db.clone();
     let name_clone = name.clone();
     let value = req.value.clone();
-    let updated = tokio::task::spawn_blocking(move || db.update_variable(&name_clone, &value))
-        .await
-        .unwrap()?;
+    let updated = db_call(&state.db, move |db| db.update_variable(&name_clone, &value)).await?;
     if !updated {
         return Err(AppError::NotFound("variable not found".into()));
     }
-    let db = state.db.clone();
-    let var = tokio::task::spawn_blocking(move || db.get_variable(&name))
-        .await
-        .unwrap()?
+    let var = db_call(&state.db, move |db| db.get_variable(&name))
+        .await?
         .unwrap();
     Ok(Json(var))
 }
@@ -103,10 +90,7 @@ pub(crate) async fn delete_variable(
     Path(name): Path<String>,
     _auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
-    let db = state.db.clone();
-    let deleted = tokio::task::spawn_blocking(move || db.delete_variable(&name))
-        .await
-        .unwrap()?;
+    let deleted = db_call(&state.db, move |db| db.delete_variable(&name)).await?;
     if !deleted {
         return Err(AppError::NotFound("variable not found".into()));
     }
