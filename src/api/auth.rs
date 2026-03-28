@@ -10,7 +10,7 @@ use uuid::Uuid;
 use super::AppState;
 use crate::db::db_call;
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 use axum::extract::Path;
 use axum::extract::State;
 

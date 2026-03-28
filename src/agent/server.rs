@@ -11,7 +11,7 @@ use uuid::Uuid;
 use tracing::{error, info, warn};
 
 use crate::executor::run_task;
-use crate::protocol::{
+use crate::agent::protocol::{
     CancelRequest, ExecutionResultReport, JobDispatchRequest, JobDispatchResponse,
 };
 

@@ -7,7 +7,7 @@ use super::AppState;
 use super::auth::AuthUser;
 use crate::db::db_call;
 use crate::error::AppError;
-use crate::models::Variable;
+use crate::db::models::Variable;
 
 /// Returns all global variables.
 pub(crate) async fn list_variables(

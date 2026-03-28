@@ -6,10 +6,10 @@ use uuid::Uuid;
 
 use super::auth::AuthUser;
 use super::{AppState, PaginatedResponse, log_and_notify};
-use crate::cron_parser::CronSchedule;
+use crate::scheduler::cron_parser::CronSchedule;
 use crate::db::{Db, db_call};
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 use crate::scheduler::SchedulerCommand;
 
 /// Request body for creating a new job.

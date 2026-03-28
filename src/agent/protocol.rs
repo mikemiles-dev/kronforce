@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::models::{ExecutionStatus, TaskType, TaskTypeDefinition};
+use crate::db::models::{ExecutionStatus, TaskType, TaskTypeDefinition};
 
 /// Registration payload sent by an agent when it first connects to the controller.
 #[derive(Debug, Clone, Serialize, Deserialize)]

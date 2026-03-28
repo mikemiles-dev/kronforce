@@ -5,7 +5,7 @@ use uuid::Uuid;
 use super::Db;
 use super::helpers::*;
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 
 impl Db {
     /// Inserts a new agent or updates an existing one matched by name.

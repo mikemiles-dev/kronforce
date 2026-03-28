@@ -5,7 +5,7 @@ use uuid::Uuid;
 use super::Db;
 use super::helpers::*;
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 
 impl Db {
     /// Inserts a new API key record.

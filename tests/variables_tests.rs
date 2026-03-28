@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use kronforce::db::Db;
 use kronforce::executor::substitute_variables;
-use kronforce::models::*;
+use kronforce::db::models::*;
 
 fn test_db() -> Db {
     let db = Db::open(":memory:").unwrap();

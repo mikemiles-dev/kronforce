@@ -1,7 +1,7 @@
 use chrono::Utc;
 use kronforce::dag::DagResolver;
 use kronforce::db::Db;
-use kronforce::models::*;
+use kronforce::db::models::*;
 use uuid::Uuid;
 
 fn test_db() -> Db {

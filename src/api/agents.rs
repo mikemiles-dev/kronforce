@@ -7,10 +7,10 @@ use uuid::Uuid;
 use super::AppState;
 use crate::db::db_call;
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 use tracing::info;
 
-use crate::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
+use crate::agent::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
 /// Handles agent registration or re-registration, upserting the agent record.
 pub(crate) async fn register_agent(

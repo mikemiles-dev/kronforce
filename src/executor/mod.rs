@@ -3,6 +3,7 @@ mod local;
 pub mod notifications;
 pub mod output_rules;
 pub mod scripts;
+mod tasks;
 
 pub use local::run_task;
 
@@ -19,12 +20,16 @@ use uuid::Uuid;
 use crate::agent::AgentClient;
 use crate::db::Db;
 use crate::error::AppError;
-use crate::models::*;
-use crate::protocol::JobDispatchRequest;
+use crate::db::models::*;
+use crate::agent::protocol::JobDispatchRequest;
 use crate::scheduler::SchedulerCommand;
-use crate::scripts::ScriptStore;
+use crate::executor::scripts::ScriptStore;
 
 pub use local::{CapturedOutput, CommandResult};
+pub(crate) use local::{
+    bytes_to_hex, hex_to_bytes, run_command, shell_escape, DEFAULT_SCRIPT_TIMEOUT_SECS,
+    MAX_SCRIPT_OPERATIONS, MAX_SCRIPT_STRING_SIZE,
+};
 
 struct RunningJob {
     cancel_tx: oneshot::Sender<()>,

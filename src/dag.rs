@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::db::Db;
 use crate::error::AppError;
-use crate::models::{Dependency, ExecutionStatus};
+use crate::db::models::{Dependency, ExecutionStatus};
 
 /// Resolves job dependency graphs and detects cycles.
 #[derive(Clone)]

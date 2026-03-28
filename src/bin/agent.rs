@@ -8,7 +8,7 @@ use tracing::{debug, error, info, warn};
 
 use kronforce::agent;
 use kronforce::config::AgentConfig;
-use kronforce::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
+use kronforce::agent::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

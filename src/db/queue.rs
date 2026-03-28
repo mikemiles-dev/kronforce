@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use super::Db;
 use crate::error::AppError;
-use crate::models::*;
+use crate::db::models::*;
 
 impl Db {
     #[allow(clippy::too_many_arguments)]

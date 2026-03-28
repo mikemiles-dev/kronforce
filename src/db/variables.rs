@@ -3,7 +3,7 @@ use rusqlite::params;
 
 use super::Db;
 use crate::error::AppError;
-use crate::models::Variable;
+use crate::db::models::Variable;
 
 fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
     let updated_str: String = row.get(2)?;
