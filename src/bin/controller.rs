@@ -105,7 +105,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
-                    let _ = std::fs::set_permissions(&keys_path, std::fs::Permissions::from_mode(0o600));
+                    let _ = std::fs::set_permissions(
+                        &keys_path,
+                        std::fs::Permissions::from_mode(0o600),
+                    );
                 }
                 tracing::info!("  Keys saved to: {}", keys_path.display());
                 tracing::info!("  Retrieve with: cat {}", keys_path.display());
