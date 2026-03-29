@@ -169,6 +169,36 @@ async function fetchChartStats() {
     }
 }
 
+function renderDashGroupSummary(jobs) {
+    const el = document.getElementById('dash-top-groups');
+    if (!el) return;
+
+    const counts = {};
+    for (const j of jobs) {
+        if (j.group) {
+            counts[j.group] = (counts[j.group] || 0) + 1;
+        }
+    }
+
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (sorted.length === 0) {
+        el.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px">No groups configured</div>';
+        return;
+    }
+
+    let html = '<div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">';
+    for (const [name, count] of sorted) {
+        const color = groupColor(name);
+        html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:4px" onclick="groupFilter=\'' + esc(name) + '\';showPage(\'jobs\')">';
+        html += '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
+        html += '<span style="flex:1">' + esc(name) + '</span>';
+        html += '<span style="color:var(--text-secondary);font-size:12px">' + count + ' job' + (count !== 1 ? 's' : '') + '</span>';
+        html += '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+}
+
 async function fetchJobTimeline(jobId) {
     try {
         const data = await api('GET', '/api/timeline/' + jobId + '?minutes=60');
@@ -282,6 +312,7 @@ async function renderDashboard() {
 
         // Mini map
         renderDashMap(jobs);
+        renderDashGroupSummary(jobs);
         fetchDashTimeline();
         fetchChartStats();
 

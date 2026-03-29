@@ -76,6 +76,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         .route("/api/jobs/{id}/trigger", post(jobs::trigger_job))
         .route("/api/jobs/groups", get(jobs::list_groups))
         .route("/api/jobs/bulk-group", put(jobs::bulk_set_group))
+        .route("/api/jobs/rename-group", put(jobs::rename_group))
         .route(
             "/api/jobs/{id}/executions",
             get(executions::list_executions),

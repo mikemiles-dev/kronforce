@@ -1,4 +1,18 @@
 // Kronforce - Create/edit modal, cron builder, extraction rows, dependency maps, notifications, setup wizard
+
+function populateGroupSelect(selectedGroup) {
+    const sel = document.getElementById('f-group');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Default</option>';
+    for (const g of cachedGroups) {
+        const selected = g === selectedGroup ? ' selected' : '';
+        sel.innerHTML += '<option value="' + esc(g) + '"' + selected + '>' + esc(g) + '</option>';
+    }
+    if (selectedGroup && !cachedGroups.includes(selectedGroup)) {
+        sel.innerHTML += '<option value="' + esc(selectedGroup) + '" selected>' + esc(selectedGroup) + '</option>';
+    }
+}
+
 // --- Create/Edit Modal ---
 function openCreateModal() {
     editingJobId = null;
@@ -10,13 +24,10 @@ function openCreateModal() {
     populateTaskForm(null);
     parseCronToUI('');
     document.getElementById('f-desc').value = '';
-    document.getElementById('f-group').value = '';
+    populateGroupSelect('');
     document.getElementById('f-retry-max').value = '0';
     document.getElementById('f-retry-delay').value = '0';
     document.getElementById('f-retry-backoff').value = '1.0';
-    // Populate group autocomplete suggestions
-    const dl = document.getElementById('group-suggestions');
-    if (dl) { dl.innerHTML = cachedGroups.map(g => '<option value="' + esc(g) + '">').join(''); }
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
@@ -69,7 +80,7 @@ async function copyJob(id) {
 
         // Populate schedule
         document.getElementById('f-desc').value = job.description || '';
-        document.getElementById('f-group').value = job.group || '';
+        populateGroupSelect(job.group || '');
         document.getElementById('f-retry-max').value = job.retry_max || 0;
         document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
@@ -150,7 +161,7 @@ async function openEditModal(id) {
 
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-desc').value = job.description || '';
-        document.getElementById('f-group').value = job.group || '';
+        populateGroupSelect(job.group || '');
         document.getElementById('f-retry-max').value = job.retry_max || 0;
         document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;

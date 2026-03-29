@@ -437,4 +437,19 @@ impl Db {
         }
         Ok(count)
     }
+
+    /// Renames all jobs from one group to another.
+    pub fn rename_group(&self, old_name: &str, new_name: &str) -> Result<u32, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let count = conn
+            .execute(
+                "UPDATE jobs SET group_name = ?1 WHERE group_name = ?2",
+                rusqlite::params![new_name, old_name],
+            )
+            .map_err(AppError::Db)?;
+        Ok(count as u32)
+    }
 }
