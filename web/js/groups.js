@@ -23,22 +23,34 @@ async function fetchGroupsPage() {
         const grid = document.getElementById('groups-grid');
         if (!grid) return;
 
-        if (groups.length === 0 && jobs.length === 0) {
+        if (jobs.length === 0) {
             grid.innerHTML = renderRichEmptyState({
                 icon: '&#128193;',
-                title: 'No groups yet',
-                description: 'Groups help you organize jobs. Create a group, then assign jobs to it from the Jobs page or when creating a job.',
+                title: 'No jobs yet',
+                description: 'Create jobs first, then organize them into groups.',
                 actions: [
-                    { label: 'Create Group', onclick: 'createNewGroup()', primary: true },
+                    { label: 'Create a Job', onclick: 'openCreateModal()', primary: true },
                 ],
             });
             return;
         }
 
+        // Build the list of groups to display — merge API groups with groups found in job data
+        const allGroups = new Set(groups);
+        for (const g of Object.keys(jobsByGroup)) {
+            allGroups.add(g);
+        }
+        const sortedGroups = [...allGroups].sort((a, b) => {
+            // Default always first
+            if (a === 'Default') return -1;
+            if (b === 'Default') return 1;
+            return a.localeCompare(b);
+        });
+
         let html = '';
 
         // Group cards
-        for (const g of groups) {
+        for (const g of sortedGroups) {
             const groupJobs = jobsByGroup[g] || [];
             const count = groupJobs.length;
             const color = groupColor(g);
@@ -81,13 +93,42 @@ async function createNewGroup() {
         toast('Group "' + trimmed + '" already exists', 'error');
         return;
     }
-    // To create a group, we need at least one job in it.
-    // Navigate to Jobs page so they can select and assign.
-    // Add the new name to cachedGroups so it shows in the Set Group prompt.
-    cachedGroups.push(trimmed);
-    cachedGroups.sort();
-    toast('Select jobs on the Jobs page, then click "Set Group" and choose "' + trimmed + '"');
-    showPage('jobs');
+
+    // Show list of jobs in Default group to move
+    const defaultJobs = groupsPageJobs.filter(j => (j.group || 'Default') === 'Default');
+    if (defaultJobs.length === 0) {
+        // No default jobs — navigate to Jobs page
+        cachedGroups.push(trimmed);
+        cachedGroups.sort();
+        toast('Select jobs on the Jobs page, then click "Set Group" and choose "' + trimmed + '"');
+        showPage('jobs');
+        return;
+    }
+
+    let msg = 'Move jobs from Default to "' + trimmed + '"?\n\n';
+    const showCount = Math.min(defaultJobs.length, 10);
+    for (let i = 0; i < showCount; i++) {
+        msg += '  ' + defaultJobs[i].name + '\n';
+    }
+    if (defaultJobs.length > 10) msg += '  ...and ' + (defaultJobs.length - 10) + ' more\n';
+    msg += '\nClick OK to move all Default jobs, or Cancel to select specific jobs on the Jobs page.';
+
+    if (confirm(msg)) {
+        try {
+            const ids = defaultJobs.map(j => j.id);
+            await api('PUT', '/api/jobs/bulk-group', { job_ids: ids, group: trimmed });
+            toast('Created group "' + trimmed + '" with ' + ids.length + ' jobs');
+            fetchGroupsPage();
+            fetchGroups();
+        } catch (e) {
+            toast('Error: ' + e.message, 'error');
+        }
+    } else {
+        cachedGroups.push(trimmed);
+        cachedGroups.sort();
+        toast('Select jobs on the Jobs page, then click "Set Group" and choose "' + trimmed + '"');
+        showPage('jobs');
+    }
 }
 
 function navToGroupJobs(group) {

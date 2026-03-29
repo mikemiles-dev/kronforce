@@ -107,8 +107,10 @@ impl Db {
             f.add_search(q, &["name", "task_json"]);
         }
         if let Some(g) = group_filter {
-            if g == "ungrouped" {
-                f.add_is_null("group_name");
+            if g == "Default" {
+                // Match both 'Default' and NULL (for pre-migration jobs)
+                f.where_clauses
+                    .push("(group_name = 'Default' OR group_name IS NULL)".to_string());
             } else {
                 f.add_eq("group_name", g);
             }
@@ -406,7 +408,7 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
             .prepare(
-                "SELECT DISTINCT group_name FROM jobs WHERE group_name IS NOT NULL ORDER BY group_name",
+                "SELECT DISTINCT COALESCE(group_name, 'Default') FROM jobs ORDER BY 1",
             )
             .map_err(AppError::Db)?;
         let rows = stmt
@@ -444,12 +446,20 @@ impl Db {
             .conn
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
-        let count = conn
-            .execute(
+        // Handle Default group which may also be NULL in the DB
+        let count = if old_name == "Default" {
+            conn.execute(
+                "UPDATE jobs SET group_name = ?1 WHERE group_name = 'Default' OR group_name IS NULL",
+                rusqlite::params![new_name],
+            )
+            .map_err(AppError::Db)?
+        } else {
+            conn.execute(
                 "UPDATE jobs SET group_name = ?1 WHERE group_name = ?2",
                 rusqlite::params![new_name, old_name],
             )
-            .map_err(AppError::Db)?;
+            .map_err(AppError::Db)?
+        };
         Ok(count as u32)
     }
 }

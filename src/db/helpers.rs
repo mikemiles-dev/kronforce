@@ -28,11 +28,6 @@ impl QueryFilters {
             .push(format!("{} = ?{}", column, self.params.len()));
     }
 
-    /// Adds a `column IS NULL` filter (no parameter needed).
-    pub fn add_is_null(&mut self, column: &str) {
-        self.where_clauses.push(format!("{} IS NULL", column));
-    }
-
     /// Adds a `column >= ?` greater-than-or-equal filter.
     pub fn add_gte(&mut self, column: &str, value: &str) {
         self.params.push(value.to_string());
