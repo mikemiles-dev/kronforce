@@ -4,6 +4,7 @@
 //! and the shared application state used by handlers.
 
 mod agents;
+mod audit;
 pub mod auth;
 mod callbacks;
 mod events;
@@ -49,11 +50,11 @@ const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.h
 /// Generic paginated API response wrapper.
 #[derive(Serialize)]
 pub(crate) struct PaginatedResponse<T: serde::Serialize> {
-    data: T,
-    total: u32,
-    page: u32,
-    per_page: u32,
-    total_pages: u32,
+    pub(crate) data: T,
+    pub(crate) total: u32,
+    pub(crate) page: u32,
+    pub(crate) per_page: u32,
+    pub(crate) total_pages: u32,
 }
 
 #[derive(Serialize)]
@@ -118,6 +119,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         )
         .route("/api/notifications/test", post(settings::test_notification))
         .route("/api/stats/charts", get(stats::chart_stats))
+        .route("/api/audit-log", get(audit::list_audit_log))
         .route(
             "/api/variables",
             get(variables::list_variables).post(variables::create_variable),

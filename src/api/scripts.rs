@@ -4,6 +4,7 @@ use serde::Deserialize;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
+use crate::db::db_call;
 use crate::db::models::*;
 use crate::error::AppError;
 use crate::executor::scripts::{ScriptFull, ScriptInfo};
@@ -83,6 +84,22 @@ pub(crate) async fn save_script(
     )
     .await;
 
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let audit_name = name.clone();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "script.saved",
+            "script",
+            Some(&audit_name),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok(Json(serde_json::json!({"status": "ok", "name": name})))
 }
 
@@ -110,6 +127,22 @@ pub(crate) async fn delete_script(
         &auth,
         None,
     )
+    .await;
+
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let audit_name = name.clone();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "script.deleted",
+            "script",
+            Some(&audit_name),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
     .await;
 
     Ok(axum::http::StatusCode::NO_CONTENT)

@@ -62,6 +62,8 @@
 | Scripts | `src/scripts.rs` | Rhai script file store — CRUD, file discovery, name validation |
 | Agent | `src/agent/` | Client (dispatch to standard agents) and server (receives /execute, /cancel, /health) |
 | Dashboard | `src/dashboard.html` | Single-file HTML embedded via `include_str!` — all pages, CSS, JS |
+| Rate Limiting | `src/api/rate_limit.rs` | Per-IP and per-API-key sliding window rate limiter with 429 responses |
+| Audit Log | `src/db/audit.rs`, `src/api/audit.rs` | Append-only audit trail for sensitive operations with query API |
 | Config | `src/config.rs` | Environment variable parsing for controller and agent |
 
 ## Agent Types
@@ -107,13 +109,13 @@
 
 ## Database Schema
 
-**Tables**: `jobs`, `executions`, `agents`, `events`, `api_keys`, `job_queue`, `settings`, `schema_version`
+**Tables**: `jobs`, `executions`, `agents`, `events`, `api_keys`, `job_queue`, `settings`, `variables`, `audit_log`, `schema_version`
 
 **Key design decisions**:
 - JSON columns for flexible nested data (`task_json`, `schedule_json`, `depends_on_json`, `output_rules_json`, `task_types_json`, `extracted_json`)
 - WAL mode for concurrent reads during writes
 - Foreign keys enforced
-- 11 versioned migrations applied automatically on startup
+- Versioned migrations applied automatically on startup
 
 ## Event System
 
@@ -125,8 +127,9 @@ Configurable via Settings page or API (`PUT /api/settings`). The health monitor 
 - Completed executions older than N days
 - Events older than N days
 - Completed queue items older than N days
+- Audit log entries older than M days (separate `audit_retention_days` setting)
 
-Default: 7 days. Set to 0 to disable purging.
+Default: 7 days for executions/events/queue, 90 days for audit log. Set to 0 to disable purging.
 
 ## Queue System (Custom Agents)
 
@@ -139,3 +142,19 @@ Custom agent jobs are enqueued in the `job_queue` table with statuses: `pending`
 ## Authentication
 
 API key middleware on all `/api/*` routes (except health). Agent endpoints have a separate middleware requiring the `agent` role. Four roles: `admin` (full access), `operator` (jobs + agents), `viewer` (read-only), `agent` (register, poll, heartbeat, callback). Bootstrap admin and agent keys created on first startup. Auto-disabled when no keys exist (first-time setup).
+
+## Rate Limiting
+
+Three-tier in-memory rate limiting applied as Axum middleware:
+
+| Tier | Scope | Default | Endpoints |
+|---|---|---|---|
+| Public | Per source IP | 30 req/min | `/`, `/api/health` |
+| Authenticated | Per API key | 120 req/min | All authenticated `/api/*` routes |
+| Agent | Per API key | 600 req/min | Agent register, heartbeat, queue, callbacks |
+
+Configurable via `KRONFORCE_RATE_LIMIT_*` environment variables. Disabled with `KRONFORCE_RATE_LIMIT_ENABLED=false`. Sliding window counter with periodic stale entry cleanup.
+
+## Audit Log
+
+Separate `audit_log` table records all state-changing API operations with actor attribution. Immune to regular event retention purging. Queryable via `GET /api/audit-log` (admin only). 90-day default retention (configurable separately from events).

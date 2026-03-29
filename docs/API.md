@@ -280,6 +280,27 @@ curl -X PUT http://localhost:8080/api/settings \                 # Update
   -d '{"retention_days": "14"}'
 ```
 
+## Chart Stats
+
+```bash
+curl http://localhost:8080/api/stats/charts                     # Execution outcomes, task types, schedule types
+```
+
+Returns aggregated data for dashboard charts: `execution_outcomes` (counts by status), `task_types` (counts by task type), `schedule_types` (counts by schedule kind).
+
+## Audit Log
+
+```bash
+curl http://localhost:8080/api/audit-log                        # List (admin only)
+curl "http://localhost:8080/api/audit-log?operation=job.created" # Filter by operation
+curl "http://localhost:8080/api/audit-log?actor=deploy-bot"     # Filter by actor name
+curl "http://localhost:8080/api/audit-log?since=2026-03-01T00:00:00Z" # Filter by time
+```
+
+Append-only audit trail of sensitive operations. Admin role required. Returns paginated results with: id, timestamp, actor (API key name + ID), operation, resource_type, resource_id, and details.
+
+**Audited operations:** `key.created`, `key.revoked`, `job.created`, `job.updated`, `job.deleted`, `job.triggered`, `script.saved`, `script.deleted`, `settings.updated`, `variable.created`, `variable.updated`, `variable.deleted`, `agent.deregistered`
+
 ## API Keys
 
 ```bash
@@ -295,4 +316,24 @@ Roles: `admin` (full access + key management), `operator` (jobs + agents), `view
 
 On first startup, a bootstrap admin key is printed to the console. If no keys exist, auth is disabled.
 
-Agent endpoints (register, poll, heartbeat, callback, task-type discovery) require **no API key**.
+Agent endpoints (register, poll, heartbeat, callback, task-type discovery) require an API key with the `agent` role when API keys are configured.
+
+## Rate Limiting
+
+All endpoints are rate limited. Exceeding the limit returns `429 Too Many Requests` with headers:
+
+| Header | Description |
+|---|---|
+| `Retry-After` | Seconds until the rate limit window resets |
+| `X-RateLimit-Limit` | Maximum requests allowed per minute for this tier |
+| `X-RateLimit-Remaining` | Requests remaining in the current window |
+
+**Default limits:**
+
+| Tier | Limit | Scope |
+|---|---|---|
+| Public | 30/min | Per source IP |
+| Authenticated | 120/min | Per API key |
+| Agent | 600/min | Per API key |
+
+Configure via `KRONFORCE_RATE_LIMIT_*` environment variables. Set `KRONFORCE_RATE_LIMIT_ENABLED=false` to disable.

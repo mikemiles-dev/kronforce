@@ -2,6 +2,7 @@ use axum::Json;
 use axum::extract::State;
 
 use super::AppState;
+use super::auth::AuthUser;
 use crate::db::db_call;
 use crate::error::AppError;
 use crate::executor::notifications::send_test;
@@ -17,6 +18,7 @@ pub(crate) async fn get_settings(
 /// Updates one or more settings from a key-value map.
 pub(crate) async fn update_settings(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(body): Json<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     db_call(&state.db, move |db| {
@@ -26,6 +28,22 @@ pub(crate) async fn update_settings(
         Ok(())
     })
     .await?;
+
+    let actor_key_id = auth.0.as_ref().map(|k| k.id);
+    let actor_key_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "settings.updated",
+            "settings",
+            None,
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 

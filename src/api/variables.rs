@@ -77,6 +77,23 @@ pub(crate) async fn create_variable(
     };
     let var_clone = var.clone();
     db_call(&state.db, move |db| db.insert_variable(&var_clone)).await?;
+
+    let actor_key_id = auth.0.as_ref().map(|k| k.id);
+    let actor_key_name = auth.0.as_ref().map(|k| k.name.clone());
+    let var_name = var.name.clone();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "variable.created",
+            "variable",
+            Some(&var_name),
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok((axum::http::StatusCode::CREATED, Json(var)))
 }
 
@@ -100,6 +117,22 @@ pub(crate) async fn update_variable(
     if !updated {
         return Err(AppError::NotFound("variable not found".into()));
     }
+    let actor_key_id = auth.0.as_ref().map(|k| k.id);
+    let actor_key_name = auth.0.as_ref().map(|k| k.name.clone());
+    let audit_name = name.clone();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "variable.updated",
+            "variable",
+            Some(&audit_name),
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     let var = db_call(&state.db, move |db| db.get_variable(&name))
         .await?
         .ok_or_else(|| AppError::NotFound("variable not found".into()))?;
@@ -113,9 +146,26 @@ pub(crate) async fn delete_variable(
     auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_write(&auth)?;
+    let audit_name = name.clone();
     let deleted = db_call(&state.db, move |db| db.delete_variable(&name)).await?;
     if !deleted {
         return Err(AppError::NotFound("variable not found".into()));
     }
+
+    let actor_key_id = auth.0.as_ref().map(|k| k.id);
+    let actor_key_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "variable.deleted",
+            "variable",
+            Some(&audit_name),
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

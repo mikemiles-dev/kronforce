@@ -247,6 +247,22 @@ pub(crate) async fn create_job(
     )
     .await;
 
+    let audit_job_id = job.id.to_string();
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "job.created",
+            "job",
+            Some(&audit_job_id),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     let resp = db_call(&state.db, move |db| Ok(JobResponse::from_job(job, db))).await?;
     Ok((axum::http::StatusCode::CREATED, Json(resp)))
 }
@@ -367,8 +383,24 @@ pub(crate) async fn update_job(
         Some(job.id),
         None,
         &auth,
-        details,
+        details.clone(),
     )
+    .await;
+
+    let audit_job_id = job.id.to_string();
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "job.updated",
+            "job",
+            Some(&audit_job_id),
+            actor_id,
+            actor_name.as_deref(),
+            details.as_deref(),
+        )
+    })
     .await;
 
     let resp = db_call(&state.db, move |db| Ok(JobResponse::from_job(job, db))).await?;
@@ -396,6 +428,23 @@ pub(crate) async fn delete_job(
         None,
     )
     .await;
+
+    let audit_job_id = id.to_string();
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "job.deleted",
+            "job",
+            Some(&audit_job_id),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -426,6 +475,22 @@ pub(crate) async fn trigger_job(
         &auth,
         None,
     )
+    .await;
+
+    let audit_job_id = id.to_string();
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "job.triggered",
+            "job",
+            Some(&audit_job_id),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
     .await;
 
     Ok((
