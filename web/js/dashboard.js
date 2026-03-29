@@ -1,4 +1,17 @@
-// Kronforce - Dashboard home page (timeline chart, stats)
+// Kronforce - Dashboard home page (timeline chart, stats, tabs)
+// --- Dashboard Tabs ---
+let currentDashTab = 'overview';
+
+function showDashTab(tabName) {
+    currentDashTab = tabName;
+    document.querySelectorAll('.dash-tab-panel').forEach(p => {
+        p.classList.toggle('active', p.dataset.tab === tabName);
+    });
+    document.querySelectorAll('.dash-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.textContent.toLowerCase() === tabName);
+    });
+}
+
 // --- Timeline Chart ---
 
 function renderTimelineChart(containerId, data) {
@@ -271,6 +284,9 @@ async function renderDashboard() {
         renderDashMap(jobs);
         fetchDashTimeline();
         fetchChartStats();
+
+        // Restore active tab
+        showDashTab(currentDashTab);
 
     } catch (e) {
         console.error('renderDashboard:', e);
