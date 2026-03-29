@@ -2,7 +2,11 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
+COPY build.rs ./
+COPY rust-toolchain.toml ./
 COPY src/ src/
+COPY web/ web/
+COPY migrations/ migrations/
 COPY examples/ examples/
 COPY scripts/ scripts/
 RUN mkdir -p scripts
