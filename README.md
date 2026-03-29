@@ -16,7 +16,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
-- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent). Bootstrap keys auto-generated on first startup and saved to `bootstrap-keys.txt`.
+- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.
 - **Docker ready** — single Dockerfile in `deploy/docker/`, separate compose files for controller and agent, auto-generated keys saved to data volume
 
 ## Quick Start
@@ -27,7 +27,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 cargo run --bin kronforce
 ```
 
-Opens on `http://localhost:8080` with web dashboard, REST API, scheduler, and SQLite database. On first startup, bootstrap API keys are printed to the console and saved to `bootstrap-keys.txt`.
+Opens on `http://localhost:8080` with web dashboard, REST API, scheduler, and SQLite database. On first startup, bootstrap API keys are printed to the console.
 
 ### Standard Agent
 
@@ -62,6 +62,10 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 | `KRONFORCE_CALLBACK_URL` | `http://{BIND}` | URL agents use to report results back |
 | `KRONFORCE_HEARTBEAT_TIMEOUT_SECS` | `30` | Seconds before marking an agent offline |
 | `KRONFORCE_SCRIPTS_DIR` | `./scripts` | Directory for Rhai script files |
+| `KRONFORCE_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
+| `KRONFORCE_RATE_LIMIT_PUBLIC` | `30` | Max requests/min for public endpoints (per IP) |
+| `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per API key) |
+| `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per API key) |
 
 ### Agent
 
@@ -85,19 +89,20 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 - **Event triggers** — fire jobs reactively on system events or output pattern matches
 - **Dependency DAG** — job dependencies with time windows and visual map
 - **Rhai scripting** — embedded scripting with HTTP, shell, TCP/UDP, and more
-- **Dark/Light mode**, auto-refresh, pagination, audit trail, API key auth
+- **Dark/Light mode**, auto-refresh, pagination, audit log, API key auth, rate limiting
 
 ## Dashboard Pages
 
 | Page | Description |
 |---|---|
-| Dashboard | Stats, execution timeline, recent activity |
+| Dashboard | Stats, donut charts, execution timeline, recent activity (tabbed layout) |
 | Jobs | Job list with search, filters, bulk actions, sortable columns |
 | Executions | All executions with status filters and output viewer |
 | Map | Visual dependency graph |
 | Agents | Agent cards with custom agent task type editor |
 | Scripts | Rhai script editor with syntax highlighting |
 | Events | Activity feed |
+| Audit Log | Append-only audit trail of sensitive operations (admin only) |
 | Variables | Global key-value variable management with inline editing |
 | Docs | In-app documentation for all features |
 | Settings | Theme, API keys, data retention |

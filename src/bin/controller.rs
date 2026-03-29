@@ -160,6 +160,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let _ = db_tick.purge_old_events(days);
                     let _ = db_tick.purge_old_queue_items(days);
                 }
+                // Audit log retention (separate from events, default 90 days)
+                let audit_days = db_tick
+                    .get_setting("audit_retention_days")
+                    .ok()
+                    .flatten()
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(90);
+                if audit_days > 0 {
+                    let _ = db_tick.purge_old_audit_log(audit_days);
+                }
                 went_offline
             })
             .await

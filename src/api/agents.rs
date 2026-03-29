@@ -5,6 +5,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use super::AppState;
+use super::auth::AuthUser;
 use crate::db::db_call;
 use crate::db::models::*;
 use crate::error::AppError;
@@ -110,6 +111,7 @@ pub(crate) async fn get_agent_handler(
 pub(crate) async fn deregister_agent(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
     // Look up agent to get address before deleting
     let agent = db_call(&state.db, move |db| db.get_agent(id)).await?;
@@ -135,6 +137,22 @@ pub(crate) async fn deregister_agent(
         })
         .await;
     }
+
+    let actor_key_id = auth.0.as_ref().map(|k| k.id);
+    let actor_key_name = auth.0.as_ref().map(|k| k.name.clone());
+    let id_str = id.to_string();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "agent.deregistered",
+            "agent",
+            Some(&id_str),
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
 
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

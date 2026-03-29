@@ -183,6 +183,10 @@ pub(crate) async fn create_api_key(
 ) -> Result<Json<CreateApiKeyResponse>, AppError> {
     require_admin(&req)?;
 
+    let actor_key = req.extensions().get::<ApiKey>().cloned();
+    let actor_id = actor_key.as_ref().map(|k| k.id);
+    let actor_name = actor_key.as_ref().map(|k| k.name.clone());
+
     let bytes = axum::body::to_bytes(req.into_body(), 1024 * 64)
         .await
         .map_err(|e| AppError::BadRequest(format!("invalid body: {e}")))?;
@@ -218,6 +222,20 @@ pub(crate) async fn create_api_key(
     })
     .await;
 
+    let audit_key_id = key.id.to_string();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "key.created",
+            "api_key",
+            Some(&audit_key_id),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
     Ok(Json(CreateApiKeyResponse { key, raw_key }))
 }
 
@@ -240,6 +258,10 @@ pub(crate) async fn revoke_api_key(
 ) -> Result<axum::http::StatusCode, AppError> {
     require_admin(&req)?;
 
+    let actor_key = req.extensions().get::<ApiKey>().cloned();
+    let actor_id = actor_key.as_ref().map(|k| k.id);
+    let actor_name = actor_key.as_ref().map(|k| k.name.clone());
+
     db_call(&state.db, move |db| db.delete_api_key(id)).await?;
 
     let _ = db_call(&state.db, move |db| {
@@ -248,6 +270,20 @@ pub(crate) async fn revoke_api_key(
             EventSeverity::Warning,
             &format!("API key {} revoked", id),
             None,
+            None,
+        )
+    })
+    .await;
+
+    let audit_key_id = id.to_string();
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "key.revoked",
+            "api_key",
+            Some(&audit_key_id),
+            actor_id,
+            actor_name.as_deref(),
             None,
         )
     })

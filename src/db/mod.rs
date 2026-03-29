@@ -4,6 +4,7 @@
 //! events, API keys, settings, variables, and the agent job queue.
 
 mod agents;
+pub mod audit;
 mod events;
 mod executions;
 mod helpers;

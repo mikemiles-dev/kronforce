@@ -106,10 +106,10 @@ Run the controller and a standard agent together:
 docker compose -f deploy/docker/docker-compose.full.yml up -d
 ```
 
-On first startup, keys are auto-generated and saved to the data volume. Retrieve them:
+On first startup, keys are auto-generated and printed to the container logs. Retrieve them:
 
 ```bash
-docker compose -f deploy/docker/docker-compose.full.yml exec controller cat /data/bootstrap-keys.txt
+docker compose -f deploy/docker/docker-compose.full.yml logs controller | grep "key"
 ```
 
 - Dashboard: http://localhost:8080
@@ -127,20 +127,13 @@ KRONFORCE_ADMIN_KEY=kf_myadminkey KRONFORCE_AGENT_KEY=kf_myagentkey \
 docker compose -f deploy/docker/docker-compose.yml up -d
 ```
 
-On first startup, the controller auto-generates bootstrap API keys. They are printed to the logs and saved to a file next to the database:
+On first startup, the controller auto-generates bootstrap API keys and prints them to the logs:
 
 ```bash
-# From logs
 docker compose -f deploy/docker/docker-compose.yml logs controller | grep "key"
-
-# From file (Docker)
-docker compose -f deploy/docker/docker-compose.yml exec controller cat /data/bootstrap-keys.txt
-
-# From file (binary)
-cat bootstrap-keys.txt
 ```
 
-The keys file is created with restricted permissions (600). Store the keys securely and delete the file when no longer needed.
+Save these keys immediately — they are only shown once.
 
 You'll see two keys:
 - **Admin key** (`kf_...`) — use this to log into the dashboard
@@ -228,6 +221,10 @@ KRONFORCE_CONTROLLER_URL=http://controller:8080 \
 | `KRONFORCE_CALLBACK_URL` | `http://{BIND}` | URL agents use to report results back |
 | `KRONFORCE_HEARTBEAT_TIMEOUT_SECS` | `30` | Seconds before marking an agent offline |
 | `KRONFORCE_SCRIPTS_DIR` | `./scripts` | Directory for Rhai script files |
+| `KRONFORCE_RATE_LIMIT_ENABLED` | `true` | Enable/disable API rate limiting |
+| `KRONFORCE_RATE_LIMIT_PUBLIC` | `30` | Max requests/min for public endpoints (per IP) |
+| `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per key) |
+| `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per key) |
 | `KRONFORCE_BOOTSTRAP_ADMIN_KEY` | (auto) | Pre-set admin API key on first startup |
 | `KRONFORCE_BOOTSTRAP_AGENT_KEY` | (auto) | Pre-set agent API key on first startup |
 
@@ -300,6 +297,19 @@ curl -X PUT http://localhost:8080/api/settings \
 ```
 
 Default: 7 days. Completed executions, events, and queue items older than this are automatically deleted.
+
+### Audit Log Retention
+
+Audit log entries have separate retention from events/executions. Configure via Settings:
+
+```bash
+curl -X PUT http://localhost:8080/api/settings \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"audit_retention_days": "365"}'
+```
+
+Default: 90 days. The audit log is not affected by the regular `retention_days` setting.
 
 ## Scaling Agents
 
