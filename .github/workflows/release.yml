@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build:
@@ -89,3 +90,40 @@ jobs:
           generate_release_notes: true
           files: |
             release/*
+
+  docker:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/mikemiles-dev/kronforce:${{ steps.version.outputs.version }}
+            ghcr.io/mikemiles-dev/kronforce:latest
+          labels: |
+            org.opencontainers.image.title=Kronforce
+            org.opencontainers.image.description=Workload automation and job scheduling engine
+            org.opencontainers.image.source=https://github.com/mikemiles-dev/kronforce
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}

@@ -17,7 +17,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
 - **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.
-- **Docker ready** — single Dockerfile in `deploy/docker/`, separate compose files for controller and agent, auto-generated keys saved to data volume
+- **Docker ready** — pre-built images on [GitHub Container Registry](https://ghcr.io/mikemiles-dev/kronforce), separate compose files for controller and agent
 
 ## Quick Start
 

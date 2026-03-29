@@ -96,6 +96,20 @@ Each release includes a `checksums-sha256.txt` file:
 sha256sum -c checksums-sha256.txt
 ```
 
+## Docker Image
+
+Pre-built Docker images are published to GitHub Container Registry on each release:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/mikemiles-dev/kronforce:latest
+
+# Or a specific version
+docker pull ghcr.io/mikemiles-dev/kronforce:0.1.0-alpha
+```
+
+Available for `linux/amd64` and `linux/arm64`. The image includes both the controller and agent binaries.
+
 ## Quick Start (Docker Compose)
 
 ### Local Development — Full Stack

@@ -6,6 +6,8 @@
 
 services:
   controller:
+    image: ghcr.io/mikemiles-dev/kronforce:latest
+    # To build locally instead: docker compose build
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile

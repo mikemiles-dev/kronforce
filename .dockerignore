@@ -1,0 +1,15 @@
+target/
+.git/
+.claude/
+openspec/
+*.db
+*.db-wal
+*.db-shm
+.env
+.DS_Store
+docs/
+tests/
+*.md
+!README.md
+screenshot.png
+custom_agent.png

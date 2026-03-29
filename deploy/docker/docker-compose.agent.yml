@@ -13,6 +13,7 @@
 
 services:
   agent:
+    image: ghcr.io/mikemiles-dev/kronforce:latest
     build:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
