@@ -30,6 +30,12 @@ pub enum SchedulerCommand {
     CancelExecution(Uuid),
     /// Notify the scheduler of a new event for event-triggered jobs.
     EventOccurred(Event),
+    /// Retry a failed execution with the given attempt number.
+    RetryExecution {
+        job_id: Uuid,
+        original_execution_id: Uuid,
+        attempt: u32,
+    },
 }
 
 /// Core scheduling loop that fires jobs based on cron, one-shot, and event triggers.
@@ -223,6 +229,49 @@ impl Scheduler {
             }
             SchedulerCommand::EventOccurred(event) => {
                 self.handle_event(event).await;
+            }
+            SchedulerCommand::RetryExecution {
+                job_id,
+                original_execution_id,
+                attempt,
+            } => {
+                let db = self.db.clone();
+                let job = tokio::task::spawn_blocking(move || db.get_job(job_id))
+                    .await
+                    .unwrap_or(Ok(None));
+                match job {
+                    Ok(Some(job)) => {
+                        let trigger = TriggerSource::Retry {
+                            original_execution_id,
+                            attempt,
+                        };
+                        info!(
+                            "retrying job {} ({}) attempt {}/{}",
+                            job.name,
+                            job.id,
+                            attempt,
+                            job.retry_max + 1
+                        );
+                        match self
+                            .executor
+                            .execute(&job, trigger, &self.callback_base_url)
+                            .await
+                        {
+                            Ok(exec_id) => {
+                                info!("retry execution {} started for job {}", exec_id, job.name);
+                            }
+                            Err(e) => {
+                                error!("retry failed for job {}: {e}", job.name);
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        warn!("retry: job {} not found", job_id);
+                    }
+                    Err(e) => {
+                        error!("retry: error loading job {}: {e}", job_id);
+                    }
+                }
             }
         }
     }

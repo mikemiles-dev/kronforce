@@ -29,6 +29,9 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         output_rules: None,
         notifications: None,
         group: None,
+        retry_max: 0,
+        retry_delay_secs: 0,
+        retry_backoff: 1.0,
     }
 }
 

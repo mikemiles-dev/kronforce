@@ -53,8 +53,16 @@ impl ExecutionStatus {
 pub enum TriggerSource {
     Scheduler,
     Api,
-    Dependency { parent_execution_id: Uuid },
-    Event { event_id: Uuid },
+    Dependency {
+        parent_execution_id: Uuid,
+    },
+    Event {
+        event_id: Uuid,
+    },
+    Retry {
+        original_execution_id: Uuid,
+        attempt: u32,
+    },
 }
 
 /// Recorded result of a single job execution.
@@ -75,6 +83,14 @@ pub struct ExecutionRecord {
     pub triggered_by: TriggerSource,
     #[serde(default)]
     pub extracted: Option<serde_json::Value>,
+    #[serde(default)]
+    pub retry_of: Option<Uuid>,
+    #[serde(default = "default_attempt")]
+    pub attempt_number: u32,
+}
+
+fn default_attempt() -> u32 {
+    1
 }
 
 impl ExecutionRecord {
@@ -95,6 +111,8 @@ impl ExecutionRecord {
             finished_at: None,
             triggered_by: trigger,
             extracted: None,
+            retry_of: None,
+            attempt_number: 1,
         }
     }
 
@@ -125,7 +143,7 @@ impl ExecutionRecord {
     /// Constructs an ExecutionRecord from a rusqlite row.
     ///
     /// Columns: id(0), job_id(1), agent_id(2), task_snapshot_json(3), status(4), exit_code(5),
-    ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13)
+    ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13), retry_of(14), attempt_number(15)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
 
@@ -158,6 +176,11 @@ impl ExecutionRecord {
                 let ex_json: Option<String> = row.get(13).unwrap_or(None);
                 ex_json.and_then(|s| serde_json::from_str(&s).ok())
             },
+            retry_of: {
+                let r: Option<String> = row.get(14).unwrap_or(None);
+                r.and_then(|s| Uuid::parse_str(&s).ok())
+            },
+            attempt_number: row.get::<_, Option<i32>>(15).unwrap_or(None).unwrap_or(1) as u32,
         })
     }
 }

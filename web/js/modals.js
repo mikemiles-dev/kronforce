@@ -11,6 +11,9 @@ function openCreateModal() {
     parseCronToUI('');
     document.getElementById('f-desc').value = '';
     document.getElementById('f-group').value = '';
+    document.getElementById('f-retry-max').value = '0';
+    document.getElementById('f-retry-delay').value = '0';
+    document.getElementById('f-retry-backoff').value = '1.0';
     // Populate group autocomplete suggestions
     const dl = document.getElementById('group-suggestions');
     if (dl) { dl.innerHTML = cachedGroups.map(g => '<option value="' + esc(g) + '">').join(''); }
@@ -67,6 +70,9 @@ async function copyJob(id) {
         // Populate schedule
         document.getElementById('f-desc').value = job.description || '';
         document.getElementById('f-group').value = job.group || '';
+        document.getElementById('f-retry-max').value = job.retry_max || 0;
+        document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
+        document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -145,6 +151,9 @@ async function openEditModal(id) {
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-desc').value = job.description || '';
         document.getElementById('f-group').value = job.group || '';
+        document.getElementById('f-retry-max').value = job.retry_max || 0;
+        document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
+        document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
         let schedType = job.schedule.type;
@@ -988,6 +997,12 @@ async function submitJobForm() {
     if (desc) body.description = desc;
     const group = document.getElementById('f-group').value.trim();
     body.group = group || null;
+    const retryMax = parseInt(document.getElementById('f-retry-max').value) || 0;
+    if (retryMax > 0) body.retry_max = retryMax;
+    const retryDelay = parseInt(document.getElementById('f-retry-delay').value) || 0;
+    if (retryDelay > 0) body.retry_delay_secs = retryDelay;
+    const retryBackoff = parseFloat(document.getElementById('f-retry-backoff').value) || 1.0;
+    if (retryBackoff !== 1.0) body.retry_backoff = retryBackoff;
 
     try {
         if (editingJobId) {

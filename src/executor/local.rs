@@ -24,10 +24,20 @@ impl super::Executor {
         let exec_id = Uuid::new_v4();
         let now = Utc::now();
 
-        let rec = ExecutionRecord::new(exec_id, job.id, trigger)
+        let mut rec = ExecutionRecord::new(exec_id, job.id, trigger.clone())
             .with_status(ExecutionStatus::Running)
             .with_task_snapshot(job.task.clone())
             .with_started_at(now);
+
+        // Set retry tracking fields from trigger source
+        if let TriggerSource::Retry {
+            original_execution_id,
+            attempt,
+        } = &trigger
+        {
+            rec.retry_of = Some(*original_execution_id);
+            rec.attempt_number = *attempt;
+        }
 
         let db = self.db.clone();
         let rec_clone = rec.clone();
@@ -48,6 +58,7 @@ impl super::Executor {
         let running = self.running.clone();
         let sched_tx = self.scheduler_tx.clone();
         let script_store = self.script_store.clone();
+        let job_clone = job.clone();
 
         tokio::spawn(async move {
             let result = run_task(
@@ -74,10 +85,44 @@ impl super::Executor {
                 finished_at: Some(finished_at),
                 triggered_by: rec.triggered_by,
                 extracted: None,
+                retry_of: rec.retry_of,
+                attempt_number: rec.attempt_number,
             };
 
             Self::handle_execution_complete(exec_id, &updated, &db, &sched_tx).await;
             running.lock().await.remove(&exec_id);
+
+            // Schedule retry if applicable — use scheduler channel with delay
+            if should_retry(job_clone.retry_max, updated.status, updated.attempt_number) {
+                let next_attempt = updated.attempt_number + 1;
+                let delay = calculate_retry_delay(
+                    job_clone.retry_delay_secs,
+                    job_clone.retry_backoff,
+                    next_attempt,
+                );
+                let original_id = updated.retry_of.unwrap_or(exec_id);
+                info!(
+                    "scheduling retry {}/{} for job {} (delay: {}s)",
+                    next_attempt,
+                    job_clone.retry_max + 1,
+                    job_clone.name,
+                    delay
+                );
+                let sched_retry = sched_tx.clone();
+                let job_id = job_clone.id;
+                tokio::spawn(async move {
+                    if delay > 0 {
+                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                    }
+                    let _ = sched_retry
+                        .send(SchedulerCommand::RetryExecution {
+                            job_id,
+                            original_execution_id: original_id,
+                            attempt: next_attempt,
+                        })
+                        .await;
+                });
+            }
         });
 
         Ok(exec_id)
@@ -549,4 +594,24 @@ async fn read_pipe_stderr(pipe: &mut Option<tokio::process::ChildStderr>) -> Cap
             truncated: false,
         },
     }
+}
+
+/// Maximum retry delay cap (1 hour).
+const MAX_RETRY_DELAY_SECS: u64 = 3600;
+
+/// Calculates the retry delay for the given attempt, capped at MAX_RETRY_DELAY_SECS.
+pub(crate) fn calculate_retry_delay(delay_secs: u64, backoff: f64, attempt: u32) -> u64 {
+    let delay = (delay_secs as f64) * backoff.powi((attempt - 1) as i32);
+    (delay as u64).min(MAX_RETRY_DELAY_SECS)
+}
+
+/// Returns true if the execution should be retried based on job config and status.
+pub(crate) fn should_retry(retry_max: u32, status: ExecutionStatus, attempt_number: u32) -> bool {
+    if retry_max == 0 {
+        return false;
+    }
+    if attempt_number > retry_max {
+        return false;
+    }
+    matches!(status, ExecutionStatus::Failed | ExecutionStatus::TimedOut)
 }

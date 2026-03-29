@@ -26,6 +26,9 @@ pub(crate) struct CreateJobRequest {
     output_rules: Option<OutputRules>,
     notifications: Option<JobNotificationConfig>,
     group: Option<String>,
+    retry_max: Option<u32>,
+    retry_delay_secs: Option<u64>,
+    retry_backoff: Option<f64>,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -43,6 +46,9 @@ pub(crate) struct UpdateJobRequest {
     output_rules: Option<OutputRules>,
     notifications: Option<JobNotificationConfig>,
     group: Option<String>,
+    retry_max: Option<u32>,
+    retry_delay_secs: Option<u64>,
+    retry_backoff: Option<f64>,
 }
 
 /// Summary of a job's most recent execution.
@@ -262,6 +268,9 @@ pub(crate) async fn create_job(
         output_rules: req.output_rules,
         notifications: req.notifications,
         group: normalize_group(req.group)?,
+        retry_max: req.retry_max.unwrap_or(0),
+        retry_delay_secs: req.retry_delay_secs.unwrap_or(0),
+        retry_backoff: req.retry_backoff.unwrap_or(1.0),
     };
 
     let job_clone = job.clone();
@@ -382,6 +391,15 @@ pub(crate) async fn update_job(
     }
     if req.group.is_some() {
         job.group = normalize_group(req.group)?;
+    }
+    if let Some(rm) = req.retry_max {
+        job.retry_max = rm;
+    }
+    if let Some(rd) = req.retry_delay_secs {
+        job.retry_delay_secs = rd;
+    }
+    if let Some(rb) = req.retry_backoff {
+        job.retry_backoff = rb;
     }
 
     job.updated_at = Utc::now();

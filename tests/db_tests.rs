@@ -29,6 +29,9 @@ fn make_job(name: &str) -> Job {
         output_rules: None,
         notifications: None,
         group: None,
+        retry_max: 0,
+        retry_delay_secs: 0,
+        retry_backoff: 1.0,
     }
 }
 
@@ -204,6 +207,8 @@ fn test_insert_and_get_execution() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Api,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -233,6 +238,8 @@ fn test_update_execution_extracted() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Api,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     };
     db.insert_execution(&exec).unwrap();
     db.update_execution_extracted(exec.id, &serde_json::json!({"key": "value"}))
@@ -268,6 +275,8 @@ fn test_execution_counts() {
             finished_at: Some(Utc::now()),
             triggered_by: TriggerSource::Scheduler,
             extracted: None,
+            retry_of: None,
+            attempt_number: 1,
         };
         db.insert_execution(&exec).unwrap();
     }
