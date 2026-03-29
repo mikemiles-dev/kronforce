@@ -10,9 +10,9 @@ impl Db {
     /// Inserts a new agent or updates an existing one matched by name.
     pub fn upsert_agent(&self, agent: &Agent) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let tags_json = serde_json::to_string(&agent.tags)
             .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
         let task_types_json = if agent.task_types.is_empty() {
@@ -52,9 +52,9 @@ impl Db {
     /// Looks up an agent by its UUID.
     pub fn get_agent(&self, id: Uuid) -> Result<Option<Agent>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE id = ?1")
             .map_err(AppError::Db)?;
@@ -71,9 +71,9 @@ impl Db {
     /// Looks up an agent by its unique name.
     pub fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents WHERE name = ?1")
             .map_err(AppError::Db)?;
@@ -90,9 +90,9 @@ impl Db {
     /// Returns all registered agents ordered by name.
     pub fn list_agents(&self) -> Result<Vec<Agent>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json FROM agents ORDER BY name")
             .map_err(AppError::Db)?;
@@ -134,9 +134,9 @@ impl Db {
     /// Updates the agent's last heartbeat timestamp and sets its status to online.
     pub fn update_agent_heartbeat(&self, id: Uuid, at: DateTime<Utc>) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
             "UPDATE agents SET last_heartbeat = ?1, status = 'online' WHERE id = ?2",
             params![at.to_rfc3339(), id.to_string()],
@@ -148,9 +148,9 @@ impl Db {
     /// Marks online agents as offline if their last heartbeat is older than the given timeout.
     pub fn expire_agents(&self, timeout: std::time::Duration) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let cutoff =
             (Utc::now() - chrono::Duration::seconds(timeout.as_secs() as i64)).to_rfc3339();
         conn.execute(
@@ -164,9 +164,9 @@ impl Db {
     /// Deletes an agent by its UUID.
     pub fn delete_agent(&self, id: Uuid) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute("DELETE FROM agents WHERE id = ?1", params![id.to_string()])
             .map_err(AppError::Db)?;
         Ok(())
@@ -179,9 +179,9 @@ impl Db {
         task_types: &[TaskTypeDefinition],
     ) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let json = if task_types.is_empty() {
             None
         } else {

@@ -15,10 +15,10 @@ mod queue;
 mod settings;
 mod variables;
 
-use std::sync::{Arc, Mutex};
-
 use chrono::Utc;
-use rusqlite::{Connection, params};
+use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::params;
 
 use tracing::{debug, error, info};
 
@@ -27,29 +27,45 @@ use crate::error::AppError;
 // Migrations loaded from migrations/*.sql files, embedded at compile time by build.rs
 include!(concat!(env!("OUT_DIR"), "/migrations.rs"));
 
-/// SQLite database handle with connection pooling via `Arc<Mutex>`.
+/// SQLite database handle backed by an r2d2 connection pool.
 #[derive(Clone)]
 pub struct Db {
-    conn: Arc<Mutex<Connection>>,
+    pool: Pool<SqliteConnectionManager>,
 }
 
 impl Db {
-    /// Opens (or creates) the SQLite database at `path` with WAL mode enabled.
+    /// Opens (or creates) the SQLite database at `path` with a connection pool.
+    /// WAL mode, foreign keys, and busy_timeout are set on every connection.
+    /// For `:memory:` databases (tests), pool size is forced to 1.
     pub fn open(path: &str) -> Result<Self, AppError> {
-        let conn = Connection::open(path).map_err(AppError::Db)?;
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .map_err(AppError::Db)?;
-        Ok(Self {
-            conn: Arc::new(Mutex::new(conn)),
-        })
+        Self::open_with_pool_size(path, if path == ":memory:" { 1 } else { 8 }, 5)
+    }
+
+    /// Opens the database with explicit pool configuration.
+    pub fn open_with_pool_size(
+        path: &str,
+        pool_size: u32,
+        timeout_secs: u64,
+    ) -> Result<Self, AppError> {
+        let manager = SqliteConnectionManager::file(path).with_init(|c| {
+            c.execute_batch(
+                "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
+            )
+        });
+        let pool = Pool::builder()
+            .max_size(if path == ":memory:" { 1 } else { pool_size })
+            .connection_timeout(std::time::Duration::from_secs(timeout_secs))
+            .build(manager)
+            .map_err(|e| AppError::Internal(format!("failed to create connection pool: {e}")))?;
+        Ok(Self { pool })
     }
 
     /// Applies all pending schema migrations in order.
     pub fn migrate(&self) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
 
         // Schema versioning table
         conn.execute_batch(
@@ -122,9 +138,9 @@ impl Db {
         F: FnOnce(&rusqlite::Transaction) -> Result<T, AppError>,
     {
         let mut conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let tx = conn.transaction().map_err(AppError::Db)?;
         let result = f(&tx)?;
         tx.commit().map_err(AppError::Db)?;

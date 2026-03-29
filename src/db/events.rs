@@ -10,9 +10,9 @@ impl Db {
     /// Inserts a new event record.
     pub fn insert_event(&self, event: &Event) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
             "INSERT INTO events (id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
@@ -101,9 +101,9 @@ impl Db {
         offset: u32,
     ) -> Result<Vec<Event>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let sql = match since {
             Some(_) => {
                 "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events WHERE timestamp >= ?3 ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
@@ -172,9 +172,9 @@ impl Db {
     /// Returns the total number of events, optionally filtered by a start timestamp.
     pub fn count_events(&self, since: Option<&str>) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         match since {
             Some(s) => conn.query_row(
                 "SELECT COUNT(*) FROM events WHERE timestamp >= ?1",

@@ -44,8 +44,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = ControllerConfig::from_env();
 
-    info!("opening database: {}", config.db_path);
-    let db = Db::open(&config.db_path)?;
+    info!(
+        "opening database: {} (pool size: {})",
+        config.db_path, config.db_pool_size
+    );
+    let db = Db::open_with_pool_size(&config.db_path, config.db_pool_size, config.db_timeout_secs)?;
     db.migrate()?;
 
     if reset_key || reset_key_and_run {
