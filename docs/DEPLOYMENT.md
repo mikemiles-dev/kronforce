@@ -12,7 +12,38 @@ Pre-built binaries are available on the [GitHub Releases](https://github.com/mik
 
 Linux ARM64 is available via the Docker image (`linux/arm64`).
 
-> **Windows note:** Shell commands execute via `cmd /C` on Windows. The controller, dashboard, HTTP tasks, Rhai scripts, and shell tasks (using Windows commands) work natively. SQL tasks require the database CLI tool (`psql`, `mysql`, `sqlite3`) to be on PATH. FTP tasks use `curl` (included in Windows 10+). Messaging tasks (Kafka, RabbitMQ, MQTT, Redis) require their respective CLI tools installed. `run_as` (sudo) is not supported on Windows.
+### Windows Support
+
+Shell commands execute via `cmd /C` on Windows instead of `sh -c` on Unix. Most features work natively, but some task types depend on external CLI tools.
+
+**Works out of the box:**
+
+| Feature | Notes |
+|---|---|
+| Controller + Dashboard | Full functionality |
+| HTTP tasks | Native (reqwest, no shell needed) |
+| Rhai scripts | Embedded engine, all built-in functions work |
+| Shell tasks | Uses `cmd /C` — write commands for Windows (e.g., `dir`, `echo`, PowerShell) |
+| FTP/SFTP tasks | Uses `curl` (built into Windows 10+) |
+
+**Requires CLI tools on PATH:**
+
+| Task Type | Tool Needed | Install |
+|---|---|---|
+| SQL (Postgres) | `psql` | [postgresql.org/download/windows](https://www.postgresql.org/download/windows/) |
+| SQL (MySQL) | `mysql` | [dev.mysql.com/downloads](https://dev.mysql.com/downloads/mysql/) |
+| SQL (SQLite) | `sqlite3` | [sqlite.org/download](https://www.sqlite.org/download.html) |
+| Kafka | `kafka-console-producer` | [kafka.apache.org](https://kafka.apache.org/downloads) |
+| RabbitMQ | `amqp-publish` | [github.com/selency/amqp-publish](https://github.com/selency/amqp-publish) |
+| MQTT | `mosquitto_pub` | [mosquitto.org/download](https://mosquitto.org/download/) |
+| Redis | `redis-cli` | [github.com/microsoftarchive/redis](https://github.com/microsoftarchive/redis/releases) |
+
+**Not supported on Windows:**
+
+| Feature | Reason |
+|---|---|
+| `run_as` (sudo) | No equivalent on Windows. Jobs always run as the current user. |
+| Standard agents | Agents execute shell tasks via `sh -c`. Use Docker on Windows for agents, or run the controller only. |
 
 ### Install from Release
 
