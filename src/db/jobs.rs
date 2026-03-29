@@ -400,7 +400,8 @@ impl Db {
         Ok(counts)
     }
 
-    /// Returns the list of distinct group names across all jobs, sorted alphabetically.
+    /// Returns the list of distinct group names across all jobs, merged with any
+    /// custom (empty) groups stored in the `custom_groups` setting. Always includes "Default".
     pub fn get_distinct_groups(&self) -> Result<Vec<String>, AppError> {
         let conn = self
             .conn
@@ -414,11 +415,60 @@ impl Db {
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
             .map_err(AppError::Db)?;
-        let mut groups = Vec::new();
+        let mut groups = std::collections::BTreeSet::new();
+        groups.insert("Default".to_string());
         for row in rows {
-            groups.push(row.map_err(AppError::Db)?);
+            groups.insert(row.map_err(AppError::Db)?);
         }
-        Ok(groups)
+        // Merge custom (empty) groups from settings
+        drop(stmt);
+        let custom = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'custom_groups'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+        if !custom.is_empty() {
+            if let Ok(names) = serde_json::from_str::<Vec<String>>(&custom) {
+                for name in names {
+                    groups.insert(name);
+                }
+            }
+        }
+        Ok(groups.into_iter().collect())
+    }
+
+    /// Adds a custom group name that persists even with no jobs assigned.
+    pub fn add_custom_group(&self, name: &str) -> Result<(), AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let existing = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'custom_groups'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+        let mut names: Vec<String> = if existing.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&existing).unwrap_or_default()
+        };
+        if !names.contains(&name.to_string()) {
+            names.push(name.to_string());
+            names.sort();
+            let json = serde_json::to_string(&names)
+                .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('custom_groups', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                rusqlite::params![json],
+            )
+            .map_err(AppError::Db)?;
+        }
+        Ok(())
     }
 
     /// Sets the group_name for a list of job UUIDs.

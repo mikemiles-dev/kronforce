@@ -652,6 +652,35 @@ pub(crate) async fn list_groups(
     Ok(Json(groups))
 }
 
+/// Request body for creating a new empty group.
+#[derive(Deserialize)]
+pub(crate) struct CreateGroupRequest {
+    name: String,
+}
+
+/// Creates a new empty group (persisted in settings).
+pub(crate) async fn create_group(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<CreateGroupRequest>,
+) -> Result<(axum::http::StatusCode, Json<serde_json::Value>), AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    let name = normalize_group(Some(req.name))?
+        .unwrap_or_else(|| DEFAULT_GROUP_NAME.to_string());
+    let name_clone = name.clone();
+    db_call(&state.db, move |db| db.add_custom_group(&name_clone)).await?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(serde_json::json!({"name": name})),
+    ))
+}
+
 /// Request body for bulk group assignment.
 #[derive(Deserialize)]
 pub(crate) struct BulkGroupRequest {

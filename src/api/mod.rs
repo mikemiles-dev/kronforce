@@ -74,7 +74,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
                 .delete(jobs::delete_job),
         )
         .route("/api/jobs/{id}/trigger", post(jobs::trigger_job))
-        .route("/api/jobs/groups", get(jobs::list_groups))
+        .route("/api/jobs/groups", get(jobs::list_groups).post(jobs::create_group))
         .route("/api/jobs/bulk-group", put(jobs::bulk_set_group))
         .route("/api/jobs/rename-group", put(jobs::rename_group))
         .route(

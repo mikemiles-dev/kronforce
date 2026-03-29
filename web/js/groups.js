@@ -93,41 +93,13 @@ async function createNewGroup() {
         toast('Group "' + trimmed + '" already exists', 'error');
         return;
     }
-
-    // Show list of jobs in Default group to move
-    const defaultJobs = groupsPageJobs.filter(j => (j.group || 'Default') === 'Default');
-    if (defaultJobs.length === 0) {
-        // No default jobs — navigate to Jobs page
-        cachedGroups.push(trimmed);
-        cachedGroups.sort();
-        toast('Select jobs on the Jobs page, then click "Set Group" and choose "' + trimmed + '"');
-        showPage('jobs');
-        return;
-    }
-
-    let msg = 'Move jobs from Default to "' + trimmed + '"?\n\n';
-    const showCount = Math.min(defaultJobs.length, 10);
-    for (let i = 0; i < showCount; i++) {
-        msg += '  ' + defaultJobs[i].name + '\n';
-    }
-    if (defaultJobs.length > 10) msg += '  ...and ' + (defaultJobs.length - 10) + ' more\n';
-    msg += '\nClick OK to move all Default jobs, or Cancel to select specific jobs on the Jobs page.';
-
-    if (confirm(msg)) {
-        try {
-            const ids = defaultJobs.map(j => j.id);
-            await api('PUT', '/api/jobs/bulk-group', { job_ids: ids, group: trimmed });
-            toast('Created group "' + trimmed + '" with ' + ids.length + ' jobs');
-            fetchGroupsPage();
-            fetchGroups();
-        } catch (e) {
-            toast('Error: ' + e.message, 'error');
-        }
-    } else {
-        cachedGroups.push(trimmed);
-        cachedGroups.sort();
-        toast('Select jobs on the Jobs page, then click "Set Group" and choose "' + trimmed + '"');
-        showPage('jobs');
+    try {
+        await api('POST', '/api/jobs/groups', { name: trimmed });
+        toast('Group "' + trimmed + '" created');
+        fetchGroupsPage();
+        fetchGroups();
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
     }
 }
 
