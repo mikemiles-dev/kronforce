@@ -43,7 +43,10 @@ Shell commands execute via `cmd /C` on Windows instead of `sh -c` on Unix. Most 
 | Feature | Reason |
 |---|---|
 | `run_as` (sudo) | No equivalent on Windows. Jobs always run as the current user. |
-| Standard agents | Agents execute shell tasks via `sh -c`. Use Docker on Windows for agents, or run the controller only. |
+
+**Mixed environments (recommended):**
+
+Run the controller on Windows and agents on Linux — this works perfectly. The controller handles scheduling, the API, and the dashboard (all cross-platform). Agents handle task execution on their own OS. Shell commands, SQL tools, and messaging CLI tools only need to be available on the machines running the agents, not the controller. Target jobs to agents using `{"target": {"type": "any"}}` or `{"target": {"type": "tagged", "tag": "linux"}}` to keep execution on Unix.
 
 ### Install from Release
 
