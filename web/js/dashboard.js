@@ -236,6 +236,8 @@ async function renderDashboard() {
 
         const onlineAgents = allAgents.filter(a => a.status === 'online').length;
         const totalAgents = allAgents.length;
+        const groupSet = new Set(jobs.map(j => j.group || 'Default'));
+        const totalGroups = groupSet.size;
 
         // Render stats cards
         document.getElementById('dash-stats').innerHTML =
@@ -246,6 +248,7 @@ async function renderDashboard() {
             statCard(totalSucceeded, 'Succeeded', 'success', "navExecsFiltered('succeeded')") +
             statCard(totalFailed, 'Failed', 'danger', "navExecsFiltered('failed')") +
             statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral', "showPage('agents')") +
+            statCard(totalGroups, 'Groups', 'neutral', "showPage('groups')") +
             statCard(totalExecs, 'Total Runs', 'neutral', "showPage('executions')");
 
         // Recent executions - collect from all jobs
