@@ -8,8 +8,11 @@ Pre-built binaries are available on the [GitHub Releases](https://github.com/mik
 |---|---|---|
 | Linux x86_64 | `kronforce-linux-amd64` | `kronforce-agent-linux-amd64` |
 | macOS ARM64 (Apple Silicon) | `kronforce-darwin-arm64` | `kronforce-agent-darwin-arm64` |
+| Windows x86_64 | `kronforce-windows-amd64.exe` | `kronforce-agent-windows-amd64.exe` |
 
 Linux ARM64 is available via the Docker image (`linux/arm64`).
+
+> **Windows note:** The controller, dashboard, HTTP tasks, and Rhai scripts work on Windows. Shell, SQL, FTP, and messaging tasks require Unix tools (`sh`, `curl`, `psql`, etc.) and are not supported on Windows.
 
 ### Install from Release
 
