@@ -3,12 +3,14 @@
 function populateGroupSelect(selectedGroup) {
     const sel = document.getElementById('f-group');
     if (!sel) return;
-    sel.innerHTML = '<option value="">Default</option>';
+    const isDefault = !selectedGroup || selectedGroup === 'Default';
+    sel.innerHTML = '<option value=""' + (isDefault ? ' selected' : '') + '>Default</option>';
     for (const g of cachedGroups) {
+        if (g === 'Default') continue; // already added as first option
         const selected = g === selectedGroup ? ' selected' : '';
         sel.innerHTML += '<option value="' + esc(g) + '"' + selected + '>' + esc(g) + '</option>';
     }
-    if (selectedGroup && !cachedGroups.includes(selectedGroup)) {
+    if (selectedGroup && selectedGroup !== 'Default' && !cachedGroups.includes(selectedGroup)) {
         sel.innerHTML += '<option value="' + esc(selectedGroup) + '" selected>' + esc(selectedGroup) + '</option>';
     }
 }
