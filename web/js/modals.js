@@ -1028,6 +1028,8 @@ async function submitJobForm() {
         closeCreateModal();
         if (currentJobId) {
             showJobDetail(currentJobId);
+        } else if (currentPage !== 'jobs') {
+            showPage('jobs');
         } else {
             fetchJobs();
         }
