@@ -28,6 +28,7 @@ fn make_job(name: &str) -> Job {
         updated_at: Utc::now(),
         output_rules: None,
         notifications: None,
+        group: None,
     }
 }
 
@@ -87,7 +88,7 @@ fn test_list_jobs() {
     db.insert_job(&make_job("job-b")).unwrap();
     db.insert_job(&make_job("job-c")).unwrap();
 
-    let jobs = db.list_jobs(None, None, 100, 0).unwrap();
+    let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 3);
 }
 
@@ -98,10 +99,10 @@ fn test_list_jobs_pagination() {
         db.insert_job(&make_job(&format!("job-{}", i))).unwrap();
     }
 
-    let page1 = db.list_jobs(None, None, 3, 0).unwrap();
+    let page1 = db.list_jobs(None, None, None, 3, 0).unwrap();
     assert_eq!(page1.len(), 3);
 
-    let page2 = db.list_jobs(None, None, 3, 3).unwrap();
+    let page2 = db.list_jobs(None, None, None, 3, 3).unwrap();
     assert_eq!(page2.len(), 3);
 }
 
@@ -111,7 +112,7 @@ fn test_count_jobs() {
     db.insert_job(&make_job("count-a")).unwrap();
     db.insert_job(&make_job("count-b")).unwrap();
 
-    let count = db.count_jobs(None, None).unwrap();
+    let count = db.count_jobs(None, None, None).unwrap();
     assert_eq!(count, 2);
 }
 
@@ -123,7 +124,7 @@ fn test_count_jobs_with_status_filter() {
     db.insert_job(&job).unwrap();
     db.insert_job(&make_job("active-job")).unwrap();
 
-    let count = db.count_jobs(Some("scheduled"), None).unwrap();
+    let count = db.count_jobs(Some("scheduled"), None, None).unwrap();
     assert_eq!(count, 1);
 }
 
@@ -567,6 +568,6 @@ fn test_fresh_migration() {
     let db = test_db();
     // If we got here, migration succeeded
     // Verify we can do basic operations
-    let count = db.count_jobs(None, None).unwrap();
+    let count = db.count_jobs(None, None, None).unwrap();
     assert_eq!(count, 0);
 }

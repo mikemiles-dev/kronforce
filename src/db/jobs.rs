@@ -38,8 +38,8 @@ impl Db {
         let task_json = serde_json::to_string(&job.task)
             .map_err(|e| AppError::Internal(format!("serialize task: {e}")))?;
         conn.execute(
-            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 job.id.to_string(),
                 job.name,
@@ -56,6 +56,7 @@ impl Db {
                 job.updated_at.to_rfc3339(),
                 output_rules_json,
                 notifications_json,
+                job.group,
             ],
         ).map_err(|e| {
             if let rusqlite::Error::SqliteFailure(ref err, _) = e
@@ -78,7 +79,7 @@ impl Db {
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], Job::from_row)
@@ -90,13 +91,24 @@ impl Db {
         }
     }
 
-    fn build_job_filters(status_filter: Option<&str>, search: Option<&str>) -> QueryFilters {
+    fn build_job_filters(
+        status_filter: Option<&str>,
+        search: Option<&str>,
+        group_filter: Option<&str>,
+    ) -> QueryFilters {
         let mut f = QueryFilters::new();
         if let Some(s) = status_filter {
             f.add_status(s);
         }
         if let Some(q) = search {
             f.add_search(q, &["name", "task_json"]);
+        }
+        if let Some(g) = group_filter {
+            if g == "ungrouped" {
+                f.add_is_null("group_name");
+            } else {
+                f.add_eq("group_name", g);
+            }
         }
         f
     }
@@ -106,12 +118,13 @@ impl Db {
         &self,
         status_filter: Option<&str>,
         search: Option<&str>,
+        group_filter: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
-        let f = Self::build_job_filters(status_filter, search);
+        let f = Self::build_job_filters(status_filter, search, group_filter);
         let sql = format!("SELECT COUNT(*) FROM jobs{}", f.where_sql());
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
         stmt.query_row(f.to_params().as_slice(), |row| row.get(0))
@@ -123,6 +136,7 @@ impl Db {
         &self,
         status_filter: Option<&str>,
         search: Option<&str>,
+        group_filter: Option<&str>,
         limit: u32,
         offset: u32,
     ) -> Result<Vec<Job>, AppError> {
@@ -130,10 +144,10 @@ impl Db {
             .conn
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
-        let mut f = Self::build_job_filters(status_filter, search);
+        let mut f = Self::build_job_filters(status_filter, search, group_filter);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
-            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
+            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
             f.where_sql(),
             li,
             oi
@@ -181,7 +195,7 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12 WHERE id=?13",
+                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12, group_name=?13 WHERE id=?14",
                 params![
                     job.name,
                     job.description,
@@ -195,6 +209,7 @@ impl Db {
                     job.updated_at.to_rfc3339(),
                     output_rules_json,
                     notifications_json,
+                    job.group,
                     job.id.to_string(),
                 ],
             )
@@ -248,7 +263,7 @@ impl Db {
 
     /// Returns all jobs with a "scheduled" status for cron evaluation.
     pub fn get_active_cron_jobs(&self) -> Result<Vec<Job>, AppError> {
-        self.list_jobs(Some("scheduled"), None, u32::MAX, 0)
+        self.list_jobs(Some("scheduled"), None, None, u32::MAX, 0)
     }
 
     /// Returns all job IDs with their dependency lists for DAG cycle validation.
@@ -375,5 +390,45 @@ impl Db {
             *counts.entry(type_name).or_insert(0) += 1;
         }
         Ok(counts)
+    }
+
+    /// Returns the list of distinct group names across all jobs, sorted alphabetically.
+    pub fn get_distinct_groups(&self) -> Result<Vec<String>, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT group_name FROM jobs WHERE group_name IS NOT NULL ORDER BY group_name",
+            )
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(AppError::Db)?;
+        let mut groups = Vec::new();
+        for row in rows {
+            groups.push(row.map_err(AppError::Db)?);
+        }
+        Ok(groups)
+    }
+
+    /// Sets the group_name for a list of job UUIDs.
+    pub fn bulk_set_group(&self, job_ids: &[Uuid], group: Option<&str>) -> Result<u32, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let mut count = 0u32;
+        for id in job_ids {
+            let changed = conn
+                .execute(
+                    "UPDATE jobs SET group_name = ?1 WHERE id = ?2",
+                    rusqlite::params![group, id.to_string()],
+                )
+                .map_err(AppError::Db)?;
+            count += changed as u32;
+        }
+        Ok(count)
     }
 }

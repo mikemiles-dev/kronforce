@@ -547,6 +547,7 @@ function showPage(page) {
         fetchAgents();
     } else if (page === 'jobs') {
         currentJobId = null;
+        fetchGroups();
         fetchJobs();
     } else if (page === 'map') {
         renderMap();
