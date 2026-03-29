@@ -8,6 +8,10 @@ pub struct ControllerConfig {
     pub agent_heartbeat_timeout: Duration,
     pub callback_base_url: String,
     pub scripts_dir: String,
+    pub rate_limit_enabled: bool,
+    pub rate_limit_public: u32,
+    pub rate_limit_authenticated: u32,
+    pub rate_limit_agent: u32,
 }
 
 impl ControllerConfig {
@@ -35,6 +39,21 @@ impl ControllerConfig {
             callback_base_url,
             scripts_dir: std::env::var("KRONFORCE_SCRIPTS_DIR")
                 .unwrap_or_else(|_| "./scripts".to_string()),
+            rate_limit_enabled: std::env::var("KRONFORCE_RATE_LIMIT_ENABLED")
+                .map(|v| v != "false" && v != "0")
+                .unwrap_or(true),
+            rate_limit_public: std::env::var("KRONFORCE_RATE_LIMIT_PUBLIC")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(30),
+            rate_limit_authenticated: std::env::var("KRONFORCE_RATE_LIMIT_AUTHENTICATED")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(120),
+            rate_limit_agent: std::env::var("KRONFORCE_RATE_LIMIT_AGENT")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(600),
         }
     }
 }
