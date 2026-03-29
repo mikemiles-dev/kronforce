@@ -10,7 +10,7 @@ let pollTimer = null;
 let jobsPage = 1;
 
 // View registry for page management
-const ALL_VIEWS = ['dashboard','jobs','detail','map','agents','executions','scripts','events','variables','settings','docs'];
+const ALL_VIEWS = ['dashboard','jobs','groups','detail','map','agents','executions','scripts','events','variables','settings','docs'];
 const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
 // Time range state
@@ -545,6 +545,8 @@ function showPage(page) {
         renderDashboard();
     } else if (page === 'agents') {
         fetchAgents();
+    } else if (page === 'groups') {
+        fetchGroupsPage();
     } else if (page === 'jobs') {
         currentJobId = null;
         fetchGroups();
@@ -798,7 +800,7 @@ function handleRoute() {
     }
 
     const page = parts[0] || 'jobs';
-    if (['dashboard', 'jobs', 'map', 'agents', 'executions', 'scripts', 'events', 'settings'].includes(page)) {
+    if (['dashboard', 'jobs', 'groups', 'map', 'agents', 'executions', 'scripts', 'events', 'variables', 'docs', 'settings'].includes(page)) {
         showPage(page);
     } else {
         showPage('jobs');

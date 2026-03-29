@@ -215,7 +215,10 @@ impl Job {
                 let n_json: Option<String> = row.get(14).unwrap_or(None);
                 n_json.and_then(|s| serde_json::from_str(&s).ok())
             },
-            group: row.get(15).unwrap_or(None),
+            group: row
+                .get::<_, Option<String>>(15)
+                .unwrap_or(None)
+                .or_else(|| Some("Default".to_string())),
             retry_max: row.get::<_, Option<i64>>(16).unwrap_or(None).unwrap_or(0) as u32,
             retry_delay_secs: row.get::<_, Option<i64>>(17).unwrap_or(None).unwrap_or(0) as u64,
             retry_backoff: row.get::<_, Option<f64>>(18).unwrap_or(None).unwrap_or(1.0),

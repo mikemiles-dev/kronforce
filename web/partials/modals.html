@@ -5,8 +5,14 @@
         </div>
         <div style="padding:12px 24px 0">
             <div class="form-group" style="margin-bottom:8px">
-                <label>Name</label>
+                <label class="label-accent">Name</label>
                 <input id="f-name" type="text" placeholder="my-job">
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+                <label class="label-accent">Group</label>
+                <select id="f-group">
+                    <option value="">Default</option>
+                </select>
             </div>
         </div>
         <div class="modal-tabs">
@@ -480,11 +486,6 @@
             <div class="form-group">
                 <label>Description (optional)</label>
                 <input id="f-desc" type="text" placeholder="What this job does">
-            </div>
-            <div class="form-group">
-                <label>Group (optional)</label>
-                <input id="f-group" type="text" placeholder="e.g. ETL, Monitoring, Deploys" list="group-suggestions">
-                <datalist id="group-suggestions"></datalist>
             </div>
             <div class="form-group">
                 <label>Max Retries (0 = no retry)</label>

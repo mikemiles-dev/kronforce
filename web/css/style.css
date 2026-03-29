@@ -777,6 +777,12 @@ th .job-checkbox { margin: 0; }
     margin-bottom: 4px;
 }
 
+.form-group label.label-accent {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .form-group input, .form-group textarea, .form-group select {
     width: 100%;
 }
@@ -1796,6 +1802,80 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     color: var(--text-primary);
     font-size: 12px;
     cursor: pointer;
+}
+
+.groups-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.group-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+}
+
+.group-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.group-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.group-card-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.group-card-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.group-card-count {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.group-card-jobs {
+    margin-bottom: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+}
+
+.group-card-job {
+    font-size: 12px;
+    color: var(--text-secondary);
+    padding: 2px 0;
+}
+
+.group-card-actions {
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    margin-top: auto;
+}
+
+.nav-tab-sub {
+    padding-left: 32px !important;
+    font-size: 12px !important;
 }
 
 .donut-empty {

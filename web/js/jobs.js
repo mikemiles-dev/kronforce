@@ -21,7 +21,7 @@ async function fetchGroups() {
         cachedGroups = await api('GET', '/api/jobs/groups');
         const sel = document.getElementById('group-filter');
         if (!sel) return;
-        sel.innerHTML = '<option value="">All Groups</option><option value="ungrouped">Ungrouped</option>';
+        sel.innerHTML = '<option value="">All Groups</option>';
         for (const g of cachedGroups) {
             sel.innerHTML += '<option value="' + esc(g) + '"' + (groupFilter === g ? ' selected' : '') + '>' + esc(g) + '</option>';
         }
@@ -37,13 +37,29 @@ function setGroupFilter(value) {
 
 async function bulkSetGroup() {
     if (selectedJobs.size === 0) return;
-    const name = prompt('Enter group name (leave empty to remove from group):');
-    if (name === null) return;
+    let msg = 'Select a group for ' + selectedJobs.size + ' job(s):\n\n';
+    msg += '0 - Remove from group (ungrouped)\n';
+    for (let i = 0; i < cachedGroups.length; i++) {
+        msg += (i + 1) + ' - ' + cachedGroups[i] + '\n';
+    }
+    msg += '\nEnter a number, or type a new group name:';
+    const input = prompt(msg);
+    if (input === null) return;
+    let group = null;
+    const num = parseInt(input);
+    if (input.trim() === '0' || input.trim() === '') {
+        group = null;
+    } else if (!isNaN(num) && num >= 1 && num <= cachedGroups.length) {
+        group = cachedGroups[num - 1];
+    } else {
+        group = input.trim();
+    }
     try {
-        await api('PUT', '/api/jobs/bulk-group', { job_ids: [...selectedJobs], group: name || null });
+        await api('PUT', '/api/jobs/bulk-group', { job_ids: [...selectedJobs], group });
         selectedJobs.clear();
         fetchGroups();
         fetchJobs();
+        toast(group ? 'Jobs moved to "' + group + '"' : 'Jobs ungrouped');
     } catch (e) {
         toast('Error: ' + e.message, 'error');
     }
@@ -401,14 +417,17 @@ function updateBulkBar() {
     const runBtn = document.getElementById('bulk-run-btn');
     const delBtn = document.getElementById('bulk-delete-btn');
     const clearBtn = document.getElementById('bulk-clear-btn');
+    const groupBtn = document.getElementById('bulk-group-btn');
     const n = selectedJobs.size;
     runBtn.textContent = n > 0 ? '\u25B6 Schedule Now (' + n + ')' : '\u25B6 Schedule Now';
     delBtn.textContent = n > 0 ? 'Delete (' + n + ')' : 'Delete';
+    if (groupBtn) groupBtn.textContent = n > 0 ? 'Set Group (' + n + ')' : 'Set Group';
     countText.textContent = n > 0 ? n + ' selected' : '';
     const disabled = n === 0;
     runBtn.disabled = disabled;
     delBtn.disabled = disabled;
     clearBtn.disabled = disabled;
+    if (groupBtn) groupBtn.disabled = disabled;
 }
 
 function clearSelection() {

@@ -6,6 +6,10 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-groups')">Job Groups</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-retry')">Execution Retry</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-rate-limiting')">Rate Limiting</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-audit-log')">Audit Log</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
             </nav>
             <div class="docs-content" id="docs-content">
@@ -341,6 +345,130 @@ print("Redis: " + result.response);</code></pre>
 
                     <h4>Unresolved Variables</h4>
                     <p>If a <code>{{VAR}}</code> reference doesn't match any defined variable, the placeholder is left as-is and a warning is logged. The job still runs.</p>
+                </div>
+
+                <div class="docs-section" id="doc-groups">
+                    <h2>Job Groups</h2>
+                    <p>Groups let you organize jobs into logical categories (e.g., "ETL", "Monitoring", "Deploys"). Every job belongs to a group &mdash; new jobs default to the <strong>Default</strong> group unless you choose another.</p>
+
+                    <h3>Managing Groups</h3>
+                    <ul>
+                        <li><strong>Groups page</strong> (sidebar, under Jobs) &mdash; view all groups as cards, create new groups, rename or delete existing ones</li>
+                        <li><strong>Job modal</strong> &mdash; pick a group from the dropdown when creating or editing a job</li>
+                        <li><strong>Bulk assign</strong> &mdash; on the Jobs page, select jobs with checkboxes, click "Set Group"</li>
+                    </ul>
+
+                    <h3>Group Rules</h3>
+                    <ul>
+                        <li>Names: 1&ndash;50 characters, letters, numbers, spaces, hyphens, underscores</li>
+                        <li>The <strong>Default</strong> group always exists and cannot be deleted</li>
+                        <li>Deleting a group moves its jobs to Default</li>
+                        <li>Renaming a group updates all jobs in that group</li>
+                    </ul>
+
+                    <h3>API</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/groups</code></td><td>List all group names</td></tr>
+                        <tr><td>POST</td><td><code>/api/jobs/groups</code></td><td>Create an empty group (<code>{"name": "ETL"}</code>)</td></tr>
+                        <tr><td>PUT</td><td><code>/api/jobs/bulk-group</code></td><td>Assign group to multiple jobs (<code>{"job_ids": [...], "group": "ETL"}</code>)</td></tr>
+                        <tr><td>PUT</td><td><code>/api/jobs/rename-group</code></td><td>Rename a group (<code>{"old_name": "ETL", "new_name": "Data Pipeline"}</code>)</td></tr>
+                    </table>
+                    <p>Filter jobs by group: <code>GET /api/jobs?group=ETL</code></p>
+                </div>
+
+                <div class="docs-section" id="doc-retry">
+                    <h2>Execution Retry</h2>
+                    <p>Jobs can automatically retry on failure or timeout. Configure retry settings in the <strong>Advanced</strong> tab of the job create/edit modal.</p>
+
+                    <h3>Settings</h3>
+                    <table>
+                        <tr><th>Field</th><th>Default</th><th>Description</th></tr>
+                        <tr><td>Max Retries</td><td>0 (disabled)</td><td>Number of retry attempts after the initial run</td></tr>
+                        <tr><td>Retry Delay</td><td>0 seconds</td><td>Initial delay between retries</td></tr>
+                        <tr><td>Backoff Multiplier</td><td>1.0 (fixed)</td><td>Multiply delay by this factor each attempt (e.g., 2.0 = exponential backoff)</td></tr>
+                    </table>
+
+                    <h3>How It Works</h3>
+                    <ul>
+                        <li>Retries trigger only on <strong>Failed</strong> or <strong>Timed Out</strong> status</li>
+                        <li><strong>No retry</strong> on success, cancellation, or assertion failure</li>
+                        <li>Delay formula: <code>delay_secs &times; backoff^(attempt - 1)</code>, capped at 1 hour</li>
+                        <li>Each retry creates a new execution linked to the original (<code>retry_of</code> field)</li>
+                        <li>Execution detail shows "Attempt 2/3" for retry executions</li>
+                    </ul>
+
+                    <h3>Example</h3>
+                    <p>A job with <code>max_retries: 3</code>, <code>retry_delay_secs: 5</code>, <code>retry_backoff: 2.0</code>:</p>
+                    <ul>
+                        <li>Attempt 1: runs immediately (fails)</li>
+                        <li>Attempt 2: waits 5s, retries (fails)</li>
+                        <li>Attempt 3: waits 10s, retries (fails)</li>
+                        <li>Attempt 4: waits 20s, retries (succeeds &mdash; done)</li>
+                    </ul>
+
+                    <h3>API</h3>
+                    <p>Set retry config on job creation or update:</p>
+<pre><code>{"retry_max": 3, "retry_delay_secs": 5, "retry_backoff": 2.0}</code></pre>
+                </div>
+
+                <div class="docs-section" id="doc-rate-limiting">
+                    <h2>Rate Limiting</h2>
+                    <p>All API endpoints are rate limited to prevent abuse. Exceeding the limit returns <strong>429 Too Many Requests</strong>.</p>
+
+                    <h3>Tiers</h3>
+                    <table>
+                        <tr><th>Tier</th><th>Default Limit</th><th>Scope</th><th>Endpoints</th></tr>
+                        <tr><td>Public</td><td>30/min</td><td>Per source IP</td><td>Health, dashboard</td></tr>
+                        <tr><td>Authenticated</td><td>120/min</td><td>Per API key</td><td>All authenticated API routes</td></tr>
+                        <tr><td>Agent</td><td>600/min</td><td>Per API key</td><td>Agent register, heartbeat, queue, callbacks</td></tr>
+                    </table>
+
+                    <h3>Response Headers</h3>
+                    <table>
+                        <tr><th>Header</th><th>Description</th></tr>
+                        <tr><td><code>X-RateLimit-Limit</code></td><td>Max requests per minute for this tier</td></tr>
+                        <tr><td><code>X-RateLimit-Remaining</code></td><td>Requests remaining in current window</td></tr>
+                        <tr><td><code>Retry-After</code></td><td>Seconds until window resets (on 429 only)</td></tr>
+                    </table>
+
+                    <h3>Configuration</h3>
+                    <table>
+                        <tr><th>Variable</th><th>Default</th></tr>
+                        <tr><td><code>KRONFORCE_RATE_LIMIT_ENABLED</code></td><td><code>true</code></td></tr>
+                        <tr><td><code>KRONFORCE_RATE_LIMIT_PUBLIC</code></td><td><code>30</code></td></tr>
+                        <tr><td><code>KRONFORCE_RATE_LIMIT_AUTHENTICATED</code></td><td><code>120</code></td></tr>
+                        <tr><td><code>KRONFORCE_RATE_LIMIT_AGENT</code></td><td><code>600</code></td></tr>
+                    </table>
+                    <p>Set any limit to <code>0</code> to disable that tier. Set <code>KRONFORCE_RATE_LIMIT_ENABLED=false</code> to disable all rate limiting.</p>
+                </div>
+
+                <div class="docs-section" id="doc-audit-log">
+                    <h2>Audit Log</h2>
+                    <p>The audit log records all sensitive operations with actor attribution. It is separate from events and has its own retention policy.</p>
+
+                    <h3>What's Recorded</h3>
+                    <table>
+                        <tr><th>Operation</th><th>Resource</th></tr>
+                        <tr><td><code>key.created</code>, <code>key.revoked</code></td><td>API keys</td></tr>
+                        <tr><td><code>job.created</code>, <code>job.updated</code>, <code>job.deleted</code>, <code>job.triggered</code></td><td>Jobs</td></tr>
+                        <tr><td><code>script.saved</code>, <code>script.deleted</code></td><td>Scripts</td></tr>
+                        <tr><td><code>settings.updated</code></td><td>Settings</td></tr>
+                        <tr><td><code>variable.created</code>, <code>variable.updated</code>, <code>variable.deleted</code></td><td>Variables</td></tr>
+                        <tr><td><code>agent.deregistered</code></td><td>Agents</td></tr>
+                        <tr><td><code>group.renamed</code></td><td>Groups</td></tr>
+                    </table>
+                    <p>Each entry records: timestamp, actor (API key name + ID), operation, resource type, resource ID, and details.</p>
+
+                    <h3>API (Admin Only)</h3>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/audit-log</code></td><td>List audit entries (paginated)</td></tr>
+                    </table>
+                    <p>Filters: <code>?operation=job.created</code>, <code>?actor=deploy-bot</code>, <code>?since=2026-03-01T00:00:00Z</code></p>
+
+                    <h3>Retention</h3>
+                    <p>Default: <strong>90 days</strong> (separate from events/executions). Configure via Settings: <code>audit_retention_days</code>.</p>
                 </div>
 
                 <div class="docs-section" id="doc-cron">

@@ -107,8 +107,10 @@ impl Db {
             f.add_search(q, &["name", "task_json"]);
         }
         if let Some(g) = group_filter {
-            if g == "ungrouped" {
-                f.add_is_null("group_name");
+            if g == "Default" {
+                // Match both 'Default' and NULL (for pre-migration jobs)
+                f.where_clauses
+                    .push("(group_name = 'Default' OR group_name IS NULL)".to_string());
             } else {
                 f.add_eq("group_name", g);
             }
@@ -257,6 +259,18 @@ impl Db {
                 )));
             }
 
+            // Delete related records first (foreign key constraints)
+            tx.execute(
+                "DELETE FROM executions WHERE job_id = ?1",
+                params![id.to_string()],
+            )
+            .map_err(AppError::Db)?;
+            tx.execute(
+                "DELETE FROM job_queue WHERE job_id = ?1",
+                params![id.to_string()],
+            )
+            .map_err(AppError::Db)?;
+
             let changed = tx
                 .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
                 .map_err(AppError::Db)?;
@@ -398,25 +412,73 @@ impl Db {
         Ok(counts)
     }
 
-    /// Returns the list of distinct group names across all jobs, sorted alphabetically.
+    /// Returns the list of distinct group names across all jobs, merged with any
+    /// custom (empty) groups stored in the `custom_groups` setting. Always includes "Default".
     pub fn get_distinct_groups(&self) -> Result<Vec<String>, AppError> {
         let conn = self
             .conn
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
-            .prepare(
-                "SELECT DISTINCT group_name FROM jobs WHERE group_name IS NOT NULL ORDER BY group_name",
-            )
+            .prepare("SELECT DISTINCT COALESCE(group_name, 'Default') FROM jobs ORDER BY 1")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
             .map_err(AppError::Db)?;
-        let mut groups = Vec::new();
+        let mut groups = std::collections::BTreeSet::new();
+        groups.insert("Default".to_string());
         for row in rows {
-            groups.push(row.map_err(AppError::Db)?);
+            groups.insert(row.map_err(AppError::Db)?);
         }
-        Ok(groups)
+        // Merge custom (empty) groups from settings
+        drop(stmt);
+        let custom = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'custom_groups'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+        if !custom.is_empty()
+            && let Ok(names) = serde_json::from_str::<Vec<String>>(&custom)
+        {
+            for name in names {
+                groups.insert(name);
+            }
+        }
+        Ok(groups.into_iter().collect())
+    }
+
+    /// Adds a custom group name that persists even with no jobs assigned.
+    pub fn add_custom_group(&self, name: &str) -> Result<(), AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        let existing = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = 'custom_groups'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .unwrap_or_default();
+        let mut names: Vec<String> = if existing.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_str(&existing).unwrap_or_default()
+        };
+        if !names.contains(&name.to_string()) {
+            names.push(name.to_string());
+            names.sort();
+            let json = serde_json::to_string(&names)
+                .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
+            conn.execute(
+                "INSERT INTO settings (key, value) VALUES ('custom_groups', ?1) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                rusqlite::params![json],
+            )
+            .map_err(AppError::Db)?;
+        }
+        Ok(())
     }
 
     /// Sets the group_name for a list of job UUIDs.
@@ -436,5 +498,28 @@ impl Db {
             count += changed as u32;
         }
         Ok(count)
+    }
+
+    /// Renames all jobs from one group to another.
+    pub fn rename_group(&self, old_name: &str, new_name: &str) -> Result<u32, AppError> {
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+        // Handle Default group which may also be NULL in the DB
+        let count = if old_name == "Default" {
+            conn.execute(
+                "UPDATE jobs SET group_name = ?1 WHERE group_name = 'Default' OR group_name IS NULL",
+                rusqlite::params![new_name],
+            )
+            .map_err(AppError::Db)?
+        } else {
+            conn.execute(
+                "UPDATE jobs SET group_name = ?1 WHERE group_name = ?2",
+                rusqlite::params![new_name, old_name],
+            )
+            .map_err(AppError::Db)?
+        };
+        Ok(count as u32)
     }
 }
