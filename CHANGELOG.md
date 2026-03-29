@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Groups stat card** on dashboard linking to groups page
 - **Top Groups summary** on dashboard Overview tab
 - **In-app docs** for Groups, Retry, Rate Limiting, and Audit Log
+- **Docker images on GHCR** — multi-arch (linux/amd64, linux/arm64) images published to `ghcr.io/mikemiles-dev/kronforce` on each release
+- **Windows build** — x86_64 Windows binaries included in releases (controller, dashboard, HTTP tasks, and Rhai scripts supported; shell/FTP/messaging tasks require Unix tools)
 
 ### Changed
 - Sidebar reorganized — Executions and Map indented under Jobs as sub-entries
@@ -29,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trigger job endpoint returns `202 Accepted` instead of `200 OK`
 - Bootstrap API keys no longer written to plaintext file — only printed to stderr
 - Duplicate timeline mapping code extracted into helper function
+- Docker compose files now pull from GHCR by default with local build fallback
+- Dockerfile updated with missing build dependencies (build.rs, web/, migrations/)
 
 ### Fixed
 - **Command injection** in Kafka task properties parameter
