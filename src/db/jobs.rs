@@ -38,8 +38,8 @@ impl Db {
         let task_json = serde_json::to_string(&job.task)
             .map_err(|e| AppError::Internal(format!("serialize task: {e}")))?;
         conn.execute(
-            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 job.id.to_string(),
                 job.name,
@@ -57,6 +57,9 @@ impl Db {
                 output_rules_json,
                 notifications_json,
                 job.group,
+                job.retry_max as i64,
+                job.retry_delay_secs as i64,
+                job.retry_backoff,
             ],
         ).map_err(|e| {
             if let rusqlite::Error::SqliteFailure(ref err, _) = e
@@ -79,7 +82,7 @@ impl Db {
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], Job::from_row)
@@ -147,7 +150,7 @@ impl Db {
         let mut f = Self::build_job_filters(status_filter, search, group_filter);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
-            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
+            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
             f.where_sql(),
             li,
             oi
@@ -195,7 +198,7 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12, group_name=?13 WHERE id=?14",
+                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12, group_name=?13, retry_max=?14, retry_delay_secs=?15, retry_backoff=?16 WHERE id=?17",
                 params![
                     job.name,
                     job.description,
@@ -210,6 +213,9 @@ impl Db {
                     output_rules_json,
                     notifications_json,
                     job.group,
+                    job.retry_max as i64,
+                    job.retry_delay_secs as i64,
+                    job.retry_backoff,
                     job.id.to_string(),
                 ],
             )

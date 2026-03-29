@@ -34,7 +34,7 @@ use crate::scheduler::SchedulerCommand;
 pub use local::{CapturedOutput, CommandResult};
 pub(crate) use local::{
     DEFAULT_SCRIPT_TIMEOUT_SECS, MAX_SCRIPT_OPERATIONS, MAX_SCRIPT_STRING_SIZE, bytes_to_hex,
-    hex_to_bytes, run_command, shell_escape,
+    calculate_retry_delay, hex_to_bytes, run_command, shell_escape, should_retry,
 };
 
 struct RunningJob {

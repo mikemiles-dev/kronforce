@@ -24,6 +24,8 @@ pub(crate) async fn execution_result_callback(
     let existing = db_call(&state.db, move |db| db.get_execution(exec_id)).await?;
 
     let task_snap = existing.as_ref().and_then(|e| e.task_snapshot.clone());
+    let retry_of = existing.as_ref().and_then(|e| e.retry_of);
+    let attempt_number = existing.as_ref().map(|e| e.attempt_number).unwrap_or(1);
     let triggered_by = existing
         .map(|e| e.triggered_by)
         .unwrap_or(TriggerSource::Scheduler);
@@ -43,6 +45,8 @@ pub(crate) async fn execution_result_callback(
         finished_at: Some(result.finished_at),
         triggered_by,
         extracted: None,
+        retry_of,
+        attempt_number,
     };
 
     let stdout_for_rules = rec.stdout.clone();
@@ -136,6 +140,42 @@ pub(crate) async fn execution_result_callback(
         "received execution result {} from agent {}: {:?}",
         result.execution_id, result.agent_id, status
     );
+
+    // Schedule retry for agent-dispatched jobs if applicable
+    {
+        use crate::executor::{calculate_retry_delay, should_retry};
+        let job_id = result.job_id;
+        let exec_id = result.execution_id;
+        let db_retry = state.db.clone();
+        let sched_retry = state.scheduler_tx.clone();
+        tokio::spawn(async move {
+            let job = match tokio::task::spawn_blocking({
+                let db = db_retry.clone();
+                move || db.get_job(job_id)
+            })
+            .await
+            {
+                Ok(Ok(Some(j))) => j,
+                _ => return,
+            };
+            if should_retry(job.retry_max, status, attempt_number) {
+                let next_attempt = attempt_number + 1;
+                let delay =
+                    calculate_retry_delay(job.retry_delay_secs, job.retry_backoff, next_attempt);
+                let original_id = retry_of.unwrap_or(exec_id);
+                if delay > 0 {
+                    tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
+                }
+                let _ = sched_retry
+                    .send(SchedulerCommand::RetryExecution {
+                        job_id,
+                        original_execution_id: original_id,
+                        attempt: next_attempt,
+                    })
+                    .await;
+            }
+        });
+    }
 
     Ok(Json(serde_json::json!({"status": "ok"})))
 }

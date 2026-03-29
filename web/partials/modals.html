@@ -487,6 +487,18 @@
                 <datalist id="group-suggestions"></datalist>
             </div>
             <div class="form-group">
+                <label>Max Retries (0 = no retry)</label>
+                <input id="f-retry-max" type="number" min="0" max="10" value="0">
+            </div>
+            <div class="form-group">
+                <label>Retry Delay (seconds)</label>
+                <input id="f-retry-delay" type="number" min="0" value="0">
+            </div>
+            <div class="form-group">
+                <label>Retry Backoff Multiplier</label>
+                <input id="f-retry-backoff" type="number" min="1" step="0.5" value="1.0">
+            </div>
+            <div class="form-group">
                 <label>Run As (optional)</label>
                 <input id="f-run-as" type="text" placeholder="system user (e.g. postgres, www-data)">
             </div>

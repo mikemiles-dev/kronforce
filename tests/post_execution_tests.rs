@@ -30,6 +30,9 @@ fn make_job(name: &str) -> Job {
         output_rules: None,
         notifications: None,
         group: None,
+        retry_max: 0,
+        retry_delay_secs: 0,
+        retry_backoff: 1.0,
     }
 }
 
@@ -50,6 +53,8 @@ fn insert_execution(db: &Db, job_id: Uuid) -> Uuid {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Api,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     };
     db.insert_execution(&exec).unwrap();
     exec_id

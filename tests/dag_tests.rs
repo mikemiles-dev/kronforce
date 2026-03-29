@@ -30,6 +30,9 @@ fn make_job(name: &str) -> Job {
         output_rules: None,
         notifications: None,
         group: None,
+        retry_max: 0,
+        retry_delay_secs: 0,
+        retry_backoff: 1.0,
     }
 }
 
@@ -135,6 +138,8 @@ fn test_deps_satisfied_with_successful_execution() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Scheduler,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -167,6 +172,8 @@ fn test_deps_satisfied_with_failed_execution() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Scheduler,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -203,6 +210,8 @@ fn test_deps_satisfied_multiple_deps_all_ok() {
             finished_at: Some(Utc::now()),
             triggered_by: TriggerSource::Scheduler,
             extracted: None,
+            retry_of: None,
+            attempt_number: 1,
         };
         db.insert_execution(&exec).unwrap();
     }
@@ -245,6 +254,8 @@ fn test_deps_satisfied_multiple_deps_one_failed() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Scheduler,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     })
     .unwrap();
 
@@ -264,6 +275,8 @@ fn test_deps_satisfied_multiple_deps_one_failed() {
         finished_at: Some(Utc::now()),
         triggered_by: TriggerSource::Scheduler,
         extracted: None,
+        retry_of: None,
+        attempt_number: 1,
     })
     .unwrap();
 
