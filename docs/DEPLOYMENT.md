@@ -7,9 +7,9 @@ Pre-built binaries are available on the [GitHub Releases](https://github.com/mik
 | Platform | Controller | Agent |
 |---|---|---|
 | Linux x86_64 | `kronforce-linux-amd64` | `kronforce-agent-linux-amd64` |
-| Linux ARM64 | `kronforce-linux-arm64` | `kronforce-agent-linux-arm64` |
-| macOS x86_64 | `kronforce-darwin-amd64` | `kronforce-agent-darwin-amd64` |
 | macOS ARM64 (Apple Silicon) | `kronforce-darwin-arm64` | `kronforce-agent-darwin-arm64` |
+
+Linux ARM64 is available via the Docker image (`linux/arm64`).
 
 ### Install from Release
 
