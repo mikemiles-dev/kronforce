@@ -12,6 +12,8 @@ pub struct ControllerConfig {
     pub rate_limit_public: u32,
     pub rate_limit_authenticated: u32,
     pub rate_limit_agent: u32,
+    pub db_pool_size: u32,
+    pub db_timeout_secs: u64,
 }
 
 impl ControllerConfig {
@@ -54,6 +56,14 @@ impl ControllerConfig {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(600),
+            db_pool_size: std::env::var("KRONFORCE_DB_POOL_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(8),
+            db_timeout_secs: std::env::var("KRONFORCE_DB_TIMEOUT_SECS")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(5),
         }
     }
 }

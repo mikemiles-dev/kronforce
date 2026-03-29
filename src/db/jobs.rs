@@ -10,9 +10,9 @@ impl Db {
     /// Inserts a new job. Returns a conflict error if the job name already exists.
     pub fn insert_job(&self, job: &Job) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let schedule_json = serde_json::to_string(&job.schedule)
             .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
         let depends_on_json = serde_json::to_string(&job.depends_on)
@@ -78,9 +78,9 @@ impl Db {
     /// Looks up a job by its UUID.
     pub fn get_job(&self, id: Uuid) -> Result<Option<Job>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
@@ -126,9 +126,9 @@ impl Db {
         group_filter: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let f = Self::build_job_filters(status_filter, search, group_filter);
         let sql = format!("SELECT COUNT(*) FROM jobs{}", f.where_sql());
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
@@ -146,9 +146,9 @@ impl Db {
         offset: u32,
     ) -> Result<Vec<Job>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut f = Self::build_job_filters(status_filter, search, group_filter);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
@@ -171,9 +171,9 @@ impl Db {
     /// Updates all fields of an existing job. Returns not-found if the job does not exist.
     pub fn update_job(&self, job: &Job) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let schedule_json = serde_json::to_string(&job.schedule)
             .map_err(|e| AppError::Internal(format!("serialize schedule: {e}")))?;
         let depends_on_json = serde_json::to_string(&job.depends_on)
@@ -289,9 +289,9 @@ impl Db {
     /// Returns all job IDs with their dependency lists for DAG cycle validation.
     pub fn get_all_jobs_for_dag(&self) -> Result<Vec<(Uuid, Vec<Uuid>)>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT id, depends_on_json FROM jobs")
             .map_err(AppError::Db)?;
@@ -322,9 +322,9 @@ impl Db {
     /// Returns job counts grouped by task type for chart display.
     pub fn get_task_type_counts(&self) -> Result<std::collections::HashMap<String, u32>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT task_json FROM jobs")
             .map_err(AppError::Db)?;
@@ -372,9 +372,9 @@ impl Db {
         &self,
     ) -> Result<std::collections::HashMap<String, u32>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT schedule_json FROM jobs")
             .map_err(AppError::Db)?;
@@ -416,9 +416,9 @@ impl Db {
     /// custom (empty) groups stored in the `custom_groups` setting. Always includes "Default".
     pub fn get_distinct_groups(&self) -> Result<Vec<String>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
             .prepare("SELECT DISTINCT COALESCE(group_name, 'Default') FROM jobs ORDER BY 1")
             .map_err(AppError::Db)?;
@@ -452,9 +452,9 @@ impl Db {
     /// Adds a custom group name that persists even with no jobs assigned.
     pub fn add_custom_group(&self, name: &str) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let existing = conn
             .query_row(
                 "SELECT value FROM settings WHERE key = 'custom_groups'",
@@ -484,9 +484,9 @@ impl Db {
     /// Sets the group_name for a list of job UUIDs.
     pub fn bulk_set_group(&self, job_ids: &[Uuid], group: Option<&str>) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut count = 0u32;
         for id in job_ids {
             let changed = conn
@@ -503,9 +503,9 @@ impl Db {
     /// Renames all jobs from one group to another.
     pub fn rename_group(&self, old_name: &str, new_name: &str) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         // Handle Default group which may also be NULL in the DB
         let count = if old_name == "Default" {
             conn.execute(

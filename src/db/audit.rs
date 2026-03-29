@@ -34,9 +34,9 @@ impl Db {
         details: Option<&str>,
     ) -> Result<(), AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
             "INSERT INTO audit_log (id, timestamp, actor_key_id, actor_key_name, operation, resource_type, resource_id, details) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
@@ -63,9 +63,9 @@ impl Db {
         offset: u32,
     ) -> Result<Vec<AuditEntry>, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut f = QueryFilters::new();
         if let Some(op) = operation {
             f.add_eq("operation", op);
@@ -116,9 +116,9 @@ impl Db {
         since: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut f = QueryFilters::new();
         if let Some(op) = operation {
             f.add_eq("operation", op);
@@ -138,9 +138,9 @@ impl Db {
     /// Deletes audit log entries older than the given number of days.
     pub fn purge_old_audit_log(&self, days: i64) -> Result<u32, AppError> {
         let conn = self
-            .conn
-            .lock()
-            .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let cutoff = (Utc::now() - chrono::Duration::days(days)).to_rfc3339();
         let count = conn
             .execute(
