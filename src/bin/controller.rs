@@ -188,6 +188,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    // Build rate limiters
+    let rate_limiters = {
+        use kronforce::api::rate_limit::{RateLimiter, RateLimiters};
+        let window_secs = 60;
+        let mk = |limit: u32| -> Option<RateLimiter> {
+            if config.rate_limit_enabled && limit > 0 {
+                Some(RateLimiter::new(limit, window_secs))
+            } else {
+                None
+            }
+        };
+        RateLimiters {
+            public: mk(config.rate_limit_public),
+            authenticated: mk(config.rate_limit_authenticated),
+            agent: mk(config.rate_limit_agent),
+        }
+    };
+
+    // Spawn rate limit cleanup task
+    if config.rate_limit_enabled {
+        let rl = rate_limiters.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                if let Some(ref l) = rl.public {
+                    l.cleanup();
+                }
+                if let Some(ref l) = rl.authenticated {
+                    l.cleanup();
+                }
+                if let Some(ref l) = rl.agent {
+                    l.cleanup();
+                }
+            }
+        });
+    }
+
     let state = kronforce::api::AppState {
         db,
         dag,
@@ -196,7 +234,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         callback_base_url: config.callback_base_url.clone(),
         script_store: script_store.clone(),
     };
-    let app = kronforce::api::router(state);
+    let app = kronforce::api::router(state, rate_limiters);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     info!("listening on {}", config.bind_addr);

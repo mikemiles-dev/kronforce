@@ -9,6 +9,7 @@ mod callbacks;
 mod events;
 mod executions;
 mod jobs;
+pub mod rate_limit;
 mod scripts;
 mod settings;
 mod stats;
@@ -61,7 +62,7 @@ struct HealthResponse {
 }
 
 /// Builds the complete Axum router with all API, agent, and public routes.
-pub fn router(state: AppState) -> Router {
+pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Router {
     // Routes that require auth
     let authed = Router::new()
         .route("/api/jobs", get(jobs::list_jobs).post(jobs::create_job))
@@ -127,6 +128,9 @@ pub fn router(state: AppState) -> Router {
                 .put(variables::update_variable)
                 .delete(variables::delete_variable),
         )
+        .route_layer(middleware::from_fn(
+            rate_limit::rate_limit_authed_middleware,
+        ))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::auth_middleware,
@@ -149,6 +153,7 @@ pub fn router(state: AppState) -> Router {
             "/api/agents/{id}/task-types",
             get(agents::get_agent_task_types),
         )
+        .route_layer(middleware::from_fn(rate_limit::rate_limit_agent_middleware))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::agent_auth_middleware,
@@ -159,6 +164,9 @@ pub fn router(state: AppState) -> Router {
     let public = Router::new()
         .route("/", get(dashboard))
         .route("/api/health", get(health))
+        .route_layer(middleware::from_fn(
+            rate_limit::rate_limit_public_middleware,
+        ))
         .with_state(state);
 
     let cors = CorsLayer::new()
@@ -171,6 +179,7 @@ pub fn router(state: AppState) -> Router {
     public
         .merge(authed)
         .merge(agent_authed)
+        .layer(axum::Extension(rate_limiters))
         .layer(cors)
         .layer(security_headers)
 }
