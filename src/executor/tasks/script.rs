@@ -175,7 +175,11 @@ async fn run_script(
 
         // Register shell_exec(cmd) -> #{exit_code, stdout, stderr}
         engine.register_fn("shell_exec", |cmd: &str| -> rhai::Dynamic {
-            let output = std::process::Command::new("sh").arg("-c").arg(cmd).output();
+            let output = if cfg!(windows) {
+                std::process::Command::new("cmd").args(["/C", cmd]).output()
+            } else {
+                std::process::Command::new("sh").arg("-c").arg(cmd).output()
+            };
             match output {
                 Ok(out) => {
                     let mut map = rhai::Map::new();

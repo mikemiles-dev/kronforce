@@ -399,7 +399,12 @@ pub async fn run_task(
 }
 
 pub(crate) fn shell_escape(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
+    if cfg!(windows) {
+        // Windows cmd.exe: wrap in double quotes, escape internal double quotes
+        format!("\"{}\"", s.replace('"', "\\\""))
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
 }
 
 pub(crate) fn hex_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
@@ -442,6 +447,21 @@ pub async fn run_command(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     let mut cmd = if let Some(user) = run_as {
+        // run_as requires sudo (Unix only)
+        if cfg!(windows) {
+            return CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: CapturedOutput {
+                    text: String::new(),
+                    truncated: false,
+                },
+                stderr: CapturedOutput {
+                    text: "run_as is not supported on Windows".to_string(),
+                    truncated: false,
+                },
+            };
+        }
         // Validate run_as username: only allow alphanumeric, dash, underscore, dot
         if !user
             .chars()
@@ -462,6 +482,10 @@ pub async fn run_command(
         }
         let mut c = Command::new("sudo");
         c.args(["-n", "-u", user, "sh", "-c", command]);
+        c
+    } else if cfg!(windows) {
+        let mut c = Command::new("cmd");
+        c.args(["/C", command]);
         c
     } else {
         let mut c = Command::new("sh");

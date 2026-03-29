@@ -12,7 +12,7 @@ Pre-built binaries are available on the [GitHub Releases](https://github.com/mik
 
 Linux ARM64 is available via the Docker image (`linux/arm64`).
 
-> **Windows note:** The controller, dashboard, HTTP tasks, and Rhai scripts work on Windows. Shell, SQL, FTP, and messaging tasks require Unix tools (`sh`, `curl`, `psql`, etc.) and are not supported on Windows.
+> **Windows note:** Shell commands execute via `cmd /C` on Windows. The controller, dashboard, HTTP tasks, Rhai scripts, and shell tasks (using Windows commands) work natively. SQL tasks require the database CLI tool (`psql`, `mysql`, `sqlite3`) to be on PATH. FTP tasks use `curl` (included in Windows 10+). Messaging tasks (Kafka, RabbitMQ, MQTT, Redis) require their respective CLI tools installed. `run_as` (sudo) is not supported on Windows.
 
 ### Install from Release
 
