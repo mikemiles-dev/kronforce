@@ -164,6 +164,17 @@ const MAX_GROUP_NAME_LEN: usize = 50;
 /// Default group name for jobs that don't specify one.
 const DEFAULT_GROUP_NAME: &str = "Default";
 
+/// Persists a group name to custom_groups so it survives job deletion.
+async fn persist_group(db: &crate::db::Db, group: &Option<String>) {
+    if let Some(g) = group {
+        if g != DEFAULT_GROUP_NAME {
+            let db = db.clone();
+            let g = g.clone();
+            let _ = db_call(&db, move |db| db.add_custom_group(&g)).await;
+        }
+    }
+}
+
 /// Normalizes and validates a group name. Empty/None becomes "Default".
 fn normalize_group(group: Option<String>) -> Result<Option<String>, AppError> {
     match group {
@@ -278,6 +289,7 @@ pub(crate) async fn create_job(
 
     let job_clone = job.clone();
     db_call(&state.db, move |db| db.insert_job(&job_clone)).await?;
+    persist_group(&state.db, &job.group).await;
 
     // Tell scheduler to reload
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
@@ -394,6 +406,7 @@ pub(crate) async fn update_job(
     }
     if req.group.is_some() {
         job.group = normalize_group(req.group)?;
+        persist_group(&state.db, &job.group).await;
     }
     if let Some(rm) = req.retry_max {
         job.retry_max = rm;
@@ -701,6 +714,7 @@ pub(crate) async fn bulk_set_group(
         ));
     }
     let group = normalize_group(req.group)?;
+    persist_group(&state.db, &group).await;
     let ids = req.job_ids;
     let count = db_call(&state.db, move |db| {
         db.bulk_set_group(&ids, group.as_deref())
