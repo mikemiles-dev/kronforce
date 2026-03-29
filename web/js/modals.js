@@ -10,6 +10,10 @@ function openCreateModal() {
     populateTaskForm(null);
     parseCronToUI('');
     document.getElementById('f-desc').value = '';
+    document.getElementById('f-group').value = '';
+    // Populate group autocomplete suggestions
+    const dl = document.getElementById('group-suggestions');
+    if (dl) { dl.innerHTML = cachedGroups.map(g => '<option value="' + esc(g) + '">').join(''); }
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
@@ -62,6 +66,7 @@ async function copyJob(id) {
 
         // Populate schedule
         document.getElementById('f-desc').value = job.description || '';
+        document.getElementById('f-group').value = job.group || '';
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -139,6 +144,7 @@ async function openEditModal(id) {
 
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-desc').value = job.description || '';
+        document.getElementById('f-group').value = job.group || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
         let schedType = job.schedule.type;
@@ -980,6 +986,8 @@ async function submitJobForm() {
     if (run_as) body.run_as = run_as;
     const desc = document.getElementById('f-desc').value.trim();
     if (desc) body.description = desc;
+    const group = document.getElementById('f-group').value.trim();
+    body.group = group || null;
 
     try {
         if (editingJobId) {

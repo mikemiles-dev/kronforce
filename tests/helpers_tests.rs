@@ -28,6 +28,7 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         updated_at: Utc::now(),
         output_rules: None,
         notifications: None,
+        group: None,
     }
 }
 
@@ -43,7 +44,7 @@ fn test_count_jobs_no_filter() {
     db.insert_job(&make_job("job-3", JobStatus::Unscheduled))
         .unwrap();
 
-    let count = db.count_jobs(None, None).unwrap();
+    let count = db.count_jobs(None, None, None).unwrap();
     assert_eq!(count, 3);
 }
 
@@ -57,7 +58,7 @@ fn test_count_jobs_status_filter_scheduled() {
     db.insert_job(&make_job("paused-1", JobStatus::Paused))
         .unwrap();
 
-    let count = db.count_jobs(Some("scheduled"), None).unwrap();
+    let count = db.count_jobs(Some("scheduled"), None, None).unwrap();
     assert_eq!(count, 2);
 }
 
@@ -71,7 +72,7 @@ fn test_count_jobs_status_filter_paused() {
     db.insert_job(&make_job("paused-2", JobStatus::Paused))
         .unwrap();
 
-    let count = db.count_jobs(Some("paused"), None).unwrap();
+    let count = db.count_jobs(Some("paused"), None, None).unwrap();
     assert_eq!(count, 2);
 }
 
@@ -85,7 +86,7 @@ fn test_count_jobs_search_filter() {
     db.insert_job(&make_job("backup-db", JobStatus::Scheduled))
         .unwrap();
 
-    let count = db.count_jobs(None, Some("deploy")).unwrap();
+    let count = db.count_jobs(None, Some("deploy"), None).unwrap();
     assert_eq!(count, 2);
 }
 
@@ -99,7 +100,9 @@ fn test_count_jobs_combined_filters() {
     db.insert_job(&make_job("backup-db", JobStatus::Scheduled))
         .unwrap();
 
-    let count = db.count_jobs(Some("scheduled"), Some("deploy")).unwrap();
+    let count = db
+        .count_jobs(Some("scheduled"), Some("deploy"), None)
+        .unwrap();
     assert_eq!(count, 1);
 }
 
@@ -109,7 +112,7 @@ fn test_count_jobs_no_match() {
     db.insert_job(&make_job("job-a", JobStatus::Scheduled))
         .unwrap();
 
-    let count = db.count_jobs(None, Some("nonexistent")).unwrap();
+    let count = db.count_jobs(None, Some("nonexistent"), None).unwrap();
     assert_eq!(count, 0);
 }
 
@@ -122,7 +125,7 @@ fn test_list_jobs_no_filter() {
         .unwrap();
     db.insert_job(&make_job("beta", JobStatus::Paused)).unwrap();
 
-    let jobs = db.list_jobs(None, None, 100, 0).unwrap();
+    let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 2);
 }
 
@@ -134,7 +137,7 @@ fn test_list_jobs_status_filter() {
     db.insert_job(&make_job("paused-job", JobStatus::Paused))
         .unwrap();
 
-    let jobs = db.list_jobs(Some("paused"), None, 100, 0).unwrap();
+    let jobs = db.list_jobs(Some("paused"), None, None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 1);
     assert_eq!(jobs[0].name, "paused-job");
 }
@@ -149,7 +152,7 @@ fn test_list_jobs_search_filter() {
     db.insert_job(&make_job("backup-daily", JobStatus::Scheduled))
         .unwrap();
 
-    let jobs = db.list_jobs(None, Some("deploy"), 100, 0).unwrap();
+    let jobs = db.list_jobs(None, Some("deploy"), None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 2);
 }
 
@@ -161,7 +164,7 @@ fn test_list_jobs_pagination_limit() {
             .unwrap();
     }
 
-    let page = db.list_jobs(None, None, 2, 0).unwrap();
+    let page = db.list_jobs(None, None, None, 2, 0).unwrap();
     assert_eq!(page.len(), 2);
 }
 
@@ -173,8 +176,8 @@ fn test_list_jobs_pagination_offset() {
             .unwrap();
     }
 
-    let page1 = db.list_jobs(None, None, 3, 0).unwrap();
-    let page2 = db.list_jobs(None, None, 3, 3).unwrap();
+    let page1 = db.list_jobs(None, None, None, 3, 0).unwrap();
+    let page2 = db.list_jobs(None, None, None, 3, 3).unwrap();
     assert_eq!(page1.len(), 3);
     assert_eq!(page2.len(), 2);
     // No overlap
@@ -191,7 +194,7 @@ fn test_list_jobs_ordered_by_name() {
     db.insert_job(&make_job("bravo", JobStatus::Scheduled))
         .unwrap();
 
-    let jobs = db.list_jobs(None, None, 100, 0).unwrap();
+    let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
     assert_eq!(jobs[0].name, "alpha");
     assert_eq!(jobs[1].name, "bravo");
     assert_eq!(jobs[2].name, "charlie");
@@ -204,13 +207,13 @@ fn test_list_jobs_search_matches_task_json() {
     db.insert_job(&make_job("my-job", JobStatus::Scheduled))
         .unwrap();
 
-    let jobs = db.list_jobs(None, Some("echo"), 100, 0).unwrap();
+    let jobs = db.list_jobs(None, Some("echo"), None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 1);
 }
 
 #[test]
 fn test_list_jobs_empty_result() {
     let db = test_db();
-    let jobs = db.list_jobs(None, None, 100, 0).unwrap();
+    let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
     assert!(jobs.is_empty());
 }

@@ -29,6 +29,7 @@ fn make_job(name: &str) -> Job {
         updated_at: Utc::now(),
         output_rules: None,
         notifications: None,
+        group: None,
     }
 }
 

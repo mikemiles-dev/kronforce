@@ -1777,6 +1777,27 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     font-family: var(--font-mono);
 }
 
+.group-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #fff;
+    vertical-align: middle;
+    margin-left: 6px;
+}
+
+.group-filter-select {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+}
+
 .donut-empty {
     text-align: center;
     color: var(--text-muted);

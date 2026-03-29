@@ -159,13 +159,15 @@ pub struct Job {
     pub output_rules: Option<OutputRules>,
     #[serde(default)]
     pub notifications: Option<JobNotificationConfig>,
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 impl Job {
     /// Constructs a Job from a rusqlite row.
     ///
     /// Columns: id(0), name(1), description(2), task_json(3), run_as(4), schedule_json(5), status(6),
-    ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14)
+    ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14), group_name(15)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
 
@@ -203,6 +205,7 @@ impl Job {
                 let n_json: Option<String> = row.get(14).unwrap_or(None);
                 n_json.and_then(|s| serde_json::from_str(&s).ok())
             },
+            group: row.get(15).unwrap_or(None),
         })
     }
 }

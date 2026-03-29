@@ -1,4 +1,54 @@
 // Kronforce - Job CRUD, list, detail, actions, bulk selection, templates
+// --- Job Groups ---
+let cachedGroups = [];
+let groupFilter = '';
+
+const GROUP_COLORS = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--info)', '#9b59b6', '#1abc9c', '#e67e22'];
+
+function groupColor(name) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    return GROUP_COLORS[Math.abs(hash) % GROUP_COLORS.length];
+}
+
+function groupBadge(group) {
+    if (!group) return '';
+    return ' <span class="group-badge" style="background:' + groupColor(group) + '">' + esc(group) + '</span>';
+}
+
+async function fetchGroups() {
+    try {
+        cachedGroups = await api('GET', '/api/jobs/groups');
+        const sel = document.getElementById('group-filter');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">All Groups</option><option value="ungrouped">Ungrouped</option>';
+        for (const g of cachedGroups) {
+            sel.innerHTML += '<option value="' + esc(g) + '"' + (groupFilter === g ? ' selected' : '') + '>' + esc(g) + '</option>';
+        }
+    } catch (e) {
+        console.error('fetchGroups:', e);
+    }
+}
+
+function setGroupFilter(value) {
+    groupFilter = value;
+    fetchJobs(true);
+}
+
+async function bulkSetGroup() {
+    if (selectedJobs.size === 0) return;
+    const name = prompt('Enter group name (leave empty to remove from group):');
+    if (name === null) return;
+    try {
+        await api('PUT', '/api/jobs/bulk-group', { job_ids: [...selectedJobs], group: name || null });
+        selectedJobs.clear();
+        fetchGroups();
+        fetchJobs();
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
+}
+
 // --- Jobs List ---
 async function fetchJobs(resetPage) {
     if (resetPage) jobsPage = 1;
@@ -12,6 +62,7 @@ async function fetchJobs(resetPage) {
         let qs = '?page=' + jobsPage + '&per_page=' + (isClientFilter ? 100 : PER_PAGE);
         if (apiFilter) qs += '&status=' + apiFilter;
         if (search) qs += '&search=' + encodeURIComponent(search);
+        if (groupFilter) qs += '&group=' + encodeURIComponent(groupFilter);
         const res = await api('GET', '/api/jobs' + qs);
         allJobs = res.data;
         if (isClientFilter) {
@@ -119,7 +170,7 @@ function renderJobsTable() {
         const checked = selectedJobs.has(j.id) ? ' checked' : '';
         html += '<tr class="' + rowClass + '">';
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
-        html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span> ' + fmtTaskBadge(j.task) + '</td>';
+        html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
         const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
         if (isBlocked) {
             html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';

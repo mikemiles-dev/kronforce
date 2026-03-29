@@ -25,6 +25,7 @@ pub(crate) struct CreateJobRequest {
     target: Option<AgentTarget>,
     output_rules: Option<OutputRules>,
     notifications: Option<JobNotificationConfig>,
+    group: Option<String>,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -41,6 +42,7 @@ pub(crate) struct UpdateJobRequest {
     target: Option<AgentTarget>,
     output_rules: Option<OutputRules>,
     notifications: Option<JobNotificationConfig>,
+    group: Option<String>,
 }
 
 /// Summary of a job's most recent execution.
@@ -84,6 +86,7 @@ pub(crate) struct JobResponse {
 pub(crate) struct ListJobsQuery {
     status: Option<String>,
     search: Option<String>,
+    group: Option<String>,
     page: Option<u32>,
     per_page: Option<u32>,
 }
@@ -105,11 +108,13 @@ pub(crate) async fn list_jobs(
     let offset = (page - 1) * per_page;
     let filter_owned = query.status.clone();
     let search_owned = query.search.clone();
+    let group_owned = query.group.clone();
 
     let filter2 = filter_owned.clone();
     let search2 = search_owned.clone();
+    let group2 = group_owned.clone();
     let total = db_call(&state.db, move |db| {
-        db.count_jobs(filter2.as_deref(), search2.as_deref())
+        db.count_jobs(filter2.as_deref(), search2.as_deref(), group2.as_deref())
     })
     .await?;
 
@@ -117,6 +122,7 @@ pub(crate) async fn list_jobs(
         db.list_jobs(
             filter_owned.as_deref(),
             search_owned.as_deref(),
+            group_owned.as_deref(),
             per_page,
             offset,
         )
@@ -144,6 +150,35 @@ pub(crate) async fn list_jobs(
         per_page,
         total_pages,
     }))
+}
+
+/// Maximum allowed length for group names.
+const MAX_GROUP_NAME_LEN: usize = 50;
+
+/// Normalizes and validates a group name. Empty string becomes None.
+fn normalize_group(group: Option<String>) -> Result<Option<String>, AppError> {
+    match group {
+        None => Ok(None),
+        Some(g) if g.trim().is_empty() => Ok(None),
+        Some(g) => {
+            let g = g.trim().to_string();
+            if g.len() > MAX_GROUP_NAME_LEN {
+                return Err(AppError::BadRequest(format!(
+                    "group name exceeds {} character limit",
+                    MAX_GROUP_NAME_LEN
+                )));
+            }
+            if !g
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == ' ' || c == '-' || c == '_')
+            {
+                return Err(AppError::BadRequest(
+                    "group name may only contain alphanumeric characters, spaces, hyphens, and underscores".into(),
+                ));
+            }
+            Ok(Some(g))
+        }
+    }
 }
 
 /// Maximum allowed length for job names.
@@ -226,6 +261,7 @@ pub(crate) async fn create_job(
         updated_at: now,
         output_rules: req.output_rules,
         notifications: req.notifications,
+        group: normalize_group(req.group)?,
     };
 
     let job_clone = job.clone();
@@ -343,6 +379,9 @@ pub(crate) async fn update_job(
     }
     if req.notifications.is_some() {
         job.notifications = req.notifications;
+    }
+    if req.group.is_some() {
+        job.group = normalize_group(req.group)?;
     }
 
     job.updated_at = Utc::now();
@@ -582,4 +621,41 @@ impl JobResponse {
             .collect();
         (all_satisfied, statuses)
     }
+}
+
+/// Returns the list of distinct group names across all jobs.
+pub(crate) async fn list_groups(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<String>>, AppError> {
+    let groups = db_call(&state.db, |db| db.get_distinct_groups()).await?;
+    Ok(Json(groups))
+}
+
+/// Request body for bulk group assignment.
+#[derive(Deserialize)]
+pub(crate) struct BulkGroupRequest {
+    job_ids: Vec<Uuid>,
+    group: Option<String>,
+}
+
+/// Assigns a group to multiple jobs at once.
+pub(crate) async fn bulk_set_group(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<BulkGroupRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    let group = normalize_group(req.group)?;
+    let ids = req.job_ids;
+    let count = db_call(&state.db, move |db| {
+        db.bulk_set_group(&ids, group.as_deref())
+    })
+    .await?;
+    Ok(Json(serde_json::json!({"updated": count})))
 }
