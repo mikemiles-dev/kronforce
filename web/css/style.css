@@ -777,6 +777,12 @@ th .job-checkbox { margin: 0; }
     margin-bottom: 4px;
 }
 
+.form-group label.label-accent {
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 600;
+}
+
 .form-group input, .form-group textarea, .form-group select {
     width: 100%;
 }
