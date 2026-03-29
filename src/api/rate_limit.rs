@@ -66,7 +66,9 @@ impl RateLimiter {
         let now = Instant::now();
         let stale_threshold = std::time::Duration::from_secs(120);
         state.retain(|_, entries| {
-            entries.last().is_some_and(|t| now.duration_since(*t) < stale_threshold)
+            entries
+                .last()
+                .is_some_and(|t| now.duration_since(*t) < stale_threshold)
         });
     }
 
@@ -84,12 +86,9 @@ pub struct RateLimiters {
 }
 
 fn rate_limit_response(retry_after: u64, limit: u32) -> Response {
-    let body = json!({"error": format!("rate limit exceeded, retry after {} seconds", retry_after)});
-    let mut resp = (
-        axum::http::StatusCode::TOO_MANY_REQUESTS,
-        axum::Json(body),
-    )
-        .into_response();
+    let body =
+        json!({"error": format!("rate limit exceeded, retry after {} seconds", retry_after)});
+    let mut resp = (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
     let headers = resp.headers_mut();
     headers.insert("Retry-After", HeaderValue::from(retry_after));
     headers.insert("X-RateLimit-Limit", HeaderValue::from(limit));
@@ -104,10 +103,7 @@ fn add_rate_limit_headers(resp: &mut Response, limit: u32, remaining: u32) {
 }
 
 /// Rate limit middleware for public endpoints (keyed by client IP).
-pub async fn rate_limit_public_middleware(
-    req: Request,
-    next: Next,
-) -> Response {
+pub async fn rate_limit_public_middleware(req: Request, next: Next) -> Response {
     let limiters = req.extensions().get::<RateLimiters>().cloned();
     let limiter = limiters.as_ref().and_then(|l| l.public.as_ref());
     let Some(limiter) = limiter else {
@@ -142,10 +138,7 @@ pub async fn rate_limit_public_middleware(
 }
 
 /// Rate limit middleware for authenticated endpoints (keyed by API key UUID).
-pub async fn rate_limit_authed_middleware(
-    req: Request,
-    next: Next,
-) -> Response {
+pub async fn rate_limit_authed_middleware(req: Request, next: Next) -> Response {
     let limiters = req.extensions().get::<RateLimiters>().cloned();
     let limiter = limiters.as_ref().and_then(|l| l.authenticated.as_ref());
     let Some(limiter) = limiter else {
@@ -172,10 +165,7 @@ pub async fn rate_limit_authed_middleware(
 }
 
 /// Rate limit middleware for agent endpoints (keyed by API key UUID, higher limit).
-pub async fn rate_limit_agent_middleware(
-    req: Request,
-    next: Next,
-) -> Response {
+pub async fn rate_limit_agent_middleware(req: Request, next: Next) -> Response {
     let limiters = req.extensions().get::<RateLimiters>().cloned();
     let limiter = limiters.as_ref().and_then(|l| l.agent.as_ref());
     let Some(limiter) = limiter else {

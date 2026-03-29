@@ -9,9 +9,9 @@ mod callbacks;
 mod events;
 mod executions;
 mod jobs;
+pub mod rate_limit;
 mod scripts;
 mod settings;
-pub mod rate_limit;
 mod stats;
 mod variables;
 
@@ -153,9 +153,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
             "/api/agents/{id}/task-types",
             get(agents::get_agent_task_types),
         )
-        .route_layer(middleware::from_fn(
-            rate_limit::rate_limit_agent_middleware,
-        ))
+        .route_layer(middleware::from_fn(rate_limit::rate_limit_agent_middleware))
         .route_layer(middleware::from_fn_with_state(
             state.clone(),
             auth::agent_auth_middleware,
