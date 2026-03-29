@@ -166,12 +166,12 @@ const DEFAULT_GROUP_NAME: &str = "Default";
 
 /// Persists a group name to custom_groups so it survives job deletion.
 async fn persist_group(db: &crate::db::Db, group: &Option<String>) {
-    if let Some(g) = group {
-        if g != DEFAULT_GROUP_NAME {
-            let db = db.clone();
-            let g = g.clone();
-            let _ = db_call(&db, move |db| db.add_custom_group(&g)).await;
-        }
+    if let Some(g) = group
+        && g != DEFAULT_GROUP_NAME
+    {
+        let db = db.clone();
+        let g = g.clone();
+        let _ = db_call(&db, move |db| db.add_custom_group(&g)).await;
     }
 }
 

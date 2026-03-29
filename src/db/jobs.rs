@@ -439,11 +439,11 @@ impl Db {
                 |row| row.get::<_, String>(0),
             )
             .unwrap_or_default();
-        if !custom.is_empty() {
-            if let Ok(names) = serde_json::from_str::<Vec<String>>(&custom) {
-                for name in names {
-                    groups.insert(name);
-                }
+        if !custom.is_empty()
+            && let Ok(names) = serde_json::from_str::<Vec<String>>(&custom)
+        {
+            for name in names {
+                groups.insert(name);
             }
         }
         Ok(groups.into_iter().collect())
