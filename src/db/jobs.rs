@@ -259,6 +259,18 @@ impl Db {
                 )));
             }
 
+            // Delete related records first (foreign key constraints)
+            tx.execute(
+                "DELETE FROM executions WHERE job_id = ?1",
+                params![id.to_string()],
+            )
+            .map_err(AppError::Db)?;
+            tx.execute(
+                "DELETE FROM job_queue WHERE job_id = ?1",
+                params![id.to_string()],
+            )
+            .map_err(AppError::Db)?;
+
             let changed = tx
                 .execute("DELETE FROM jobs WHERE id = ?1", params![id.to_string()])
                 .map_err(AppError::Db)?;
