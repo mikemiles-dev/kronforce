@@ -671,8 +671,7 @@ pub(crate) async fn create_group(
             "write access required (admin or operator role)".into(),
         ));
     }
-    let name = normalize_group(Some(req.name))?
-        .unwrap_or_else(|| DEFAULT_GROUP_NAME.to_string());
+    let name = normalize_group(Some(req.name))?.unwrap_or_else(|| DEFAULT_GROUP_NAME.to_string());
     let name_clone = name.clone();
     db_call(&state.db, move |db| db.add_custom_group(&name_clone)).await?;
     Ok((
@@ -730,8 +729,8 @@ pub(crate) async fn rename_group(
             "write access required (admin or operator role)".into(),
         ));
     }
-    let new_name = normalize_group(Some(req.new_name))?
-        .unwrap_or_else(|| DEFAULT_GROUP_NAME.to_string());
+    let new_name =
+        normalize_group(Some(req.new_name))?.unwrap_or_else(|| DEFAULT_GROUP_NAME.to_string());
     let old_name = req.old_name;
     let old_clone = old_name.clone();
     let new_clone = new_name.clone();

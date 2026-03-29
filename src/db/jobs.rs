@@ -408,9 +408,7 @@ impl Db {
             .lock()
             .map_err(|e| AppError::Internal(format!("lock poisoned: {e}")))?;
         let mut stmt = conn
-            .prepare(
-                "SELECT DISTINCT COALESCE(group_name, 'Default') FROM jobs ORDER BY 1",
-            )
+            .prepare("SELECT DISTINCT COALESCE(group_name, 'Default') FROM jobs ORDER BY 1")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| row.get::<_, String>(0))
