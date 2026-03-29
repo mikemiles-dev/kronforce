@@ -580,3 +580,220 @@ fn test_fresh_migration() {
     let count = db.count_jobs(None, None, None).unwrap();
     assert_eq!(count, 0);
 }
+
+// --- Job Groups ---
+
+#[test]
+fn test_job_group_default_is_none() {
+    let db = test_db();
+    let job = make_job("no-group");
+    db.insert_job(&job).unwrap();
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    // group is None in struct but from_row maps NULL to "Default"
+    assert_eq!(fetched.group, Some("Default".to_string()));
+}
+
+#[test]
+fn test_job_group_set_on_create() {
+    let db = test_db();
+    let mut job = make_job("grouped-job");
+    job.group = Some("ETL".to_string());
+    db.insert_job(&job).unwrap();
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.group, Some("ETL".to_string()));
+}
+
+#[test]
+fn test_job_group_update() {
+    let db = test_db();
+    let mut job = make_job("update-group");
+    job.group = Some("ETL".to_string());
+    db.insert_job(&job).unwrap();
+
+    job.group = Some("Monitoring".to_string());
+    job.updated_at = Utc::now();
+    db.update_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.group, Some("Monitoring".to_string()));
+}
+
+#[test]
+fn test_distinct_groups_includes_default() {
+    let db = test_db();
+    let groups = db.get_distinct_groups().unwrap();
+    assert!(groups.contains(&"Default".to_string()));
+}
+
+#[test]
+fn test_distinct_groups_from_jobs() {
+    let db = test_db();
+    let mut job1 = make_job("etl-1");
+    job1.group = Some("ETL".to_string());
+    db.insert_job(&job1).unwrap();
+
+    let mut job2 = make_job("mon-1");
+    job2.group = Some("Monitoring".to_string());
+    db.insert_job(&job2).unwrap();
+
+    let groups = db.get_distinct_groups().unwrap();
+    assert!(groups.contains(&"Default".to_string()));
+    assert!(groups.contains(&"ETL".to_string()));
+    assert!(groups.contains(&"Monitoring".to_string()));
+}
+
+#[test]
+fn test_distinct_groups_no_duplicates() {
+    let db = test_db();
+    let mut job1 = make_job("etl-1");
+    job1.group = Some("ETL".to_string());
+    db.insert_job(&job1).unwrap();
+
+    let mut job2 = make_job("etl-2");
+    job2.group = Some("ETL".to_string());
+    db.insert_job(&job2).unwrap();
+
+    let groups = db.get_distinct_groups().unwrap();
+    let etl_count = groups.iter().filter(|g| *g == "ETL").count();
+    assert_eq!(etl_count, 1);
+}
+
+#[test]
+fn test_custom_group_persists() {
+    let db = test_db();
+    db.add_custom_group("EmptyGroup").unwrap();
+    let groups = db.get_distinct_groups().unwrap();
+    assert!(groups.contains(&"EmptyGroup".to_string()));
+}
+
+#[test]
+fn test_custom_group_no_duplicate() {
+    let db = test_db();
+    db.add_custom_group("ETL").unwrap();
+    db.add_custom_group("ETL").unwrap();
+    let groups = db.get_distinct_groups().unwrap();
+    let etl_count = groups.iter().filter(|g| *g == "ETL").count();
+    assert_eq!(etl_count, 1);
+}
+
+#[test]
+fn test_bulk_set_group() {
+    let db = test_db();
+    let job1 = make_job("bulk-1");
+    let job2 = make_job("bulk-2");
+    db.insert_job(&job1).unwrap();
+    db.insert_job(&job2).unwrap();
+
+    let count = db
+        .bulk_set_group(&[job1.id, job2.id], Some("BatchGroup"))
+        .unwrap();
+    assert_eq!(count, 2);
+
+    let fetched1 = db.get_job(job1.id).unwrap().unwrap();
+    let fetched2 = db.get_job(job2.id).unwrap().unwrap();
+    assert_eq!(fetched1.group, Some("BatchGroup".to_string()));
+    assert_eq!(fetched2.group, Some("BatchGroup".to_string()));
+}
+
+#[test]
+fn test_rename_group() {
+    let db = test_db();
+    let mut job1 = make_job("rename-1");
+    job1.group = Some("OldName".to_string());
+    let mut job2 = make_job("rename-2");
+    job2.group = Some("OldName".to_string());
+    let mut job3 = make_job("rename-other");
+    job3.group = Some("Other".to_string());
+    db.insert_job(&job1).unwrap();
+    db.insert_job(&job2).unwrap();
+    db.insert_job(&job3).unwrap();
+
+    let count = db.rename_group("OldName", "NewName").unwrap();
+    assert_eq!(count, 2);
+
+    let fetched1 = db.get_job(job1.id).unwrap().unwrap();
+    let fetched2 = db.get_job(job2.id).unwrap().unwrap();
+    let fetched3 = db.get_job(job3.id).unwrap().unwrap();
+    assert_eq!(fetched1.group, Some("NewName".to_string()));
+    assert_eq!(fetched2.group, Some("NewName".to_string()));
+    assert_eq!(fetched3.group, Some("Other".to_string()));
+}
+
+#[test]
+fn test_rename_default_group_includes_null() {
+    let db = test_db();
+    // Job with NULL group (pre-migration style)
+    let job = make_job("null-group");
+    db.insert_job(&job).unwrap();
+
+    let count = db.rename_group("Default", "NewDefault").unwrap();
+    assert!(count >= 1);
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.group, Some("NewDefault".to_string()));
+}
+
+#[test]
+fn test_filter_jobs_by_group() {
+    let db = test_db();
+    let mut job1 = make_job("etl-job");
+    job1.group = Some("ETL".to_string());
+    let mut job2 = make_job("mon-job");
+    job2.group = Some("Monitoring".to_string());
+    db.insert_job(&job1).unwrap();
+    db.insert_job(&job2).unwrap();
+
+    let count = db.count_jobs(None, None, Some("ETL")).unwrap();
+    assert_eq!(count, 1);
+
+    let jobs = db.list_jobs(None, None, Some("ETL"), 100, 0).unwrap();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].name, "etl-job");
+}
+
+#[test]
+fn test_filter_jobs_by_default_group() {
+    let db = test_db();
+    let job1 = make_job("default-job"); // group is None -> Default
+    let mut job2 = make_job("etl-job");
+    job2.group = Some("ETL".to_string());
+    db.insert_job(&job1).unwrap();
+    db.insert_job(&job2).unwrap();
+
+    let count = db.count_jobs(None, None, Some("Default")).unwrap();
+    assert_eq!(count, 1);
+}
+
+#[test]
+fn test_delete_job_with_executions() {
+    let db = test_db();
+    let job = make_job("delete-with-execs");
+    db.insert_job(&job).unwrap();
+
+    // Create an execution for this job
+    let exec = ExecutionRecord {
+        id: Uuid::new_v4(),
+        job_id: job.id,
+        agent_id: None,
+        task_snapshot: None,
+        status: ExecutionStatus::Succeeded,
+        exit_code: Some(0),
+        stdout: String::new(),
+        stderr: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        started_at: Some(Utc::now()),
+        finished_at: Some(Utc::now()),
+        triggered_by: TriggerSource::Api,
+        extracted: None,
+        retry_of: None,
+        attempt_number: 1,
+    };
+    db.insert_execution(&exec).unwrap();
+
+    // Should succeed now (was failing with FK constraint before fix)
+    db.delete_job(job.id).unwrap();
+
+    assert!(db.get_job(job.id).unwrap().is_none());
+    assert!(db.get_execution(exec.id).unwrap().is_none());
+}
