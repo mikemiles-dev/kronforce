@@ -8,7 +8,6 @@ COPY src/ src/
 COPY web/ web/
 COPY migrations/ migrations/
 COPY examples/ examples/
-COPY scripts/ scripts/
 RUN mkdir -p scripts
 
 RUN cargo build --release
