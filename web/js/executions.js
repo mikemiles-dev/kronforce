@@ -333,6 +333,13 @@ const execSearch = createSearchFilter({ inputId: 'exec-search-input', clearBtnId
 
 async function fetchAllExecutions() {
     try {
+        // Ensure job names are available for resolving job_id → name
+        if (allJobs.length === 0) {
+            try {
+                const jobsRes = await api('GET', '/api/jobs?per_page=100');
+                allJobs = jobsRes.data;
+            } catch (_) {}
+        }
         let qs = '?page=' + allExecsPage + '&per_page=' + PER_PAGE;
         if (execSearch.statusFilter) qs += '&status=' + execSearch.statusFilter;
         if (execSearch.searchTerm) qs += '&search=' + encodeURIComponent(execSearch.searchTerm);
