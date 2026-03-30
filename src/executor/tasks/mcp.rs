@@ -103,12 +103,13 @@ impl McpClient {
     }
 
     async fn send(&self, msg: &Value) -> Result<JsonRpcResponse, String> {
+        let body = serde_json::to_string(msg).map_err(|e| format!("serialize error: {e}"))?;
         let resp = self
             .client
             .post(&self.url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json, text/event-stream")
-            .json(msg)
+            .body(body)
             .send()
             .await
             .map_err(|e| format!("HTTP error: {e}"))?;
@@ -139,11 +140,12 @@ impl McpClient {
     }
 
     async fn notify(&self, msg: &Value) -> Result<(), String> {
+        let body = serde_json::to_string(msg).map_err(|e| format!("serialize error: {e}"))?;
         self.client
             .post(&self.url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json, text/event-stream")
-            .json(msg)
+            .body(body)
             .send()
             .await
             .map_err(|e| format!("HTTP error: {e}"))?;
