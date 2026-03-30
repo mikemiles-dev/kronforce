@@ -61,6 +61,10 @@
                 <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> &#128225; MQTT</label>
                 <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> &#9879; Redis</label>
             </div>
+            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">AI / Tooling</label>
+            <div class="radio-group">
+                <label class="pill-blue"><input type="radio" name="task-type" value="mcp" onchange="updateTaskFields()"> &#129302; MCP Tool</label>
+            </div>
         </div>
         <div id="task-shell-fields">
             <div class="form-group">
@@ -277,6 +281,30 @@
             <div class="form-group">
                 <label>Message</label>
                 <textarea id="f-redis-message" placeholder='{"type": "alert", "text": "..."}'></textarea>
+            </div>
+        </div>
+        <div id="task-mcp-fields" style="display:none">
+            <div class="form-group">
+                <label>Transport</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="mcp-transport" value="stdio" checked> stdio</label>
+                    <label><input type="radio" name="mcp-transport" value="http"> http</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Server</label>
+                <input id="f-mcp-server" type="text" placeholder="python3 my_server.py (stdio) or http://host:port/mcp (http)">
+            </div>
+            <div class="form-group" style="display:flex;gap:8px;align-items:end">
+                <div style="flex:1">
+                    <label>Tool</label>
+                    <select id="f-mcp-tool"><option value="">Enter tool name or discover...</option></select>
+                </div>
+                <button type="button" class="btn btn-sm" onclick="discoverMcpTools()" style="margin-bottom:2px">Discover Tools</button>
+            </div>
+            <div class="form-group">
+                <label>Arguments (JSON)</label>
+                <textarea id="f-mcp-args" placeholder='{"key": "value"}'></textarea>
             </div>
         </div>
         </div><!-- end builtin-task-section -->

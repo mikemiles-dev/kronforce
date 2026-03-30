@@ -272,6 +272,14 @@ curl http://localhost:8080/api/timeline/{job_id}                 # Job-specific 
 curl http://localhost:8080/api/timeline-detail/{bucket}          # Executions in a specific time bucket
 ```
 
+## MCP Tool Discovery
+
+```bash
+curl "http://localhost:8080/api/mcp/tools?server=python3+my_server.py&transport=stdio"
+```
+
+Connects to an MCP server, performs the protocol handshake, and returns available tools with their input schemas. Use `transport=stdio` for subprocess servers or `transport=http` for remote HTTP servers.
+
 ## Settings
 
 ```bash

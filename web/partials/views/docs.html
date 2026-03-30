@@ -204,6 +204,7 @@ print("Redis: " + result.response);</code></pre>
                         <tr><td><code>rabbitmq</code></td><td><code>amqp-publish</code> via shell</td><td>url, exchange, routing_key, message, content_type</td></tr>
                         <tr><td><code>mqtt</code></td><td><code>mosquitto_pub</code> via shell</td><td>broker, port, topic, message, qos, username, password</td></tr>
                         <tr><td><code>redis</code></td><td><code>redis-cli PUBLISH</code> via shell</td><td>url, channel, message</td></tr>
+                        <tr><td><code>mcp</code></td><td>Calls a tool on an MCP server via JSON-RPC</td><td>server, transport, tool, arguments</td></tr>
                     </table>
                     <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents. File Push deploys files to agents. Message queue types (Kafka, RabbitMQ, MQTT, Redis) shell out to CLI tools.</p>
 
@@ -246,6 +247,11 @@ print("Redis: " + result.response);</code></pre>
                     <h3>Redis</h3>
                     <p>Publish a message to a Redis Pub/Sub channel via <code>redis-cli</code>.</p>
 <pre><code>{"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"}</code></pre>
+
+                    <h3>MCP (Model Context Protocol)</h3>
+                    <p>Call tools on MCP-compatible servers. Supports stdio (spawn subprocess) and HTTP transports.</p>
+<pre><code>{"type": "mcp", "transport": "stdio", "server": "python3 my_mcp_server.py", "tool": "analyze_logs", "arguments": {"path": "/var/log/app.log"}}</code></pre>
+                    <p>Use "Discover Tools" in the job form to browse available tools from a server. Tool results are captured as stdout. The <code>arguments</code> field supports <code>{{VAR_NAME}}</code> variable substitution.</p>
                 </div>
 
                 <div class="docs-section" id="doc-api">
@@ -314,6 +320,7 @@ print("Redis: " + result.response);</code></pre>
                         <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
                         <tr><td>GET</td><td><code>/api/health</code></td><td>Health check (no auth)</td></tr>
                         <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current key info</td></tr>
+                        <tr><td>GET</td><td><code>/api/mcp/tools</code></td><td>Discover tools from an MCP server (query: server, transport)</td></tr>
                     </table>
                 </div>
 

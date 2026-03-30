@@ -109,6 +109,13 @@ pub enum TaskType {
         channel: String,
         message: String,
     },
+    /// Call a tool on an MCP (Model Context Protocol) server.
+    Mcp {
+        server: String,
+        transport: McpTransport,
+        tool: String,
+        arguments: Option<serde_json::Value>,
+    },
 }
 
 /// Supported SQL database drivers.
@@ -135,6 +142,16 @@ pub enum FtpProtocol {
 pub enum TransferDirection {
     Upload,
     Download,
+}
+
+/// MCP server transport mechanism.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum McpTransport {
+    /// Spawn server as subprocess, communicate via stdin/stdout JSON-RPC.
+    Stdio,
+    /// Connect to remote server via HTTP POST.
+    Http,
 }
 
 /// HTTP method for HTTP task requests.
