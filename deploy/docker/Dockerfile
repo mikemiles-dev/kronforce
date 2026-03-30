@@ -1,15 +1,33 @@
 FROM rust:latest AS builder
 
 WORKDIR /app
+
+# Cache dependencies — only re-download/compile when Cargo.toml or Cargo.lock change
 COPY Cargo.toml Cargo.lock ./
 COPY build.rs ./
 COPY rust-toolchain.toml ./
+
+# Create stub src/lib.rs and bins so cargo can resolve the dependency tree
+RUN mkdir -p src/bin && \
+    echo "fn main() {}" > src/bin/controller.rs && \
+    echo "fn main() {}" > src/bin/agent.rs && \
+    echo "" > src/lib.rs && \
+    mkdir -p web/js web/css web/partials/views migrations && \
+    touch web/index.html web/css/style.css && \
+    echo "-- version: 1\n-- description: stub" > migrations/0001_init.sql
+
+# Build dependencies only (cached layer)
+RUN cargo build --release 2>/dev/null || true
+
+# Now copy the real source and rebuild (only our code recompiles)
 COPY src/ src/
 COPY web/ web/
 COPY migrations/ migrations/
 COPY examples/ examples/
 RUN mkdir -p scripts
 
+# Touch files to invalidate the build cache for our crates only
+RUN touch src/lib.rs src/bin/controller.rs src/bin/agent.rs
 RUN cargo build --release
 
 FROM debian:trixie-slim
