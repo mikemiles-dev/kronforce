@@ -252,6 +252,28 @@ print("Redis: " + result.response);</code></pre>
                     <p>Call tools on MCP-compatible servers. Supports stdio (spawn subprocess) and HTTP transports.</p>
 <pre><code>{"type": "mcp", "transport": "stdio", "server": "python3 my_mcp_server.py", "tool": "analyze_logs", "arguments": {"path": "/var/log/app.log"}}</code></pre>
                     <p>Use "Discover Tools" in the job form to browse available tools from a server. Tool results are captured as stdout. The <code>arguments</code> field supports <code>{{VAR_NAME}}</code> variable substitution.</p>
+
+                    <h4>Quick Start with the Test Server</h4>
+<pre><code># Install the MCP Python SDK
+pip install mcp
+
+# Test the included example server
+python3 examples/mcp_test_server.py</code></pre>
+                    <p>Then create an MCP job with:</p>
+                    <ul>
+                        <li><strong>Transport:</strong> Stdio</li>
+                        <li><strong>Server:</strong> <code>python3 examples/mcp_test_server.py</code></li>
+                        <li><strong>Tool:</strong> <code>greet</code></li>
+                        <li><strong>Arguments:</strong> <code>{"name": "World"}</code></li>
+                    </ul>
+                    <p>Available test tools: <code>greet</code>, <code>add</code>, <code>system_info</code>, <code>word_count</code>, <code>reverse</code>.</p>
+
+                    <h4>Other MCP Servers</h4>
+                    <ul>
+                        <li><strong>SQLite:</strong> <code>pip install mcp-server-sqlite</code> &rarr; server: <code>mcp-server-sqlite --db-path /path/to/db</code></li>
+                        <li><strong>Filesystem:</strong> <code>npx @modelcontextprotocol/server-filesystem /tmp</code></li>
+                        <li>Browse more at <a href="https://github.com/modelcontextprotocol/servers" style="color:var(--accent)">github.com/modelcontextprotocol/servers</a></li>
+                    </ul>
                 </div>
 
                 <div class="docs-section" id="doc-api">

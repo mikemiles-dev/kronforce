@@ -275,10 +275,41 @@ curl http://localhost:8080/api/timeline-detail/{bucket}          # Executions in
 ## MCP Tool Discovery
 
 ```bash
-curl "http://localhost:8080/api/mcp/tools?server=python3+my_server.py&transport=stdio"
+curl "http://localhost:8080/api/mcp/tools?server=python3+examples/mcp_test_server.py&transport=stdio"
 ```
 
 Connects to an MCP server, performs the protocol handshake, and returns available tools with their input schemas. Use `transport=stdio` for subprocess servers or `transport=http` for remote HTTP servers.
+
+### MCP Task Example
+
+```bash
+# Create a job that calls an MCP tool
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "mcp-greet",
+    "task": {
+      "type": "mcp",
+      "transport": "stdio",
+      "server": "python3 examples/mcp_test_server.py",
+      "tool": "greet",
+      "arguments": {"name": "World"}
+    },
+    "schedule": {"type": "on_demand"}
+  }'
+```
+
+### Test Server Setup
+
+A test MCP server is included at `examples/mcp_test_server.py`:
+
+```bash
+pip install mcp
+python3 examples/mcp_test_server.py  # verify it runs
+```
+
+Tools: `greet(name)`, `add(a, b)`, `system_info()`, `word_count(text)`, `reverse(text)`.
 
 ## Settings
 
