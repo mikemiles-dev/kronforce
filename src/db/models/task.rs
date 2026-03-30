@@ -109,10 +109,10 @@ pub enum TaskType {
         channel: String,
         message: String,
     },
-    /// Call a tool on an MCP (Model Context Protocol) server.
+    /// Call a tool on an MCP (Model Context Protocol) server via HTTP.
     Mcp {
-        server: String,
-        transport: McpTransport,
+        /// MCP server URL (e.g., http://localhost:8000/mcp)
+        server_url: String,
         tool: String,
         arguments: Option<serde_json::Value>,
     },
@@ -142,16 +142,6 @@ pub enum FtpProtocol {
 pub enum TransferDirection {
     Upload,
     Download,
-}
-
-/// MCP server transport mechanism.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum McpTransport {
-    /// Spawn server as subprocess, communicate via stdin/stdout JSON-RPC.
-    Stdio,
-    /// Connect to remote server via HTTP POST.
-    Http,
 }
 
 /// HTTP method for HTTP task requests.

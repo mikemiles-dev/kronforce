@@ -5,29 +5,22 @@ use axum::extract::{Query, State};
 use serde::Deserialize;
 
 use super::AppState;
-use crate::db::models::McpTransport;
 use crate::error::AppError;
 use crate::executor::tasks::mcp::discover_tools;
 
 #[derive(Deserialize)]
 pub(crate) struct DiscoverToolsQuery {
-    server: String,
-    transport: Option<String>,
+    server_url: String,
 }
 
 pub(crate) async fn mcp_discover_tools(
     State(_state): State<AppState>,
     Query(query): Query<DiscoverToolsQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let transport = match query.transport.as_deref() {
-        Some("http") => McpTransport::Http,
-        _ => McpTransport::Stdio,
-    };
-
-    // 15 second timeout — MCP servers can be slow to start
+    // 15 second timeout — MCP servers can be slow to respond
     let result = tokio::time::timeout(
         Duration::from_secs(15),
-        discover_tools(&query.server, &transport),
+        discover_tools(&query.server_url),
     )
     .await
     .map_err(|_| AppError::BadRequest("MCP discovery timed out after 15 seconds".to_string()))?

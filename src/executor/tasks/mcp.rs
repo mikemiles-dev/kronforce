@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use serde_json::{json, Value};
 use tokio::sync::oneshot;
 use tracing::info;
 
-use crate::db::models::{ExecutionStatus, McpTransport};
+use crate::db::models::ExecutionStatus;
 
 use super::super::{CapturedOutput, CommandResult};
 
@@ -42,7 +41,7 @@ struct JsonRpcError {
     message: String,
 }
 
-// --- MCP Protocol ---
+// --- MCP Protocol Messages ---
 
 fn make_initialize_request() -> JsonRpcRequest {
     JsonRpcRequest {
@@ -67,19 +66,19 @@ fn make_initialized_notification() -> JsonRpcNotification {
     }
 }
 
-fn make_tools_list_request(id: u64) -> JsonRpcRequest {
+fn make_tools_list_request() -> JsonRpcRequest {
     JsonRpcRequest {
         jsonrpc: "2.0",
-        id,
+        id: 2,
         method: "tools/list".to_string(),
         params: None,
     }
 }
 
-fn make_tool_call_request(id: u64, tool: &str, arguments: Option<&Value>) -> JsonRpcRequest {
+fn make_tool_call_request(tool: &str, arguments: Option<&Value>) -> JsonRpcRequest {
     JsonRpcRequest {
         jsonrpc: "2.0",
-        id,
+        id: 3,
         method: "tools/call".to_string(),
         params: Some(json!({
             "name": tool,
@@ -88,110 +87,14 @@ fn make_tool_call_request(id: u64, tool: &str, arguments: Option<&Value>) -> Jso
     }
 }
 
-// --- Stdio Transport ---
+// --- HTTP MCP Client ---
 
-struct StdioTransport {
-    child: tokio::process::Child,
-    reader: BufReader<tokio::process::ChildStdout>,
-    stdin: tokio::process::ChildStdin,
-    stderr: tokio::process::ChildStderr,
-}
-
-impl StdioTransport {
-    fn spawn(server_command: &str) -> Result<Self, String> {
-        let mut cmd = if cfg!(windows) {
-            let mut c = tokio::process::Command::new("cmd");
-            c.args(["/C", server_command]);
-            c
-        } else {
-            let mut c = tokio::process::Command::new("sh");
-            c.args(["-c", server_command]);
-            c
-        };
-
-        let mut child = cmd
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("failed to spawn MCP server: {e}"))?;
-
-        let stdin = child.stdin.take().ok_or("no stdin")?;
-        let stdout = child.stdout.take().ok_or("no stdout")?;
-        let stderr = child.stderr.take().ok_or("no stderr")?;
-        let reader = BufReader::new(stdout);
-
-        Ok(Self {
-            child,
-            reader,
-            stdin,
-            stderr,
-        })
-    }
-
-    async fn send(&mut self, msg: &[u8]) -> Result<(), String> {
-        self.stdin
-            .write_all(msg)
-            .await
-            .map_err(|e| format!("write error: {e}"))?;
-        self.stdin
-            .write_all(b"\n")
-            .await
-            .map_err(|e| format!("write error: {e}"))?;
-        self.stdin
-            .flush()
-            .await
-            .map_err(|e| format!("flush error: {e}"))?;
-        Ok(())
-    }
-
-    async fn receive(&mut self) -> Result<JsonRpcResponse, String> {
-        loop {
-            let mut line = String::new();
-            let n = self
-                .reader
-                .read_line(&mut line)
-                .await
-                .map_err(|e| format!("read error: {e}"))?;
-            if n == 0 {
-                // Server closed — capture stderr for diagnostics
-                let mut stderr_buf = Vec::new();
-                let _ = tokio::io::AsyncReadExt::read_to_end(&mut self.stderr, &mut stderr_buf).await;
-                let stderr_text = String::from_utf8_lossy(&stderr_buf);
-                if stderr_text.is_empty() {
-                    return Err("server closed connection".to_string());
-                }
-                return Err(format!("server closed connection — stderr: {}", stderr_text.trim()));
-            }
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-            // Skip notifications (no "id" field or "id": null with "method")
-            if let Ok(v) = serde_json::from_str::<Value>(line)
-                && v.get("method").is_some()
-                && v.get("id").is_none()
-            {
-                continue; // notification, skip
-            }
-            return serde_json::from_str(line)
-                .map_err(|e| format!("JSON parse error: {e} — line: {line}"));
-        }
-    }
-
-    async fn shutdown(&mut self) {
-        let _ = self.child.kill().await;
-    }
-}
-
-// --- HTTP Transport ---
-
-struct HttpTransport {
+struct McpClient {
     client: reqwest::Client,
     url: String,
 }
 
-impl HttpTransport {
+impl McpClient {
     fn new(url: &str) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -199,57 +102,69 @@ impl HttpTransport {
         }
     }
 
-    async fn send_request(&self, msg: &[u8]) -> Result<JsonRpcResponse, String> {
+    async fn send(&self, msg: &Value) -> Result<JsonRpcResponse, String> {
         let resp = self
             .client
             .post(&self.url)
             .header("Content-Type", "application/json")
-            .body(msg.to_vec())
+            .json(msg)
             .send()
             .await
             .map_err(|e| format!("HTTP error: {e}"))?;
 
         if !resp.status().is_success() {
-            return Err(format!("HTTP {}", resp.status()));
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(format!("HTTP {status}: {body}"));
         }
 
         let body = resp.text().await.map_err(|e| format!("read error: {e}"))?;
 
-        // May receive multiple JSON-RPC messages; find the response (has "id")
+        // Response may contain multiple JSON-RPC messages; find the one with an id
         for line in body.lines() {
             let line = line.trim();
             if line.is_empty() {
                 continue;
             }
-            if let Ok(v) = serde_json::from_str::<Value>(line)
-                && v.get("id").is_some()
-            {
-                return serde_json::from_str(line).map_err(|e| format!("JSON parse error: {e}"));
+            if let Ok(parsed) = serde_json::from_str::<JsonRpcResponse>(line) {
+                if parsed.id.is_some() {
+                    return Ok(parsed);
+                }
             }
         }
 
-        // Try parsing the whole body as a single response
-        serde_json::from_str(&body).map_err(|e| format!("JSON parse error: {e}"))
+        // Try the whole body as a single response
+        serde_json::from_str(&body).map_err(|e| format!("JSON parse error: {e} — body: {body}"))
     }
 
-    async fn send_notification(&self, msg: &[u8]) -> Result<(), String> {
-        let _ = self
-            .client
+    async fn notify(&self, msg: &Value) -> Result<(), String> {
+        self.client
             .post(&self.url)
             .header("Content-Type", "application/json")
-            .body(msg.to_vec())
+            .json(msg)
             .send()
             .await
             .map_err(|e| format!("HTTP error: {e}"))?;
         Ok(())
     }
+
+    async fn handshake(&self) -> Result<(), String> {
+        let init = serde_json::to_value(&make_initialize_request()).unwrap();
+        let resp = self.send(&init).await?;
+        if let Some(err) = resp.error {
+            return Err(format!("handshake error: {}", err.message));
+        }
+
+        let notif = serde_json::to_value(&make_initialized_notification()).unwrap();
+        self.notify(&notif).await?;
+        Ok(())
+    }
 }
 
-// --- Tool Execution ---
+// --- Task Execution ---
 
 pub async fn run_mcp_task(
-    server: &str,
-    transport: &McpTransport,
+    server_url: &str,
     tool: &str,
     arguments: Option<&Value>,
     timeout_secs: Option<u64>,
@@ -258,10 +173,23 @@ pub async fn run_mcp_task(
     let timeout_duration = timeout_secs.map(Duration::from_secs);
 
     let mcp_future = async {
-        match transport {
-            McpTransport::Stdio => run_stdio(server, tool, arguments).await,
-            McpTransport::Http => run_http(server, tool, arguments).await,
+        let client = McpClient::new(server_url);
+
+        // 1. Handshake
+        if let Err(e) = client.handshake().await {
+            return make_error(-1, format!("MCP handshake failed: {e}"));
         }
+
+        info!("MCP handshake complete, calling tool: {}", tool);
+
+        // 2. Call tool
+        let call = serde_json::to_value(&make_tool_call_request(tool, arguments)).unwrap();
+        let resp = match client.send(&call).await {
+            Ok(r) => r,
+            Err(e) => return make_error(1, format!("MCP tool call failed: {e}")),
+        };
+
+        map_response(resp)
     };
 
     tokio::select! {
@@ -290,90 +218,6 @@ pub async fn run_mcp_task(
     }
 }
 
-async fn run_stdio(server: &str, tool: &str, arguments: Option<&Value>) -> CommandResult {
-    let mut transport = match StdioTransport::spawn(server) {
-        Ok(t) => t,
-        Err(e) => return make_error(-1, e),
-    };
-
-    // 1. Initialize handshake
-    let init_msg = serde_json::to_vec(&make_initialize_request()).unwrap();
-    if let Err(e) = transport.send(&init_msg).await {
-        transport.shutdown().await;
-        return make_error(-1, format!("handshake send failed: {e}"));
-    }
-
-    let init_resp = match transport.receive().await {
-        Ok(r) => r,
-        Err(e) => {
-            transport.shutdown().await;
-            return make_error(-1, format!("handshake receive failed: {e}"));
-        }
-    };
-
-    if let Some(err) = init_resp.error {
-        transport.shutdown().await;
-        return make_error(-1, format!("handshake error: {}", err.message));
-    }
-
-    // 2. Send initialized notification
-    let notif_msg = serde_json::to_vec(&make_initialized_notification()).unwrap();
-    if let Err(e) = transport.send(&notif_msg).await {
-        transport.shutdown().await;
-        return make_error(-1, format!("initialized notification failed: {e}"));
-    }
-
-    info!("MCP handshake complete (stdio), calling tool: {}", tool);
-
-    // 3. Call tool
-    let call_msg = serde_json::to_vec(&make_tool_call_request(2, tool, arguments)).unwrap();
-    if let Err(e) = transport.send(&call_msg).await {
-        transport.shutdown().await;
-        return make_error(1, format!("tool call send failed: {e}"));
-    }
-
-    let call_resp = match transport.receive().await {
-        Ok(r) => r,
-        Err(e) => {
-            transport.shutdown().await;
-            return make_error(1, format!("tool call receive failed: {e}"));
-        }
-    };
-
-    transport.shutdown().await;
-    map_response(call_resp)
-}
-
-async fn run_http(server: &str, tool: &str, arguments: Option<&Value>) -> CommandResult {
-    let transport = HttpTransport::new(server);
-
-    // 1. Initialize handshake
-    let init_msg = serde_json::to_vec(&make_initialize_request()).unwrap();
-    let init_resp = match transport.send_request(&init_msg).await {
-        Ok(r) => r,
-        Err(e) => return make_error(-1, format!("handshake failed: {e}")),
-    };
-
-    if let Some(err) = init_resp.error {
-        return make_error(-1, format!("handshake error: {}", err.message));
-    }
-
-    // 2. Send initialized notification
-    let notif_msg = serde_json::to_vec(&make_initialized_notification()).unwrap();
-    let _ = transport.send_notification(&notif_msg).await;
-
-    info!("MCP handshake complete (HTTP), calling tool: {}", tool);
-
-    // 3. Call tool
-    let call_msg = serde_json::to_vec(&make_tool_call_request(2, tool, arguments)).unwrap();
-    let call_resp = match transport.send_request(&call_msg).await {
-        Ok(r) => r,
-        Err(e) => return make_error(1, format!("tool call failed: {e}")),
-    };
-
-    map_response(call_resp)
-}
-
 fn map_response(resp: JsonRpcResponse) -> CommandResult {
     if let Some(err) = resp.error {
         return make_error(1, format!("tool error: {}", err.message));
@@ -389,7 +233,6 @@ fn map_response(resp: JsonRpcResponse) -> CommandResult {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    // Extract text from content array
     let mut stdout_parts = Vec::new();
     if let Some(content) = result.get("content").and_then(|c| c.as_array()) {
         for item in content {
@@ -435,27 +278,15 @@ fn map_response(resp: JsonRpcResponse) -> CommandResult {
         CommandResult {
             status: ExecutionStatus::Failed,
             exit_code: Some(1),
-            stdout: CapturedOutput {
-                text: String::new(),
-                truncated: false,
-            },
-            stderr: CapturedOutput {
-                text: stdout,
-                truncated: false,
-            },
+            stdout: CapturedOutput { text: String::new(), truncated: false },
+            stderr: CapturedOutput { text: stdout, truncated: false },
         }
     } else {
         CommandResult {
             status: ExecutionStatus::Succeeded,
             exit_code: Some(0),
-            stdout: CapturedOutput {
-                text: stdout,
-                truncated: false,
-            },
-            stderr: CapturedOutput {
-                text: String::new(),
-                truncated: false,
-            },
+            stdout: CapturedOutput { text: stdout, truncated: false },
+            stderr: CapturedOutput { text: String::new(), truncated: false },
         }
     }
 }
@@ -464,72 +295,24 @@ fn make_error(exit_code: i32, message: String) -> CommandResult {
     CommandResult {
         status: ExecutionStatus::Failed,
         exit_code: Some(exit_code),
-        stdout: CapturedOutput {
-            text: String::new(),
-            truncated: false,
-        },
-        stderr: CapturedOutput {
-            text: message,
-            truncated: false,
-        },
+        stdout: CapturedOutput { text: String::new(), truncated: false },
+        stderr: CapturedOutput { text: message, truncated: false },
     }
 }
 
 // --- Tool Discovery ---
 
-pub async fn discover_tools(server: &str, transport: &McpTransport) -> Result<Vec<Value>, String> {
-    match transport {
-        McpTransport::Stdio => discover_stdio(server).await,
-        McpTransport::Http => discover_http(server).await,
-    }
-}
+pub async fn discover_tools(server_url: &str) -> Result<Vec<Value>, String> {
+    let client = McpClient::new(server_url);
+    client.handshake().await?;
 
-async fn discover_stdio(server: &str) -> Result<Vec<Value>, String> {
-    let mut transport = StdioTransport::spawn(server)?;
+    let list = serde_json::to_value(&make_tools_list_request()).unwrap();
+    let resp = client.send(&list).await?;
 
-    // Handshake
-    let init_msg = serde_json::to_vec(&make_initialize_request()).unwrap();
-    transport.send(&init_msg).await?;
-    let init_resp = transport.receive().await?;
-    if let Some(err) = init_resp.error {
-        transport.shutdown().await;
-        return Err(format!("handshake error: {}", err.message));
-    }
-    let notif_msg = serde_json::to_vec(&make_initialized_notification()).unwrap();
-    transport.send(&notif_msg).await?;
-
-    // List tools
-    let list_msg = serde_json::to_vec(&make_tools_list_request(2)).unwrap();
-    transport.send(&list_msg).await?;
-    let list_resp = transport.receive().await?;
-    transport.shutdown().await;
-
-    extract_tools(list_resp)
-}
-
-async fn discover_http(server: &str) -> Result<Vec<Value>, String> {
-    let transport = HttpTransport::new(server);
-
-    // Handshake
-    let init_msg = serde_json::to_vec(&make_initialize_request()).unwrap();
-    let init_resp = transport.send_request(&init_msg).await?;
-    if let Some(err) = init_resp.error {
-        return Err(format!("handshake error: {}", err.message));
-    }
-    let notif_msg = serde_json::to_vec(&make_initialized_notification()).unwrap();
-    let _ = transport.send_notification(&notif_msg).await;
-
-    // List tools
-    let list_msg = serde_json::to_vec(&make_tools_list_request(2)).unwrap();
-    let list_resp = transport.send_request(&list_msg).await?;
-
-    extract_tools(list_resp)
-}
-
-fn extract_tools(resp: JsonRpcResponse) -> Result<Vec<Value>, String> {
     if let Some(err) = resp.error {
         return Err(format!("tools/list error: {}", err.message));
     }
+
     let result = resp.result.ok_or("empty tools/list response")?;
     let tools = result
         .get("tools")

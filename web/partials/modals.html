@@ -285,15 +285,8 @@
         </div>
         <div id="task-mcp-fields" style="display:none">
             <div class="form-group">
-                <label>Transport</label>
-                <div class="radio-group">
-                    <label><input type="radio" name="mcp-transport" value="stdio" checked> stdio</label>
-                    <label><input type="radio" name="mcp-transport" value="http"> http</label>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Server</label>
-                <input id="f-mcp-server" type="text" placeholder="python3 my_server.py (stdio) or http://host:port/mcp (http)">
+                <label>Server URL</label>
+                <input id="f-mcp-server" type="text" placeholder="http://localhost:8000/mcp">
             </div>
             <div class="form-group" style="display:flex;gap:8px;align-items:end">
                 <div style="flex:1">

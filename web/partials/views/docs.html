@@ -204,7 +204,7 @@ print("Redis: " + result.response);</code></pre>
                         <tr><td><code>rabbitmq</code></td><td><code>amqp-publish</code> via shell</td><td>url, exchange, routing_key, message, content_type</td></tr>
                         <tr><td><code>mqtt</code></td><td><code>mosquitto_pub</code> via shell</td><td>broker, port, topic, message, qos, username, password</td></tr>
                         <tr><td><code>redis</code></td><td><code>redis-cli PUBLISH</code> via shell</td><td>url, channel, message</td></tr>
-                        <tr><td><code>mcp</code></td><td>Calls a tool on an MCP server via JSON-RPC</td><td>server, transport, tool, arguments</td></tr>
+                        <tr><td><code>mcp</code></td><td>Calls a tool on an MCP server via JSON-RPC</td><td>server_url, tool, arguments</td></tr>
                     </table>
                     <p>The first 5 types are <strong>built-in</strong> and run on the controller or standard agents. The <code>custom</code> type is for custom agents. File Push deploys files to agents. Message queue types (Kafka, RabbitMQ, MQTT, Redis) shell out to CLI tools.</p>
 
@@ -249,31 +249,23 @@ print("Redis: " + result.response);</code></pre>
 <pre><code>{"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"}</code></pre>
 
                     <h3>MCP (Model Context Protocol)</h3>
-                    <p>Call tools on MCP-compatible servers. Supports stdio (spawn subprocess) and HTTP transports.</p>
-<pre><code>{"type": "mcp", "transport": "stdio", "server": "python3 my_mcp_server.py", "tool": "analyze_logs", "arguments": {"path": "/var/log/app.log"}}</code></pre>
+                    <p>Call tools on MCP-compatible servers. Connects to MCP servers via HTTP.</p>
+<pre><code>{"type": "mcp", "server_url": "http://localhost:8000/mcp", "tool": "analyze_logs", "arguments": {"path": "/var/log/app.log"}}</code></pre>
                     <p>Use "Discover Tools" in the job form to browse available tools from a server. Tool results are captured as stdout. The <code>arguments</code> field supports <code>{{VAR_NAME}}</code> variable substitution.</p>
 
                     <h4>Quick Start with the Test Server</h4>
 <pre><code># Install the MCP Python SDK
 pip install mcp
 
-# Test the included example server
+# Run the included example server (starts HTTP server)
 python3 examples/mcp_test_server.py</code></pre>
                     <p>Then create an MCP job with:</p>
                     <ul>
-                        <li><strong>Transport:</strong> Stdio</li>
-                        <li><strong>Server:</strong> <code>python3 examples/mcp_test_server.py</code></li>
+                        <li><strong>Server URL:</strong> <code>http://localhost:8000/mcp</code></li>
                         <li><strong>Tool:</strong> <code>greet</code></li>
                         <li><strong>Arguments:</strong> <code>{"name": "World"}</code></li>
                     </ul>
                     <p>Available test tools: <code>greet</code>, <code>add</code>, <code>system_info</code>, <code>word_count</code>, <code>reverse</code>.</p>
-
-                    <h4>Other MCP Servers</h4>
-                    <ul>
-                        <li><strong>SQLite:</strong> <code>pip install mcp-server-sqlite</code> &rarr; server: <code>mcp-server-sqlite --db-path /path/to/db</code></li>
-                        <li><strong>Filesystem:</strong> <code>npx @modelcontextprotocol/server-filesystem /tmp</code></li>
-                        <li>Browse more at <a href="https://github.com/modelcontextprotocol/servers" style="color:var(--accent)">github.com/modelcontextprotocol/servers</a></li>
-                    </ul>
                 </div>
 
                 <div class="docs-section" id="doc-api">
@@ -342,7 +334,7 @@ python3 examples/mcp_test_server.py</code></pre>
                         <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
                         <tr><td>GET</td><td><code>/api/health</code></td><td>Health check (no auth)</td></tr>
                         <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current key info</td></tr>
-                        <tr><td>GET</td><td><code>/api/mcp/tools</code></td><td>Discover tools from an MCP server (query: server, transport)</td></tr>
+                        <tr><td>GET</td><td><code>/api/mcp/tools</code></td><td>Discover tools from an MCP server (query: server_url)</td></tr>
                     </table>
                 </div>
 

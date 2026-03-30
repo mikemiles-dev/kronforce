@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 """
-Simple MCP test server for Kronforce.
+Simple MCP test server for Kronforce (HTTP transport).
 
 This server exposes a few basic tools via the Model Context Protocol (MCP)
-over stdio transport. Use it to test the MCP task type in Kronforce.
+over HTTP. Use it to test the MCP task type in Kronforce.
 
 Setup:
     pip install mcp
 
+Run:
+    python3 examples/mcp_test_server.py
+
+    Server starts on http://localhost:8000/mcp
+
 Usage in Kronforce:
     1. Go to Jobs > Create Job
     2. Select task type: MCP Tool
-    3. Transport: Stdio
-    4. Server: python3 examples/mcp_test_server.py
-    5. Click "Discover Tools" to see available tools
-    6. Select a tool and fill in arguments
+    3. Server URL: http://localhost:8000/mcp
+    4. Click "Discover Tools" to see available tools
+    5. Select a tool and fill in arguments
 
 Available tools:
     - greet(name) — Returns a greeting message
@@ -68,4 +72,6 @@ def reverse(text: str) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    print("Starting MCP test server on http://localhost:8000/mcp")
+    print("Press Ctrl+C to stop")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)

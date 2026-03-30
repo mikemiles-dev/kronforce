@@ -97,7 +97,7 @@
 | `rabbitmq` | `amqp-publish` via shell | `url`, `exchange`, `routing_key`, `message`, `content_type` |
 | `mqtt` | `mosquitto_pub` via shell | `broker`, `port`, `topic`, `message`, `qos`, `username`, `password` |
 | `redis` | `redis-cli PUBLISH` via shell | `url`, `channel`, `message` |
-| `mcp` | JSON-RPC to MCP server (stdio or HTTP) | `server`, `transport`, `tool`, `arguments` |
+| `mcp` | JSON-RPC to MCP server via HTTP | `server_url`, `tool`, `arguments` |
 
 ## Schedule Types
 

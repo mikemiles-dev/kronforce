@@ -396,20 +396,12 @@ pub async fn run_task(
             message,
         } => tasks::run_redis_task(url, channel, message, run_as, timeout_secs, cancel_rx).await,
         TaskType::Mcp {
-            server,
-            transport,
+            server_url,
             tool,
             arguments,
         } => {
-            tasks::run_mcp_task(
-                server,
-                transport,
-                tool,
-                arguments.as_ref(),
-                timeout_secs,
-                cancel_rx,
-            )
-            .await
+            tasks::run_mcp_task(server_url, tool, arguments.as_ref(), timeout_secs, cancel_rx)
+                .await
         }
     }
 }

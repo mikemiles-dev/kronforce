@@ -275,10 +275,10 @@ curl http://localhost:8080/api/timeline-detail/{bucket}          # Executions in
 ## MCP Tool Discovery
 
 ```bash
-curl "http://localhost:8080/api/mcp/tools?server=python3+examples/mcp_test_server.py&transport=stdio"
+curl "http://localhost:8080/api/mcp/tools?server_url=http://localhost:8000/mcp"
 ```
 
-Connects to an MCP server, performs the protocol handshake, and returns available tools with their input schemas. Use `transport=stdio` for subprocess servers or `transport=http` for remote HTTP servers.
+Connects to an MCP server via HTTP, performs the protocol handshake, and returns available tools with their input schemas.
 
 ### MCP Task Example
 
@@ -291,8 +291,7 @@ curl -X POST http://localhost:8080/api/jobs \
     "name": "mcp-greet",
     "task": {
       "type": "mcp",
-      "transport": "stdio",
-      "server": "python3 examples/mcp_test_server.py",
+      "server_url": "http://localhost:8000/mcp",
       "tool": "greet",
       "arguments": {"name": "World"}
     },

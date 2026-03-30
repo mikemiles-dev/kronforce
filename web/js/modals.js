@@ -369,8 +369,7 @@ function buildTaskFromForm() {
         const server = document.getElementById('f-mcp-server').value.trim();
         const tool = document.getElementById('f-mcp-tool').value.trim();
         if (!server || !tool) return null;
-        const transport = document.querySelector('input[name="mcp-transport"]:checked').value;
-        const task = { type: 'mcp', server, transport, tool };
+        const task = { type: 'mcp', server_url: server, tool };
         const args = document.getElementById('f-mcp-args').value.trim();
         if (args) { try { task.arguments = JSON.parse(args); } catch(e) { toast('Invalid arguments JSON', 'error'); return null; } }
         return task;
@@ -463,9 +462,7 @@ function populateTaskForm(task) {
         document.getElementById('f-redis-channel').value = task.channel || '';
         document.getElementById('f-redis-message').value = task.message || '';
     } else if (type === 'mcp') {
-        const transportRadio = document.querySelector('input[name="mcp-transport"][value="' + (task.transport || 'stdio') + '"]');
-        if (transportRadio) transportRadio.checked = true;
-        document.getElementById('f-mcp-server').value = task.server || '';
+        document.getElementById('f-mcp-server').value = task.server_url || '';
         const toolSelect = document.getElementById('f-mcp-tool');
         toolSelect.innerHTML = '<option value="' + esc(task.tool || '') + '" selected>' + esc(task.tool || '') + '</option>';
         document.getElementById('f-mcp-args').value = task.arguments ? JSON.stringify(task.arguments, null, 2) : '';
@@ -475,9 +472,8 @@ function populateTaskForm(task) {
 async function discoverMcpTools() {
     const server = document.getElementById('f-mcp-server').value.trim();
     if (!server) { toast('Enter a server first', 'error'); return; }
-    const transport = document.querySelector('input[name="mcp-transport"]:checked').value;
     try {
-        const data = await api('GET', '/api/mcp/tools?server=' + encodeURIComponent(server) + '&transport=' + transport);
+        const data = await api('GET', '/api/mcp/tools?server_url=' + encodeURIComponent(server));
         const toolSelect = document.getElementById('f-mcp-tool');
         toolSelect.innerHTML = '<option value="">Select a tool...</option>';
         for (const t of data.tools) {
