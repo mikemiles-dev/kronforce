@@ -94,6 +94,7 @@ struct StdioTransport {
     child: tokio::process::Child,
     reader: BufReader<tokio::process::ChildStdout>,
     stdin: tokio::process::ChildStdin,
+    stderr: tokio::process::ChildStderr,
 }
 
 impl StdioTransport {
@@ -117,12 +118,14 @@ impl StdioTransport {
 
         let stdin = child.stdin.take().ok_or("no stdin")?;
         let stdout = child.stdout.take().ok_or("no stdout")?;
+        let stderr = child.stderr.take().ok_or("no stderr")?;
         let reader = BufReader::new(stdout);
 
         Ok(Self {
             child,
             reader,
             stdin,
+            stderr,
         })
     }
 
@@ -151,7 +154,14 @@ impl StdioTransport {
                 .await
                 .map_err(|e| format!("read error: {e}"))?;
             if n == 0 {
-                return Err("server closed connection".to_string());
+                // Server closed — capture stderr for diagnostics
+                let mut stderr_buf = Vec::new();
+                let _ = tokio::io::AsyncReadExt::read_to_end(&mut self.stderr, &mut stderr_buf).await;
+                let stderr_text = String::from_utf8_lossy(&stderr_buf);
+                if stderr_text.is_empty() {
+                    return Err("server closed connection".to_string());
+                }
+                return Err(format!("server closed connection — stderr: {}", stderr_text.trim()));
             }
             let line = line.trim();
             if line.is_empty() {

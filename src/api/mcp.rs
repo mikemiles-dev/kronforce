@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::Json;
 use axum::extract::{Query, State};
 use serde::Deserialize;
@@ -22,9 +24,14 @@ pub(crate) async fn mcp_discover_tools(
         _ => McpTransport::Stdio,
     };
 
-    let tools = discover_tools(&query.server, &transport)
-        .await
-        .map_err(|e| AppError::BadRequest(format!("MCP discovery failed: {e}")))?;
+    // 15 second timeout — MCP servers can be slow to start
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        discover_tools(&query.server, &transport),
+    )
+    .await
+    .map_err(|_| AppError::BadRequest("MCP discovery timed out after 15 seconds".to_string()))?
+    .map_err(|e| AppError::BadRequest(format!("MCP discovery failed: {e}")))?;
 
-    Ok(Json(serde_json::json!({ "tools": tools })))
+    Ok(Json(serde_json::json!({ "tools": result })))
 }
