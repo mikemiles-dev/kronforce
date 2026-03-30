@@ -129,6 +129,7 @@ jobs:
           file: deploy/docker/Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
+          provenance: false
           cache-from: type=gha,scope=${{ steps.platform.outputs.suffix }}
           cache-to: type=gha,mode=max,scope=${{ steps.platform.outputs.suffix }}
           tags: |
