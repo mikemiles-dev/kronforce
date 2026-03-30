@@ -107,6 +107,7 @@ impl McpClient {
             .client
             .post(&self.url)
             .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
             .json(msg)
             .send()
             .await
@@ -141,6 +142,7 @@ impl McpClient {
         self.client
             .post(&self.url)
             .header("Content-Type", "application/json")
+            .header("Accept", "application/json, text/event-stream")
             .json(msg)
             .send()
             .await
