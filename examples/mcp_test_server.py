@@ -30,7 +30,7 @@ Available tools:
 
 from mcp.server.fastmcp import FastMCP
 
-mcp = FastMCP("kronforce-test-server")
+mcp = FastMCP("kronforce-test-server", host="0.0.0.0", port=8000)
 
 
 @mcp.tool()
@@ -74,4 +74,4 @@ def reverse(text: str) -> str:
 if __name__ == "__main__":
     print("Starting MCP test server on http://localhost:8000/mcp")
     print("Press Ctrl+C to stop")
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+    mcp.run(transport="streamable-http")
