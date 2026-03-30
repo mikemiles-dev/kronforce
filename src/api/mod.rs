@@ -10,6 +10,7 @@ mod callbacks;
 mod events;
 mod executions;
 mod jobs;
+mod mcp;
 pub mod rate_limit;
 mod scripts;
 mod settings;
@@ -125,6 +126,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         )
         .route("/api/notifications/test", post(settings::test_notification))
         .route("/api/stats/charts", get(stats::chart_stats))
+        .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
         .route(
             "/api/variables",

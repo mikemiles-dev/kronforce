@@ -9,7 +9,7 @@ mod local;
 pub mod notifications;
 pub mod output_rules;
 pub mod scripts;
-mod tasks;
+pub(crate) mod tasks;
 
 pub use local::run_task;
 

@@ -228,6 +228,7 @@ function updateTaskFields() {
     document.getElementById('task-rabbitmq-fields').style.display = type === 'rabbitmq' ? '' : 'none';
     document.getElementById('task-mqtt-fields').style.display = type === 'mqtt' ? '' : 'none';
     document.getElementById('task-redis-fields').style.display = type === 'redis' ? '' : 'none';
+    document.getElementById('task-mcp-fields').style.display = type === 'mcp' ? '' : 'none';
     if (type === 'script') populateScriptDropdown();
 }
 
@@ -364,6 +365,16 @@ function buildTaskFromForm() {
         if (!url || !channel || !message) return null;
         return { type: 'redis', url, channel, message };
     }
+    if (type === 'mcp') {
+        const server = document.getElementById('f-mcp-server').value.trim();
+        const tool = document.getElementById('f-mcp-tool').value.trim();
+        if (!server || !tool) return null;
+        const transport = document.querySelector('input[name="mcp-transport"]:checked').value;
+        const task = { type: 'mcp', server, transport, tool };
+        const args = document.getElementById('f-mcp-args').value.trim();
+        if (args) { try { task.arguments = JSON.parse(args); } catch(e) { toast('Invalid arguments JSON', 'error'); return null; } }
+        return task;
+    }
     return null;
 }
 
@@ -451,6 +462,31 @@ function populateTaskForm(task) {
         document.getElementById('f-redis-url').value = task.url || '';
         document.getElementById('f-redis-channel').value = task.channel || '';
         document.getElementById('f-redis-message').value = task.message || '';
+    } else if (type === 'mcp') {
+        const transportRadio = document.querySelector('input[name="mcp-transport"][value="' + (task.transport || 'stdio') + '"]');
+        if (transportRadio) transportRadio.checked = true;
+        document.getElementById('f-mcp-server').value = task.server || '';
+        const toolSelect = document.getElementById('f-mcp-tool');
+        toolSelect.innerHTML = '<option value="' + esc(task.tool || '') + '" selected>' + esc(task.tool || '') + '</option>';
+        document.getElementById('f-mcp-args').value = task.arguments ? JSON.stringify(task.arguments, null, 2) : '';
+    }
+}
+
+async function discoverMcpTools() {
+    const server = document.getElementById('f-mcp-server').value.trim();
+    if (!server) { toast('Enter a server first', 'error'); return; }
+    const transport = document.querySelector('input[name="mcp-transport"]:checked').value;
+    try {
+        const data = await api('GET', '/api/mcp/tools?server=' + encodeURIComponent(server) + '&transport=' + transport);
+        const toolSelect = document.getElementById('f-mcp-tool');
+        toolSelect.innerHTML = '<option value="">Select a tool...</option>';
+        for (const t of data.tools) {
+            toolSelect.innerHTML += '<option value="' + esc(t.name) + '">' + esc(t.name) + (t.description ? ' — ' + esc(t.description) : '') + '</option>';
+        }
+        if (data.tools.length === 0) toast('No tools found on this server', 'info');
+        else toast(data.tools.length + ' tools discovered');
+    } catch (e) {
+        toast('Discovery failed: ' + e.message, 'error');
     }
 }
 
