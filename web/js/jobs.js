@@ -186,7 +186,7 @@ function renderJobsTable() {
         const checked = selectedJobs.has(j.id) ? ' checked' : '';
         html += '<tr class="' + rowClass + '">';
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
-        html += '<td><span class="job-name" onclick="showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
+        html += '<td><span class="job-name" onmousedown="this._md=Date.now()" onclick="if(window.getSelection().toString()||Date.now()-this._md>300)return;showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
         const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
         if (isBlocked) {
             html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';

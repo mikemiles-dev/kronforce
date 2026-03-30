@@ -1051,7 +1051,6 @@ async function renderMap() {
         return;
     }
 
-    const svg = document.getElementById('map-svg');
     const container = document.getElementById('map-container');
 
     if (jobs.length === 0) {
@@ -1065,6 +1064,12 @@ async function renderMap() {
         });
         return;
     }
+
+    // Restore the SVG element if it was replaced by empty state
+    if (!document.getElementById('map-svg')) {
+        container.innerHTML = '<svg id="map-svg"></svg>';
+    }
+    const svg = document.getElementById('map-svg');
 
     // Build adjacency: job -> jobs that depend on it (children)
     const jobMap = {};
