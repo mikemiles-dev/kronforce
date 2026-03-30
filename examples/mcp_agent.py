@@ -199,10 +199,21 @@ def execute_task(task_data):
 
 
 def main():
+    if not AGENT_KEY:
+        print("ERROR: KRONFORCE_AGENT_KEY is required.")
+        print()
+        print("Usage:")
+        print("  KRONFORCE_AGENT_KEY=kf_your_agent_key python3 mcp_agent.py")
+        print()
+        print("Get your agent key from the Kronforce dashboard: Settings > API Keys")
+        print("The key must have the 'agent' role.")
+        sys.exit(1)
+
     print(f"Kronforce MCP Agent")
-    print(f"  Controller: {CONTROLLER_URL}")
-    print(f"  MCP Server: {MCP_SERVER_URL}")
-    print(f"  Agent Name: {AGENT_NAME}")
+    print(f"  Controller:  {CONTROLLER_URL}")
+    print(f"  MCP Server:  {MCP_SERVER_URL}")
+    print(f"  Agent Name:  {AGENT_NAME}")
+    print(f"  Agent Key:   {AGENT_KEY[:11]}...")
     print()
 
     agent_id = register()
