@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Job Groups** — organize jobs into named groups with a dedicated Groups page, Default group for all new jobs, group filter on jobs list, and group dropdown in job create/edit modal
 - **Dashboard Charts** — donut charts for execution outcomes, task types, and schedule types with SVG rendering
 - **Dashboard Tabs** — tabbed layout (Overview, Charts, Activity, Infrastructure) to reduce scrolling
+- **MCP Task Type** — call tools on MCP (Model Context Protocol) servers via stdio or HTTP transport, with tool discovery API and dynamic UI form
 - **Execution Retry** — automatic retry on failure/timeout with configurable max retries, delay, and exponential backoff
 - **API Rate Limiting** — per-IP (public), per-API-key (authenticated), and per-key (agent) rate limits with 429 responses and Retry-After headers
 - **Audit Log** — append-only audit trail for all sensitive operations (key management, job CRUD, script changes, settings, variables, agent deregister) with query API
