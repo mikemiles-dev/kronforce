@@ -700,6 +700,7 @@ async function doLogin() {
         currentUser = await api('GET', '/api/auth/me');
         document.getElementById('login-error').textContent = '';
         showApp();
+        renderSidebarUser();
         handleRoute();
     } catch (e) {
         document.getElementById('login-error').textContent = 'Invalid API key';
@@ -717,10 +718,22 @@ async function checkAuth() {
     try {
         currentUser = await api('GET', '/api/auth/me');
         showApp();
+        renderSidebarUser();
         return true;
     } catch (e) {
         // If 401, login screen is already shown by the api() function
         return false;
+    }
+}
+
+function renderSidebarUser() {
+    const el = document.getElementById('sidebar-user');
+    if (!el) return;
+    if (currentUser && currentUser.authenticated) {
+        el.innerHTML = '<span class="sidebar-user-name">' + esc(currentUser.name) + '</span>' +
+            '<span class="sidebar-user-role">' + esc(currentUser.role) + '</span>';
+    } else {
+        el.innerHTML = '';
     }
 }
 
