@@ -92,7 +92,14 @@ jobs:
 
   docker:
     needs: build
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
@@ -111,20 +118,56 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Build and push Docker image
+      - name: Platform suffix
+        id: platform
+        run: echo "suffix=$(echo '${{ matrix.platform }}' | tr '/' '-')" >> $GITHUB_OUTPUT
+
+      - name: Build and push platform image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: deploy/docker/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ steps.platform.outputs.suffix }}
+          cache-to: type=gha,mode=max,scope=${{ steps.platform.outputs.suffix }}
           tags: |
-            ghcr.io/mikemiles-dev/kronforce:${{ steps.version.outputs.version }}
-            ghcr.io/mikemiles-dev/kronforce:latest
+            ghcr.io/mikemiles-dev/kronforce:${{ steps.version.outputs.version }}-${{ steps.platform.outputs.suffix }}
           labels: |
             org.opencontainers.image.title=Kronforce
             org.opencontainers.image.description=Workload automation and job scheduling engine
             org.opencontainers.image.source=https://github.com/mikemiles-dev/kronforce
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+  docker-manifest:
+    needs: docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create and push multi-arch manifest
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          IMAGE=ghcr.io/mikemiles-dev/kronforce
+
+          # Create versioned manifest
+          docker manifest create ${IMAGE}:${VERSION} \
+            ${IMAGE}:${VERSION}-linux-amd64 \
+            ${IMAGE}:${VERSION}-linux-arm64
+          docker manifest push ${IMAGE}:${VERSION}
+
+          # Create latest manifest
+          docker manifest create ${IMAGE}:latest \
+            ${IMAGE}:${VERSION}-linux-amd64 \
+            ${IMAGE}:${VERSION}-linux-arm64
+          docker manifest push ${IMAGE}:latest
