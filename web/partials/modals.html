@@ -1,4 +1,4 @@
-<div id="create-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('create-modal')">
+<div id="create-modal" class="modal-overlay" style="display:none" onmousedown="this._mdt=event.target" onclick="if(event.target===this&&this._mdt===this)closeModal('create-modal')">
     <div class="modal-card">
         <div class="modal-header">
             <h3 id="modal-title">Create Job</h3>
@@ -537,7 +537,7 @@
     </div>
 </div>
 
-<div id="exec-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('exec-modal')">
+<div id="exec-modal" class="modal-overlay" style="display:none" onmousedown="this._mdt=event.target" onclick="if(event.target===this&&this._mdt===this)closeModal('exec-modal')">
     <div class="modal-card exec-modal-card">
         <div class="modal-header"><h3>Execution Details</h3></div>
         <div class="modal-body" id="exec-detail-content"></div>
@@ -548,7 +548,7 @@
     </div>
 </div>
 
-<div id="waiting-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeModal('waiting-modal')">
+<div id="waiting-modal" class="modal-overlay" style="display:none" onmousedown="this._mdt=event.target" onclick="if(event.target===this&&this._mdt===this)closeModal('waiting-modal')">
     <div class="modal-card">
         <div class="modal-header"><h3>Waiting on Dependencies</h3></div>
         <div class="modal-body" id="waiting-detail-content"></div>

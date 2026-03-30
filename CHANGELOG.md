@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Scheduler cache failure** — preserves stale cache instead of dropping all jobs
 - Input validation for job names, cron expressions, script size, group names
 - `alert()` replaced with `toast()` in frontend variables page
+- **Modal click-to-close** — modals no longer close when clicking inside form fields or dragging (tracks mousedown origin)
+- **Executions page job names** — job names now resolve correctly instead of showing UUID hashes
 
 ### Security
 - API rate limiting on all endpoints (configurable, 3 tiers)
