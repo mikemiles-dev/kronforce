@@ -64,7 +64,11 @@ struct HealthResponse {
 }
 
 /// Builds the complete Axum router with all API, agent, and public routes.
-pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters, mcp_enabled: bool) -> Router {
+pub fn router(
+    state: AppState,
+    rate_limiters: rate_limit::RateLimiters,
+    mcp_enabled: bool,
+) -> Router {
     // Routes that require auth
     let authed = Router::new()
         .route("/api/jobs", get(jobs::list_jobs).post(jobs::create_job))
