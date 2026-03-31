@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::sync::oneshot;
 use tracing::info;
 
@@ -124,9 +124,10 @@ impl McpClient {
 
         // Capture session ID from response
         if let Some(sid) = resp.headers().get("mcp-session-id")
-            && let Ok(s) = sid.to_str() {
-                self.session_id = Some(s.to_string());
-            }
+            && let Ok(s) = sid.to_str()
+        {
+            self.session_id = Some(s.to_string());
+        }
 
         if !resp.status().is_success() {
             let status = resp.status();
@@ -187,17 +188,22 @@ fn parse_sse_response(body: &str) -> Result<JsonRpcResponse, String> {
     for line in body.lines() {
         let line = line.trim();
         if let Some(data) = line.strip_prefix("data: ")
-            && let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(data) {
-                return Ok(resp);
-            }
+            && let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(data)
+        {
+            return Ok(resp);
+        }
         // Also try parsing bare JSON lines (some servers don't use SSE framing)
         if line.starts_with('{')
             && let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line)
-                && resp.id.is_some() {
-                    return Ok(resp);
-                }
+            && resp.id.is_some()
+        {
+            return Ok(resp);
+        }
     }
-    Err(format!("no JSON-RPC response found in SSE body: {}", &body[..body.len().min(200)]))
+    Err(format!(
+        "no JSON-RPC response found in SSE body: {}",
+        &body[..body.len().min(200)]
+    ))
 }
 
 /// Parse plain JSON response body.
@@ -208,11 +214,17 @@ fn parse_json_response(body: &str) -> Result<JsonRpcResponse, String> {
             continue;
         }
         if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line)
-            && resp.id.is_some() {
-                return Ok(resp);
-            }
+            && resp.id.is_some()
+        {
+            return Ok(resp);
+        }
     }
-    serde_json::from_str(body).map_err(|e| format!("JSON parse error: {e} — body: {}", &body[..body.len().min(200)]))
+    serde_json::from_str(body).map_err(|e| {
+        format!(
+            "JSON parse error: {e} — body: {}",
+            &body[..body.len().min(200)]
+        )
+    })
 }
 
 // --- Task Execution ---
@@ -296,11 +308,17 @@ fn map_response(resp: JsonRpcResponse) -> CommandResult {
                     }
                 }
                 "image" => {
-                    let mime = item.get("mimeType").and_then(|m| m.as_str()).unwrap_or("image/*");
+                    let mime = item
+                        .get("mimeType")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("image/*");
                     stdout_parts.push(format!("[image: {}]", mime));
                 }
                 "audio" => {
-                    let mime = item.get("mimeType").and_then(|m| m.as_str()).unwrap_or("audio/*");
+                    let mime = item
+                        .get("mimeType")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("audio/*");
                     stdout_parts.push(format!("[audio: {}]", mime));
                 }
                 "resource" | "resource_link" => {
@@ -324,15 +342,27 @@ fn map_response(resp: JsonRpcResponse) -> CommandResult {
         CommandResult {
             status: ExecutionStatus::Failed,
             exit_code: Some(1),
-            stdout: CapturedOutput { text: String::new(), truncated: false },
-            stderr: CapturedOutput { text: stdout, truncated: false },
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: stdout,
+                truncated: false,
+            },
         }
     } else {
         CommandResult {
             status: ExecutionStatus::Succeeded,
             exit_code: Some(0),
-            stdout: CapturedOutput { text: stdout, truncated: false },
-            stderr: CapturedOutput { text: String::new(), truncated: false },
+            stdout: CapturedOutput {
+                text: stdout,
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
         }
     }
 }
@@ -341,8 +371,14 @@ fn make_error(exit_code: i32, message: String) -> CommandResult {
     CommandResult {
         status: ExecutionStatus::Failed,
         exit_code: Some(exit_code),
-        stdout: CapturedOutput { text: String::new(), truncated: false },
-        stderr: CapturedOutput { text: message, truncated: false },
+        stdout: CapturedOutput {
+            text: String::new(),
+            truncated: false,
+        },
+        stderr: CapturedOutput {
+            text: message,
+            truncated: false,
+        },
     }
 }
 

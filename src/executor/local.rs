@@ -400,8 +400,14 @@ pub async fn run_task(
             tool,
             arguments,
         } => {
-            tasks::run_mcp_task(server_url, tool, arguments.as_ref(), timeout_secs, cancel_rx)
-                .await
+            tasks::run_mcp_task(
+                server_url,
+                tool,
+                arguments.as_ref(),
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
         }
     }
 }

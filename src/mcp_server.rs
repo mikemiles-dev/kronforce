@@ -8,7 +8,7 @@ use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::response::Response;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::api::AppState;
@@ -233,10 +233,7 @@ fn error_response(status: StatusCode, message: &str) -> Response {
 
 // --- Main Handler ---
 
-pub async fn mcp_handler(
-    State(state): State<AppState>,
-    req: Request,
-) -> Response {
+pub async fn mcp_handler(State(state): State<AppState>, req: Request) -> Response {
     // Validate Accept header
     let accept = req
         .headers()
@@ -252,7 +249,10 @@ pub async fn mcp_handler(
 
     // Get API key for role checking
     let api_key = req.extensions().get::<ApiKey>().cloned();
-    let role = api_key.as_ref().map(|k| k.role).unwrap_or(ApiKeyRole::Admin); // no keys = full access
+    let role = api_key
+        .as_ref()
+        .map(|k| k.role)
+        .unwrap_or(ApiKeyRole::Admin); // no keys = full access
 
     // Generate or extract session ID
     let session_id = req
@@ -320,10 +320,7 @@ pub async fn mcp_handler(
         }
         "tools/call" => {
             let params = msg.params.unwrap_or(json!({}));
-            let tool_name = params
-                .get("name")
-                .and_then(|n| n.as_str())
-                .unwrap_or("");
+            let tool_name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
 
             // Check tool exists and role is sufficient
@@ -370,11 +367,7 @@ pub async fn mcp_handler(
 
 // --- Tool Execution ---
 
-async fn execute_tool(
-    name: &str,
-    args: &Value,
-    state: &AppState,
-) -> Result<String, String> {
+async fn execute_tool(name: &str, args: &Value, state: &AppState) -> Result<String, String> {
     match name {
         "list_jobs" => tool_list_jobs(args, state).await,
         "get_job" => tool_get_job(args, state).await,
@@ -392,8 +385,14 @@ async fn execute_tool(
 
 async fn tool_list_jobs(args: &Value, state: &AppState) -> Result<String, String> {
     let group = args.get("group").and_then(|v| v.as_str()).map(String::from);
-    let status = args.get("status").and_then(|v| v.as_str()).map(String::from);
-    let search = args.get("search").and_then(|v| v.as_str()).map(String::from);
+    let status = args
+        .get("status")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    let search = args
+        .get("search")
+        .and_then(|v| v.as_str())
+        .map(String::from);
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
 
     let jobs = db_call(&state.db, move |db| {
@@ -454,12 +453,9 @@ async fn tool_create_job(args: &Value, state: &AppState) -> Result<String, Strin
         .and_then(|v| v.as_str())
         .ok_or("'name' is required")?
         .to_string();
-    let task: TaskType = serde_json::from_value(
-        args.get("task")
-            .cloned()
-            .ok_or("'task' is required")?,
-    )
-    .map_err(|e| format!("invalid task: {e}"))?;
+    let task: TaskType =
+        serde_json::from_value(args.get("task").cloned().ok_or("'task' is required")?)
+            .map_err(|e| format!("invalid task: {e}"))?;
     let schedule: ScheduleKind = serde_json::from_value(
         args.get("schedule")
             .cloned()
@@ -542,7 +538,10 @@ async fn tool_trigger_job(args: &Value, state: &AppState) -> Result<String, Stri
 }
 
 async fn tool_list_executions(args: &Value, state: &AppState) -> Result<String, String> {
-    let status = args.get("status").and_then(|v| v.as_str()).map(String::from);
+    let status = args
+        .get("status")
+        .and_then(|v| v.as_str())
+        .map(String::from);
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
 
     let execs = db_call(&state.db, move |db| {
@@ -655,7 +654,10 @@ async fn tool_get_system_stats(state: &AppState) -> Result<String, String> {
         .await
         .unwrap_or_default();
 
-    let online_agents = agents.iter().filter(|a| a.status == AgentStatus::Online).count();
+    let online_agents = agents
+        .iter()
+        .filter(|a| a.status == AgentStatus::Online)
+        .count();
 
     let stats = json!({
         "total_jobs": job_count,
