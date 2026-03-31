@@ -793,7 +793,14 @@ applyTheme();
 // --- Routing ---
 
 function updateHash() {
-    const newHash = currentJobId ? '#/jobs/' + currentJobId : '#/' + currentPage;
+    let newHash;
+    if (currentJobId) {
+        newHash = '#/jobs/' + currentJobId;
+    } else if (currentExecId && currentPage === 'executions') {
+        newHash = '#/executions/' + currentExecId;
+    } else {
+        newHash = '#/' + currentPage;
+    }
     if (location.hash !== newHash) {
         history.pushState(null, '', newHash);
     }
@@ -809,6 +816,16 @@ function handleRoute() {
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
         document.getElementById('tab-jobs').classList.add('active');
         showJobDetail(parts[1]);
+        return;
+    }
+
+    if (parts[0] === 'executions' && parts[1]) {
+        // Execution detail: #/executions/{id}
+        currentPage = 'executions';
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-executions').classList.add('active');
+        showPage('executions');
+        showExecDetail(parts[1]);
         return;
     }
 

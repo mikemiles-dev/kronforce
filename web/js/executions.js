@@ -46,6 +46,7 @@ function renderExecTable(execs, { wrapId, showJobColumn, emptyMessage } = {}) {
 
 async function showExecDetail(id) {
     currentExecId = id;
+    if (typeof updateHash === 'function') updateHash();
     try {
         const e = await api('GET', '/api/executions/' + id);
         const content = document.getElementById('exec-detail-content');
@@ -269,6 +270,7 @@ function infoField(label, value, className) {
 function closeExecModal() {
     closeModal('exec-modal');
     currentExecId = null;
+    if (typeof updateHash === 'function') updateHash();
 }
 
 async function showWaitingDetail(jobId) {
