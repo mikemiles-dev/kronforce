@@ -67,6 +67,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 | `KRONFORCE_RATE_LIMIT_PUBLIC` | `30` | Max requests/min for public endpoints (per IP) |
 | `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per API key) |
 | `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per API key) |
+| `KRONFORCE_MCP_ENABLED` | `true` | Enable/disable the MCP server endpoint |
 
 ### Agent
 
@@ -121,6 +122,24 @@ The dashboard also includes a **Docs** page with the same content accessible fro
 ## Authentication
 
 API keys with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role.
+
+## MCP Server
+
+Kronforce acts as an MCP (Model Context Protocol) server, letting AI assistants discover and manage jobs. The MCP endpoint is enabled by default at `POST /mcp`.
+
+**Connect an MCP client:**
+```bash
+# Discover available tools
+curl -X POST http://localhost:8080/mcp \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"my-client","version":"1.0"}}}'
+```
+
+**Available tools:** `list_jobs`, `get_job`, `create_job`, `trigger_job`, `list_executions`, `get_execution`, `list_agents`, `list_groups`, `list_events`, `get_system_stats`
+
+Tools are filtered by API key role — viewers get read-only tools, operators can create and trigger jobs. Disable with `KRONFORCE_MCP_ENABLED=false`.
 
 ## Development
 
