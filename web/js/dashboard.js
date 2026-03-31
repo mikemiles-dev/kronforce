@@ -267,12 +267,16 @@ async function renderDashboard() {
         recentExecs = recentExecs.slice(0, 8);
 
         if (recentExecs.length > 0) {
+            // Track which job we've seen first (latest per job)
+            const seenJobs = new Set();
             let html = '<table class="dash-mini-table"><tbody>';
             for (const e of recentExecs) {
-                html += '<tr style="cursor:pointer" onclick="showJobDetail(\'' + e.job_id + '\')">';
-                html += '<td><span class="job-name">' + esc(e.job_name) + '</span></td>';
+                const isLatest = !seenJobs.has(e.job_id);
+                seenJobs.add(e.job_id);
+                html += '<tr style="cursor:pointer' + (isLatest ? ';border-left:3px solid var(--accent)' : '') + '" onclick="showJobDetail(\'' + e.job_id + '\')">';
+                html += '<td><span class="job-name">' + esc(e.job_name) + '</span>' + groupBadge(jobs.find(j => j.id === e.job_id)?.group) + '</td>';
                 html += '<td>' + badge(e.status) + '</td>';
-                html += '<td><span class="time-text">' + (e.finished_at ? fmtDate(e.finished_at) : 'running') + '</span></td>';
+                html += '<td><span class="time-text">' + (e.finished_at ? fmtDate(e.finished_at) : '<span class="badge badge-running">running</span>') + '</span></td>';
                 html += '</tr>';
             }
             html += '</tbody></table>';

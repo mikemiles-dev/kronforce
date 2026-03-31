@@ -26,17 +26,23 @@
             </div>
         </div>
         <div class="dash-tab-panel" data-tab="activity">
-            <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
-                <div id="dash-recent-execs"></div>
-            </div>
-            <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('groups')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
-                <div id="dash-top-groups"></div>
-            </div>
-            <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
-                <div id="dash-recent-events"></div>
+            <div class="dash-activity-grid">
+                <div class="dash-activity-main">
+                    <div class="card" style="margin-bottom:16px">
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div id="dash-recent-execs"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div id="dash-recent-events"></div>
+                    </div>
+                </div>
+                <div class="dash-activity-side">
+                    <div class="card">
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('groups')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div id="dash-top-groups"></div>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="dash-tab-panel" data-tab="infrastructure">

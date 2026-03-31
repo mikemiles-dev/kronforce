@@ -1777,6 +1777,24 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     .dash-charts { grid-template-columns: 1fr; }
 }
 
+.dash-activity-grid {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 16px;
+}
+
+@media (max-width: 1000px) {
+    .dash-activity-grid { grid-template-columns: 1fr; }
+}
+
+.dash-activity-main {
+    min-width: 0;
+}
+
+.dash-activity-side {
+    min-width: 0;
+}
+
 .donut-chart {
     display: flex;
     align-items: center;
