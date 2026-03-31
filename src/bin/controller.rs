@@ -247,7 +247,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         callback_base_url: config.callback_base_url.clone(),
         script_store: script_store.clone(),
     };
-    let app = kronforce::api::router(state, rate_limiters);
+    let app = kronforce::api::router(state, rate_limiters, config.mcp_enabled);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     info!("listening on {}", config.bind_addr);

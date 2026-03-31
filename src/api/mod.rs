@@ -64,7 +64,7 @@ struct HealthResponse {
 }
 
 /// Builds the complete Axum router with all API, agent, and public routes.
-pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Router {
+pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters, mcp_enabled: bool) -> Router {
     // Routes that require auth
     let authed = Router::new()
         .route("/api/jobs", get(jobs::list_jobs).post(jobs::create_job))
@@ -128,7 +128,6 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
-        .route("/mcp", post(crate::mcp_server::mcp_handler))
         .route(
             "/api/variables",
             get(variables::list_variables).post(variables::create_variable),
@@ -178,7 +177,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         .route_layer(middleware::from_fn(
             rate_limit::rate_limit_public_middleware,
         ))
-        .with_state(state);
+        .with_state(state.clone());
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -187,10 +186,20 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
 
     let security_headers = axum::middleware::from_fn(add_security_headers);
 
-    public
-        .merge(authed)
-        .merge(agent_authed)
-        .layer(axum::Extension(rate_limiters))
+    let mut app = public.merge(authed).merge(agent_authed);
+
+    if mcp_enabled {
+        let mcp_route = Router::new()
+            .route("/mcp", post(crate::mcp_server::mcp_handler))
+            .route_layer(middleware::from_fn_with_state(
+                state.clone(),
+                auth::auth_middleware,
+            ))
+            .with_state(state);
+        app = app.merge(mcp_route);
+    }
+
+    app.layer(axum::Extension(rate_limiters))
         .layer(cors)
         .layer(security_headers)
 }
