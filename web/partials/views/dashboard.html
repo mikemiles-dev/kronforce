@@ -2,7 +2,6 @@
         <div class="dash-stats" id="dash-stats"></div>
         <div class="dash-tab-bar">
             <button class="dash-tab-btn active" onclick="showDashTab('overview')">Overview</button>
-            <button class="dash-tab-btn" onclick="showDashTab('charts')">Charts</button>
             <button class="dash-tab-btn" onclick="showDashTab('activity')">Activity</button>
             <button class="dash-tab-btn" onclick="showDashTab('infrastructure')">Infrastructure</button>
         </div>
@@ -11,16 +10,6 @@
                 <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Execution Timeline (15 min) <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-timeline"></div>
             </div>
-            <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
-                <div id="dash-recent-execs"></div>
-            </div>
-            <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('groups')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
-                <div id="dash-top-groups"></div>
-            </div>
-        </div>
-        <div class="dash-tab-panel" data-tab="charts">
             <div class="dash-charts">
                 <div class="card">
                     <div class="card-header"><h3>Execution Outcomes</h3></div>
@@ -37,6 +26,14 @@
             </div>
         </div>
         <div class="dash-tab-panel" data-tab="activity">
+            <div class="card">
+                <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div id="dash-recent-execs"></div>
+            </div>
+            <div class="card">
+                <div class="card-header" style="cursor:pointer" onclick="showPage('groups')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div id="dash-top-groups"></div>
+            </div>
             <div class="card">
                 <div class="card-header" style="cursor:pointer" onclick="showPage('events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-recent-events"></div>

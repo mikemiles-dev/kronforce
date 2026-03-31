@@ -3,6 +3,7 @@
 let currentDashTab = 'overview';
 
 function showDashTab(tabName) {
+    if (tabName === 'charts') tabName = 'overview'; // charts merged into overview
     currentDashTab = tabName;
     document.querySelectorAll('.dash-tab-panel').forEach(p => {
         p.classList.toggle('active', p.dataset.tab === tabName);
