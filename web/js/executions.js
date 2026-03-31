@@ -25,9 +25,15 @@ function renderExecTable(execs, { wrapId, showJobColumn, emptyMessage } = {}) {
         return;
     }
     let html = '<table><thead><tr><th>ID</th>' + (showJobColumn ? '<th>Job</th>' : '') + '<th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
+    // Track latest execution per job to mark it
+    const latestByJob = {};
     for (const e of execs) {
-        html += '<tr style="cursor:pointer" onclick="showExecDetail(\'' + e.id + '\')">';
-        html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + '</span></td>';
+        if (!latestByJob[e.job_id]) latestByJob[e.job_id] = e.id;
+    }
+    for (const e of execs) {
+        const isLatest = latestByJob[e.job_id] === e.id;
+        html += '<tr style="cursor:pointer' + (isLatest ? ';border-left:3px solid var(--accent)' : '') + '" onclick="showExecDetail(\'' + e.id + '\')">';
+        html += '<td><span class="schedule-text" title="' + e.id + '">' + e.id.slice(0, 8) + (isLatest ? ' <span style="font-size:9px;color:var(--accent)">latest</span>' : '') + '</span></td>';
         if (showJobColumn) {
             const jobName = resolveJobName(e.job_id);
             html += '<td><span class="job-name" onclick="event.stopPropagation();showJobDetail(\'' + e.job_id + '\')">' + esc(jobName) + '</span></td>';
@@ -50,11 +56,14 @@ async function showExecDetail(id) {
     try {
         const e = await api('GET', '/api/executions/' + id);
         const content = document.getElementById('exec-detail-content');
+        const jobName = resolveJobName(e.job_id);
         content.innerHTML =
             '<div class="exec-info">' +
+            infoField('Job', '<span class="job-name" style="cursor:pointer" onclick="closeExecModal();showJobDetail(\'' + e.job_id + '\')">' + esc(jobName) + '</span>', 'exec-info-item') +
             infoField('Status', execBadge(e.status, e.agent_id), 'exec-info-item') +
             infoField('Exit Code', e.exit_code !== null ? e.exit_code : '-', 'exec-info-item') +
-            infoField('Started', e.started_at ? fmtDate(e.started_at) : '-', 'exec-info-item') +
+            infoField('Started', e.started_at ? fmtDateUTC(e.started_at) : '-', 'exec-info-item') +
+            infoField('Finished', e.finished_at ? fmtDateUTC(e.finished_at) : '-', 'exec-info-item') +
             infoField('Duration', fmtDuration(e.started_at, e.finished_at), 'exec-info-item') +
             infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'controller', 'exec-info-item') +
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +

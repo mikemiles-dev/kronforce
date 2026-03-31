@@ -430,11 +430,23 @@ function fmtDate(iso) {
     const d = new Date(iso);
     const now = new Date();
     const diff = now - d;
-    if (diff >= 0 && diff < 60000) return Math.floor(diff / 1000) + 's ago';
-    if (diff >= 0 && diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
-    if (diff >= 0 && diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
-    if (diff < 0 && diff > -86400000) return 'in ' + Math.floor(-diff / 60000) + 'm';
-    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const pad = n => String(n).padStart(2, '0');
+    const utc = d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) + ' UTC';
+    // Show relative + UTC tooltip
+    let relative;
+    if (diff >= 0 && diff < 60000) relative = Math.floor(diff / 1000) + 's ago';
+    else if (diff >= 0 && diff < 3600000) relative = Math.floor(diff / 60000) + 'm ago';
+    else if (diff >= 0 && diff < 86400000) relative = Math.floor(diff / 3600000) + 'h ago';
+    else if (diff < 0 && diff > -86400000) relative = 'in ' + Math.floor(-diff / 60000) + 'm';
+    else relative = utc;
+    return '<span title="' + utc + '">' + relative + '</span>';
+}
+
+function fmtDateUTC(iso) {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + ':' + pad(d.getUTCSeconds()) + ' UTC';
 }
 
 function toLocalDatetimeString(d) {
