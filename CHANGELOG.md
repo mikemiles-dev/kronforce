@@ -35,6 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Duplicate timeline mapping code extracted into helper function
 - Docker compose files now pull from GHCR by default with local build fallback
 - Dockerfile updated with missing build dependencies (build.rs, web/, migrations/)
+- Dashboard reorganized — pie charts moved under Overview, recent executions/groups moved to Activity tab, Charts tab removed
+- Execution timestamps now show full UTC on hover, relative time inline
+- Execution detail modal shows job name (clickable), started/finished UTC timestamps
+- Latest execution per job highlighted with blue border and "latest" label in execution list
+- Shareable URLs for execution details (`#/executions/{id}`)
+- Map view shows group badges on nodes and group filter dropdown
+- Code architecture documentation added (`docs/CODE_ARCHITECTURE.md`)
 
 ### Fixed
 - **Command injection** in Kafka task properties parameter

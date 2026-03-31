@@ -97,7 +97,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 
 | Page | Description |
 |---|---|
-| Dashboard | Stats, donut charts, execution timeline, recent activity (tabbed layout) |
+| Dashboard | Stats, execution timeline, charts, recent activity, agents, dependency map (tabbed: Overview, Activity, Infrastructure) |
 | Jobs | Job list with search, filters, bulk actions, sortable columns |
 | Executions | All executions with status filters and output viewer |
 | Map | Visual dependency graph |
@@ -113,6 +113,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 
 - [Deployment](docs/DEPLOYMENT.md) — Docker Compose setup, configuration, authentication, scaling, troubleshooting
 - [Architecture](docs/ARCHITECTURE.md) — system design, components, execution flow, database schema
+- [Code Architecture](docs/CODE_ARCHITECTURE.md) — source tree, data flows, design patterns, module guide
 - [API Reference](docs/API.md) — all endpoints with examples, schedule types, event triggers, output rules
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains, workflow patterns
 - [Custom Agents](docs/CUSTOM_AGENTS.md) — protocol, task types, queue behavior, Python example
