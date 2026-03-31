@@ -1085,6 +1085,21 @@ async function renderMap() {
 
     const container = document.getElementById('map-container');
 
+    // Populate group filter dropdown
+    const mapGroupFilter = document.getElementById('map-group-filter');
+    if (mapGroupFilter) {
+        const selectedGroup = mapGroupFilter.value;
+        const groups = [...new Set(jobs.map(j => j.group || 'Default'))].sort();
+        mapGroupFilter.innerHTML = '<option value="">All Groups</option>';
+        for (const g of groups) {
+            mapGroupFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(g) + '</option>';
+        }
+        // Filter jobs by selected group
+        if (selectedGroup) {
+            jobs = jobs.filter(j => (j.group || 'Default') === selectedGroup);
+        }
+    }
+
     if (jobs.length === 0) {
         container.innerHTML = renderRichEmptyState({
             icon: '&#9741;',
@@ -1321,9 +1336,14 @@ async function renderMap() {
         svgHtml += '<text class="node-name" x="' + (pos.x + 24) + '" y="' + (pos.y + 20) + '">' + schedIcon + ' ' + esc(j.name) + '</text>';
         // Status line
         svgHtml += '<text class="node-status" x="' + (pos.x + 24) + '" y="' + (pos.y + 35) + '">' + j.status + (lastStatus ? ' \u2022 ' + lastStatus : '') + '</text>';
+        // Group badge
+        const groupName = j.group || 'Default';
+        const gColor = groupColor(groupName);
+        svgHtml += '<rect x="' + (pos.x + 24) + '" y="' + (pos.y + 40) + '" width="' + Math.min(groupName.length * 6 + 10, nodeW - 30) + '" height="14" rx="7" fill="' + gColor + '" opacity="0.8"/>';
+        svgHtml += '<text x="' + (pos.x + 29) + '" y="' + (pos.y + 50) + '" font-size="8" font-weight="600" fill="#fff">' + esc(groupName) + '</text>';
         // Target
         if (targetText) {
-            svgHtml += '<text class="node-target" x="' + (pos.x + 24) + '" y="' + (pos.y + 47) + '">' + targetIcon + ' ' + targetText + '</text>';
+            svgHtml += '<text class="node-target" x="' + (pos.x + nodeW - 8) + '" y="' + (pos.y + 50) + '" text-anchor="end" font-size="8" fill="var(--text-muted)">' + targetIcon + ' ' + targetText + '</text>';
         }
         svgHtml += '</g>';
     }

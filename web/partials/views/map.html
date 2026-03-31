@@ -1,5 +1,12 @@
     <section id="map-view" style="display:none">
-        <div style="margin-bottom:8px;text-align:right"><button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+                <select id="map-group-filter" class="group-filter-select" onchange="renderMap()">
+                    <option value="">All Groups</option>
+                </select>
+            </div>
+            <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
+        </div>
         <div class="map-container" id="map-container">
             <svg id="map-svg"></svg>
         </div>
