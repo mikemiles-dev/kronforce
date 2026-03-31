@@ -10,6 +10,7 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-retry')">Execution Retry</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-rate-limiting')">Rate Limiting</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-audit-log')">Audit Log</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-mcp-server')">MCP Server</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
             </nav>
             <div class="docs-content" id="docs-content">
@@ -490,6 +491,38 @@ python3 examples/mcp_test_server.py</code></pre>
 
                     <h3>Retention</h3>
                     <p>Default: <strong>90 days</strong> (separate from events/executions). Configure via Settings: <code>audit_retention_days</code>.</p>
+                </div>
+
+                <div class="docs-section" id="doc-mcp-server">
+                    <h2>MCP Server</h2>
+                    <p>Kronforce exposes an MCP (Model Context Protocol) server that AI assistants and MCP clients can connect to. This lets tools like Claude, Cursor, or custom AI agents discover and manage your jobs through the standard MCP protocol.</p>
+
+                    <h3>Connecting</h3>
+                    <p>The MCP server is available at <code>POST /mcp</code> using the Streamable HTTP transport. Connect with your API key:</p>
+                    <ul>
+                        <li><strong>URL:</strong> <code>http://your-controller:8080/mcp</code></li>
+                        <li><strong>Auth:</strong> <code>Authorization: Bearer kf_your_key</code></li>
+                        <li><strong>Headers:</strong> <code>Accept: application/json, text/event-stream</code></li>
+                    </ul>
+
+                    <h3>Available Tools</h3>
+                    <table>
+                        <tr><th>Tool</th><th>Description</th><th>Min Role</th></tr>
+                        <tr><td><code>list_jobs</code></td><td>List jobs (filterable by group, status, search)</td><td>Viewer</td></tr>
+                        <tr><td><code>get_job</code></td><td>Get job details by name or ID</td><td>Viewer</td></tr>
+                        <tr><td><code>create_job</code></td><td>Create a new job</td><td>Operator</td></tr>
+                        <tr><td><code>trigger_job</code></td><td>Trigger a job to run now</td><td>Operator</td></tr>
+                        <tr><td><code>list_executions</code></td><td>List recent executions</td><td>Viewer</td></tr>
+                        <tr><td><code>get_execution</code></td><td>Get execution output by ID</td><td>Viewer</td></tr>
+                        <tr><td><code>list_agents</code></td><td>List registered agents</td><td>Viewer</td></tr>
+                        <tr><td><code>list_groups</code></td><td>List job groups</td><td>Viewer</td></tr>
+                        <tr><td><code>list_events</code></td><td>List system events</td><td>Viewer</td></tr>
+                        <tr><td><code>get_system_stats</code></td><td>System overview stats</td><td>Viewer</td></tr>
+                    </table>
+                    <p>Tools are filtered by the API key's role &mdash; viewers see read-only tools, operators can create and trigger jobs.</p>
+
+                    <h3>Configuration</h3>
+                    <p>The MCP server is enabled by default. Disable with <code>KRONFORCE_MCP_ENABLED=false</code>.</p>
                 </div>
 
                 <div class="docs-section" id="doc-cron">

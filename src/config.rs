@@ -14,6 +14,7 @@ pub struct ControllerConfig {
     pub rate_limit_agent: u32,
     pub db_pool_size: u32,
     pub db_timeout_secs: u64,
+    pub mcp_enabled: bool,
 }
 
 impl ControllerConfig {
@@ -64,6 +65,9 @@ impl ControllerConfig {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(5),
+            mcp_enabled: std::env::var("KRONFORCE_MCP_ENABLED")
+                .map(|v| v != "false" && v != "0")
+                .unwrap_or(true),
         }
     }
 }

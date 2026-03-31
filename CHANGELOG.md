@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **In-app docs** for Groups, Retry, Rate Limiting, and Audit Log
 - **Docker images on GHCR** — multi-arch (linux/amd64, linux/arm64) images published to `ghcr.io/mikemiles-dev/kronforce` on each release
 - **Windows build** — x86_64 Windows binaries included in releases (controller, dashboard, HTTP tasks, and Rhai scripts supported; shell/FTP/messaging tasks require Unix tools)
+- **MCP Server** — Kronforce acts as an MCP server at `POST /mcp`, exposing 10 tools (list/get/create/trigger jobs, executions, agents, groups, events, stats) with role-based access via existing API keys
 
 ### Changed
 - Sidebar reorganized — Executions and Map indented under Jobs as sub-entries

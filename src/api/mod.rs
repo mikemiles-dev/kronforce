@@ -128,6 +128,7 @@ pub fn router(state: AppState, rate_limiters: rate_limit::RateLimiters) -> Route
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
+        .route("/mcp", post(crate::mcp_server::mcp_handler))
         .route(
             "/api/variables",
             get(variables::list_variables).post(variables::create_variable),

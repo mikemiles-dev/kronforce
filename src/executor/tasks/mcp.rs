@@ -123,11 +123,10 @@ impl McpClient {
             .map_err(|e| format!("HTTP error: {e}"))?;
 
         // Capture session ID from response
-        if let Some(sid) = resp.headers().get("mcp-session-id") {
-            if let Ok(s) = sid.to_str() {
+        if let Some(sid) = resp.headers().get("mcp-session-id")
+            && let Ok(s) = sid.to_str() {
                 self.session_id = Some(s.to_string());
             }
-        }
 
         if !resp.status().is_success() {
             let status = resp.status();
@@ -171,13 +170,13 @@ impl McpClient {
     }
 
     async fn handshake(&mut self) -> Result<(), String> {
-        let init = serde_json::to_value(&make_initialize_request()).unwrap();
+        let init = serde_json::to_value(make_initialize_request()).unwrap();
         let resp = self.send(&init).await?;
         if let Some(err) = resp.error {
             return Err(format!("handshake error: {}", err.message));
         }
 
-        let notif = serde_json::to_value(&make_initialized_notification()).unwrap();
+        let notif = serde_json::to_value(make_initialized_notification()).unwrap();
         self.notify(&notif).await?;
         Ok(())
     }
@@ -187,19 +186,16 @@ impl McpClient {
 fn parse_sse_response(body: &str) -> Result<JsonRpcResponse, String> {
     for line in body.lines() {
         let line = line.trim();
-        if let Some(data) = line.strip_prefix("data: ") {
-            if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(data) {
+        if let Some(data) = line.strip_prefix("data: ")
+            && let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(data) {
                 return Ok(resp);
             }
-        }
         // Also try parsing bare JSON lines (some servers don't use SSE framing)
-        if line.starts_with('{') {
-            if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line) {
-                if resp.id.is_some() {
+        if line.starts_with('{')
+            && let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line)
+                && resp.id.is_some() {
                     return Ok(resp);
                 }
-            }
-        }
     }
     Err(format!("no JSON-RPC response found in SSE body: {}", &body[..body.len().min(200)]))
 }
@@ -211,11 +207,10 @@ fn parse_json_response(body: &str) -> Result<JsonRpcResponse, String> {
         if line.is_empty() {
             continue;
         }
-        if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line) {
-            if resp.id.is_some() {
+        if let Ok(resp) = serde_json::from_str::<JsonRpcResponse>(line)
+            && resp.id.is_some() {
                 return Ok(resp);
             }
-        }
     }
     serde_json::from_str(body).map_err(|e| format!("JSON parse error: {e} — body: {}", &body[..body.len().min(200)]))
 }
@@ -240,7 +235,7 @@ pub async fn run_mcp_task(
 
         info!("MCP handshake complete, calling tool: {}", tool);
 
-        let call = serde_json::to_value(&make_tool_call_request(tool, arguments)).unwrap();
+        let call = serde_json::to_value(make_tool_call_request(tool, arguments)).unwrap();
         let resp = match client.send(&call).await {
             Ok(r) => r,
             Err(e) => return make_error(1, format!("MCP tool call failed: {e}")),
@@ -357,7 +352,7 @@ pub async fn discover_tools(server_url: &str) -> Result<Vec<Value>, String> {
     let mut client = McpClient::new(server_url);
     client.handshake().await?;
 
-    let list = serde_json::to_value(&make_tools_list_request()).unwrap();
+    let list = serde_json::to_value(make_tools_list_request()).unwrap();
     let resp = client.send(&list).await?;
 
     if let Some(err) = resp.error {

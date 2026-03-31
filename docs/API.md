@@ -310,6 +310,31 @@ python3 examples/mcp_test_server.py  # verify it runs
 
 Tools: `greet(name)`, `add(a, b)`, `system_info()`, `word_count(text)`, `reverse(text)`.
 
+## MCP Server
+
+Kronforce exposes an MCP (Model Context Protocol) server at `POST /mcp` using the Streamable HTTP transport. Connect any MCP client to discover and manage jobs.
+
+**Endpoint:** `POST /mcp`
+**Auth:** API key via `Authorization: Bearer kf_...` header
+**Headers required:** `Accept: application/json, text/event-stream` and `Content-Type: application/json`
+
+**Available tools (by role):**
+
+| Tool | Description | Min Role |
+|------|-------------|----------|
+| `list_jobs` | List jobs with optional group/status/search filter | Viewer |
+| `get_job` | Get job details by name or ID | Viewer |
+| `create_job` | Create a new job | Operator |
+| `trigger_job` | Trigger a job execution | Operator |
+| `list_executions` | List recent executions | Viewer |
+| `get_execution` | Get execution output/status by ID | Viewer |
+| `list_agents` | List registered agents | Viewer |
+| `list_groups` | List job groups | Viewer |
+| `list_events` | List recent system events | Viewer |
+| `get_system_stats` | Dashboard stats overview | Viewer |
+
+Configure with `KRONFORCE_MCP_ENABLED=false` to disable.
+
 ## Settings
 
 ```bash
