@@ -85,12 +85,15 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 - **Task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai Script, MCP (AI tools), and Custom agent types
 - **Custom agents** — pull-based agents in any language with UI-managed task type definitions
 - **Execution modes** — Standard or Custom Agent mode in job creation
+- **Execution retry** — automatic retry on failure/timeout with configurable backoff
+- **Job groups** — organize jobs into named groups with dedicated Groups page
 - **Output intelligence** — extract values from output (regex/jsonpath), trigger events on patterns, diff output across runs, write extracted values to global variables
 - **Global variables** — shared key-value store with `{{VAR_NAME}}` substitution in all task fields, updatable via UI, API, or output extraction write-back
 - **Cron scheduling** — 6-field second-precision cron with visual builder
 - **Event triggers** — fire jobs reactively on system events or output pattern matches
 - **Dependency DAG** — job dependencies with time windows and visual map
 - **Rhai scripting** — embedded scripting with HTTP, shell, TCP/UDP, and more
+- **Connection pooling** — r2d2 SQLite connection pool for concurrent database access
 - **Dark/Light mode**, auto-refresh, pagination, audit log, API key auth, rate limiting
 
 ## Dashboard Pages
