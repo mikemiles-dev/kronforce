@@ -193,10 +193,10 @@ body {
 
 .nav-tab .tab-arrow {
     position: absolute;
-    right: 4px;
-    top: 6px;
-    font-size: 8px;
-    color: var(--text-muted);
+    right: 2px;
+    top: 5px;
+    font-size: 10px;
+    color: var(--accent);
     transition: transform 0.15s;
 }
 
