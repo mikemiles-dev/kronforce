@@ -120,6 +120,7 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 - [API Reference](docs/API.md) — all endpoints with examples, schedule types, event triggers, output rules
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains, workflow patterns
 - [Custom Agents](docs/CUSTOM_AGENTS.md) — protocol, task types, queue behavior, Python example
+- [Testing](docs/TESTING.md) — test suite, seed data, MCP testing, agent testing, Docker testing
 
 The dashboard also includes a **Docs** page with the same content accessible from the sidebar.
 
