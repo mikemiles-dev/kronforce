@@ -114,13 +114,16 @@ impl super::Executor {
                     if delay > 0 {
                         tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
                     }
-                    let _ = sched_retry
+                    if let Err(e) = sched_retry
                         .send(SchedulerCommand::RetryExecution {
                             job_id,
                             original_execution_id: original_id,
                             attempt: next_attempt,
                         })
-                        .await;
+                        .await
+                    {
+                        tracing::error!("failed to schedule retry for job {}: {e}", job_id);
+                    }
                 });
             }
         });

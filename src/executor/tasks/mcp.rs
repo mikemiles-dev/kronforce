@@ -171,13 +171,13 @@ impl McpClient {
     }
 
     async fn handshake(&mut self) -> Result<(), String> {
-        let init = serde_json::to_value(make_initialize_request()).unwrap();
+        let init = serde_json::to_value(make_initialize_request()).map_err(|e| format!("serialize error: {e}"))?;
         let resp = self.send(&init).await?;
         if let Some(err) = resp.error {
             return Err(format!("handshake error: {}", err.message));
         }
 
-        let notif = serde_json::to_value(make_initialized_notification()).unwrap();
+        let notif = serde_json::to_value(make_initialized_notification()).map_err(|e| format!("serialize error: {e}"))?;
         self.notify(&notif).await?;
         Ok(())
     }
@@ -247,7 +247,10 @@ pub async fn run_mcp_task(
 
         info!("MCP handshake complete, calling tool: {}", tool);
 
-        let call = serde_json::to_value(make_tool_call_request(tool, arguments)).unwrap();
+        let call = match serde_json::to_value(make_tool_call_request(tool, arguments)) {
+            Ok(v) => v,
+            Err(e) => return make_error(-1, format!("serialize error: {e}")),
+        };
         let resp = match client.send(&call).await {
             Ok(r) => r,
             Err(e) => return make_error(1, format!("MCP tool call failed: {e}")),
@@ -388,7 +391,7 @@ pub async fn discover_tools(server_url: &str) -> Result<Vec<Value>, String> {
     let mut client = McpClient::new(server_url);
     client.handshake().await?;
 
-    let list = serde_json::to_value(make_tools_list_request()).unwrap();
+    let list = serde_json::to_value(make_tools_list_request()).map_err(|e| format!("serialize error: {e}"))?;
     let resp = client.send(&list).await?;
 
     if let Some(err) = resp.error {

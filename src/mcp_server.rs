@@ -212,14 +212,14 @@ fn sse_response(body: &JsonRpcResponse, session_id: &str) -> Response {
         .header("Cache-Control", "no-cache, no-transform")
         .header("Mcp-Session-Id", session_id)
         .body(Body::from(sse_body))
-        .unwrap()
+        .unwrap() // Safe: static headers always valid
 }
 
 fn accepted_response() -> Response {
     Response::builder()
         .status(StatusCode::ACCEPTED)
         .body(Body::empty())
-        .unwrap()
+        .unwrap() // Safe: static headers always valid
 }
 
 fn error_response(status: StatusCode, message: &str) -> Response {
@@ -227,8 +227,8 @@ fn error_response(status: StatusCode, message: &str) -> Response {
     Response::builder()
         .status(status)
         .header("Content-Type", "application/json")
-        .body(Body::from(serde_json::to_string(&body).unwrap()))
-        .unwrap()
+        .body(Body::from(serde_json::to_string(&body).unwrap())) // Safe: static headers always valid
+        .unwrap() // Safe: static headers always valid
 }
 
 // --- Main Handler ---

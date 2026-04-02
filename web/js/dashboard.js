@@ -68,6 +68,8 @@ let tooltipFetchController = null;
 
 function showTimelineTooltip(event, bucket, time, succeeded, failed, other) {
     hideTimelineTooltip();
+    // Clean up any orphaned tooltips
+    document.querySelectorAll('.timeline-tooltip').forEach(el => el.remove());
 
     const total = succeeded + failed + other;
     if (total === 0) return;
@@ -274,7 +276,7 @@ async function renderDashboard() {
                 const isLatest = !seenJobs.has(e.job_id);
                 seenJobs.add(e.job_id);
                 html += '<tr style="cursor:pointer' + (isLatest ? ';border-left:3px solid var(--accent)' : '') + '" onclick="showJobDetail(\'' + e.job_id + '\')">';
-                html += '<td><span class="job-name">' + esc(e.job_name) + '</span>' + groupBadge(jobs.find(j => j.id === e.job_id)?.group) + '</td>';
+                html += '<td><span class="job-name">' + esc(e.job_name) + '</span>' + groupBadge((jobs || []).find(j => j.id === e.job_id)?.group) + '</td>';
                 html += '<td>' + badge(e.status) + '</td>';
                 html += '<td><span class="time-text">' + (e.finished_at ? fmtDate(e.finished_at) : '<span class="badge badge-running">running</span>') + '</span></td>';
                 html += '</tr>';
