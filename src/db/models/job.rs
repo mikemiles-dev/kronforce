@@ -85,7 +85,10 @@ pub struct ExtractionRule {
     pub write_to_variable: Option<String>,
     /// Where to store the extracted value: "variable" (write to global variable) or "output" (replace execution stdout).
     /// Defaults to "variable" for backwards compatibility.
-    #[serde(default = "default_extraction_target", skip_serializing_if = "is_default_target")]
+    #[serde(
+        default = "default_extraction_target",
+        skip_serializing_if = "is_default_target"
+    )]
     pub target: String,
 }
 

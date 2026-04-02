@@ -162,7 +162,10 @@ pub fn process_post_execution(
                 }
             }
         } else {
-            warn!("extraction rules configured but no patterns matched for execution {}", exec_id);
+            warn!(
+                "extraction rules configured but no patterns matched for execution {}",
+                exec_id
+            );
         }
     }
 
