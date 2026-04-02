@@ -1,0 +1,131 @@
+{
+  "groups": ["ETL", "Monitoring", "Deploys", "Maintenance"],
+  "jobs": [
+    {
+      "name": "health-check",
+      "description": "Check if the API is responding",
+      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/get", "expect_status": 200},
+      "schedule": {"type": "cron", "value": "0 * * * * *"},
+      "group": "Monitoring",
+      "timeout_secs": 30
+    },
+    {
+      "name": "disk-usage",
+      "description": "Check disk usage on the controller",
+      "task": {"type": "shell", "command": "df -h / | tail -1"},
+      "schedule": {"type": "cron", "value": "0 */5 * * * *"},
+      "group": "Monitoring",
+      "timeout_secs": 10
+    },
+    {
+      "name": "uptime-check",
+      "description": "Report system uptime",
+      "task": {"type": "shell", "command": "uptime"},
+      "schedule": {"type": "cron", "value": "0 0 * * * *"},
+      "group": "Monitoring"
+    },
+    {
+      "name": "etl-extract",
+      "description": "Extract data from source system",
+      "task": {"type": "shell", "command": "echo '{\"records\": 1523, \"status\": \"complete\"}' && echo 'Extracted 1523 records'"},
+      "schedule": {"type": "cron", "value": "0 0 2 * * *"},
+      "group": "ETL",
+      "timeout_secs": 300,
+      "output_rules": {
+        "extractions": [
+          {"name": "record_count", "pattern": "Extracted (\\d+) records", "type": "regex", "write_to_variable": "LAST_ETL_COUNT"}
+        ],
+        "assertions": [
+          {"pattern": "complete", "message": "ETL did not complete successfully"}
+        ]
+      }
+    },
+    {
+      "name": "etl-transform",
+      "description": "Transform extracted data",
+      "task": {"type": "shell", "command": "echo 'Transforming {{LAST_ETL_COUNT}} records...' && sleep 1 && echo 'Transform complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "ETL",
+      "timeout_secs": 600
+    },
+    {
+      "name": "etl-load",
+      "description": "Load transformed data into warehouse",
+      "task": {"type": "shell", "command": "echo 'Loading data into warehouse...' && echo 'Load complete: {{LAST_ETL_COUNT}} records'"},
+      "schedule": {"type": "on_demand"},
+      "group": "ETL",
+      "timeout_secs": 600
+    },
+    {
+      "name": "deploy-staging",
+      "description": "Deploy latest build to staging",
+      "task": {"type": "shell", "command": "echo 'Deploying to staging...' && sleep 2 && echo 'version=2.4.1' && echo 'Deploy complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 300,
+      "retry_max": 2,
+      "retry_delay_secs": 10,
+      "retry_backoff": 2.0,
+      "output_rules": {
+        "extractions": [
+          {"name": "version", "pattern": "version=(.*)", "type": "regex", "write_to_variable": "DEPLOY_VERSION"}
+        ]
+      }
+    },
+    {
+      "name": "deploy-production",
+      "description": "Deploy to production (requires staging success)",
+      "task": {"type": "shell", "command": "echo 'Deploying {{DEPLOY_VERSION}} to production...' && sleep 3 && echo 'Production deploy complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 600,
+      "retry_max": 1,
+      "retry_delay_secs": 30
+    },
+    {
+      "name": "db-backup",
+      "description": "Backup the database",
+      "task": {"type": "shell", "command": "echo 'Starting backup...' && echo 'Backed up 42MB' && echo 'Backup complete'"},
+      "schedule": {"type": "cron", "value": "0 0 3 * * *"},
+      "group": "Maintenance",
+      "timeout_secs": 1800,
+      "notifications": {
+        "on_failure": true,
+        "on_success": false
+      }
+    },
+    {
+      "name": "log-rotate",
+      "description": "Rotate and compress old log files",
+      "task": {"type": "shell", "command": "echo 'Rotating logs...' && echo 'Compressed 5 files, freed 128MB'"},
+      "schedule": {"type": "cron", "value": "0 0 4 * * *"},
+      "group": "Maintenance"
+    },
+    {
+      "name": "ssl-cert-check",
+      "description": "Check SSL certificate expiry",
+      "task": {"type": "http", "method": "get", "url": "https://example.com", "expect_status": 200},
+      "schedule": {"type": "cron", "value": "0 0 9 * * 1"},
+      "group": "Monitoring",
+      "timeout_secs": 15,
+      "notifications": {
+        "on_failure": true
+      }
+    },
+    {
+      "name": "api-latency-test",
+      "description": "Measure API response time",
+      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/delay/1", "expect_status": 200},
+      "schedule": {"type": "cron", "value": "0 */10 * * * *"},
+      "group": "Monitoring",
+      "timeout_secs": 10
+    }
+  ],
+  "variables": [
+    {"name": "LAST_ETL_COUNT", "value": "0"},
+    {"name": "DEPLOY_VERSION", "value": "2.3.0"},
+    {"name": "ENV", "value": "staging"},
+    {"name": "API_HOST", "value": "https://api.example.com"},
+    {"name": "ALERT_EMAIL", "value": "ops@example.com"}
+  ]
+}
