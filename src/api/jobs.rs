@@ -243,11 +243,11 @@ pub(crate) async fn create_job(
         CronSchedule::parse(&expr.0)?;
     }
 
-    // Validate file push size limit (5MB = ~6.7MB base64)
+    // Validate file push size limit: 5MB binary ≈ 6.67MB base64; limit at 6_700_000 base64 bytes
     if let TaskType::FilePush {
         ref content_base64, ..
     } = req.task
-        && content_base64.len() > 7_000_000
+        && content_base64.len() > 6_700_000
     {
         return Err(AppError::BadRequest("file exceeds 5MB limit".to_string()));
     }

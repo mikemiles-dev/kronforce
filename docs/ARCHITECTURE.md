@@ -114,9 +114,12 @@
 
 **Key design decisions**:
 - JSON columns for flexible nested data (`task_json`, `schedule_json`, `depends_on_json`, `output_rules_json`, `task_types_json`, `extracted_json`)
+- r2d2 connection pool (default 8 connections) for concurrent database access
 - WAL mode for concurrent reads during writes
 - Foreign keys enforced
 - Versioned migrations applied automatically on startup
+- Job groups stored as `group_name` column on jobs table (Default group for all new jobs)
+- Audit log in separate table, immune to regular retention purging
 
 ## Event System
 

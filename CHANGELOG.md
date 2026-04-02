@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `alert()` replaced with `toast()` in frontend variables page
 - **Modal click-to-close** — modals no longer close when clicking inside form fields or dragging (tracks mousedown origin)
 - **Executions page job names** — job names now resolve correctly instead of showing UUID hashes
+- **MCP client unwrap panic** — 4 unsafe `.unwrap()` calls replaced with proper error handling
+- **Base64 file size limit** — corrected from 7MB to 6.7MB (actual 5MB binary limit)
+- **Retry scheduling failure** — now logged instead of silently dropped
+- **Tooltip DOM leak** — orphaned timeline tooltips cleaned up on rapid hover
+- **File upload state leak** — file push data cleared when reopening job modal
+- **Custom agent state leak** — stale custom agent data cleared on new modal open
+- **Event listener accumulation** — time range popup no longer adds duplicate listeners
 
 ### Security
 - API rate limiting on all endpoints (configurable, 3 tiers)

@@ -43,7 +43,10 @@ function toggleTimeRangePopup(scope, e) {
     popup.style.display = '';
     activePopup = scope;
     // Prevent closing immediately
-    popup.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
+    if (!popup._hasListener) {
+        popup.addEventListener('mousedown', function(ev) { ev.stopPropagation(); });
+        popup._hasListener = true;
+    }
 }
 
 function renderTimeRangePopup(scope) {

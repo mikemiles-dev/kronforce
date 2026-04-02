@@ -19,6 +19,10 @@ function populateGroupSelect(selectedGroup) {
 function openCreateModal() {
     editingJobId = null;
     resetJobTabs();
+    filePushBase64 = '';
+    filePushFilename = '';
+    filePushSize = 0;
+    selectedCustomAgentData = null;
     document.getElementById('modal-title').textContent = 'Create Job';
     document.getElementById('f-name').value = '';
     document.getElementById('f-command').value = '';
