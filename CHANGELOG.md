@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP Server** — Kronforce acts as an MCP server at `POST /mcp`, exposing 10 tools (list/get/create/trigger jobs, executions, agents, groups, events, stats) with role-based access via existing API keys
 
 ### Changed
-- Sidebar reorganized — Executions and Map indented under Jobs as sub-entries
+- Sidebar redesigned — compact icon-only square buttons with text labels, flyout submenus for Tools (Scripts, Variables) and Manage (Agents, Settings)
 - Job create/edit modal — group field moved to main tab with accent-colored label, changed from text input to dropdown
 - Trigger job endpoint returns `202 Accepted` instead of `200 OK`
 - Bootstrap API keys no longer written to plaintext file — only printed to stderr

@@ -16,7 +16,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Output intelligence** — extract values from stdout (regex/jsonpath), fail jobs when expected output is missing, compare output across runs
 - **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
-- **Dark/light UI** — responsive dashboard with job management, dependency map, execution timeline, cron builder, script editor, and in-app docs
+- **Dark/light UI** — compact icon sidebar with flyout menus, tabbed dashboard, dependency map, execution timeline, cron builder, script editor, and in-app docs
 - **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.
 - **Docker ready** — pre-built images on [GitHub Container Registry](https://ghcr.io/mikemiles-dev/kronforce), separate compose files for controller and agent
 
@@ -98,19 +98,19 @@ See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 
 ## Dashboard Pages
 
-| Page | Description |
-|---|---|
-| Dashboard | Stats, execution timeline, charts, recent activity, agents, dependency map (tabbed: Overview, Activity, Infrastructure) |
-| Jobs | Job list with search, filters, bulk actions, sortable columns |
-| Executions | All executions with status filters and output viewer |
-| Map | Visual dependency graph |
-| Agents | Agent cards with custom agent task type editor |
-| Scripts | Rhai script editor with syntax highlighting |
-| Events | Activity feed |
-| Audit Log | Append-only audit trail of sensitive operations (admin only) |
-| Variables | Global key-value variable management with inline editing |
-| Docs | In-app documentation for all features |
-| Settings | Theme, API keys, data retention |
+| Page | Sidebar | Description |
+|---|---|---|
+| Dashboard | Dashboard | Stats, timeline, charts (tabbed: Overview, Activity, Infrastructure) |
+| Jobs | Jobs | Job list with search, filters, bulk actions, sortable columns |
+| Groups | Groups | Job group cards with rename, delete, and job counts |
+| Executions | Executions | All executions with status filters, UTC timestamps, output viewer |
+| Events | Events | Activity feed with severity filtering |
+| Map | Map | Visual dependency graph with group badges and filter |
+| Scripts | Tools ▸ Scripts | Rhai script editor with syntax highlighting |
+| Variables | Tools ▸ Variables | Global key-value variable management |
+| Docs | Docs | In-app documentation for all features |
+| Agents | Manage ▸ Agents | Agent cards with custom agent task type editor |
+| Settings | Manage ▸ Settings | Theme, API keys, data retention, notifications |
 
 ## Documentation
 
