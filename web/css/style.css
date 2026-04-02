@@ -151,8 +151,8 @@ body {
 
 .nav-tab {
     padding: 10px 14px;
-    border: 1px solid transparent;
-    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
     color: var(--text-secondary);
     font-size: 13px;
     font-weight: 500;
@@ -168,8 +168,8 @@ body {
 
 .nav-tab:hover {
     color: var(--text-primary);
-    border-color: var(--border);
-    background: var(--bg-tertiary);
+    border-color: var(--accent);
+    background: var(--bg-primary);
 }
 
 .nav-tab.active {
