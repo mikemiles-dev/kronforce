@@ -212,17 +212,28 @@ body {
 .nav-submenu {
     display: none;
     position: absolute;
-    left: 68px;
-    top: 0;
+    left: 56px;
+    top: -4px;
     flex-direction: column;
     gap: 2px;
     padding: 6px;
+    padding-left: 14px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     z-index: 100;
     min-width: 100px;
+}
+
+/* Invisible bridge between button and submenu to prevent mouseout gap */
+.nav-submenu::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    top: 0;
+    width: 14px;
+    height: 100%;
 }
 
 .nav-tab-group:hover .nav-submenu {
