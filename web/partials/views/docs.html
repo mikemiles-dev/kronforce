@@ -353,12 +353,20 @@ python3 examples/mcp_test_server.py</code></pre>
                     </table>
                     <p>Variables are resolved <strong>controller-side</strong> before execution, so they work for both local and remote agent jobs. Shell variables like <code>${HOME}</code> are unaffected.</p>
 
+                    <h4>Output Extraction Targets</h4>
+                    <p>Each extraction rule has a <strong>target</strong> that controls where the extracted value goes:</p>
+                    <ul>
+                        <li><strong>Variable</strong> (default) &mdash; writes the extracted value to a global variable (set the "Write to var" field). Other jobs can reference it with <code>{{VAR_NAME}}</code>.</li>
+                        <li><strong>Output</strong> &mdash; replaces the execution's saved stdout with just the extracted values. Useful for filtering noisy output down to the data you care about.</li>
+                    </ul>
+                    <p>Patterns without capture groups use the full match. Use <code>(\d+)</code> to extract just a portion, or <code>\d+%</code> to extract the full match.</p>
+
                     <h4>Updating Variables from Job Output</h4>
-                    <p>Set the <strong>"Write to variable"</strong> field on an output extraction rule to automatically update a global variable with the extracted value after each run.</p>
+                    <p>Set the target to <strong>Variable</strong> and enter a variable name in the <strong>"Write to var"</strong> field to automatically update a global variable with the extracted value after each run.</p>
                     <p><strong>Example pipeline:</strong></p>
                     <ol>
                         <li>Job A runs <code>deploy.sh</code> and outputs <code>version=2.4.1</code></li>
-                        <li>An extraction rule captures <code>version</code> with <code>write_to_variable: "DEPLOY_VERSION"</code></li>
+                        <li>An extraction rule captures <code>version</code> with target Variable and write_to_variable <code>DEPLOY_VERSION</code></li>
                         <li>Job B uses <code>echo "Deployed {{DEPLOY_VERSION}}"</code> in its command</li>
                     </ol>
 

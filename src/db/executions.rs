@@ -88,6 +88,20 @@ impl Db {
         Ok(())
     }
 
+    /// Replaces the execution stdout with extracted output (for "output" target extractions).
+    pub fn update_execution_stdout(&self, id: Uuid, stdout: &str) -> Result<(), AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.execute(
+            "UPDATE executions SET stdout = ?1 WHERE id = ?2",
+            params![stdout, id.to_string()],
+        )
+        .map_err(AppError::Db)?;
+        Ok(())
+    }
+
     /// Marks an execution as failed and appends the assertion failure message to stderr.
     pub fn fail_execution_assertion(&self, id: Uuid, message: &str) -> Result<(), AppError> {
         let conn = self

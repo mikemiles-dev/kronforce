@@ -83,6 +83,18 @@ pub struct ExtractionRule {
     pub rule_type: String, // "regex" or "jsonpath"
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub write_to_variable: Option<String>,
+    /// Where to store the extracted value: "variable" (write to global variable) or "output" (replace execution stdout).
+    /// Defaults to "variable" for backwards compatibility.
+    #[serde(default = "default_extraction_target", skip_serializing_if = "is_default_target")]
+    pub target: String,
+}
+
+fn default_extraction_target() -> String {
+    "variable".to_string()
+}
+
+fn is_default_target(s: &str) -> bool {
+    s == "variable"
 }
 
 /// Matches a pattern in task output and raises an event at the given severity.

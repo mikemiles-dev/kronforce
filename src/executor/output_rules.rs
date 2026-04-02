@@ -37,13 +37,15 @@ fn extract_regex(stdout: &str, pattern: &str) -> Option<String> {
     }
     let re = regex::Regex::new(pattern).ok()?;
     let caps = re.captures(stdout)?;
-    // Try named groups first, then group 1
+    // Try named groups first, then group 1, then full match (group 0)
     for name in re.capture_names().flatten() {
         if let Some(m) = caps.name(name) {
             return Some(m.as_str().to_string());
         }
     }
-    caps.get(1).map(|m: regex::Match| m.as_str().to_string())
+    caps.get(1)
+        .or_else(|| caps.get(0))
+        .map(|m: regex::Match| m.as_str().to_string())
 }
 
 fn extract_jsonpath(stdout: &str, path: &str) -> Option<String> {
@@ -128,18 +130,39 @@ pub fn process_post_execution(
             if let Err(e) = db.update_execution_extracted(exec_id, &serde_json::json!(extracted)) {
                 warn!("failed to update extracted values for {}: {}", exec_id, e);
             }
-            // Write-back: update global variables for rules with write_to_variable
+
+            // Collect output-target extractions to replace stdout
+            let mut output_lines: Vec<String> = Vec::new();
+
             for rule in &rules.extractions {
-                if let Some(ref var_name) = rule.write_to_variable
-                    && let Some(value) = extracted.get(&rule.name)
-                {
-                    if let Err(e) = db.upsert_variable(var_name, value) {
-                        error!("failed to write variable {}: {}", var_name, e);
-                    } else {
-                        info!("variable {} updated from extraction", var_name);
+                if let Some(value) = extracted.get(&rule.name) {
+                    match rule.target.as_str() {
+                        "output" => {
+                            output_lines.push(format!("{}: {}", rule.name, value));
+                        }
+                        _ => {
+                            // "variable" target — write to global variable if configured
+                            if let Some(ref var_name) = rule.write_to_variable {
+                                if let Err(e) = db.upsert_variable(var_name, value) {
+                                    error!("failed to write variable {}: {}", var_name, e);
+                                } else {
+                                    info!("variable {} updated from extraction", var_name);
+                                }
+                            }
+                        }
                     }
                 }
             }
+
+            // Replace execution stdout with extracted values if any output-target rules matched
+            if !output_lines.is_empty() {
+                let new_stdout = output_lines.join("\n");
+                if let Err(e) = db.update_execution_stdout(exec_id, &new_stdout) {
+                    warn!("failed to update execution stdout for {}: {}", exec_id, e);
+                }
+            }
+        } else {
+            warn!("extraction rules configured but no patterns matched for execution {}", exec_id);
         }
     }
 

@@ -143,6 +143,7 @@ fn test_job_with_output_rules() {
             pattern: r"took (\d+)ms".to_string(),
             rule_type: "regex".to_string(),
             write_to_variable: None,
+            target: "variable".to_string(),
         }],
         triggers: vec![OutputTrigger {
             pattern: "ERROR".to_string(),

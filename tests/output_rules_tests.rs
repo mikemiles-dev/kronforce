@@ -10,6 +10,7 @@ fn test_regex_extraction_group1() {
         pattern: r"took (\d+)ms".to_string(),
         rule_type: "regex".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions("Processing took 245ms total", &rules);
     assert_eq!(result.get("duration").unwrap(), "245");
@@ -22,6 +23,7 @@ fn test_regex_extraction_no_match() {
         pattern: r"not_found_(\d+)".to_string(),
         rule_type: "regex".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions("no match here", &rules);
     assert!(!result.contains_key("missing"));
@@ -35,12 +37,14 @@ fn test_regex_extraction_multiple_rules() {
             pattern: r"status: (\w+)".to_string(),
             rule_type: "regex".to_string(),
             write_to_variable: None,
+            target: "variable".to_string(),
         },
         ExtractionRule {
             name: "count".to_string(),
             pattern: r"processed (\d+) records".to_string(),
             rule_type: "regex".to_string(),
             write_to_variable: None,
+            target: "variable".to_string(),
         },
     ];
     let result = run_extractions("status: healthy, processed 42 records", &rules);
@@ -55,6 +59,7 @@ fn test_jsonpath_extraction() {
         pattern: "$.results.count".to_string(),
         rule_type: "jsonpath".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions(r#"{"results": {"count": 42}}"#, &rules);
     assert_eq!(result.get("count").unwrap(), "42");
@@ -67,6 +72,7 @@ fn test_jsonpath_extraction_string_value() {
         pattern: "$.status".to_string(),
         rule_type: "jsonpath".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions(r#"{"status": "healthy"}"#, &rules);
     assert_eq!(result.get("status").unwrap(), "healthy");
@@ -79,6 +85,7 @@ fn test_jsonpath_extraction_invalid_json() {
         pattern: "$.key".to_string(),
         rule_type: "jsonpath".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions("not json at all", &rules);
     assert!(!result.contains_key("val"));
@@ -91,9 +98,51 @@ fn test_jsonpath_extraction_missing_path() {
         pattern: "$.nonexistent.path".to_string(),
         rule_type: "jsonpath".to_string(),
         write_to_variable: None,
+        target: "variable".to_string(),
     }];
     let result = run_extractions(r#"{"other": "data"}"#, &rules);
     assert!(!result.contains_key("val"));
+}
+
+#[test]
+fn test_regex_extraction_no_capture_group_falls_back_to_full_match() {
+    let rules = vec![ExtractionRule {
+        name: "disk".to_string(),
+        pattern: r"\d+%".to_string(),
+        rule_type: "regex".to_string(),
+        write_to_variable: None,
+        target: "variable".to_string(),
+    }];
+    let result = run_extractions("Disk usage: 85% used", &rules);
+    assert_eq!(result.get("disk").unwrap(), "85%");
+}
+
+#[test]
+fn test_regex_extraction_named_group() {
+    let rules = vec![ExtractionRule {
+        name: "ver".to_string(),
+        pattern: r"version: (?P<ver>\S+)".to_string(),
+        rule_type: "regex".to_string(),
+        write_to_variable: None,
+        target: "variable".to_string(),
+    }];
+    let result = run_extractions("version: 2.4.1", &rules);
+    assert_eq!(result.get("ver").unwrap(), "2.4.1");
+}
+
+#[test]
+fn test_extraction_output_target() {
+    let rules = vec![ExtractionRule {
+        name: "disk".to_string(),
+        pattern: r"\d+%".to_string(),
+        rule_type: "regex".to_string(),
+        write_to_variable: None,
+        target: "output".to_string(),
+    }];
+    let result = run_extractions("Disk usage: 85% used", &rules);
+    assert_eq!(result.get("disk").unwrap(), "85%");
+    // The target field is handled in process_post_execution, not run_extractions
+    assert_eq!(rules[0].target, "output");
 }
 
 // --- Triggers ---

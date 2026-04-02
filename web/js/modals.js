@@ -901,17 +901,25 @@ function getDepEntries() {
     return deps;
 }
 
-function addExtractionRow(name, pattern, type, writeToVar) {
+function addExtractionRow(name, pattern, type, writeToVar, target) {
     const container = document.getElementById('extractions-container');
+    const t = target || 'variable';
     const row = document.createElement('div');
     row.className = 'tt-field-row';
     row.innerHTML =
         '<input type="text" value="' + esc(name || '') + '" placeholder="name" style="width:80px" class="ex-name">' +
         '<input type="text" value="' + esc(pattern || '') + '" placeholder="pattern (regex or $.path)" style="flex:1;min-width:120px" class="ex-pattern">' +
         '<select class="ex-type" style="width:90px"><option value="regex"' + (type === 'jsonpath' ? '' : ' selected') + '>regex</option><option value="jsonpath"' + (type === 'jsonpath' ? ' selected' : '') + '>jsonpath</option></select>' +
-        '<input type="text" value="' + esc(writeToVar || '') + '" placeholder="write to var" title="Write to global variable" style="width:100px" class="ex-write-var">' +
+        '<select class="ex-target" style="width:90px" title="Where to store extracted value"><option value="variable"' + (t === 'output' ? '' : ' selected') + '>Variable</option><option value="output"' + (t === 'output' ? ' selected' : '') + '>Output</option></select>' +
+        '<input type="text" value="' + esc(writeToVar || '') + '" placeholder="write to var" title="Write to global variable (variable target only)" style="width:100px" class="ex-write-var">' +
         '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px" onclick="this.parentElement.remove()">&times;</button>';
     container.appendChild(row);
+    // Show/hide write-var field based on target
+    const targetSel = row.querySelector('.ex-target');
+    const writeVar = row.querySelector('.ex-write-var');
+    function toggleWriteVar() { writeVar.style.display = targetSel.value === 'variable' ? '' : 'none'; }
+    targetSel.addEventListener('change', toggleWriteVar);
+    toggleWriteVar();
 }
 
 function addTriggerRow(pattern, severity) {
@@ -947,10 +955,11 @@ function collectOutputRules() {
         const name = row.querySelector('.ex-name').value.trim();
         const pattern = row.querySelector('.ex-pattern').value.trim();
         const type = row.querySelector('.ex-type').value;
+        const target = row.querySelector('.ex-target').value || 'variable';
         const write_to_variable = row.querySelector('.ex-write-var').value.trim() || null;
         if (name && pattern) {
-            const rule = { name, pattern, type };
-            if (write_to_variable) rule.write_to_variable = write_to_variable;
+            const rule = { name, pattern, type, target };
+            if (target === 'variable' && write_to_variable) rule.write_to_variable = write_to_variable;
             extractions.push(rule);
         }
     });
@@ -975,7 +984,7 @@ function populateOutputRules(rules) {
     document.getElementById('triggers-container').innerHTML = '';
     document.getElementById('assertions-container').innerHTML = '';
     if (!rules) return;
-    (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type, r.write_to_variable));
+    (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type, r.write_to_variable, r.target));
     (rules.triggers || []).forEach(t => addTriggerRow(t.pattern, t.severity));
     (rules.assertions || []).forEach(a => addAssertionRow(a.pattern, a.message));
 }
