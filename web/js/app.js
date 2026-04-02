@@ -545,8 +545,12 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
 let currentPage = 'jobs';
 
 function toggleCodeMenu() {
-    // Click fallback for touch devices — hover handles desktop
     const menu = document.getElementById('code-submenu');
+    menu.classList.toggle('open');
+}
+
+function toggleManageMenu() {
+    const menu = document.getElementById('manage-submenu');
     menu.classList.toggle('open');
 }
 
@@ -559,8 +563,12 @@ function showPage(page) {
     if (tab) {
         tab.classList.add('active');
         if (tab.classList.contains('nav-submenu-item')) {
-            // Submenu item — also highlight parent Code button
-            document.getElementById('tab-code').classList.add('active');
+            // Submenu item — also highlight parent button
+            const group = tab.closest('.nav-tab-group');
+            if (group) {
+                const parentBtn = group.querySelector('.nav-tab');
+                if (parentBtn) parentBtn.classList.add('active');
+            }
         }
     }
 
