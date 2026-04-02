@@ -545,9 +545,8 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
 let currentPage = 'jobs';
 
 function toggleCodeMenu() {
-    const btn = document.getElementById('tab-code');
+    // Click fallback for touch devices — hover handles desktop
     const menu = document.getElementById('code-submenu');
-    btn.classList.toggle('expanded');
     menu.classList.toggle('open');
 }
 
@@ -558,15 +557,10 @@ function showPage(page) {
 
     const tab = document.getElementById('tab-' + page);
     if (tab) {
+        tab.classList.add('active');
         if (tab.classList.contains('nav-submenu-item')) {
-            // Submenu item — highlight both the item and parent button
-            tab.classList.add('active');
+            // Submenu item — also highlight parent Code button
             document.getElementById('tab-code').classList.add('active');
-            // Auto-expand submenu
-            document.getElementById('code-submenu').classList.add('open');
-            document.getElementById('tab-code').classList.add('expanded');
-        } else {
-            tab.classList.add('active');
         }
     }
 

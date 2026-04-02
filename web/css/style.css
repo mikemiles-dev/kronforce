@@ -211,27 +211,37 @@ body {
 
 .nav-submenu {
     display: none;
+    position: absolute;
+    left: 68px;
+    top: 0;
     flex-direction: column;
     gap: 2px;
-    padding: 2px 0;
+    padding: 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 100;
+    min-width: 100px;
 }
 
-.nav-submenu.open {
+.nav-tab-group:hover .nav-submenu {
     display: flex;
 }
 
 .nav-submenu-item {
-    padding: 6px 8px;
+    padding: 8px 12px;
     border: none;
     background: transparent;
     color: var(--text-secondary);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     border-radius: 6px;
-    text-align: center;
+    text-align: left;
     width: 100%;
     transition: all 0.15s;
+    white-space: nowrap;
 }
 
 .nav-submenu-item:hover {
