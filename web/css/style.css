@@ -191,6 +191,59 @@ body {
     line-height: 1;
 }
 
+.nav-tab .tab-arrow {
+    position: absolute;
+    right: 4px;
+    top: 6px;
+    font-size: 8px;
+    color: var(--text-muted);
+    transition: transform 0.15s;
+}
+
+.nav-tab-group {
+    position: relative;
+    width: 60px;
+}
+
+.nav-tab-group .nav-tab.expanded .tab-arrow {
+    transform: rotate(90deg);
+}
+
+.nav-submenu {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 0;
+}
+
+.nav-submenu.open {
+    display: flex;
+}
+
+.nav-submenu-item {
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px;
+    text-align: center;
+    width: 100%;
+    transition: all 0.15s;
+}
+
+.nav-submenu-item:hover {
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+}
+
+.nav-submenu-item.active {
+    color: #fff;
+    background: var(--accent);
+}
+
 .sidebar-footer {
     padding: 8px;
     box-shadow: 0 -2px 6px rgba(0,0,0,0.1);

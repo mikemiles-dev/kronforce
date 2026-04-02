@@ -544,10 +544,31 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
 // --- Page Navigation ---
 let currentPage = 'jobs';
 
+function toggleCodeMenu() {
+    const btn = document.getElementById('tab-code');
+    const menu = document.getElementById('code-submenu');
+    btn.classList.toggle('expanded');
+    menu.classList.toggle('open');
+}
+
 function showPage(page) {
     currentPage = page;
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-' + page).classList.add('active');
+    document.querySelectorAll('.nav-submenu-item').forEach(t => t.classList.remove('active'));
+
+    const tab = document.getElementById('tab-' + page);
+    if (tab) {
+        if (tab.classList.contains('nav-submenu-item')) {
+            // Submenu item — highlight both the item and parent button
+            tab.classList.add('active');
+            document.getElementById('tab-code').classList.add('active');
+            // Auto-expand submenu
+            document.getElementById('code-submenu').classList.add('open');
+            document.getElementById('tab-code').classList.add('expanded');
+        } else {
+            tab.classList.add('active');
+        }
+    }
 
     for (const v of ALL_VIEWS) {
         document.getElementById(v + '-view').style.display = v === page ? '' : 'none';
