@@ -9,10 +9,10 @@ use tower_service::Service;
 
 /// Loads TLS certificate chain and private key from PEM files.
 pub fn load_tls_config(cert_path: &str, key_path: &str) -> Result<ServerConfig, String> {
-    let cert_file =
-        std::fs::File::open(cert_path).map_err(|e| format!("cannot open TLS cert {cert_path}: {e}"))?;
-    let key_file =
-        std::fs::File::open(key_path).map_err(|e| format!("cannot open TLS key {key_path}: {e}"))?;
+    let cert_file = std::fs::File::open(cert_path)
+        .map_err(|e| format!("cannot open TLS cert {cert_path}: {e}"))?;
+    let key_file = std::fs::File::open(key_path)
+        .map_err(|e| format!("cannot open TLS key {key_path}: {e}"))?;
 
     let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut BufReader::new(cert_file))
         .collect::<Result<Vec<_>, _>>()
@@ -76,16 +76,16 @@ pub async fn serve_tls(
             };
 
             let io = hyper_util::rt::TokioIo::new(tls_stream);
-            let service = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
-                let mut svc = app.clone().into_service();
-                async move { svc.call(req).await }
-            });
+            let service =
+                hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                    let mut svc = app.clone().into_service();
+                    async move { svc.call(req).await }
+                });
 
-            let _ = hyper_util::server::conn::auto::Builder::new(
-                hyper_util::rt::TokioExecutor::new(),
-            )
-            .serve_connection(io, service)
-            .await;
+            let _ =
+                hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(io, service)
+                    .await;
         });
     }
 

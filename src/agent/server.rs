@@ -198,7 +198,9 @@ async fn cancel_job(
         let _ = tx.send(());
         Ok(Json(serde_json::json!({"cancelled": true})))
     } else {
-        Ok(Json(serde_json::json!({"cancelled": false, "message": "not running"})))
+        Ok(Json(
+            serde_json::json!({"cancelled": false, "message": "not running"}),
+        ))
     }
 }
 

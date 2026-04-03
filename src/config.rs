@@ -132,8 +132,12 @@ impl ControllerConfig {
                     _ => None,
                 }
             },
-            tls_cert: std::env::var("KRONFORCE_TLS_CERT").ok().filter(|s| !s.is_empty()),
-            tls_key: std::env::var("KRONFORCE_TLS_KEY").ok().filter(|s| !s.is_empty()),
+            tls_cert: std::env::var("KRONFORCE_TLS_CERT")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            tls_key: std::env::var("KRONFORCE_TLS_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
         }
     }
 }
@@ -193,8 +197,12 @@ impl AgentConfig {
             agent_key: std::env::var("KRONFORCE_AGENT_KEY")
                 .ok()
                 .filter(|s| !s.is_empty()),
-            tls_cert: std::env::var("KRONFORCE_TLS_CERT").ok().filter(|s| !s.is_empty()),
-            tls_key: std::env::var("KRONFORCE_TLS_KEY").ok().filter(|s| !s.is_empty()),
+            tls_cert: std::env::var("KRONFORCE_TLS_CERT")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            tls_key: std::env::var("KRONFORCE_TLS_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
         }
     }
 }
