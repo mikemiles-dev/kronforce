@@ -1760,7 +1760,7 @@ function renderWizardStep() {
             '<p style="margin:8px 0;font-size:13px"><strong>&#128421; Distributed Agents</strong> — Push to standard agents, pull for custom agents</p>' +
             '<p style="margin:8px 0;font-size:13px"><strong>&#128220; Rhai Scripting</strong> — Custom logic with HTTP, shell, TCP/UDP built-ins</p>' +
             '<p style="margin:8px 0;font-size:13px"><strong>&#9889; Event Triggers</strong> — Chain jobs based on events and output patterns</p>' +
-            '<p style="margin:8px 0;font-size:13px"><strong>&#128276; Notifications</strong> — Email and SMS alerts on failures</p>' +
+            '<p style="margin:8px 0;font-size:13px"><strong>&#128276; Notifications</strong> — Slack, Email, Teams, PagerDuty, SMS alerts on failures</p>' +
             '</div>';
         footer.innerHTML = '<span></span><button class="btn btn-primary btn-sm" onclick="wizardNext()">Let\'s get started</button>';
     } else if (wizardStep === 1) {
