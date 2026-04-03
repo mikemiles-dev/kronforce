@@ -1009,6 +1009,57 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 
 .dep-entry .dep-remove:hover { color: var(--danger); background: rgba(224,82,82,0.1); }
 
+.dep-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.dep-search-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.dep-search-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.dep-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(62,139,255,0.12);
+    color: var(--accent);
+    border-radius: 12px;
+    padding: 3px 8px 3px 10px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.dep-chip button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0.7;
+}
+
+.dep-chip button:hover {
+    opacity: 1;
+}
+
 .dep-window-label {
     font-size: 11px;
     color: var(--text-secondary);

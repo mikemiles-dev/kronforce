@@ -853,14 +853,25 @@ function addDepEntry(jobId, withinSecs, excludeId) {
     const div = document.createElement('div');
     div.className = 'dep-entry';
 
-    let html = '<select class="dep-job-select"><option value="">Select job...</option>';
-    for (const j of jobs) {
-        const sel = j.id === jobId ? ' selected' : '';
-        html += '<option value="' + j.id + '"' + sel + '>' + esc(j.name) + '</option>';
+    // Resolve initial job name
+    const selectedJob = jobId ? jobs.find(j => j.id === jobId) : null;
+    const selectedName = selectedJob ? selectedJob.name : '';
+
+    let html = '<div class="dep-search-wrap" style="position:relative;flex:1;min-width:150px">';
+    html += '<input type="hidden" class="dep-job-select" value="' + (jobId || '') + '">';
+    if (selectedJob) {
+        html += '<div class="dep-chip">';
+        html += '<span>' + esc(selectedName) + '</span>';
+        html += '<button type="button" onclick="clearDepSelection(this)">&times;</button>';
+        html += '</div>';
+        html += '<input type="text" class="dep-search-input" placeholder="Search jobs..." style="display:none">';
+    } else {
+        html += '<input type="text" class="dep-search-input" placeholder="Search jobs..." autocomplete="off">';
     }
-    html += '</select>';
+    html += '<div class="dep-search-results" style="display:none"></div>';
+    html += '</div>';
     html += '<div class="dep-window-group">';
-    html += '<span class="dep-window-label">succeeded within</span>';
+    html += '<span class="dep-window-label">within</span>';
     html += '<input type="number" class="dep-window-val" min="1" placeholder="\u221E" value="' + windowVal + '" title="Time window (empty = no limit)">';
     html += '<select class="dep-window-unit">';
     html += '<option value="1"' + (windowUnit === '1' ? ' selected' : '') + '>sec</option>';
@@ -873,7 +884,65 @@ function addDepEntry(jobId, withinSecs, excludeId) {
 
     div.innerHTML = html;
     container.appendChild(div);
+
+    // Wire up search
+    const input = div.querySelector('.dep-search-input');
+    const results = div.querySelector('.dep-search-results');
+    const hidden = div.querySelector('.dep-job-select');
+
+    if (input) {
+        input.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            if (!q) { results.style.display = 'none'; return; }
+            const alreadySelected = Array.from(document.querySelectorAll('#deps-entries .dep-job-select')).map(el => el.value).filter(Boolean);
+            const matches = jobs.filter(j => j.name.toLowerCase().includes(q) && !alreadySelected.includes(j.id)).slice(0, 10);
+            if (matches.length === 0) {
+                results.innerHTML = '<div class="dep-search-item" style="color:var(--text-muted)">No matches</div>';
+            } else {
+                results.innerHTML = matches.map(j =>
+                    '<div class="dep-search-item" data-id="' + j.id + '" data-name="' + esc(j.name) + '">' +
+                    esc(j.name) + (j.group ? ' <span style="color:var(--text-muted);font-size:10px">' + esc(j.group) + '</span>' : '') +
+                    '</div>'
+                ).join('');
+            }
+            results.style.display = '';
+        });
+        input.addEventListener('focus', function() { if (this.value.trim()) this.dispatchEvent(new Event('input')); });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') { results.style.display = 'none'; }
+        });
+
+        results.addEventListener('mousedown', function(e) {
+            const item = e.target.closest('.dep-search-item');
+            if (!item || !item.dataset.id) return;
+            e.preventDefault();
+            hidden.value = item.dataset.id;
+            input.style.display = 'none';
+            results.style.display = 'none';
+            // Show chip
+            const chip = document.createElement('div');
+            chip.className = 'dep-chip';
+            chip.innerHTML = '<span>' + esc(item.dataset.name) + '</span><button type="button" onclick="clearDepSelection(this)">&times;</button>';
+            input.parentElement.insertBefore(chip, input);
+        });
+
+        // Close on outside click
+        input.addEventListener('blur', function() { setTimeout(() => { results.style.display = 'none'; }, 150); });
+    }
+
     updateDepsEmpty();
+}
+
+function clearDepSelection(btn) {
+    const wrap = btn.closest('.dep-search-wrap');
+    const hidden = wrap.querySelector('.dep-job-select');
+    const input = wrap.querySelector('.dep-search-input');
+    const chip = wrap.querySelector('.dep-chip');
+    hidden.value = '';
+    if (chip) chip.remove();
+    input.value = '';
+    input.style.display = '';
+    input.focus();
 }
 
 function removeDepEntry(btn) {
