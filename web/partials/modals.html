@@ -436,8 +436,12 @@
                 </div>
                 <div style="flex:1">
                     <label>From source job (optional)</label>
-                    <input id="f-event-job-filter" type="text" placeholder="e.g. health-check">
-                    <div class="form-hint">Only trigger when the event came from a job with this name</div>
+                    <div id="event-job-filter-wrap" class="dep-search-wrap" style="position:relative">
+                        <input type="hidden" id="f-event-job-filter" value="">
+                        <input type="text" id="event-job-search" class="dep-search-input" placeholder="Search jobs..." autocomplete="off">
+                        <div id="event-job-results" class="dep-search-results" style="display:none"></div>
+                    </div>
+                    <div class="form-hint">Only trigger when the event came from this job</div>
                 </div>
             </div>
         </div>

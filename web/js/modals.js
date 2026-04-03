@@ -38,6 +38,7 @@ function openCreateModal() {
     document.getElementById('f-approval-required').checked = false;
     document.getElementById('f-sla-deadline').value = '';
     document.getElementById('f-sla-warning').value = '0';
+    setEventJobFilter('');
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
@@ -113,7 +114,7 @@ async function copyJob(id) {
         } else if (schedType === 'event' && job.schedule.value) {
             setEventKindValue(job.schedule.value.kind_pattern || '*');
             document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
-            document.getElementById('f-event-job-filter').value = job.schedule.value.job_name_filter || '';
+            setEventJobFilter(job.schedule.value.job_name_filter || '');
         }
 
         // Populate target
@@ -197,7 +198,7 @@ async function openEditModal(id) {
         } else if (schedType === 'event' && job.schedule.value) {
             setEventKindValue(job.schedule.value.kind_pattern || '*');
             document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
-            document.getElementById('f-event-job-filter').value = job.schedule.value.job_name_filter || '';
+            setEventJobFilter(job.schedule.value.job_name_filter || '');
         }
 
         // Set target
@@ -935,14 +936,82 @@ function addDepEntry(jobId, withinSecs, excludeId) {
 
 function clearDepSelection(btn) {
     const wrap = btn.closest('.dep-search-wrap');
-    const hidden = wrap.querySelector('.dep-job-select');
+    const hidden = wrap.querySelector('.dep-job-select') || wrap.querySelector('input[type="hidden"]');
     const input = wrap.querySelector('.dep-search-input');
     const chip = wrap.querySelector('.dep-chip');
-    hidden.value = '';
+    if (hidden) hidden.value = '';
     if (chip) chip.remove();
-    input.value = '';
-    input.style.display = '';
-    input.focus();
+    if (input) { input.value = ''; input.style.display = ''; input.focus(); }
+}
+
+// --- Event Job Filter Search ---
+let eventJobFilterWired = false;
+function wireEventJobFilter() {
+    if (eventJobFilterWired) return;
+    eventJobFilterWired = true;
+    const input = document.getElementById('event-job-search');
+    const results = document.getElementById('event-job-results');
+    const hidden = document.getElementById('f-event-job-filter');
+    if (!input || !results || !hidden) return;
+
+    input.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        if (!q) { results.style.display = 'none'; return; }
+        const exclude = editingJobId;
+        const matches = allJobs.filter(j => j.id !== exclude && j.name.toLowerCase().includes(q)).slice(0, 10);
+        if (matches.length === 0) {
+            results.innerHTML = '<div class="dep-search-item" style="color:var(--text-muted)">No matches</div>';
+        } else {
+            results.innerHTML = matches.map(j =>
+                '<div class="dep-search-item" data-name="' + esc(j.name) + '">' +
+                esc(j.name) + (j.group ? ' <span style="color:var(--text-muted);font-size:10px">' + esc(j.group) + '</span>' : '') +
+                '</div>'
+            ).join('');
+        }
+        results.style.display = '';
+    });
+    input.addEventListener('focus', function() { if (this.value.trim()) this.dispatchEvent(new Event('input')); });
+    input.addEventListener('keydown', function(e) { if (e.key === 'Escape') results.style.display = 'none'; });
+    input.addEventListener('blur', function() { setTimeout(() => { results.style.display = 'none'; }, 150); });
+
+    results.addEventListener('mousedown', function(e) {
+        const item = e.target.closest('.dep-search-item');
+        if (!item || !item.dataset.name) return;
+        e.preventDefault();
+        hidden.value = item.dataset.name;
+        input.style.display = 'none';
+        results.style.display = 'none';
+        const wrap = document.getElementById('event-job-filter-wrap');
+        // Remove old chip
+        const old = wrap.querySelector('.dep-chip');
+        if (old) old.remove();
+        const chip = document.createElement('div');
+        chip.className = 'dep-chip';
+        chip.innerHTML = '<span>' + esc(item.dataset.name) + '</span><button type="button" onclick="clearDepSelection(this)">&times;</button>';
+        wrap.insertBefore(chip, input);
+    });
+}
+
+function setEventJobFilter(jobName) {
+    wireEventJobFilter();
+    const wrap = document.getElementById('event-job-filter-wrap');
+    const hidden = document.getElementById('f-event-job-filter');
+    const input = document.getElementById('event-job-search');
+    if (!wrap || !hidden || !input) return;
+    // Clear old chip
+    const old = wrap.querySelector('.dep-chip');
+    if (old) old.remove();
+    hidden.value = jobName || '';
+    if (jobName) {
+        input.style.display = 'none';
+        const chip = document.createElement('div');
+        chip.className = 'dep-chip';
+        chip.innerHTML = '<span>' + esc(jobName) + '</span><button type="button" onclick="clearDepSelection(this)">&times;</button>';
+        wrap.insertBefore(chip, input);
+    } else {
+        input.value = '';
+        input.style.display = '';
+    }
 }
 
 function removeDepEntry(btn) {
