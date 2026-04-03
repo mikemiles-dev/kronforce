@@ -145,6 +145,28 @@ python examples/mcp_agent.py
 # Create a Custom Agent job targeting this agent
 ```
 
+### gRPC Agent
+
+```bash
+# Install grpcurl
+brew install grpcurl
+
+# Start a test gRPC server (e.g., grpcurl's own reflection test)
+# Or use any gRPC service with reflection enabled
+
+# Start the gRPC agent
+KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
+
+# Configure task types in the dashboard:
+# Agents page → grpc-agent → Add task type "grpc_call":
+#   - address (text, required)
+#   - service (text, required)
+#   - method (text, required)
+#   - data (textarea, optional)
+#   - plaintext (select, optional): Yes / No (TLS)
+# Create a Custom Agent job targeting this agent
+```
+
 ## Testing Agents
 
 ### Standard Agent

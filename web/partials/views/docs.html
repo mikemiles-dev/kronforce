@@ -122,6 +122,16 @@ KRONFORCE_URL=http://controller:8080 \
 AGENT_NAME=my-agent \
 AGENT_TAGS=python,ml \
 python3 examples/custom_agent.py</code></pre>
+
+                    <h3>gRPC Agent Example</h3>
+                    <p>A custom agent that calls gRPC services using <strong>grpcurl</strong>. Supports reflection and proto file discovery.</p>
+<pre><code>brew install grpcurl
+KRONFORCE_AGENT_KEY=kf_your_key python3 examples/grpc_agent.py</code></pre>
+                    <p>Configure two task types on the agent card:</p>
+                    <ul>
+                        <li><strong>grpc_call</strong> &mdash; call a method (address, service, method, JSON data, optional proto file, plaintext toggle, metadata headers)</li>
+                        <li><strong>grpc_list</strong> &mdash; list services or methods via reflection</li>
+                    </ul>
                 </div>
 
                 <div class="docs-section" id="doc-scripting">

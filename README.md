@@ -51,6 +51,15 @@ Then configure task types in the dashboard (Agents page → click the agent card
 
 See [Custom Agents documentation](docs/CUSTOM_AGENTS.md) for the full protocol.
 
+### gRPC Agent
+
+```bash
+brew install grpcurl
+KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
+```
+
+Calls gRPC services via [grpcurl](https://github.com/fullstorydev/grpcurl) with reflection or proto file support. Configure task types in the dashboard.
+
 ## Configuration
 
 ### Controller

@@ -156,6 +156,49 @@ python3 examples/custom_agent.py
 
 The example handles `python` (runs via `python3 -c`), `shell` (via `sh -c`), and `http` task types.
 
+## gRPC Example
+
+A custom agent that calls gRPC services using [grpcurl](https://github.com/fullstorydev/grpcurl). Supports reflection-based and proto-file service discovery.
+
+```bash
+# Install grpcurl
+brew install grpcurl  # macOS
+# or: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+
+# Start the agent
+KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
+```
+
+Configure two task types in the dashboard (Agents → grpc-agent):
+
+**grpc_call** — call a gRPC method:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| address | text | yes | Server address, e.g. `localhost:50051` |
+| service | text | yes | Full service name, e.g. `helloworld.Greeter` |
+| method | text | yes | Method name, e.g. `SayHello` |
+| data | textarea | no | JSON request body, e.g. `{"name": "World"}` |
+| proto | text | no | Path to `.proto` file (omit to use server reflection) |
+| plaintext | select | no | Use plaintext connection (options: Yes / No (TLS)) |
+| metadata | textarea | no | Request metadata as `key: value` lines |
+
+**grpc_list** — list services or methods (via reflection):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| address | text | yes | Server address |
+| service | text | no | Service to list methods for (omit for all services) |
+| plaintext | select | no | Use plaintext connection |
+
+**Example job:** Call a health check on a gRPC service every 5 minutes, extract the status, and trigger an event if it returns `NOT_SERVING`:
+
+1. Create a Custom Agent job with `grpc_call` task type
+2. Set address: `my-service:50051`, service: `grpc.health.v1.Health`, method: `Check`
+3. Add an extraction rule: name `status`, pattern `"status":\s*"(\w+)"`, target Variable, write to `GRPC_HEALTH`
+4. Add a trigger: pattern `NOT_SERVING`, severity `error`
+5. Schedule with cron: `0 */5 * * * *`
+
 ## Output Rules with Custom Agents
 
 Custom agent jobs support the same output rules as standard jobs:
