@@ -12,3 +12,4 @@ pub mod error;
 pub mod executor;
 pub mod mcp_server;
 pub mod scheduler;
+pub mod tls;

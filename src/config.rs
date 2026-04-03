@@ -32,6 +32,8 @@ pub struct ControllerConfig {
     pub db_timeout_secs: u64,
     pub mcp_enabled: bool,
     pub oidc: Option<OidcConfig>,
+    pub tls_cert: Option<String>,
+    pub tls_key: Option<String>,
 }
 
 impl ControllerConfig {
@@ -130,6 +132,8 @@ impl ControllerConfig {
                     _ => None,
                 }
             },
+            tls_cert: std::env::var("KRONFORCE_TLS_CERT").ok().filter(|s| !s.is_empty()),
+            tls_key: std::env::var("KRONFORCE_TLS_KEY").ok().filter(|s| !s.is_empty()),
         }
     }
 }
@@ -144,6 +148,8 @@ pub struct AgentConfig {
     pub port: u16,
     pub heartbeat_interval: Duration,
     pub agent_key: Option<String>,
+    pub tls_cert: Option<String>,
+    pub tls_key: Option<String>,
 }
 
 impl AgentConfig {
@@ -187,6 +193,8 @@ impl AgentConfig {
             agent_key: std::env::var("KRONFORCE_AGENT_KEY")
                 .ok()
                 .filter(|s| !s.is_empty()),
+            tls_cert: std::env::var("KRONFORCE_TLS_CERT").ok().filter(|s| !s.is_empty()),
+            tls_key: std::env::var("KRONFORCE_TLS_KEY").ok().filter(|s| !s.is_empty()),
         }
     }
 }

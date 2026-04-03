@@ -346,32 +346,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = kronforce::api::router(state, rate_limiters, config.mcp_enabled);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
-    info!("listening on {}", config.bind_addr);
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async move {
-            let ctrl_c = tokio::signal::ctrl_c();
-            #[cfg(unix)]
-            {
-                let mut sigterm =
-                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                        .expect("failed to install SIGTERM handler");
-                tokio::select! {
-                    _ = ctrl_c => {},
-                    _ = sigterm.recv() => {},
-                }
+
+    let shutdown_signal = async move {
+        let ctrl_c = tokio::signal::ctrl_c();
+        #[cfg(unix)]
+        {
+            let mut sigterm =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to install SIGTERM handler");
+            tokio::select! {
+                _ = ctrl_c => {},
+                _ = sigterm.recv() => {},
             }
-            #[cfg(not(unix))]
-            {
-                ctrl_c.await.ok();
-            }
-            info!("shutdown signal received, checkpointing WAL...");
-            if let Err(e) = shutdown_db.checkpoint() {
-                warn!("WAL checkpoint failed: {}", e);
-            } else {
-                info!("WAL checkpoint complete");
-            }
-        })
-        .await?;
+        }
+        #[cfg(not(unix))]
+        {
+            ctrl_c.await.ok();
+        }
+        info!("shutdown signal received, checkpointing WAL...");
+        if let Err(e) = shutdown_db.checkpoint() {
+            warn!("WAL checkpoint failed: {}", e);
+        } else {
+            info!("WAL checkpoint complete");
+        }
+    };
+
+    if let (Some(cert), Some(key)) = (config.tls_cert, config.tls_key) {
+        let tls_config = kronforce::tls::load_tls_config(&cert, &key)
+            .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+        info!("listening on {} (TLS)", config.bind_addr);
+        kronforce::tls::serve_tls(listener, app, tls_config, shutdown_signal).await?;
+    } else {
+        info!("listening on {}", config.bind_addr);
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown_signal)
+            .await?;
+    }
 
     info!("server stopped");
     Ok(())

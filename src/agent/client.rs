@@ -32,7 +32,8 @@ impl AgentClient {
         agent_port: u16,
         request: &JobDispatchRequest,
     ) -> Result<JobDispatchResponse, AppError> {
-        let url = format!("http://{}:{}/execute", agent_address, agent_port);
+        let scheme = if agent_port == 443 { "https" } else { "http" };
+        let url = format!("{scheme}://{}:{}/execute", agent_address, agent_port);
         let resp = self
             .client
             .post(&url)
@@ -61,7 +62,8 @@ impl AgentClient {
         agent_port: u16,
         execution_id: Uuid,
     ) -> Result<(), AppError> {
-        let url = format!("http://{}:{}/cancel", agent_address, agent_port);
+        let scheme = if agent_port == 443 { "https" } else { "http" };
+        let url = format!("{scheme}://{}:{}/cancel", agent_address, agent_port);
         let req = CancelRequest { execution_id };
         let resp = self
             .client
@@ -83,7 +85,8 @@ impl AgentClient {
         agent_address: &str,
         agent_port: u16,
     ) -> Result<(), AppError> {
-        let url = format!("http://{}:{}/shutdown", agent_address, agent_port);
+        let scheme = if agent_port == 443 { "https" } else { "http" };
+        let url = format!("{scheme}://{}:{}/shutdown", agent_address, agent_port);
         let _ = self.client.post(&url).send().await; // Best-effort, don't fail if agent is already down
         Ok(())
     }

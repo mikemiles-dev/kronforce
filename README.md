@@ -157,6 +157,8 @@ KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
 | `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per API key) |
 | `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per API key) |
 | `KRONFORCE_MCP_ENABLED` | `true` | Enable/disable MCP server endpoint |
+| `KRONFORCE_TLS_CERT` | (none) | Path to TLS certificate PEM file (enables HTTPS) |
+| `KRONFORCE_TLS_KEY` | (none) | Path to TLS private key PEM file |
 
 </details>
 
@@ -189,6 +191,8 @@ KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
 | `KRONFORCE_AGENT_ADDRESS` | hostname | Address the controller uses to reach this agent |
 | `KRONFORCE_AGENT_BIND` | `0.0.0.0:8081` | Agent listen address |
 | `KRONFORCE_AGENT_KEY` | (none) | API key with `agent` role |
+| `KRONFORCE_TLS_CERT` | (none) | Path to TLS certificate PEM file (enables HTTPS) |
+| `KRONFORCE_TLS_KEY` | (none) | Path to TLS private key PEM file |
 
 </details>
 

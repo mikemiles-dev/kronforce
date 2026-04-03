@@ -108,8 +108,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = agent::server::router(state);
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
-    info!("agent listening on {}", config.bind_addr);
-    axum::serve(listener, app).await?;
+
+    if let (Some(cert), Some(key)) = (config.tls_cert, config.tls_key) {
+        let tls_config = kronforce::tls::load_tls_config(&cert, &key)
+            .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+        info!("agent listening on {} (TLS)", config.bind_addr);
+        kronforce::tls::serve_tls(listener, app, tls_config, async {
+            tokio::signal::ctrl_c().await.ok();
+        })
+        .await?;
+    } else {
+        info!("agent listening on {}", config.bind_addr);
+        axum::serve(listener, app).await?;
+    }
 
     Ok(())
 }
