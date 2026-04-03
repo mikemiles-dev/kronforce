@@ -5,70 +5,53 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0-alpha] - 2026-04-03
 
 ### Added
 - **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.
-- **Output extraction targets** — extractions can now target "variable" (write to global var) or "output" (replace execution stdout with extracted values)
-- **Regex full-match fallback** — extraction patterns without capture groups now return the full match instead of silently returning nothing
-- **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
+- **Native TLS** — set `KRONFORCE_TLS_CERT` and `KRONFORCE_TLS_KEY` to serve HTTPS on both controller and agent; agent client auto-detects HTTPS when agents use port 443
 - **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels
 - **Prometheus metrics** — `/metrics` endpoint with execution counts, job/agent/group totals, and database health in Prometheus exposition format
-- **Secret variables** — variables can be marked as secret; values are masked (`••••••••`) in API responses and the UI but still substituted into tasks at runtime
-- **Job version history** — every create/update snapshots the full job definition; query via `GET /api/jobs/{id}/versions` for audit trail and rollback reference
 - **Approval workflows** — jobs can require approval before execution (`approval_required` flag); triggering creates a `pending_approval` execution that must be approved via `POST /api/executions/{id}/approve` before running
-- **`PendingApproval` execution status** — new execution lifecycle state for approval-gated jobs
 - **SLA deadlines** — per-job completion deadline (HH:MM UTC) with configurable early warning; background monitor fires `sla.warning` and `sla.breach` events when running jobs approach or miss their deadline
-- **Native TLS** — set `KRONFORCE_TLS_CERT` and `KRONFORCE_TLS_KEY` to serve HTTPS on both controller and agent; agent client auto-detects HTTPS when agents use port 443
-- **API key group scoping** — API keys can be restricted to specific job groups (`allowed_groups`), giving team-level isolation without full multi-tenancy. Admin keys always see everything.
+- **Secret variables** — variables can be marked as secret; values are masked in API responses and the UI but still substituted into tasks at runtime
+- **Job version history** — every create/update snapshots the full job definition; query via `GET /api/jobs/{id}/versions` for audit trail and rollback reference
 - **Job priority** — `priority` field on jobs (default 0); higher priority jobs are scheduled first when multiple are due simultaneously
+- **API key group scoping** — API keys can be restricted to specific job groups (`allowed_groups`), giving team-level isolation without full multi-tenancy
 - **HA/Litestream replication** — Docker Compose setup for continuous SQLite replication to S3 with automatic restore on failover
 - **Enhanced health endpoint** — `/api/health` now reports database status, file size, WAL size, and connection pool info
 - **Graceful shutdown** — WAL checkpoint on SIGTERM/SIGINT ensures clean database state for replication
-
-### Fixed
-- **Output extractions not working** — regex patterns without capture groups (e.g., `\d+%`) silently failed; now falls back to full match
-- **Sidebar user/health indicator** — restored username display and health dot that broke during sidebar redesign
-
-## [0.1.0-alpha] - 2026-03-29
-
-### Added
+- **Output extraction targets** — extractions can now target "variable" (write to global var) or "output" (replace execution stdout with extracted values)
+- **Regex full-match fallback** — extraction patterns without capture groups now return the full match instead of silently returning nothing
+- **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
+- **Getting Started page** — interactive in-app guide with step-by-step setup and action buttons
 - **Job Groups** — organize jobs into named groups with a dedicated Groups page, Default group for all new jobs, group filter on jobs list, and group dropdown in job create/edit modal
 - **Dashboard Charts** — donut charts for execution outcomes, task types, and schedule types with SVG rendering
-- **Dashboard Tabs** — tabbed layout (Overview, Charts, Activity, Infrastructure) to reduce scrolling
+- **Dashboard Tabs** — tabbed layout (Overview, Activity, Infrastructure) to reduce scrolling
 - **MCP Task Type** — call tools on MCP (Model Context Protocol) servers via stdio or HTTP transport, with tool discovery API and dynamic UI form
 - **Execution Retry** — automatic retry on failure/timeout with configurable max retries, delay, and exponential backoff
 - **API Rate Limiting** — per-IP (public), per-API-key (authenticated), and per-key (agent) rate limits with 429 responses and Retry-After headers
 - **Audit Log** — append-only audit trail for all sensitive operations (key management, job CRUD, script changes, settings, variables, agent deregister) with query API
 - **Connection Pooling** — r2d2 connection pool replaces single Mutex<Connection> for concurrent database access
-- **Chart Stats API** — `GET /api/stats/charts` endpoint for dashboard chart data
-- **Groups API** — `GET/POST /api/jobs/groups`, `PUT /api/jobs/bulk-group`, `PUT /api/jobs/rename-group`
-- **Audit Log API** — `GET /api/audit-log` (admin only, paginated, filterable)
-- **Groups page** in sidebar with card grid, rename, delete, and share button
-- **Groups stat card** on dashboard linking to groups page
-- **Top Groups summary** on dashboard Overview tab
-- **In-app docs** for Groups, Retry, Rate Limiting, and Audit Log
 - **Docker images on GHCR** — multi-arch (linux/amd64, linux/arm64) images published to `ghcr.io/mikemiles-dev/kronforce` on each release
-- **Windows build** — x86_64 Windows binaries included in releases (controller, dashboard, HTTP tasks, and Rhai scripts supported; shell/FTP/messaging tasks require Unix tools)
-- **MCP Server** — Kronforce acts as an MCP server at `POST /mcp`, exposing 10 tools (list/get/create/trigger jobs, executions, agents, groups, events, stats) with role-based access via existing API keys
+- **Windows build** — x86_64 Windows binaries included in releases
+- **MCP Server** — Kronforce acts as an MCP server at `POST /mcp`, exposing 10 tools with role-based access
 
 ### Changed
-- Sidebar redesigned — compact icon-only square buttons with text labels, flyout submenus for Tools (Scripts, Variables) and Manage (Agents, Settings)
-- Job create/edit modal — group field moved to main tab with accent-colored label, changed from text input to dropdown
+- Sidebar redesigned — compact icon-only buttons with flyout submenus for Jobs (Jobs/Groups/Executions), Tools (Scripts/Variables), and Manage (Agents/Settings)
+- Job create/edit modal — group dropdown, priority field, approval checkbox, SLA deadline fields in Advanced tab
 - Trigger job endpoint returns `202 Accepted` instead of `200 OK`
-- Bootstrap API keys no longer written to plaintext file — only printed to stderr
-- Duplicate timeline mapping code extracted into helper function
-- Docker compose files now pull from GHCR by default with local build fallback
-- Dockerfile updated with missing build dependencies (build.rs, web/, migrations/)
-- Dashboard reorganized — pie charts moved under Overview, recent executions/groups moved to Activity tab, Charts tab removed
-- Execution timestamps now show full UTC on hover, relative time inline
-- Execution detail modal shows job name (clickable), started/finished UTC timestamps
-- Latest execution per job highlighted with blue border and "latest" label in execution list
+- Bootstrap API keys only printed to stderr (never written to disk)
+- Dashboard reorganized — pie charts under Overview, recent executions/groups under Activity tab
+- Execution timestamps show full UTC on hover, relative time inline
+- Execution detail modal shows job name (clickable), started/finished UTC timestamps, approve button for pending_approval
+- Execution list — sortable columns (Job, Status, Started, Duration), job names always resolve correctly
+- Latest execution per job highlighted with blue border and "latest" label
 - Shareable URLs for execution details (`#/executions/{id}`)
 - Map view shows group badges on nodes and group filter dropdown
-- Code architecture documentation added (`docs/CODE_ARCHITECTURE.md`)
 
 ### Fixed
+- **Controller-to-agent dispatch auth** — standard agent endpoints now require authentication; controller sends dispatch key
 - **Command injection** in Kafka task properties parameter
 - **Privilege escalation** via `run_as` — username now validated
 - **Missing authorization** on variable and script mutation endpoints (now require write role)
@@ -78,29 +61,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Credential exposure** — FTP credentials now passed via temp netrc file instead of command-line arguments
 - **CORS and security headers** — X-Frame-Options, X-Content-Type-Options, Referrer-Policy
 - **Foreign key constraint** on job deletion — now cascades to executions and queue items
-- **Flaky config test** — serialized env var access with mutex
-- **Agent callback retry** — bounded loop with capped exponential backoff
-- **Scheduler cache failure** — preserves stale cache instead of dropping all jobs
-- Input validation for job names, cron expressions, script size, group names
-- `alert()` replaced with `toast()` in frontend variables page
-- **Modal click-to-close** — modals no longer close when clicking inside form fields or dragging (tracks mousedown origin)
-- **Executions page job names** — job names now resolve correctly instead of showing UUID hashes
-- **MCP client unwrap panic** — 4 unsafe `.unwrap()` calls replaced with proper error handling
-- **Base64 file size limit** — corrected from 7MB to 6.7MB (actual 5MB binary limit)
-- **Retry scheduling failure** — now logged instead of silently dropped
-- **Tooltip DOM leak** — orphaned timeline tooltips cleaned up on rapid hover
-- **File upload state leak** — file push data cleared when reopening job modal
-- **Custom agent state leak** — stale custom agent data cleared on new modal open
-- **Event listener accumulation** — time range popup no longer adds duplicate listeners
+- **Output extractions** — regex patterns without capture groups silently returned nothing; now falls back to full match
+- **Executions page job names** — always fetches jobs before rendering so names resolve on fresh load
+- **Modal click-to-close** — modals no longer close when clicking inside form fields or dragging
+- **MCP client unwrap panic** — unsafe `.unwrap()` calls replaced with proper error handling
+- **Sidebar user/health indicator** — restored username display and health dot
 
 ### Security
+- Native TLS support on controller and agent (rustls, no OpenSSL dependency)
+- Agent dispatch authentication (controller → agent requests now require Bearer token)
+- OIDC/OAuth2 SSO with server-side sessions
+- API key group scoping for team isolation
 - API rate limiting on all endpoints (configurable, 3 tiers)
 - Audit logging for all state-changing operations
-- Authorization checks on variables and scripts APIs
 - SSRF protection on HTTP task URLs
-- Command injection fix in Kafka properties
-- run_as username validation
-- Credential handling improvements (FTP netrc, removed bootstrap-keys.txt)
+- Secret variable masking in API and UI
+- Approval workflow gates on job execution
 
 ## [0.1.0] - Initial Release
 
