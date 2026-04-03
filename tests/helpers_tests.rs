@@ -33,6 +33,7 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         retry_delay_secs: 0,
         retry_backoff: 1.0,
         approval_required: false,
+        priority: 0,
     }
 }
 

@@ -101,7 +101,7 @@ async fn validate_session_cookie(
 
             // Create a synthetic ApiKey from session data
             Ok(Some(ApiKey {
-                id: Uuid::new_v4(), // Session doesn't have a persistent UUID — generate one per request
+                id: Uuid::new_v4(),
                 key_prefix: String::new(),
                 key_hash: String::new(),
                 name: sess.user_name,
@@ -109,6 +109,7 @@ async fn validate_session_cookie(
                 created_at: sess.created_at,
                 last_used_at: Some(Utc::now()),
                 active: true,
+                allowed_groups: None, // OIDC sessions have no group restrictions
             }))
         }
         None => Ok(None),
@@ -285,6 +286,9 @@ pub(crate) async fn logout(
 pub(crate) struct CreateApiKeyRequest {
     name: String,
     role: ApiKeyRole,
+    /// Restrict this key to specific job groups. Omit or null for unrestricted access.
+    #[serde(default)]
+    allowed_groups: Option<Vec<String>>,
 }
 
 /// Response containing the newly created key and its raw (unhashed) value.
@@ -323,6 +327,7 @@ pub(crate) async fn create_api_key(
         created_at: Utc::now(),
         last_used_at: None,
         active: true,
+        allowed_groups: body.allowed_groups.filter(|g| !g.is_empty()),
     };
 
     let key2 = key.clone();

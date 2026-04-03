@@ -14,7 +14,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
-            "INSERT INTO api_keys (id, key_prefix, key_hash, name, role, created_at, last_used_at, active) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO api_keys (id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 key.id.to_string(),
                 key.key_prefix,
@@ -24,6 +24,7 @@ impl Db {
                 key.created_at.to_rfc3339(),
                 key.last_used_at.map(|t| t.to_rfc3339()),
                 key.active as i32,
+                key.allowed_groups.as_ref().map(|g| serde_json::to_string(g).unwrap_or_default()),
             ],
         ).map_err(AppError::Db)?;
         Ok(())
@@ -36,7 +37,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys WHERE key_hash = ?1 AND active = 1")
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json FROM api_keys WHERE key_hash = ?1 AND active = 1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![hash], ApiKey::from_row)
@@ -55,7 +56,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active FROM api_keys ORDER BY created_at DESC")
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json FROM api_keys ORDER BY created_at DESC")
             .map_err(AppError::Db)?;
         let rows = stmt.query_map([], ApiKey::from_row).map_err(AppError::Db)?;
         let mut keys = Vec::new();

@@ -497,6 +497,7 @@ async fn tool_create_job(args: &Value, state: &AppState) -> Result<String, Strin
         retry_delay_secs: 0,
         retry_backoff: 1.0,
         approval_required: false,
+        priority: 0,
     };
 
     let job_clone = job.clone();

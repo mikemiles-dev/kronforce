@@ -31,6 +31,8 @@ pub(crate) struct CreateJobRequest {
     retry_backoff: Option<f64>,
     #[serde(default)]
     approval_required: bool,
+    #[serde(default)]
+    priority: i32,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -52,6 +54,7 @@ pub(crate) struct UpdateJobRequest {
     retry_delay_secs: Option<u64>,
     retry_backoff: Option<f64>,
     approval_required: Option<bool>,
+    priority: Option<i32>,
 }
 
 /// Summary of a job's most recent execution.
@@ -289,6 +292,7 @@ pub(crate) async fn create_job(
         retry_delay_secs: req.retry_delay_secs.unwrap_or(0),
         retry_backoff: req.retry_backoff.unwrap_or(1.0),
         approval_required: req.approval_required,
+        priority: req.priority,
     };
 
     let job_clone = job.clone();
@@ -433,6 +437,9 @@ pub(crate) async fn update_job(
     }
     if let Some(ar) = req.approval_required {
         job.approval_required = ar;
+    }
+    if let Some(p) = req.priority {
+        job.priority = p;
     }
 
     job.updated_at = Utc::now();

@@ -14,6 +14,10 @@ pub struct ApiKey {
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
     pub active: bool,
+    /// If set, restricts this key to only see/manage jobs in these groups.
+    /// None means no restriction (all groups visible). Admin keys ignore this.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_groups: Option<Vec<String>>,
 }
 
 const KEY_PREFIX_LEN: usize = 11;
@@ -38,12 +42,15 @@ impl ApiKey {
                 created_at: Utc::now(),
                 last_used_at: None,
                 active: true,
+                allowed_groups: None,
             },
             raw_key,
         )
     }
 
     /// Constructs an ApiKey from a rusqlite row.
+    ///
+    /// Columns: id(0), key_prefix(1), key_hash(2), name(3), role(4), created_at(5), last_used_at(6), active(7), allowed_groups_json(8)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         use crate::db::helpers::{parse_datetime, parse_uuid};
 
@@ -52,6 +59,7 @@ impl ApiKey {
         let created_str: String = row.get(5)?;
         let last_used_str: Option<String> = row.get(6)?;
         let active_int: i32 = row.get(7)?;
+        let groups_json: Option<String> = row.get(8).unwrap_or(None);
 
         Ok(ApiKey {
             id: parse_uuid(&id_str)?,
@@ -62,6 +70,7 @@ impl ApiKey {
             created_at: parse_datetime(&created_str)?,
             last_used_at: last_used_str.map(|s| parse_datetime(&s)).transpose()?,
             active: active_int != 0,
+            allowed_groups: groups_json.and_then(|s| serde_json::from_str(&s).ok()),
         })
     }
 }
@@ -112,5 +121,22 @@ impl ApiKeyRole {
     /// Returns `true` if this is an agent-scoped key.
     pub fn is_agent(&self) -> bool {
         matches!(self, ApiKeyRole::Agent)
+    }
+}
+
+impl ApiKey {
+    /// Returns true if this key can access jobs in the given group.
+    /// Admin keys and keys with no group restriction can access all groups.
+    pub fn can_access_group(&self, group: Option<&str>) -> bool {
+        if self.role.can_manage_keys() {
+            return true; // Admin sees everything
+        }
+        match &self.allowed_groups {
+            None => true, // No restriction
+            Some(groups) => {
+                let g = group.unwrap_or("Default");
+                groups.iter().any(|ag| ag == g)
+            }
+        }
     }
 }

@@ -347,7 +347,9 @@ impl Scheduler {
     async fn reload_jobs(&mut self) {
         let db = self.db.clone();
         match tokio::task::spawn_blocking(move || db.get_active_cron_jobs()).await {
-            Ok(Ok(jobs)) => {
+            Ok(Ok(mut jobs)) => {
+                // Sort by priority descending so higher priority jobs fire first
+                jobs.sort_by(|a, b| b.priority.cmp(&a.priority));
                 debug!("loaded {} active jobs", jobs.len());
                 self.jobs_cache = Some(jobs);
             }
