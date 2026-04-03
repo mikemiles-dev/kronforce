@@ -18,13 +18,68 @@ function goToExecsPage(p) {
     if (currentJobId) fetchExecutions(currentJobId);
 }
 
+let execSortColumn = 'started_at';
+let execSortDirection = 'desc';
+
+function sortExecs(col) {
+    if (execSortColumn === col) {
+        execSortDirection = execSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        execSortColumn = col;
+        execSortDirection = col === 'started_at' ? 'desc' : 'asc';
+    }
+    fetchAllExecutions();
+}
+
+function getExecSortValue(e, col) {
+    switch (col) {
+        case 'job': return resolveJobName(e.job_id);
+        case 'status': return e.status;
+        case 'exit_code': return e.exit_code !== null ? e.exit_code : -999;
+        case 'started_at': return e.started_at || '';
+        case 'duration': {
+            if (!e.started_at || !e.finished_at) return 0;
+            return new Date(e.finished_at) - new Date(e.started_at);
+        }
+        default: return '';
+    }
+}
+
 function renderExecTable(execs, { wrapId, showJobColumn, emptyMessage } = {}) {
     const wrap = document.getElementById(wrapId || 'exec-table-wrap');
     if (execs.length === 0) {
         wrap.innerHTML = '<div class="empty-state"><p>' + (emptyMessage || 'No executions yet') + '</p></div>';
         return;
     }
-    let html = '<table><thead><tr><th>ID</th>' + (showJobColumn ? '<th>Job</th>' : '') + '<th>Status</th><th>Exit Code</th><th>Started</th><th>Duration</th><th>Agent</th><th>Trigger</th></tr></thead><tbody>';
+
+    // Sort if on the all-executions page
+    if (showJobColumn) {
+        execs = [...execs].sort((a, b) => {
+            let va = getExecSortValue(a, execSortColumn);
+            let vb = getExecSortValue(b, execSortColumn);
+            if (typeof va === 'number' && typeof vb === 'number') {
+                return execSortDirection === 'asc' ? va - vb : vb - va;
+            }
+            va = String(va); vb = String(vb);
+            const cmp = va.localeCompare(vb);
+            return execSortDirection === 'asc' ? cmp : -cmp;
+        });
+    }
+
+    function execSortTh(col, label) {
+        const cls = execSortColumn === col ? (execSortDirection === 'asc' ? 'sortable sort-asc' : 'sortable sort-desc') : 'sortable';
+        return '<th class="' + cls + '" onclick="sortExecs(\'' + col + '\')">' + label + '</th>';
+    }
+
+    let html = '<table><thead><tr><th>ID</th>';
+    if (showJobColumn) html += execSortTh('job', 'Job');
+    else if (showJobColumn === false) { /* skip */ }
+    html += execSortTh('status', 'Status');
+    html += '<th>Exit Code</th>';
+    html += execSortTh('started_at', 'Started');
+    html += execSortTh('duration', 'Duration');
+    html += '<th>Agent</th><th>Trigger</th></tr></thead><tbody>';
+
     // Track latest execution per job to mark it
     const latestByJob = {};
     for (const e of execs) {
@@ -346,12 +401,11 @@ const execSearch = createSearchFilter({ inputId: 'exec-search-input', clearBtnId
 async function fetchAllExecutions() {
     try {
         // Ensure job names are available for resolving job_id → name
-        if (allJobs.length === 0) {
-            try {
-                const jobsRes = await api('GET', '/api/jobs?per_page=100');
-                allJobs = jobsRes.data;
-            } catch (_) {}
-        }
+        // Fetch all jobs (not just first page) so names resolve correctly
+        try {
+            const jobsRes = await api('GET', '/api/jobs?per_page=1000');
+            allJobs = jobsRes.data;
+        } catch (_) {}
         let qs = '?page=' + allExecsPage + '&per_page=' + PER_PAGE;
         if (execSearch.statusFilter) qs += '&status=' + execSearch.statusFilter;
         if (execSearch.searchTerm) qs += '&search=' + encodeURIComponent(execSearch.searchTerm);
