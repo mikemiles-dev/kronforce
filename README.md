@@ -6,8 +6,6 @@
 
 **Modern job scheduling and workload automation. One binary. Zero dependencies. Just run it.**
 
-![Kronforce Dashboard](screenshot.png)
-
 ![Kronforce Demo](demo.gif)
 
 Kronforce replaces scattered cron jobs, heavyweight platforms like Rundeck and Airflow, and stitched-together scripts with a single Rust binary that includes everything: scheduler, REST API, web dashboard, and SQLite database. No Postgres. No Redis. No Java. Download, run, automate.
