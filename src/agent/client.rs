@@ -7,6 +7,9 @@ use crate::error::AppError;
 #[derive(Clone)]
 pub struct AgentClient {
     client: reqwest::Client,
+    /// Shared secret sent to agents to authenticate controller → agent requests.
+    /// Set via KRONFORCE_AGENT_KEY on the controller (same key agents use).
+    dispatch_key: Option<String>,
 }
 
 impl Default for AgentClient {
@@ -18,11 +21,18 @@ impl Default for AgentClient {
 impl AgentClient {
     /// Creates a new agent client with a 10-second request timeout.
     pub fn new() -> Self {
+        let dispatch_key = std::env::var("KRONFORCE_BOOTSTRAP_AGENT_KEY")
+            .or_else(|_| std::env::var("KRONFORCE_DISPATCH_KEY"))
+            .ok()
+            .filter(|s| !s.is_empty());
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new());
-        Self { client }
+        Self {
+            client,
+            dispatch_key,
+        }
     }
 
     /// Sends a job dispatch request to an agent and returns its acceptance response.
@@ -34,10 +44,11 @@ impl AgentClient {
     ) -> Result<JobDispatchResponse, AppError> {
         let scheme = if agent_port == 443 { "https" } else { "http" };
         let url = format!("{scheme}://{}:{}/execute", agent_address, agent_port);
-        let resp = self
-            .client
-            .post(&url)
-            .json(request)
+        let mut req = self.client.post(&url).json(request);
+        if let Some(ref key) = self.dispatch_key {
+            req = req.header("Authorization", format!("Bearer {key}"));
+        }
+        let resp = req
             .send()
             .await
             .map_err(|e| AppError::AgentError(format!("failed to dispatch to agent: {e}")))?;
@@ -64,11 +75,12 @@ impl AgentClient {
     ) -> Result<(), AppError> {
         let scheme = if agent_port == 443 { "https" } else { "http" };
         let url = format!("{scheme}://{}:{}/cancel", agent_address, agent_port);
-        let req = CancelRequest { execution_id };
-        let resp = self
-            .client
-            .post(&url)
-            .json(&req)
+        let cancel = CancelRequest { execution_id };
+        let mut req = self.client.post(&url).json(&cancel);
+        if let Some(ref key) = self.dispatch_key {
+            req = req.header("Authorization", format!("Bearer {key}"));
+        }
+        let resp = req
             .send()
             .await
             .map_err(|e| AppError::AgentError(format!("failed to cancel on agent: {e}")))?;
@@ -87,7 +99,11 @@ impl AgentClient {
     ) -> Result<(), AppError> {
         let scheme = if agent_port == 443 { "https" } else { "http" };
         let url = format!("{scheme}://{}:{}/shutdown", agent_address, agent_port);
-        let _ = self.client.post(&url).send().await; // Best-effort, don't fail if agent is already down
+        let mut req = self.client.post(&url);
+        if let Some(ref key) = self.dispatch_key {
+            req = req.header("Authorization", format!("Bearer {key}"));
+        }
+        let _ = req.send().await; // Best-effort, don't fail if agent is already down
         Ok(())
     }
 }

@@ -35,13 +35,58 @@ pub fn router(state: AgentState) -> Router {
         .with_state(state)
 }
 
+/// Validates that the request has the correct agent key. Returns error response if invalid.
+fn validate_agent_auth(
+    headers: &axum::http::HeaderMap,
+    expected_key: &Option<String>,
+) -> Result<(), (axum::http::StatusCode, Json<serde_json::Value>)> {
+    let Some(key) = expected_key else {
+        return Ok(()); // No key configured, skip auth
+    };
+
+    let auth = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "));
+
+    match auth {
+        Some(token) if token == key => Ok(()),
+        _ => Err((
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "invalid or missing agent key"})),
+        )),
+    }
+}
+
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({"status": "ok"}))
 }
 
 async fn execute_job(
     State(state): State<AgentState>,
-    Json(req): Json<JobDispatchRequest>,
+    req: axum::extract::Request,
+) -> Result<Json<JobDispatchResponse>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    validate_agent_auth(req.headers(), &state.agent_key)?;
+    let body = axum::body::to_bytes(req.into_body(), 1024 * 1024 * 10)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": format!("bad body: {e}")})),
+            )
+        })?;
+    let req: JobDispatchRequest = serde_json::from_slice(&body).map_err(|e| {
+        (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("bad json: {e}")})),
+        )
+    })?;
+    Ok(execute_job_inner(state, req).await)
+}
+
+async fn execute_job_inner(
+    state: AgentState,
+    req: JobDispatchRequest,
 ) -> Json<JobDispatchResponse> {
     let exec_id = req.execution_id;
 
@@ -131,23 +176,41 @@ async fn execute_job(
 
 async fn cancel_job(
     State(state): State<AgentState>,
-    Json(req): Json<CancelRequest>,
-) -> Json<serde_json::Value> {
+    req: axum::extract::Request,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    validate_agent_auth(req.headers(), &state.agent_key)?;
+    let body = axum::body::to_bytes(req.into_body(), 1024 * 64)
+        .await
+        .map_err(|e| {
+            (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": format!("{e}")})),
+            )
+        })?;
+    let cancel: CancelRequest = serde_json::from_slice(&body).map_err(|e| {
+        (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("{e}")})),
+        )
+    })?;
     let mut running = state.running.lock().await;
-    if let Some(tx) = running.remove(&req.execution_id) {
+    if let Some(tx) = running.remove(&cancel.execution_id) {
         let _ = tx.send(());
-        Json(serde_json::json!({"cancelled": true}))
+        Ok(Json(serde_json::json!({"cancelled": true})))
     } else {
-        Json(serde_json::json!({"cancelled": false, "message": "not running"}))
+        Ok(Json(serde_json::json!({"cancelled": false, "message": "not running"})))
     }
 }
 
-async fn shutdown() -> Json<serde_json::Value> {
+async fn shutdown(
+    State(state): State<AgentState>,
+    req: axum::extract::Request,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, Json<serde_json::Value>)> {
+    validate_agent_auth(req.headers(), &state.agent_key)?;
     info!("shutdown requested by controller, exiting...");
-    // Spawn a delayed exit so the response can be sent first
     tokio::spawn(async {
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         std::process::exit(0);
     });
-    Json(serde_json::json!({"status": "shutting_down"}))
+    Ok(Json(serde_json::json!({"status": "shutting_down"})))
 }
