@@ -1,0 +1,55 @@
+# Kronforce Controller with Litestream Replication
+#
+# Continuously replicates SQLite to S3-compatible storage for disaster recovery.
+# On restart, Litestream restores the latest snapshot before starting Kronforce.
+#
+# Required environment variables (set in .env or export):
+#   LITESTREAM_REPLICA_URL  - S3 bucket URL (e.g., s3://my-bucket/kronforce)
+#   AWS_ACCESS_KEY_ID       - S3 access key
+#   AWS_SECRET_ACCESS_KEY   - S3 secret key
+#   AWS_REGION              - S3 region (default: us-east-1)
+#
+# Usage:
+#   docker compose -f deploy/docker/docker-compose.ha.yml up -d
+#   docker compose -f deploy/docker/docker-compose.ha.yml logs controller
+#
+# Failover:
+#   1. Start a new controller instance pointing at the same S3 bucket
+#   2. Litestream restores the latest data automatically
+#   3. Update DNS/load balancer to point to the new instance
+
+services:
+  controller:
+    image: ghcr.io/mikemiles-dev/kronforce:latest
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.ha
+    ports:
+      - "8080:8080"
+    volumes:
+      - kronforce-data:/data
+      - kronforce-scripts:/scripts
+    environment:
+      - KRONFORCE_DB=/data/kronforce.db
+      - KRONFORCE_BIND=0.0.0.0:8080
+      - KRONFORCE_SCRIPTS_DIR=/scripts
+      - KRONFORCE_CALLBACK_URL=http://localhost:8080
+      - RUST_LOG=kronforce=info
+      # S3 replication (required)
+      - LITESTREAM_REPLICA_URL=${LITESTREAM_REPLICA_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Optional: pre-set bootstrap keys
+      # - KRONFORCE_BOOTSTRAP_ADMIN_KEY=kf_your_admin_key
+      # - KRONFORCE_BOOTSTRAP_AGENT_KEY=kf_your_agent_key
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    stop_grace_period: 30s
+
+volumes:
+  kronforce-data:
+  kronforce-scripts:

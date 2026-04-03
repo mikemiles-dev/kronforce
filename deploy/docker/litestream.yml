@@ -1,0 +1,8 @@
+dbs:
+  - path: /data/kronforce.db
+    replicas:
+      - type: s3
+        url: ${LITESTREAM_REPLICA_URL}
+        retention: 168h          # 7 days of WAL snapshots
+        snapshot-interval: 1h    # Full snapshot every hour
+        sync-interval: 1s        # Replicate WAL changes every second

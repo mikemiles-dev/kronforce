@@ -18,6 +18,7 @@ mod settings;
 mod stats;
 mod variables;
 
+use axum::extract::State;
 use axum::middleware;
 use axum::response::Html;
 use axum::routing::{delete, get, post, put};
@@ -65,6 +66,16 @@ pub(crate) struct PaginatedResponse<T: serde::Serialize> {
 #[derive(Serialize)]
 struct HealthResponse {
     status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    db: Option<DbHealth>,
+}
+
+#[derive(Serialize)]
+pub struct DbHealth {
+    pub ok: bool,
+    pub size_bytes: Option<u64>,
+    pub wal_size_bytes: Option<u64>,
+    pub pool_size: u32,
 }
 
 /// Builds the complete Axum router with all API, agent, and public routes.
@@ -235,9 +246,22 @@ async fn dashboard() -> Html<&'static str> {
     Html(DASHBOARD_HTML)
 }
 
-async fn health() -> Json<HealthResponse> {
+async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
+    let db = state.db.clone();
+    let db_health = tokio::task::spawn_blocking(move || db.health_check())
+        .await
+        .ok()
+        .flatten();
+
+    let status = if db_health.as_ref().is_some_and(|h| h.ok) {
+        "ok"
+    } else {
+        "degraded"
+    };
+
     Json(HealthResponse {
-        status: "ok".to_string(),
+        status: status.to_string(),
+        db: db_health,
     })
 }
 

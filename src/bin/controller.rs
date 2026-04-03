@@ -272,11 +272,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         script_store: script_store.clone(),
         oidc: oidc_state,
     };
+    // Clone DB handle before moving state into router
+    let shutdown_db = state.db.clone();
     let app = kronforce::api::router(state, rate_limiters, config.mcp_enabled);
 
     let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     info!("listening on {}", config.bind_addr);
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            let ctrl_c = tokio::signal::ctrl_c();
+            #[cfg(unix)]
+            {
+                let mut sigterm =
+                    tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                        .expect("failed to install SIGTERM handler");
+                tokio::select! {
+                    _ = ctrl_c => {},
+                    _ = sigterm.recv() => {},
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                ctrl_c.await.ok();
+            }
+            info!("shutdown signal received, checkpointing WAL...");
+            if let Err(e) = shutdown_db.checkpoint() {
+                warn!("WAL checkpoint failed: {}", e);
+            } else {
+                info!("WAL checkpoint complete");
+            }
+        })
+        .await?;
 
+    info!("server stopped");
     Ok(())
 }

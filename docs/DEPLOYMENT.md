@@ -398,6 +398,88 @@ curl -X PUT http://localhost:8080/api/settings \
 
 Default: 90 days. The audit log is not affected by the regular `retention_days` setting.
 
+## High Availability
+
+Kronforce uses SQLite, which means a single controller instance. For disaster recovery and failover, use [Litestream](https://litestream.io/) to continuously replicate the database to S3-compatible storage.
+
+### How It Works
+
+1. Litestream runs as a sidecar, watching the SQLite WAL file
+2. WAL changes are streamed to S3 every second
+3. Full snapshots are taken hourly
+4. On startup, Litestream restores from the latest replica if no local database exists
+5. On shutdown, Kronforce checkpoints the WAL for a clean handoff
+
+### Setup
+
+```bash
+# Set your S3 credentials
+export LITESTREAM_REPLICA_URL=s3://my-bucket/kronforce
+export AWS_ACCESS_KEY_ID=your-key
+export AWS_SECRET_ACCESS_KEY=your-secret
+export AWS_REGION=us-east-1
+
+# Start with replication
+docker compose -f deploy/docker/docker-compose.ha.yml up -d
+
+# View logs
+docker compose -f deploy/docker/docker-compose.ha.yml logs -f
+```
+
+### Failover Procedure
+
+1. **Primary goes down**: The S3 replica has data up to ~1 second before failure
+2. **Start a new controller**: Point it at the same S3 bucket
+3. **Litestream restores automatically**: The database is rebuilt from S3 before Kronforce starts
+4. **Update DNS/load balancer**: Route traffic to the new instance
+5. **Agents reconnect**: Agents will re-register on their next heartbeat
+
+```bash
+# On the new machine
+export LITESTREAM_REPLICA_URL=s3://my-bucket/kronforce  # Same bucket
+docker compose -f deploy/docker/docker-compose.ha.yml up -d
+```
+
+### S3-Compatible Storage
+
+Litestream supports any S3-compatible storage:
+- **AWS S3**
+- **MinIO** (self-hosted)
+- **DigitalOcean Spaces**
+- **Backblaze B2**
+- **Google Cloud Storage** (via S3 compatibility)
+
+### Health Endpoint
+
+The enhanced health endpoint reports database status:
+
+```bash
+curl http://localhost:8080/api/health
+```
+
+```json
+{
+  "status": "ok",
+  "db": {
+    "ok": true,
+    "size_bytes": 524288,
+    "wal_size_bytes": 32768,
+    "pool_size": 8
+  }
+}
+```
+
+Use `status: "ok"` for load balancer health checks. A `"degraded"` status means the database is unreachable.
+
+### Graceful Shutdown
+
+On SIGTERM/SIGINT, Kronforce:
+1. Stops accepting new connections
+2. Checkpoints the WAL (flushes all pending writes to the main database file)
+3. Exits cleanly
+
+This ensures Litestream captures the final state. Docker's `stop_grace_period: 30s` gives time for the checkpoint.
+
 ## Scaling Agents
 
 Deploy multiple agents by running `docker-compose.agent.yml` on different machines with unique names:

@@ -133,6 +133,44 @@ impl Db {
 }
 
 impl Db {
+    /// Returns health information about the database.
+    pub fn health_check(&self) -> Option<crate::api::DbHealth> {
+        let conn = self.pool.get().ok()?;
+        // Verify DB is accessible
+        let ok = conn.query_row("SELECT 1", [], |_| Ok(())).is_ok();
+
+        // Get DB file size
+        let db_path: Option<String> = conn
+            .query_row("PRAGMA database_list", [], |row| row.get(2))
+            .ok();
+        let size_bytes = db_path
+            .as_ref()
+            .and_then(|p| std::fs::metadata(p).ok())
+            .map(|m| m.len());
+        let wal_size_bytes = db_path
+            .as_ref()
+            .and_then(|p| std::fs::metadata(format!("{p}-wal")).ok())
+            .map(|m| m.len());
+
+        Some(crate::api::DbHealth {
+            ok,
+            size_bytes,
+            wal_size_bytes,
+            pool_size: self.pool.max_size(),
+        })
+    }
+
+    /// Forces a WAL checkpoint, flushing all WAL data to the main database file.
+    pub fn checkpoint(&self) -> Result<(), AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(AppError::Db)?;
+        Ok(())
+    }
+
     /// Runs the given closure inside a SQLite transaction, committing on success.
     pub fn with_transaction<F, T>(&self, f: F) -> Result<T, AppError>
     where
