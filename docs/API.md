@@ -234,6 +234,51 @@ curl -X POST http://localhost:8080/api/jobs/{id}/trigger        # Trigger now
 curl "http://localhost:8080/api/jobs/{id}/executions?page=1"     # History
 curl http://localhost:8080/api/executions/{id}                   # Details
 curl -X POST http://localhost:8080/api/executions/{id}/cancel    # Cancel
+curl -X POST http://localhost:8080/api/executions/{id}/approve   # Approve (for approval-gated jobs)
+curl http://localhost:8080/api/jobs/{id}/versions                # Job version history
+```
+
+### Approval Workflows
+
+Jobs with `"approval_required": true` create a `pending_approval` execution when triggered. An admin or operator must approve it before it runs:
+
+```bash
+# Create a job that requires approval
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "deploy-prod", "task": {"type": "shell", "command": "deploy.sh"}, "schedule": "on_demand", "approval_required": true}'
+
+# Trigger it (creates pending_approval execution)
+curl -X POST http://localhost:8080/api/jobs/{id}/trigger
+
+# Approve the execution
+curl -X POST http://localhost:8080/api/executions/{exec_id}/approve
+```
+
+### Priority Scheduling
+
+Set `"priority"` on a job (default 0, higher = runs first). When multiple jobs are due at the same time, higher priority jobs fire first:
+
+```bash
+curl -X PUT http://localhost:8080/api/jobs/{id} \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"priority": 10}'
+```
+
+### Secret Variables
+
+Variables with `"secret": true` have their values masked in API responses:
+
+```bash
+curl -X POST http://localhost:8080/api/variables \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "DB_PASSWORD", "value": "s3cret", "secret": true}'
+
+# GET returns masked value: "••••••••"
+# But {{DB_PASSWORD}} in task fields resolves to "s3cret" at runtime
 ```
 
 ## Agents

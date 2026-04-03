@@ -107,13 +107,21 @@ Calls gRPC services via [grpcurl](https://github.com/fullstorydev/grpcurl) with 
 - **Execution retry** — automatic retry on failure/timeout with configurable backoff
 - **Job groups** — organize jobs into named groups with dedicated Groups page
 - **Output intelligence** — extract values from output (regex/jsonpath), trigger events on patterns, diff output across runs, write extracted values to global variables
+- **Secret variables** — variables marked as secret are masked in the API and UI but substituted into tasks at runtime
 - **Global variables** — shared key-value store with `{{VAR_NAME}}` substitution in all task fields, updatable via UI, API, or output extraction write-back
 - **Cron scheduling** — 6-field second-precision cron with visual builder
+- **Priority scheduling** — higher priority jobs fire first when multiple are due simultaneously
+- **Approval workflows** — jobs can require approval before execution; pending executions must be approved via API
+- **Job version history** — every create/update snapshots the full job definition for audit trail and rollback
 - **Event triggers** — fire jobs reactively on system events or output pattern matches
 - **Dependency DAG** — job dependencies with time windows and visual map
 - **Rhai scripting** — embedded scripting with HTTP, shell, TCP/UDP, and more
+- **Notifications** — email (SMTP), SMS (webhook), Slack, Microsoft Teams, PagerDuty on job failures, successes, and agent outages
+- **Prometheus metrics** — `/metrics` endpoint for Grafana/Prometheus scraping (execution counts, DB health, job/agent totals)
+- **HA/disaster recovery** — Litestream replication to S3 with automatic restore on failover, graceful shutdown with WAL checkpoint
 - **Connection pooling** — r2d2 SQLite connection pool for concurrent database access
-- **Dark/Light mode**, auto-refresh, pagination, audit log, API key auth, rate limiting
+- **Team isolation** — API keys can be scoped to specific job groups for team-level access control
+- **Dark/Light mode**, auto-refresh, pagination, audit log, API key + OIDC/SSO auth, rate limiting
 
 ## Dashboard Pages
 
@@ -126,10 +134,10 @@ Calls gRPC services via [grpcurl](https://github.com/fullstorydev/grpcurl) with 
 | Events | Events | Activity feed with severity filtering |
 | Map | Map | Visual dependency graph with group badges and filter |
 | Scripts | Tools ▸ Scripts | Rhai script editor with syntax highlighting |
-| Variables | Tools ▸ Variables | Global key-value variable management |
+| Variables | Tools ▸ Variables | Global key-value variable management (with secret variable support) |
 | Docs | Docs | In-app documentation for all features |
 | Agents | Manage ▸ Agents | Agent cards with custom agent task type editor |
-| Settings | Manage ▸ Settings | Theme, API keys, data retention, notifications |
+| Settings | Manage ▸ Settings | Theme, API keys (with group scoping), data retention, notifications (email/SMS/webhook) |
 
 ## Documentation
 
@@ -145,7 +153,7 @@ The dashboard also includes a **Docs** page with the same content accessible fro
 
 ## Authentication
 
-**API keys** with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role.
+**API keys** with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role. Keys can be scoped to specific job groups for team-level isolation.
 
 **OIDC/SSO** (optional): Set `KRONFORCE_OIDC_ISSUER` and `KRONFORCE_OIDC_CLIENT_ID` to enable "Sign in with SSO" on the login screen. Users authenticate via your IdP (Okta, Azure AD, Google, Keycloak) and are mapped to Kronforce roles based on claim values. API keys continue to work alongside SSO for agents and automation.
 

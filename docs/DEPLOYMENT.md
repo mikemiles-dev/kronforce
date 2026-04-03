@@ -324,11 +324,28 @@ On first startup, the controller creates bootstrap `admin` and `agent` keys and 
 Create additional keys in the Settings page or via API:
 
 ```bash
+# Unrestricted operator key
 curl -X POST http://localhost:8080/api/keys \
   -H "Authorization: Bearer kf_admin_key" \
   -H "Content-Type: application/json" \
   -d '{"name": "CI pipeline", "role": "operator"}'
+
+# Team-scoped key (can only access ETL and Monitoring groups)
+curl -X POST http://localhost:8080/api/keys \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "data-team", "role": "operator", "allowed_groups": ["ETL", "Monitoring"]}'
 ```
+
+### Team Isolation via Group Scoping
+
+API keys can be restricted to specific job groups using `allowed_groups`. A scoped key can only view, create, edit, and trigger jobs in its allowed groups. Admin keys always see everything.
+
+This enables team-level isolation without full multi-tenancy:
+- **Platform team**: Admin key, sees all groups
+- **Data team**: Operator key scoped to `["ETL", "Data Quality"]`
+- **SRE team**: Operator key scoped to `["Monitoring", "Deploys"]`
+- **Dashboard viewer**: Viewer key scoped to `["Monitoring"]`
 
 ### OIDC/SSO (Optional)
 

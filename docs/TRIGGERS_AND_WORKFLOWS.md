@@ -375,6 +375,17 @@ curl -X POST http://localhost:8080/api/jobs -d '{
 
 Every execution generates events. Events can trigger more jobs. Those jobs produce output that can trigger more events. This creates a powerful reactive system where you define the rules and Kronforce handles the orchestration.
 
+## Approval Gates
+
+Jobs with `approval_required: true` create a `pending_approval` execution when triggered instead of running immediately. This enables change-control workflows:
+
+1. **Developer triggers deploy-prod** → Execution created with status `pending_approval`
+2. **Notification sent** → Team lead sees pending execution in the Events feed
+3. **Team lead approves** → `POST /api/executions/{id}/approve` triggers the actual execution
+4. **Job runs** → Normal execution lifecycle from here
+
+Approval works with all trigger sources: manual, cron, event-driven, and dependency-based. Unapproved executions remain in `pending_approval` status indefinitely until approved or cancelled.
+
 ## Tips
 
 - **Use `job_name_filter`** on event triggers to scope reactions to specific jobs, otherwise `execution.completed` fires for *every* job

@@ -336,9 +336,30 @@ python3 examples/mcp_test_server.py</code></pre>
                     <table>
                         <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
                         <tr><td>GET</td><td><code>/api/keys</code></td><td>List API keys</td></tr>
-                        <tr><td>POST</td><td><code>/api/keys</code></td><td>Create a key (name, role: admin/operator/viewer)</td></tr>
+                        <tr><td>POST</td><td><code>/api/keys</code></td><td>Create a key (name, role, optional allowed_groups)</td></tr>
                         <tr><td>DELETE</td><td><code>/api/keys/{id}</code></td><td>Revoke a key</td></tr>
                     </table>
+                    <p><strong>Group scoping:</strong> Set <code>allowed_groups</code> when creating a key to restrict it to specific job groups. Admin keys always see everything. Keys without group restrictions see all groups.</p>
+
+                    <h3>Approval Workflows</h3>
+                    <p>Jobs with <code>approval_required: true</code> create a <code>pending_approval</code> execution when triggered instead of running immediately.</p>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>POST</td><td><code>/api/executions/{id}/approve</code></td><td>Approve a pending execution (requires write access)</td></tr>
+                    </table>
+
+                    <h3>Job Versions</h3>
+                    <p>Every job create/update saves a full snapshot. Query the version history for audit trail or rollback reference.</p>
+                    <table>
+                        <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+                        <tr><td>GET</td><td><code>/api/jobs/{id}/versions</code></td><td>List version history (newest first)</td></tr>
+                    </table>
+
+                    <h3>Secret Variables</h3>
+                    <p>Variables marked as <strong>secret</strong> have their values masked (<code>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</code>) in API responses and the UI. Secret values are still substituted into task fields at runtime via <code>{{VAR_NAME}}</code>.</p>
+
+                    <h3>Priority Scheduling</h3>
+                    <p>Jobs have a <code>priority</code> field (default 0). Higher priority jobs are scheduled first when multiple are due simultaneously. Set via the job create/update API.</p>
 
                     <h3>OIDC/SSO (Optional)</h3>
                     <p>Set <code>KRONFORCE_OIDC_ISSUER</code> and <code>KRONFORCE_OIDC_CLIENT_ID</code> to enable SSO. The login screen shows a "Sign in with SSO" button alongside API key login.</p>
