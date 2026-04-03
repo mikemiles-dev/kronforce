@@ -449,6 +449,11 @@ impl Db {
         Ok(groups.into_iter().collect())
     }
 
+    /// Returns the total number of distinct groups.
+    pub fn count_groups(&self) -> Result<u32, AppError> {
+        self.get_distinct_groups().map(|g| g.len() as u32)
+    }
+
     /// Adds a custom group name that persists even with no jobs assigned.
     pub fn add_custom_group(&self, name: &str) -> Result<(), AppError> {
         let conn = self

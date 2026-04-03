@@ -59,6 +59,12 @@ async function loadNotificationSettings() {
         document.getElementById('notif-sms-pass').value = sms.auth_pass || '';
         document.getElementById('notif-sms-from').value = sms.from_number || '';
 
+        const webhook = settings.notification_webhook ? JSON.parse(settings.notification_webhook) : {};
+        document.getElementById('notif-webhook-enabled').checked = webhook.enabled || false;
+        document.getElementById('notif-webhook-url').value = webhook.url || '';
+        document.getElementById('notif-webhook-format').value = webhook.format || 'slack';
+        document.getElementById('notif-webhook-headers').value = webhook.headers && Object.keys(webhook.headers).length ? JSON.stringify(webhook.headers) : '';
+
         const recipients = settings.notification_recipients ? JSON.parse(settings.notification_recipients) : {};
         document.getElementById('notif-emails').value = (recipients.emails || []).join('\n');
         document.getElementById('notif-phones').value = (recipients.phones || []).join('\n');
@@ -87,6 +93,14 @@ async function saveNotificationSettings() {
             auth_user: document.getElementById('notif-sms-user').value.trim() || null,
             auth_pass: document.getElementById('notif-sms-pass').value || null,
             from_number: document.getElementById('notif-sms-from').value.trim() || null,
+        });
+        let webhookHeaders = {};
+        try { const h = document.getElementById('notif-webhook-headers').value.trim(); if (h) webhookHeaders = JSON.parse(h); } catch(e) { /* ignore invalid JSON */ }
+        settings.notification_webhook = JSON.stringify({
+            enabled: document.getElementById('notif-webhook-enabled').checked,
+            url: document.getElementById('notif-webhook-url').value.trim(),
+            format: document.getElementById('notif-webhook-format').value,
+            headers: webhookHeaders,
         });
         settings.notification_recipients = JSON.stringify({
             emails: document.getElementById('notif-emails').value.split('\n').map(s => s.trim()).filter(Boolean),

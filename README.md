@@ -14,7 +14,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Distributed agents** — push-based standard agents (Rust) or pull-based custom agents in any language (Python, Go, Node, etc.)
 - **Event-driven workflows** — chain jobs based on completions, failures, output patterns, agent status changes, and more
 - **Output intelligence** — extract values from stdout (regex/jsonpath), fail jobs when expected output is missing, compare output across runs
-- **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
+- **Built-in notifications** — email (SMTP), SMS (webhook), Slack, Microsoft Teams, and PagerDuty alerts on job failures, successes, and agent outages
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — compact icon sidebar with flyout menus, tabbed dashboard, dependency map, execution timeline, cron builder, script editor, and in-app docs
 - **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), optional OIDC/OAuth2 SSO (Okta, Azure AD, Google, Keycloak), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.

@@ -193,6 +193,7 @@ pub fn router(
     let public = Router::new()
         .route("/", get(dashboard))
         .route("/api/health", get(health))
+        .route("/metrics", get(stats::prometheus_metrics))
         .route("/api/auth/oidc/config", get(oidc::oidc_config))
         .route("/api/auth/oidc/login", get(oidc::oidc_login))
         .route("/api/auth/oidc/callback", get(oidc::oidc_callback))

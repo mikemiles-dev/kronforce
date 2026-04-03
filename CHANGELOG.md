@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Output extraction targets** — extractions can now target "variable" (write to global var) or "output" (replace execution stdout with extracted values)
 - **Regex full-match fallback** — extraction patterns without capture groups now return the full match instead of silently returning nothing
 - **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
+- **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels
+- **Prometheus metrics** — `/metrics` endpoint with execution counts, job/agent/group totals, and database health in Prometheus exposition format
 - **HA/Litestream replication** — Docker Compose setup for continuous SQLite replication to S3 with automatic restore on failover
 - **Enhanced health endpoint** — `/api/health` now reports database status, file size, WAL size, and connection pool info
 - **Graceful shutdown** — WAL checkpoint on SIGTERM/SIGINT ensures clean database state for replication

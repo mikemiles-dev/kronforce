@@ -124,6 +124,20 @@
                     </div>
                 </div>
                 <div class="settings-group">
+                    <label class="settings-label">Webhook (Slack / Teams / PagerDuty)</label>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="notif-webhook-enabled"> Enabled</label>
+                        <select id="notif-webhook-format" style="width:120px;font-size:12px">
+                            <option value="slack">Slack</option>
+                            <option value="teams">Teams</option>
+                            <option value="pagerduty">PagerDuty</option>
+                            <option value="generic">Generic JSON</option>
+                        </select>
+                    </div>
+                    <input id="notif-webhook-url" type="text" placeholder="https://hooks.slack.com/services/..." style="width:100%;margin-top:6px">
+                    <input id="notif-webhook-headers" type="text" placeholder="custom headers (JSON, optional): {&quot;Authorization&quot;: &quot;Bearer ...&quot;}" style="width:100%;margin-top:4px;font-size:11px">
+                </div>
+                <div class="settings-group">
                     <label class="settings-label">Recipients</label>
                     <div style="display:flex;gap:8px">
                         <div style="flex:1">

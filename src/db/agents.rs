@@ -197,4 +197,14 @@ impl Db {
         .map_err(AppError::Db)?;
         Ok(())
     }
+
+    /// Returns the total number of registered agents.
+    pub fn count_agents(&self) -> Result<u32, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.query_row("SELECT COUNT(*) FROM agents", [], |row| row.get(0))
+            .map_err(AppError::Db)
+    }
 }

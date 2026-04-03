@@ -25,6 +25,23 @@ pub struct SmsConfig {
     pub from_number: Option<String>,
 }
 
+/// Webhook notification configuration (Slack, Teams, PagerDuty, generic).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookConfig {
+    pub enabled: bool,
+    pub url: String,
+    /// Webhook format: "slack", "teams", "pagerduty", or "generic" (default).
+    #[serde(default = "default_generic")]
+    pub format: String,
+    /// Optional custom headers (e.g., Authorization).
+    #[serde(default)]
+    pub headers: std::collections::HashMap<String, String>,
+}
+
+fn default_generic() -> String {
+    "generic".to_string()
+}
+
 /// Email addresses and phone numbers that receive notifications.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NotificationRecipients {
@@ -61,6 +78,15 @@ pub fn load_sms_config(db: &Db) -> Option<SmsConfig> {
         .flatten()
         .and_then(|s| serde_json::from_str(&s).ok())
         .filter(|c: &SmsConfig| c.enabled)
+}
+
+/// Loads the webhook configuration from the database, returning `None` if disabled.
+pub fn load_webhook_config(db: &Db) -> Option<WebhookConfig> {
+    db.get_setting("notification_webhook")
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .filter(|c: &WebhookConfig| c.enabled && !c.url.is_empty())
 }
 
 /// Loads the global notification recipients from the database.
@@ -147,6 +173,34 @@ pub async fn send_notification(
                         "notification.failed",
                         EventSeverity::Error,
                         &format!("SMS failed: {} — {}", subj, e),
+                        None,
+                        None,
+                    );
+                }
+            }
+        });
+    }
+
+    if let Some(webhook_config) = load_webhook_config(db) {
+        let subj = subject.to_string();
+        let bod = body.to_string();
+        let db_clone = db.clone();
+        tokio::spawn(async move {
+            match send_webhook(&webhook_config, &subj, &bod).await {
+                Ok(_) => {
+                    let _ = db_clone.log_event(
+                        "notification.sent",
+                        EventSeverity::Info,
+                        &format!("Webhook sent ({}): {}", webhook_config.format, subj),
+                        None,
+                        None,
+                    );
+                }
+                Err(e) => {
+                    let _ = db_clone.log_event(
+                        "notification.failed",
+                        EventSeverity::Error,
+                        &format!("Webhook failed: {} — {}", subj, e),
                         None,
                         None,
                     );
@@ -282,6 +336,56 @@ pub async fn send_sms(config: &SmsConfig, to: &[String], body: &str) -> Result<(
     Ok(())
 }
 
+/// Sends a notification via a webhook (Slack, Teams, PagerDuty, or generic JSON POST).
+pub async fn send_webhook(config: &WebhookConfig, subject: &str, body: &str) -> Result<(), String> {
+    let client = reqwest::Client::new();
+
+    let payload = match config.format.as_str() {
+        "slack" => serde_json::json!({
+            "text": format!("*{}*\n{}", subject, body),
+        }),
+        "teams" => serde_json::json!({
+            "title": subject,
+            "text": body,
+        }),
+        "pagerduty" => serde_json::json!({
+            "routing_key": config.headers.get("routing_key").cloned().unwrap_or_default(),
+            "event_action": "trigger",
+            "payload": {
+                "summary": subject,
+                "source": "kronforce",
+                "severity": "error",
+                "custom_details": {
+                    "body": body,
+                }
+            }
+        }),
+        _ => serde_json::json!({
+            "subject": subject,
+            "body": body,
+            "source": "kronforce",
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+        }),
+    };
+
+    let mut req = client.post(&config.url).json(&payload);
+    for (key, value) in &config.headers {
+        if key != "routing_key" {
+            req = req.header(key.as_str(), value.as_str());
+        }
+    }
+
+    let resp = req.send().await.map_err(|e| format!("webhook error: {e}"))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("webhook returned {}: {}", status, text));
+    }
+
+    Ok(())
+}
+
 /// Send a test notification to verify channel configuration
 pub async fn send_test(db: &Db) -> Result<String, String> {
     let recipients = load_recipients(db);
@@ -324,6 +428,21 @@ pub async fn send_test(db: &Db) -> Result<String, String> {
         }
     } else {
         results.push("SMS channel not enabled".to_string());
+    }
+
+    if let Some(webhook_config) = load_webhook_config(db) {
+        match send_webhook(
+            &webhook_config,
+            "[Kronforce] Test Notification",
+            "This is a test notification from Kronforce.",
+        )
+        .await
+        {
+            Ok(_) => results.push(format!("Webhook sent ({})", webhook_config.format)),
+            Err(e) => results.push(format!("Webhook failed: {}", e)),
+        }
+    } else {
+        results.push("Webhook channel not enabled".to_string());
     }
 
     Ok(results.join("; "))

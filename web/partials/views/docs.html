@@ -351,10 +351,32 @@ python3 examples/mcp_test_server.py</code></pre>
                     </table>
                     <p><strong>Role mapping:</strong> Use <code>KRONFORCE_OIDC_ROLE_CLAIM</code> (default: <code>groups</code>) to specify which claim to read. Set <code>KRONFORCE_OIDC_ADMIN_VALUES</code> and <code>KRONFORCE_OIDC_OPERATOR_VALUES</code> to map claim values to roles. Unmatched users get the <code>KRONFORCE_OIDC_DEFAULT_ROLE</code> (default: viewer).</p>
 
+                    <h3>Notifications</h3>
+                    <p>Three notification channels, all configured in Settings:</p>
+                    <ul>
+                        <li><strong>Email (SMTP)</strong> &mdash; send to email addresses via any SMTP server</li>
+                        <li><strong>SMS (Webhook)</strong> &mdash; send via Twilio or any SMS webhook API</li>
+                        <li><strong>Webhook (Slack / Teams / PagerDuty)</strong> &mdash; post to incoming webhook URLs with format-specific payloads</li>
+                    </ul>
+                    <p>Per-job notification triggers: on failure, on success, on assertion failure. Per-job recipient override or fall back to global recipients.</p>
+                    <p>System alerts: agent went offline notification.</p>
+
+                    <h3>Prometheus Metrics</h3>
+                    <p>Scrape <code>GET /metrics</code> (no auth required) for Prometheus-compatible metrics:</p>
+                    <ul>
+                        <li><code>kronforce_executions_total</code> &mdash; total executions by status</li>
+                        <li><code>kronforce_jobs_total</code> &mdash; total number of jobs</li>
+                        <li><code>kronforce_agents_total</code> &mdash; total registered agents</li>
+                        <li><code>kronforce_groups_total</code> &mdash; total job groups</li>
+                        <li><code>kronforce_jobs_by_task_type</code> &mdash; jobs by task type</li>
+                        <li><code>kronforce_db_ok</code>, <code>kronforce_db_size_bytes</code>, <code>kronforce_db_wal_size_bytes</code> &mdash; database health</li>
+                    </ul>
+
                     <h3>Other</h3>
                     <table>
                         <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
-                        <tr><td>GET</td><td><code>/api/health</code></td><td>Health check (no auth)</td></tr>
+                        <tr><td>GET</td><td><code>/api/health</code></td><td>Health check with DB status (no auth)</td></tr>
+                        <tr><td>GET</td><td><code>/metrics</code></td><td>Prometheus metrics (no auth)</td></tr>
                         <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current key/session info</td></tr>
                         <tr><td>GET</td><td><code>/api/mcp/tools</code></td><td>Discover tools from an MCP server (query: server_url)</td></tr>
                     </table>
