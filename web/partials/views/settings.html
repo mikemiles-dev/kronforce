@@ -83,6 +83,10 @@
                         <button class="btn btn-primary" onclick="createKey()">Create</button>
                         <button class="btn btn-ghost" onclick="hideCreateKeyForm()">Cancel</button>
                     </div>
+                    <div style="margin-top:6px">
+                        <label style="font-size:11px;color:var(--text-muted)">Allowed groups (comma-separated, leave empty for all groups)</label>
+                        <input id="new-key-groups" type="text" placeholder="ETL, Monitoring, Deploys" style="width:100%;font-size:12px">
+                    </div>
                 </div>
                 <div id="new-key-display" style="display:none" class="new-key-display"></div>
                 <div id="keys-list"></div>

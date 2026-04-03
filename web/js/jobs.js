@@ -279,6 +279,7 @@ function renderJobDetail(job) {
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
@@ -508,5 +509,47 @@ function openTemplateJob(template) {
             document.getElementById('f-event-severity').value = 'error';
         }
     }, 100);
+}
+
+async function showJobVersions(jobId) {
+    try {
+        const versions = await api('GET', '/api/jobs/' + jobId + '/versions');
+        if (versions.length === 0) {
+            toast('No version history for this job', 'info');
+            return;
+        }
+        let html = '<div class="card"><div class="card-header"><h3>Version History</h3>' +
+            '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'version-modal\').style.display=\'none\'">Close</button></div>';
+        html += '<div style="max-height:500px;overflow-y:auto;padding:12px">';
+        for (const v of versions) {
+            const snap = v.snapshot || {};
+            const changes = [];
+            if (snap.task) changes.push('task: ' + (snap.task.type || 'unknown'));
+            if (snap.schedule) changes.push('schedule: ' + (typeof snap.schedule === 'string' ? snap.schedule : snap.schedule.type || JSON.stringify(snap.schedule)));
+            if (snap.status) changes.push('status: ' + snap.status);
+            html += '<div style="border-bottom:1px solid var(--border);padding:8px 0">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+            html += '<strong>v' + v.version + '</strong>';
+            html += '<span style="font-size:11px;color:var(--text-muted)">' + fmtDate(v.created_at) + (v.changed_by ? ' by ' + esc(v.changed_by) : '') + '</span>';
+            html += '</div>';
+            html += '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">' + changes.map(esc).join(' | ') + '</div>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+        // Show in a simple overlay
+        let modal = document.getElementById('version-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'version-modal';
+            modal.className = 'modal-overlay';
+            modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+            modal.innerHTML = '<div class="modal-card" style="max-width:600px"></div>';
+            document.body.appendChild(modal);
+        }
+        modal.querySelector('.modal-card').innerHTML = html;
+        modal.style.display = '';
+    } catch (e) {
+        toast(e.message, 'error');
+    }
 }
 

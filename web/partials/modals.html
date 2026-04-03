@@ -528,6 +528,13 @@
                 <label>Timeout (seconds, optional)</label>
                 <input id="f-timeout" type="number" min="1" placeholder="300">
             </div>
+            <div class="form-group">
+                <label>Priority (higher = runs first, default 0)</label>
+                <input id="f-priority" type="number" value="0">
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f-approval-required"> Require approval before execution</label>
+            </div>
         </div><!-- end job-tab-advanced -->
         </div><!-- end modal-body -->
         <div class="form-actions">
@@ -542,6 +549,7 @@
         <div class="modal-header"><h3>Execution Details</h3></div>
         <div class="modal-body" id="exec-detail-content"></div>
         <div class="form-actions">
+            <button id="exec-approve-btn" class="btn btn-primary btn-sm" style="display:none" onclick="approveExec()">Approve</button>
             <button id="exec-cancel-btn" class="btn btn-danger btn-sm" style="display:none" onclick="cancelExec()">Cancel Execution</button>
             <button class="btn btn-ghost" onclick="closeExecModal()">Close</button>
         </div>

@@ -75,6 +75,7 @@ async function showExecDetail(id) {
             '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
         window._currentExecStdout = e.stdout || '';
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
+        document.getElementById('exec-approve-btn').style.display = e.status === 'pending_approval' ? '' : 'none';
         openModal('exec-modal');
     } catch (e) {
         toast(e.message, 'error');

@@ -279,6 +279,19 @@ async function cancelExec() {
     }
 }
 
+async function approveExec() {
+    if (!currentExecId) return;
+    if (!confirm('Approve this execution? The job will run immediately.')) return;
+    try {
+        await api('POST', '/api/executions/' + currentExecId + '/approve');
+        toast('Execution approved');
+        closeExecModal();
+        fetchAllExecutions();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
 // --- Formatting ---
 function badge(status) {
     return '<span class="badge badge-' + status + '">' + status.replace('_', ' ') + '</span>';

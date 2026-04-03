@@ -34,6 +34,8 @@ function openCreateModal() {
     document.getElementById('f-retry-max').value = '0';
     document.getElementById('f-retry-delay').value = '0';
     document.getElementById('f-retry-backoff').value = '1.0';
+    document.getElementById('f-priority').value = '0';
+    document.getElementById('f-approval-required').checked = false;
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
@@ -90,6 +92,8 @@ async function copyJob(id) {
         document.getElementById('f-retry-max').value = job.retry_max || 0;
         document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
+        document.getElementById('f-priority').value = job.priority || 0;
+        document.getElementById('f-approval-required').checked = job.approval_required || false;
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -171,6 +175,8 @@ async function openEditModal(id) {
         document.getElementById('f-retry-max').value = job.retry_max || 0;
         document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
+        document.getElementById('f-priority').value = job.priority || 0;
+        document.getElementById('f-approval-required').checked = job.approval_required || false;
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
         let schedType = job.schedule.type;
@@ -1061,6 +1067,9 @@ async function submitJobForm() {
     if (retryDelay > 0) body.retry_delay_secs = retryDelay;
     const retryBackoff = parseFloat(document.getElementById('f-retry-backoff').value) || 1.0;
     if (retryBackoff !== 1.0) body.retry_backoff = retryBackoff;
+    const priority = parseInt(document.getElementById('f-priority').value) || 0;
+    if (priority !== 0) body.priority = priority;
+    if (document.getElementById('f-approval-required').checked) body.approval_required = true;
 
     try {
         if (editingJobId) {
@@ -1559,9 +1568,13 @@ function hideCreateKeyForm() {
 async function createKey() {
     const name = document.getElementById('new-key-name').value.trim();
     const role = document.getElementById('new-key-role').value;
+    const groupsStr = document.getElementById('new-key-groups').value.trim();
+    const allowed_groups = groupsStr ? groupsStr.split(',').map(s => s.trim()).filter(Boolean) : null;
     if (!name) { toast('Key name is required', 'error'); return; }
     try {
-        const res = await api('POST', '/api/keys', { name, role });
+        const body = { name, role };
+        if (allowed_groups && allowed_groups.length > 0) body.allowed_groups = allowed_groups;
+        const res = await api('POST', '/api/keys', body);
         document.getElementById('new-key-display').style.display = '';
         const rawKey = res.raw_key;
         document.getElementById('new-key-display').innerHTML =
@@ -1598,6 +1611,9 @@ function renderKeys(keys) {
         html += '<span>' + esc(k.name) + status + '</span>';
         html += '<span class="key-prefix">' + esc(k.key_prefix) + '...</span>';
         html += badge(k.role);
+        if (k.allowed_groups && k.allowed_groups.length) {
+            html += '<span style="font-size:10px;color:var(--text-muted)">' + k.allowed_groups.map(esc).join(', ') + '</span>';
+        }
         html += '<span class="time-text">' + (k.last_used_at ? 'used ' + fmtDate(k.last_used_at) : 'never used') + '</span>';
         html += '</div>';
         if (k.active) {
