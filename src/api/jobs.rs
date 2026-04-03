@@ -29,6 +29,8 @@ pub(crate) struct CreateJobRequest {
     retry_max: Option<u32>,
     retry_delay_secs: Option<u64>,
     retry_backoff: Option<f64>,
+    #[serde(default)]
+    approval_required: bool,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -49,6 +51,7 @@ pub(crate) struct UpdateJobRequest {
     retry_max: Option<u32>,
     retry_delay_secs: Option<u64>,
     retry_backoff: Option<f64>,
+    approval_required: Option<bool>,
 }
 
 /// Summary of a job's most recent execution.
@@ -285,6 +288,7 @@ pub(crate) async fn create_job(
         retry_max: req.retry_max.unwrap_or(0),
         retry_delay_secs: req.retry_delay_secs.unwrap_or(0),
         retry_backoff: req.retry_backoff.unwrap_or(1.0),
+        approval_required: req.approval_required,
     };
 
     let job_clone = job.clone();
@@ -427,6 +431,9 @@ pub(crate) async fn update_job(
     if let Some(rb) = req.retry_backoff {
         job.retry_backoff = rb;
     }
+    if let Some(ar) = req.approval_required {
+        job.approval_required = ar;
+    }
 
     job.updated_at = Utc::now();
 
@@ -542,14 +549,61 @@ pub(crate) async fn delete_job(
 }
 
 /// Manually triggers a job execution outside of its schedule.
+/// If the job has `approval_required`, creates a pending_approval execution instead.
 pub(crate) async fn trigger_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
-    let _ = db_call(&state.db, move |db| db.get_job(id))
+    let job = db_call(&state.db, move |db| db.get_job(id))
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
+
+    if job.approval_required {
+        // Create a pending_approval execution instead of running immediately
+        let exec_id = Uuid::new_v4();
+        let rec = ExecutionRecord {
+            id: exec_id,
+            job_id: id,
+            agent_id: None,
+            task_snapshot: Some(job.task.clone()),
+            status: ExecutionStatus::PendingApproval,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            started_at: None,
+            finished_at: None,
+            triggered_by: TriggerSource::Api,
+            extracted: None,
+            retry_of: None,
+            attempt_number: 1,
+        };
+        let rec_clone = rec.clone();
+        db_call(&state.db, move |db| db.insert_execution(&rec_clone)).await?;
+
+        log_and_notify(
+            &state.db,
+            &state.scheduler_tx,
+            "job.pending_approval",
+            EventSeverity::Warning,
+            &format!("Job '{}' awaiting approval (execution {})", job.name, exec_id),
+            Some(id),
+            None,
+            &auth,
+            None,
+        )
+        .await;
+
+        return Ok((
+            axum::http::StatusCode::ACCEPTED,
+            Json(TriggerResponse {
+                message: "job awaiting approval".to_string(),
+                job_id: id,
+            }),
+        ));
+    }
 
     state
         .scheduler_tx
@@ -786,6 +840,80 @@ pub(crate) async fn rename_group(
     .await;
 
     Ok(Json(serde_json::json!({"updated": count})))
+}
+
+/// Approves a pending_approval execution, allowing it to run.
+pub(crate) async fn approve_execution(
+    State(state): State<AppState>,
+    Path(exec_id): Path<Uuid>,
+    auth: AuthUser,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required to approve executions".into(),
+        ));
+    }
+
+    let exec = db_call(&state.db, move |db| db.get_execution(exec_id))
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("execution {exec_id} not found")))?;
+
+    if exec.status != ExecutionStatus::PendingApproval {
+        return Err(AppError::BadRequest(format!(
+            "execution is {:?}, not pending_approval",
+            exec.status
+        )));
+    }
+
+    // Trigger the job through the scheduler
+    state
+        .scheduler_tx
+        .send(SchedulerCommand::TriggerNow(exec.job_id))
+        .await
+        .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
+
+    // Mark the pending_approval execution as superseded (cancelled)
+    let db2 = state.db.clone();
+    let _ = db_call(&db2, move |db| {
+        db.update_execution_status(exec_id, ExecutionStatus::Cancelled)
+    })
+    .await;
+
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "execution.approved",
+        EventSeverity::Info,
+        &format!("Execution {} approved", exec_id),
+        Some(exec.job_id),
+        None,
+        &auth,
+        None,
+    )
+    .await;
+
+    let actor_id = auth.0.as_ref().map(|k| k.id);
+    let actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_audit = state.db.clone();
+    let eid = exec_id.to_string();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "execution.approved",
+            "execution",
+            Some(&eid),
+            actor_id,
+            actor_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
+    Ok(Json(serde_json::json!({
+        "message": "execution approved",
+        "execution_id": exec_id,
+    })))
 }
 
 /// Returns version history for a job, newest first.

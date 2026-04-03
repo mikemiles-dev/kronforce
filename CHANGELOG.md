@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Prometheus metrics** — `/metrics` endpoint with execution counts, job/agent/group totals, and database health in Prometheus exposition format
 - **Secret variables** — variables can be marked as secret; values are masked (`••••••••`) in API responses and the UI but still substituted into tasks at runtime
 - **Job version history** — every create/update snapshots the full job definition; query via `GET /api/jobs/{id}/versions` for audit trail and rollback reference
+- **Approval workflows** — jobs can require approval before execution (`approval_required` flag); triggering creates a `pending_approval` execution that must be approved via `POST /api/executions/{id}/approve` before running
+- **`PendingApproval` execution status** — new execution lifecycle state for approval-gated jobs
 - **HA/Litestream replication** — Docker Compose setup for continuous SQLite replication to S3 with automatic restore on failover
 - **Enhanced health endpoint** — `/api/health` now reports database status, file size, WAL size, and connection pool info
 - **Graceful shutdown** — WAL checkpoint on SIGTERM/SIGINT ensures clean database state for replication

@@ -15,6 +15,7 @@ pub enum ExecutionStatus {
     TimedOut,
     Cancelled,
     Skipped,
+    PendingApproval,
 }
 
 impl ExecutionStatus {
@@ -28,6 +29,7 @@ impl ExecutionStatus {
             ExecutionStatus::TimedOut => "timed_out",
             ExecutionStatus::Cancelled => "cancelled",
             ExecutionStatus::Skipped => "skipped",
+            ExecutionStatus::PendingApproval => "pending_approval",
         }
     }
 
@@ -42,6 +44,7 @@ impl ExecutionStatus {
             "timed_out" => Some(ExecutionStatus::TimedOut),
             "cancelled" => Some(ExecutionStatus::Cancelled),
             "skipped" => Some(ExecutionStatus::Skipped),
+            "pending_approval" => Some(ExecutionStatus::PendingApproval),
             _ => None,
         }
     }

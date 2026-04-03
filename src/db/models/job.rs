@@ -182,6 +182,8 @@ pub struct Job {
     pub retry_delay_secs: u64,
     #[serde(default = "default_retry_backoff")]
     pub retry_backoff: f64,
+    #[serde(default)]
+    pub approval_required: bool,
 }
 
 fn default_retry_backoff() -> f64 {
@@ -192,7 +194,7 @@ impl Job {
     /// Constructs a Job from a rusqlite row.
     ///
     /// Columns: id(0), name(1), description(2), task_json(3), run_as(4), schedule_json(5), status(6),
-    ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14), group_name(15), retry_max(16), retry_delay_secs(17), retry_backoff(18)
+    ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14), group_name(15), retry_max(16), retry_delay_secs(17), retry_backoff(18), approval_required(19)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
 
@@ -237,6 +239,7 @@ impl Job {
             retry_max: row.get::<_, Option<i64>>(16).unwrap_or(None).unwrap_or(0) as u32,
             retry_delay_secs: row.get::<_, Option<i64>>(17).unwrap_or(None).unwrap_or(0) as u64,
             retry_backoff: row.get::<_, Option<f64>>(18).unwrap_or(None).unwrap_or(1.0),
+            approval_required: row.get::<_, Option<i32>>(19).unwrap_or(None).unwrap_or(0) != 0,
         })
     }
 }

@@ -102,6 +102,24 @@ impl Db {
         Ok(())
     }
 
+    /// Updates the status of an execution.
+    pub fn update_execution_status(
+        &self,
+        id: Uuid,
+        status: ExecutionStatus,
+    ) -> Result<(), AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.execute(
+            "UPDATE executions SET status = ?1 WHERE id = ?2",
+            params![status.as_str(), id.to_string()],
+        )
+        .map_err(AppError::Db)?;
+        Ok(())
+    }
+
     /// Marks an execution as failed and appends the assertion failure message to stderr.
     pub fn fail_execution_assertion(&self, id: Uuid, message: &str) -> Result<(), AppError> {
         let conn = self

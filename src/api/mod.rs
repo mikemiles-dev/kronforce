@@ -111,6 +111,10 @@ pub fn router(
             "/api/executions/{id}/cancel",
             post(executions::cancel_execution),
         )
+        .route(
+            "/api/executions/{id}/approve",
+            post(jobs::approve_execution),
+        )
         .route("/api/agents", get(agents::list_agents))
         .route(
             "/api/agents/{id}",
