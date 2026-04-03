@@ -1,76 +1,165 @@
     <section id="guide-view" style="display:none">
-        <div class="card" style="max-width:800px;margin:0 auto">
-            <div class="card-header"><h3>Getting Started</h3></div>
-            <div style="padding:16px;line-height:1.7">
+        <div style="max-width:860px;margin:0 auto;padding:0 16px">
 
-                <h4 style="margin-top:0">1. Create Your First Job</h4>
-                <p>Go to <strong>Jobs</strong> and click <strong>+ Create Job</strong>. Pick a task type:</p>
-                <ul>
-                    <li><strong>Shell</strong> — run a command: <code>echo "Hello from Kronforce"</code></li>
-                    <li><strong>HTTP</strong> — call an API: <code>GET https://httpbin.org/get</code></li>
-                </ul>
-                <p>Set a schedule (cron, one-shot, or on-demand) and click <strong>Save</strong>.</p>
-                <p><button class="btn btn-primary btn-sm" onclick="showPage('jobs');openCreateModal()">Create a Job Now</button></p>
+            <!-- Hero -->
+            <div style="text-align:center;padding:32px 0 24px">
+                <div style="font-size:48px;margin-bottom:8px">&#128640;</div>
+                <h2 style="margin:0 0 8px;font-size:24px">Getting Started with Kronforce</h2>
+                <p style="color:var(--text-secondary);margin:0;font-size:14px">You're up and running. Follow these steps to build your first automation.</p>
+            </div>
 
-                <h4>2. Trigger and Watch</h4>
-                <p>Click the <strong>&#9654; Trigger</strong> button on your job. Go to <strong>Executions</strong> to see the result — output, exit code, duration, and timestamps.</p>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('executions')">Go to Executions</button></p>
+            <!-- Step cards -->
+            <div style="display:flex;flex-direction:column;gap:16px">
 
-                <h4>3. Set Up Notifications</h4>
-                <p>Get alerted when jobs fail. Go to <strong>Settings &rarr; Notifications</strong> and configure at least one channel:</p>
-                <ul>
-                    <li><strong>Email</strong> — SMTP server (Gmail, SendGrid, etc.)</li>
-                    <li><strong>Slack</strong> — paste an incoming webhook URL</li>
-                    <li><strong>Teams</strong> — paste a Teams webhook URL</li>
-                    <li><strong>PagerDuty</strong> — paste your Events API URL with routing key</li>
-                    <li><strong>SMS</strong> — Twilio or any SMS webhook</li>
-                </ul>
-                <p>Then enable <strong>On failure</strong> on any job's Alerts tab.</p>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('settings');showSettingsTab('notifications')">Configure Notifications</button></p>
+                <!-- Step 1 -->
+                <div class="card" style="border-left:3px solid var(--accent)">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:var(--accent);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">1</span>
+                            <h3 style="margin:0;font-size:16px">Create Your First Job</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Jobs are automated tasks that run on a schedule, on events, or on demand. Start with something simple:</p>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+                            <div style="flex:1;min-width:200px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border)">
+                                <div style="font-weight:600;font-size:13px;margin-bottom:4px">&#9889; Shell Command</div>
+                                <code style="font-size:11px;color:var(--text-secondary)">echo "Hello from Kronforce"</code>
+                            </div>
+                            <div style="flex:1;min-width:200px;padding:12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border)">
+                                <div style="font-weight:600;font-size:13px;margin-bottom:4px">&#127760; HTTP Health Check</div>
+                                <code style="font-size:11px;color:var(--text-secondary)">GET https://httpbin.org/get</code>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="showPage('jobs');setTimeout(openCreateModal,200)">Create a Job</button>
+                    </div>
+                </div>
 
-                <h4>4. Organize with Groups</h4>
-                <p>Create groups like <strong>ETL</strong>, <strong>Monitoring</strong>, <strong>Deploys</strong> to organize jobs. Go to <strong>Groups</strong> and click <strong>+ New Group</strong>.</p>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('groups')">Go to Groups</button></p>
+                <!-- Step 2 -->
+                <div class="card" style="border-left:3px solid var(--success)">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:var(--success);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">2</span>
+                            <h3 style="margin:0;font-size:16px">Trigger and Watch</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Click the <strong>&#9654; Trigger</strong> button on any job. Then check <strong>Executions</strong> to see the result with output, exit code, duration, and timestamps.</p>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('executions')">View Executions</button>
+                    </div>
+                </div>
 
-                <h4>5. Chain Jobs Together</h4>
-                <p>Jobs can depend on other jobs or react to events:</p>
-                <ul>
-                    <li><strong>Dependencies</strong> — on the Schedule tab, add jobs that must succeed first</li>
-                    <li><strong>Event triggers</strong> — schedule type "Event" fires when another job completes, fails, or outputs a pattern</li>
-                    <li><strong>Output extraction</strong> — extract values from stdout and write them to global variables for the next job to use with <code>{{VAR_NAME}}</code></li>
-                </ul>
-                <p>Visualize the dependency graph on the <strong>Map</strong> page.</p>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('map')">View Dependency Map</button></p>
+                <!-- Step 3 -->
+                <div class="card" style="border-left:3px solid var(--warning)">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:var(--warning);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">3</span>
+                            <h3 style="margin:0;font-size:16px">Get Alerted When Things Break</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Configure notifications so you know immediately when a job fails. Set up one or more channels:</p>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-bottom:12px">
+                            <div style="padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center"><strong>Slack</strong></div>
+                            <div style="padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center"><strong>Email</strong></div>
+                            <div style="padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center"><strong>PagerDuty</strong></div>
+                            <div style="padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center"><strong>Teams</strong></div>
+                            <div style="padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;border:1px solid var(--border);font-size:12px;text-align:center"><strong>SMS</strong></div>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Then enable <strong>On failure</strong> in any job's <strong>Alerts</strong> tab.</p>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('settings');showSettingsTab('notifications')">Set Up Notifications</button>
+                    </div>
+                </div>
 
-                <h4>6. Add a Remote Agent</h4>
-                <p>Run jobs on other machines by starting an agent:</p>
-<pre style="background:var(--bg-tertiary);padding:12px;border-radius:6px;font-size:12px;overflow-x:auto">KRONFORCE_CONTROLLER_URL=http://this-server:8080 \
+                <!-- Step 4 -->
+                <div class="card" style="border-left:3px solid var(--info)">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:var(--info);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">4</span>
+                            <h3 style="margin:0;font-size:16px">Organize with Groups</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Group related jobs together: <strong>ETL</strong>, <strong>Monitoring</strong>, <strong>Deploys</strong>, <strong>Maintenance</strong>. Groups appear as cards on the Groups page and as filters on the Jobs list.</p>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('groups')">Manage Groups</button>
+                    </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div class="card" style="border-left:3px solid #9b59b6">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:#9b59b6;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">5</span>
+                            <h3 style="margin:0;font-size:16px">Chain Jobs into Workflows</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Build powerful automation by connecting jobs together:</p>
+                        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+                            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                                <span style="color:var(--accent);font-size:16px">&#8594;</span>
+                                <strong>Dependencies</strong> <span style="color:var(--text-muted)">&mdash; Job B runs only after Job A succeeds</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                                <span style="color:var(--accent);font-size:16px">&#8594;</span>
+                                <strong>Event triggers</strong> <span style="color:var(--text-muted)">&mdash; react to completions, failures, or output patterns</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+                                <span style="color:var(--accent);font-size:16px">&#8594;</span>
+                                <strong>Output extraction</strong> <span style="color:var(--text-muted)">&mdash; capture values from stdout, pass to the next job via <code>{{VAR}}</code></span>
+                            </div>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('map')">View Dependency Map</button>
+                    </div>
+                </div>
+
+                <!-- Step 6 -->
+                <div class="card" style="border-left:3px solid #e67e22">
+                    <div style="padding:20px">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                            <span style="background:#e67e22;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">6</span>
+                            <h3 style="margin:0;font-size:16px">Run Jobs on Remote Machines</h3>
+                        </div>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Distribute work across your infrastructure with agents. Start a standard agent:</p>
+<pre style="background:var(--bg-tertiary);padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;margin:0 0 12px;border:1px solid var(--border)">KRONFORCE_CONTROLLER_URL=http://this-server:8080 \
 KRONFORCE_AGENT_KEY=kf_your_agent_key \
 KRONFORCE_AGENT_NAME=my-agent \
 cargo run --bin kronforce-agent</pre>
-                <p>Or use a custom agent in Python/Go/Node — see <strong>Docs &rarr; Custom Agents</strong>.</p>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('agents')">View Agents</button></p>
-
-                <h4>7. Secure Your Instance</h4>
-                <ul>
-                    <li><strong>API keys</strong> — create scoped keys for teams in <strong>Settings &rarr; API Keys</strong></li>
-                    <li><strong>SSO</strong> — enable OIDC login (Okta, Azure AD, Google) with <code>KRONFORCE_OIDC_ISSUER</code> env var</li>
-                    <li><strong>Approval workflows</strong> — require approval on critical jobs (Advanced tab)</li>
-                    <li><strong>SLA deadlines</strong> — set completion deadlines with warnings (Advanced tab)</li>
-                </ul>
-
-                <h4>8. Monitor</h4>
-                <ul>
-                    <li><strong>Dashboard</strong> — execution timeline, charts, and stats at a glance</li>
-                    <li><strong>Prometheus</strong> — scrape <code>/metrics</code> for Grafana dashboards</li>
-                    <li><strong>Events</strong> — activity feed with severity filtering</li>
-                    <li><strong>Audit log</strong> — who changed what and when (Settings &rarr; API: <code>GET /api/audit-log</code>)</li>
-                </ul>
-                <p><button class="btn btn-ghost btn-sm" onclick="showPage('dashboard')">Go to Dashboard</button></p>
-
-                <div style="margin-top:24px;padding:16px;background:var(--bg-tertiary);border-radius:8px;border:1px solid var(--border)">
-                    <strong>Need help?</strong> Check the <button class="btn btn-ghost btn-sm" onclick="showPage('docs')" style="padding:2px 8px">Docs</button> page for detailed API reference, workflow patterns, and custom agent protocol. Or visit <a href="https://github.com/mikemiles-dev/kronforce" target="_blank">GitHub</a> for issues and discussions.
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Or write a custom agent in <strong>Python</strong>, <strong>Go</strong>, or <strong>Node</strong> &mdash; see examples in the repo.</p>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('agents')">View Agents</button>
+                    </div>
                 </div>
+
+                <!-- Step 7 & 8 side by side -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                    <div class="card" style="border-left:3px solid var(--danger)">
+                        <div style="padding:20px">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                                <span style="background:var(--danger);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">7</span>
+                                <h3 style="margin:0;font-size:16px">Lock It Down</h3>
+                            </div>
+                            <div style="font-size:13px;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px">
+                                <div>&#128273; <strong>API key scoping</strong> &mdash; restrict keys to specific groups</div>
+                                <div>&#128274; <strong>SSO/OIDC</strong> &mdash; Okta, Azure AD, Google login</div>
+                                <div>&#9989; <strong>Approval gates</strong> &mdash; require sign-off on critical jobs</div>
+                                <div>&#9200; <strong>SLA deadlines</strong> &mdash; alert when jobs run late</div>
+                                <div>&#128272; <strong>Secret variables</strong> &mdash; masked credentials</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" style="border-left:3px solid var(--text-muted)">
+                        <div style="padding:20px">
+                            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+                                <span style="background:var(--text-muted);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">8</span>
+                                <h3 style="margin:0;font-size:16px">Monitor Everything</h3>
+                            </div>
+                            <div style="font-size:13px;color:var(--text-secondary);display:flex;flex-direction:column;gap:6px">
+                                <div>&#128202; <strong>Dashboard</strong> &mdash; timeline, charts, stats</div>
+                                <div>&#128200; <strong>Prometheus</strong> &mdash; scrape <code>/metrics</code></div>
+                                <div>&#128276; <strong>Events</strong> &mdash; activity feed + severity filters</div>
+                                <div>&#128221; <strong>Audit log</strong> &mdash; who changed what, when</div>
+                                <div>&#128154; <strong>Health</strong> &mdash; <code>/api/health</code> for load balancers</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- end step cards -->
+
+            <!-- Footer help -->
+            <div style="text-align:center;padding:24px 0 32px;color:var(--text-muted);font-size:13px">
+                Need more detail? Check the <a href="javascript:showPage('docs')" style="color:var(--accent)">full documentation</a> or visit <a href="https://github.com/mikemiles-dev/kronforce" target="_blank" style="color:var(--accent)">GitHub</a> for issues and discussions.
             </div>
+
         </div>
     </section>
