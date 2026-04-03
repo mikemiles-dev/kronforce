@@ -105,23 +105,6 @@ That's it. You have a running scheduler with a web dashboard.
 - **Role-based access** — viewers get read-only tools, operators can create and trigger
 - **Enabled by default** — `POST /mcp` endpoint ready for Claude, GPT, or any MCP client
 
-## Dashboard
-
-| Page | Location | Description |
-|---|---|---|
-| Getting Started | Start | Interactive setup guide with action buttons |
-| Dashboard | Dashboard | Stats, timeline, charts (Overview / Activity / Infrastructure) |
-| Jobs | Jobs ▸ Jobs | Job list with search, filters, bulk actions, sortable columns |
-| Groups | Jobs ▸ Groups | Job group cards with rename, delete, and job counts |
-| Executions | Jobs ▸ Executions | All executions with status filters, sortable columns, output viewer |
-| Events | Events | Activity feed with severity filtering |
-| Map | Map | Visual dependency graph with group badges and filter |
-| Docs | Docs | In-app documentation for all features |
-| Scripts | Tools ▸ Scripts | Rhai script editor with syntax highlighting |
-| Variables | Tools ▸ Variables | Global key-value store with secret variable support |
-| Agents | Manage ▸ Agents | Agent cards with custom task type editor |
-| Settings | Manage ▸ Settings | Theme, API keys (group scoping), data retention, notifications |
-
 ## Agents
 
 ### Standard Agent (Rust)
