@@ -12,6 +12,7 @@ mod jobs;
 mod keys;
 pub mod models;
 mod queue;
+mod sessions;
 mod settings;
 mod variables;
 

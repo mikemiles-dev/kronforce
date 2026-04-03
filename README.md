@@ -17,7 +17,7 @@ A workload automation and job scheduling engine built in Rust. Single binary, em
 - **Built-in notifications** — email (SMTP) and SMS (webhook) alerts on job failures, successes, and agent outages
 - **Per-job controls** — cron scheduling (second precision), dependencies with time windows, timeouts, run-as user, notification toggles
 - **Dark/light UI** — compact icon sidebar with flyout menus, tabbed dashboard, dependency map, execution timeline, cron builder, script editor, and in-app docs
-- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.
+- **Secure by default** — API key authentication with 4 roles (admin, operator, viewer, agent), optional OIDC/OAuth2 SSO (Okta, Azure AD, Google, Keycloak), rate limiting on all endpoints, and audit logging for sensitive operations. Bootstrap keys auto-generated on first startup.
 - **Docker ready** — pre-built images on [GitHub Container Registry](https://ghcr.io/mikemiles-dev/kronforce), separate compose files for controller and agent
 
 ## Quick Start
@@ -77,6 +77,16 @@ Calls gRPC services via [grpcurl](https://github.com/fullstorydev/grpcurl) with 
 | `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per API key) |
 | `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per API key) |
 | `KRONFORCE_MCP_ENABLED` | `true` | Enable/disable the MCP server endpoint |
+| `KRONFORCE_OIDC_ISSUER` | (none) | OIDC issuer URL (enables SSO when set with CLIENT_ID) |
+| `KRONFORCE_OIDC_CLIENT_ID` | (none) | OAuth2 client ID |
+| `KRONFORCE_OIDC_CLIENT_SECRET` | (none) | OAuth2 client secret |
+| `KRONFORCE_OIDC_REDIRECT_URI` | `{CALLBACK_URL}/api/auth/oidc/callback` | OAuth2 callback URL |
+| `KRONFORCE_OIDC_SCOPES` | `openid email profile` | OIDC scopes to request |
+| `KRONFORCE_OIDC_ROLE_CLAIM` | `groups` | Claim path for role mapping (dot-notation) |
+| `KRONFORCE_OIDC_ADMIN_VALUES` | (none) | Comma-separated claim values that map to admin role |
+| `KRONFORCE_OIDC_OPERATOR_VALUES` | (none) | Comma-separated claim values that map to operator role |
+| `KRONFORCE_OIDC_DEFAULT_ROLE` | `viewer` | Fallback role when no claim matches |
+| `KRONFORCE_OIDC_SESSION_TTL_SECS` | `86400` | SSO session lifetime in seconds (default 24h) |
 
 ### Agent
 
@@ -135,7 +145,9 @@ The dashboard also includes a **Docs** page with the same content accessible fro
 
 ## Authentication
 
-API keys with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role.
+**API keys** with roles: `admin`, `operator`, `viewer`, `agent`. Bootstrap admin and agent keys printed on first startup. Agents authenticate with keys that have the `agent` role.
+
+**OIDC/SSO** (optional): Set `KRONFORCE_OIDC_ISSUER` and `KRONFORCE_OIDC_CLIENT_ID` to enable "Sign in with SSO" on the login screen. Users authenticate via your IdP (Okta, Azure AD, Google, Keycloak) and are mapped to Kronforce roles based on claim values. API keys continue to work alongside SSO for agents and automation.
 
 ## MCP Server
 

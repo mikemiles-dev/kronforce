@@ -43,3 +43,4 @@ regex = "1.12.3"
 url = "2"
 lettre = { version = "0.11.19", features = ["tokio1-native-tls"] }
 tempfile = "3"
+cookie = "0.18"

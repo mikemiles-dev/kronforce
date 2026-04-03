@@ -278,6 +278,15 @@ KRONFORCE_CONTROLLER_URL=http://controller:8080 \
 | `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per key) |
 | `KRONFORCE_BOOTSTRAP_ADMIN_KEY` | (auto) | Pre-set admin API key on first startup |
 | `KRONFORCE_BOOTSTRAP_AGENT_KEY` | (auto) | Pre-set agent API key on first startup |
+| `KRONFORCE_OIDC_ISSUER` | (none) | OIDC issuer URL (enables SSO) |
+| `KRONFORCE_OIDC_CLIENT_ID` | (none) | OAuth2 client ID |
+| `KRONFORCE_OIDC_CLIENT_SECRET` | (none) | OAuth2 client secret |
+| `KRONFORCE_OIDC_REDIRECT_URI` | auto | OAuth2 callback URL |
+| `KRONFORCE_OIDC_ROLE_CLAIM` | `groups` | Claim path for role mapping |
+| `KRONFORCE_OIDC_ADMIN_VALUES` | (none) | Claim values → admin role |
+| `KRONFORCE_OIDC_OPERATOR_VALUES` | (none) | Claim values → operator role |
+| `KRONFORCE_OIDC_DEFAULT_ROLE` | `viewer` | Fallback role |
+| `KRONFORCE_OIDC_SESSION_TTL_SECS` | `86400` | SSO session lifetime |
 
 ### Agent
 
@@ -320,6 +329,33 @@ curl -X POST http://localhost:8080/api/keys \
   -H "Content-Type: application/json" \
   -d '{"name": "CI pipeline", "role": "operator"}'
 ```
+
+### OIDC/SSO (Optional)
+
+Enable enterprise SSO by setting OIDC environment variables. Both API key and SSO login work side-by-side.
+
+```bash
+KRONFORCE_OIDC_ISSUER=https://login.microsoftonline.com/{tenant}/v2.0 \
+KRONFORCE_OIDC_CLIENT_ID=your-client-id \
+KRONFORCE_OIDC_CLIENT_SECRET=your-client-secret \
+KRONFORCE_OIDC_ADMIN_VALUES=KF-Admins \
+KRONFORCE_OIDC_OPERATOR_VALUES=KF-Operators \
+cargo run --bin kronforce
+```
+
+The login screen shows "Sign in with SSO" when OIDC is configured. Users are redirected to your IdP, and on successful login a session cookie is set.
+
+**Role mapping**: The controller reads the claim at `KRONFORCE_OIDC_ROLE_CLAIM` (default: `groups`) from the ID token and maps values to roles:
+
+| Variable | Example | Effect |
+|---|---|---|
+| `KRONFORCE_OIDC_ADMIN_VALUES` | `KF-Admins,platform-team` | Users with these group values get `admin` role |
+| `KRONFORCE_OIDC_OPERATOR_VALUES` | `KF-Operators,dev-team` | Users with these group values get `operator` role |
+| `KRONFORCE_OIDC_DEFAULT_ROLE` | `viewer` | Everyone else gets this role (default: `viewer`) |
+
+**Nested claims**: Use dot-notation for nested claim paths (e.g., `resource_access.kronforce.roles` for Keycloak).
+
+**Sessions**: Stored in SQLite, expire after `KRONFORCE_OIDC_SESSION_TTL_SECS` (default: 24 hours). Expired sessions are cleaned up automatically. Agents always use API keys, not SSO.
 
 ## Data Persistence
 

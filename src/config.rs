@@ -1,5 +1,21 @@
 use std::time::Duration;
 
+use crate::db::models::ApiKeyRole;
+
+/// OIDC/OAuth2 configuration for enterprise SSO login.
+pub struct OidcConfig {
+    pub issuer: String,
+    pub client_id: String,
+    pub client_secret: String,
+    pub redirect_uri: String,
+    pub scopes: String,
+    pub role_claim: String,
+    pub admin_values: Vec<String>,
+    pub operator_values: Vec<String>,
+    pub default_role: ApiKeyRole,
+    pub session_ttl_secs: u64,
+}
+
 /// Configuration for the Kronforce controller server.
 pub struct ControllerConfig {
     pub db_path: String,
@@ -15,6 +31,7 @@ pub struct ControllerConfig {
     pub db_pool_size: u32,
     pub db_timeout_secs: u64,
     pub mcp_enabled: bool,
+    pub oidc: Option<OidcConfig>,
 }
 
 impl ControllerConfig {
@@ -39,7 +56,7 @@ impl ControllerConfig {
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(30),
             ),
-            callback_base_url,
+            callback_base_url: callback_base_url.clone(),
             scripts_dir: std::env::var("KRONFORCE_SCRIPTS_DIR")
                 .unwrap_or_else(|_| "./scripts".to_string()),
             rate_limit_enabled: std::env::var("KRONFORCE_RATE_LIMIT_ENABLED")
@@ -68,6 +85,47 @@ impl ControllerConfig {
             mcp_enabled: std::env::var("KRONFORCE_MCP_ENABLED")
                 .map(|v| v != "false" && v != "0")
                 .unwrap_or(true),
+            oidc: {
+                let issuer = std::env::var("KRONFORCE_OIDC_ISSUER").ok();
+                let client_id = std::env::var("KRONFORCE_OIDC_CLIENT_ID").ok();
+                match (issuer, client_id) {
+                    (Some(issuer), Some(client_id)) if !issuer.is_empty() && !client_id.is_empty() => {
+                        Some(OidcConfig {
+                            issuer,
+                            client_id,
+                            client_secret: std::env::var("KRONFORCE_OIDC_CLIENT_SECRET")
+                                .unwrap_or_default(),
+                            redirect_uri: std::env::var("KRONFORCE_OIDC_REDIRECT_URI")
+                                .unwrap_or_else(|_| format!("{}/api/auth/oidc/callback", callback_base_url)),
+                            scopes: std::env::var("KRONFORCE_OIDC_SCOPES")
+                                .unwrap_or_else(|_| "openid email profile".to_string()),
+                            role_claim: std::env::var("KRONFORCE_OIDC_ROLE_CLAIM")
+                                .unwrap_or_else(|_| "groups".to_string()),
+                            admin_values: std::env::var("KRONFORCE_OIDC_ADMIN_VALUES")
+                                .unwrap_or_default()
+                                .split(',')
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty())
+                                .collect(),
+                            operator_values: std::env::var("KRONFORCE_OIDC_OPERATOR_VALUES")
+                                .unwrap_or_default()
+                                .split(',')
+                                .map(|s| s.trim().to_string())
+                                .filter(|s| !s.is_empty())
+                                .collect(),
+                            default_role: std::env::var("KRONFORCE_OIDC_DEFAULT_ROLE")
+                                .ok()
+                                .and_then(|s| ApiKeyRole::from_str(&s))
+                                .unwrap_or(ApiKeyRole::Viewer),
+                            session_ttl_secs: std::env::var("KRONFORCE_OIDC_SESSION_TTL_SECS")
+                                .ok()
+                                .and_then(|s| s.parse().ok())
+                                .unwrap_or(86400),
+                        })
+                    }
+                    _ => None,
+                }
+            },
         }
     }
 }

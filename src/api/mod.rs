@@ -11,6 +11,7 @@ mod events;
 mod executions;
 mod jobs;
 mod mcp;
+pub mod oidc;
 pub mod rate_limit;
 mod scripts;
 mod settings;
@@ -25,6 +26,8 @@ use serde::Serialize;
 use tokio::sync::mpsc;
 use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
+
+use std::sync::Arc;
 
 use crate::agent::AgentClient;
 use crate::dag::DagResolver;
@@ -44,6 +47,7 @@ pub struct AppState {
     pub agent_client: AgentClient,
     pub callback_base_url: String,
     pub script_store: ScriptStore,
+    pub oidc: Option<Arc<oidc::OidcState>>,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
@@ -178,6 +182,10 @@ pub fn router(
     let public = Router::new()
         .route("/", get(dashboard))
         .route("/api/health", get(health))
+        .route("/api/auth/oidc/config", get(oidc::oidc_config))
+        .route("/api/auth/oidc/login", get(oidc::oidc_login))
+        .route("/api/auth/oidc/callback", get(oidc::oidc_callback))
+        .route("/api/auth/logout", post(auth::logout))
         .route_layer(middleware::from_fn(
             rate_limit::rate_limit_public_middleware,
         ))

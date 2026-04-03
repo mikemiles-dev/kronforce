@@ -1,4 +1,6 @@
-use tracing::info;
+use std::sync::Arc;
+
+use tracing::{info, warn};
 
 use kronforce::agent::AgentClient;
 use kronforce::config::ControllerConfig;
@@ -173,6 +175,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if audit_days > 0 {
                     let _ = db_tick.purge_old_audit_log(audit_days);
                 }
+                // Cleanup expired OIDC sessions and auth states
+                let _ = db_tick.cleanup_expired_sessions();
                 went_offline
             })
             .await
@@ -239,6 +243,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
     }
 
+    // Initialize OIDC if configured
+    let oidc_state = if let Some(oidc_config) = config.oidc {
+        info!("OIDC configured, discovering provider at {}", oidc_config.issuer);
+        match kronforce::api::oidc::discover(&oidc_config.issuer).await {
+            Ok(provider) => {
+                info!("OIDC provider discovered: {}", provider.issuer);
+                Some(Arc::new(kronforce::api::oidc::OidcState {
+                    config: oidc_config,
+                    provider,
+                }))
+            }
+            Err(e) => {
+                warn!("OIDC discovery failed, SSO disabled: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let state = kronforce::api::AppState {
         db,
         dag,
@@ -246,6 +270,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_client,
         callback_base_url: config.callback_base_url.clone(),
         script_store: script_store.clone(),
+        oidc: oidc_state,
     };
     let app = kronforce::api::router(state, rate_limiters, config.mcp_enabled);
 

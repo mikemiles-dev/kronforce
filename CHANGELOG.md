@@ -5,6 +5,18 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.
+- **Output extraction targets** — extractions can now target "variable" (write to global var) or "output" (replace execution stdout with extracted values)
+- **Regex full-match fallback** — extraction patterns without capture groups now return the full match instead of silently returning nothing
+- **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
+
+### Fixed
+- **Output extractions not working** — regex patterns without capture groups (e.g., `\d+%`) silently failed; now falls back to full match
+- **Sidebar user/health indicator** — restored username display and health dot that broke during sidebar redesign
+
 ## [0.1.0-alpha] - 2026-03-29
 
 ### Added

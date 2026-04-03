@@ -1,11 +1,15 @@
 <div id="login-screen" class="login-screen" style="display:none">
     <div class="login-card">
         <div class="logo" style="font-size:24px;margin-bottom:24px;text-align:center">Kron<span>force</span></div>
+        <div id="sso-login" style="display:none">
+            <button class="btn btn-primary" style="width:100%" onclick="doSsoLogin()">Sign in with SSO</button>
+            <div style="text-align:center;margin:16px 0;color:var(--text-muted);font-size:12px">or use an API key</div>
+        </div>
         <div class="form-group">
             <label>API Key</label>
             <input id="login-key" type="password" placeholder="kf_..." onkeydown="if(event.key==='Enter')doLogin()">
         </div>
-        <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
+        <button class="btn btn-secondary" style="width:100%" onclick="doLogin()">Sign In with API Key</button>
         <div id="login-error" style="color:var(--danger);font-size:12px;margin-top:10px;text-align:center"></div>
     </div>
 </div>

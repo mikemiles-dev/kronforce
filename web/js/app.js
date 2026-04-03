@@ -723,11 +723,28 @@ function showLoginScreen() {
     document.getElementById('login-screen').style.display = '';
     document.getElementById('app-layout').style.display = 'none';
     document.getElementById('login-key').focus();
+    // Check if OIDC is configured and show SSO button
+    checkOidcConfig();
 }
 
 function showApp() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-layout').style.display = '';
+}
+
+async function checkOidcConfig() {
+    try {
+        const resp = await fetch('/api/auth/oidc/config');
+        if (resp.ok) {
+            const data = await resp.json();
+            const ssoDiv = document.getElementById('sso-login');
+            if (ssoDiv) ssoDiv.style.display = data.enabled ? '' : 'none';
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function doSsoLogin() {
+    window.location.href = '/api/auth/oidc/login';
 }
 
 async function doLogin() {
@@ -746,7 +763,11 @@ async function doLogin() {
     }
 }
 
-function doLogout() {
+async function doLogout() {
+    // If OIDC session, clear server-side session first
+    if (currentUser && currentUser.auth_type === 'oidc') {
+        try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { /* ignore */ }
+    }
     localStorage.removeItem('kronforce-api-key');
     currentUser = null;
     showLoginScreen();

@@ -65,6 +65,56 @@ async fn validate_bearer_token(
     }
 }
 
+/// Extracts and validates a session cookie, returning a synthetic ApiKey if valid.
+async fn validate_session_cookie(
+    db: &crate::db::Db,
+    headers: &axum::http::HeaderMap,
+) -> Result<Option<ApiKey>, AppError> {
+    let cookie_header = match headers.get("cookie").and_then(|v| v.to_str().ok()) {
+        Some(c) => c.to_string(),
+        None => return Ok(None),
+    };
+
+    // Parse cookies and find kf_session
+    let session_value = cookie_header
+        .split(';')
+        .map(|s| s.trim())
+        .find_map(|s| s.strip_prefix("kf_session="))
+        .map(|s| s.to_string());
+
+    let raw_session = match session_value {
+        Some(s) if !s.is_empty() => s,
+        _ => return Ok(None),
+    };
+
+    let session_hash = hash_api_key(&raw_session);
+    let db2 = db.clone();
+    let hash2 = session_hash.clone();
+    let session = db_call(&db2, move |db| db.get_session_by_hash(&hash2)).await?;
+
+    match session {
+        Some(sess) => {
+            // Touch last_active_at
+            let db3 = db.clone();
+            let hash3 = session_hash;
+            let _ = db_call(&db3, move |db| db.touch_session(&hash3)).await;
+
+            // Create a synthetic ApiKey from session data
+            Ok(Some(ApiKey {
+                id: Uuid::new_v4(), // Session doesn't have a persistent UUID — generate one per request
+                key_prefix: String::new(),
+                key_hash: String::new(),
+                name: sess.user_name,
+                role: sess.role,
+                created_at: sess.created_at,
+                last_used_at: Some(Utc::now()),
+                active: true,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
 /// Updates the last-used timestamp for an API key. Called after permission checks pass.
 async fn touch_api_key(db: &crate::db::Db, key_id: Uuid) {
     let now = Utc::now();
@@ -94,26 +144,50 @@ pub(crate) async fn agent_auth_middleware(
     }
 }
 
-/// Middleware that authenticates user-facing API endpoints using Bearer tokens.
-/// Skips auth if no API keys are configured (first-time setup).
+/// Middleware that authenticates user-facing API endpoints using Bearer tokens
+/// or session cookies. Skips auth if no API keys are configured (first-time setup).
 pub(crate) async fn auth_middleware(
     State(state): State<AppState>,
     mut req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let Some(key) = validate_bearer_token(
-        &state.db,
-        req.headers(),
-        "missing or invalid Authorization header",
-    )
-    .await?
-    else {
-        return Ok(next.run(req).await);
-    };
+    // Try Bearer token first
+    let has_bearer = req
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|s| s.starts_with("Bearer "));
 
-    touch_api_key(&state.db, key.id).await;
-    req.extensions_mut().insert(key);
-    Ok(next.run(req).await)
+    if has_bearer {
+        let Some(key) = validate_bearer_token(
+            &state.db,
+            req.headers(),
+            "missing or invalid Authorization header",
+        )
+        .await?
+        else {
+            return Ok(next.run(req).await);
+        };
+        touch_api_key(&state.db, key.id).await;
+        req.extensions_mut().insert(key);
+        return Ok(next.run(req).await);
+    }
+
+    // Try session cookie
+    if let Ok(Some(key)) = validate_session_cookie(&state.db, req.headers()).await {
+        req.extensions_mut().insert(key);
+        return Ok(next.run(req).await);
+    }
+
+    // No Bearer and no cookie — check if auth is disabled (no keys configured)
+    let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
+    if key_count == 0 {
+        return Ok(next.run(req).await);
+    }
+
+    Err(AppError::Unauthorized(
+        "missing or invalid Authorization header".into(),
+    ))
 }
 
 /// Extractor for the authenticated API key. Returns None if auth is disabled.
@@ -144,22 +218,66 @@ pub(crate) fn require_admin(req: &Request) -> Result<(), AppError> {
     }
 }
 
-/// Returns information about the currently authenticated API key.
+/// Returns information about the currently authenticated user (API key or OIDC session).
 pub(crate) async fn auth_me(req: Request) -> Json<serde_json::Value> {
     if let Some(key) = req.extensions().get::<ApiKey>() {
-        Json(serde_json::json!({
-            "authenticated": true,
-            "key_id": key.id,
-            "key_prefix": key.key_prefix,
-            "name": key.name,
-            "role": key.role,
-        }))
+        if key.key_prefix.is_empty() {
+            // OIDC session (synthetic ApiKey has empty key_prefix)
+            Json(serde_json::json!({
+                "authenticated": true,
+                "auth_type": "oidc",
+                "name": key.name,
+                "role": key.role,
+            }))
+        } else {
+            Json(serde_json::json!({
+                "authenticated": true,
+                "auth_type": "api_key",
+                "key_id": key.id,
+                "key_prefix": key.key_prefix,
+                "name": key.name,
+                "role": key.role,
+            }))
+        }
     } else {
         Json(serde_json::json!({
             "authenticated": false,
             "message": "no API keys configured, auth disabled",
         }))
     }
+}
+
+/// Logs out by clearing the session cookie and deleting the server-side session.
+pub(crate) async fn logout(
+    State(state): State<AppState>,
+    req: Request,
+) -> Result<Response, AppError> {
+    // Find and delete the session
+    if let Some(cookie_header) = req.headers().get("cookie").and_then(|v| v.to_str().ok())
+        && let Some(raw_session) = cookie_header
+            .split(';')
+            .map(|s| s.trim())
+            .find_map(|s| s.strip_prefix("kf_session="))
+        && !raw_session.is_empty()
+    {
+        let session_hash = hash_api_key(raw_session);
+        let _ = db_call(&state.db, move |db| db.delete_session(&session_hash)).await;
+    }
+
+    // Clear the cookie
+    let clear_cookie = "kf_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
+    let mut resp = axum::response::Response::new(axum::body::Body::from(
+        r#"{"status":"logged out"}"#,
+    ));
+    resp.headers_mut().insert(
+        axum::http::header::SET_COOKIE,
+        clear_cookie.parse().unwrap(),
+    );
+    resp.headers_mut().insert(
+        axum::http::header::CONTENT_TYPE,
+        "application/json".parse().unwrap(),
+    );
+    Ok(resp)
 }
 
 /// Request body for creating a new API key.
