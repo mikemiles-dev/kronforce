@@ -186,7 +186,8 @@ function renderJobsTable() {
         const checked = selectedJobs.has(j.id) ? ' checked' : '';
         html += '<tr class="' + rowClass + '">';
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
-        html += '<td><span class="job-name" onmousedown="this._md=Date.now()" onclick="if(window.getSelection().toString()||Date.now()-this._md>300)return;showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
+        const approvalBadge = j.approval_required ? ' <span class="badge badge-pending_approval" style="font-size:9px;padding:1px 4px" title="Requires approval">approval</span>' : '';
+        html += '<td><span class="job-name" onmousedown="this._md=Date.now()" onclick="if(window.getSelection().toString()||Date.now()-this._md>300)return;showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + approvalBadge + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
         const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
         if (isBlocked) {
             html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';
@@ -289,6 +290,8 @@ function renderJobDetail(job) {
         field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : 'None') +
         field('Target', fmtTarget(job.target)) +
         field('Dependencies', deps) +
+        (job.priority ? field('Priority', String(job.priority)) : '') +
+        (job.approval_required ? field('Approval', '<span class="badge badge-pending_approval">required</span>') : '') +
         field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '-') +
         field('Created', fmtDate(job.created_at)) +
         field('Updated', fmtDate(job.updated_at)) +
