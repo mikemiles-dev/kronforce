@@ -1,0 +1,76 @@
+    <section id="guide-view" style="display:none">
+        <div class="card" style="max-width:800px;margin:0 auto">
+            <div class="card-header"><h3>Getting Started</h3></div>
+            <div style="padding:16px;line-height:1.7">
+
+                <h4 style="margin-top:0">1. Create Your First Job</h4>
+                <p>Go to <strong>Jobs</strong> and click <strong>+ Create Job</strong>. Pick a task type:</p>
+                <ul>
+                    <li><strong>Shell</strong> — run a command: <code>echo "Hello from Kronforce"</code></li>
+                    <li><strong>HTTP</strong> — call an API: <code>GET https://httpbin.org/get</code></li>
+                </ul>
+                <p>Set a schedule (cron, one-shot, or on-demand) and click <strong>Save</strong>.</p>
+                <p><button class="btn btn-primary btn-sm" onclick="showPage('jobs');openCreateModal()">Create a Job Now</button></p>
+
+                <h4>2. Trigger and Watch</h4>
+                <p>Click the <strong>&#9654; Trigger</strong> button on your job. Go to <strong>Executions</strong> to see the result — output, exit code, duration, and timestamps.</p>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('executions')">Go to Executions</button></p>
+
+                <h4>3. Set Up Notifications</h4>
+                <p>Get alerted when jobs fail. Go to <strong>Settings &rarr; Notifications</strong> and configure at least one channel:</p>
+                <ul>
+                    <li><strong>Email</strong> — SMTP server (Gmail, SendGrid, etc.)</li>
+                    <li><strong>Slack</strong> — paste an incoming webhook URL</li>
+                    <li><strong>Teams</strong> — paste a Teams webhook URL</li>
+                    <li><strong>PagerDuty</strong> — paste your Events API URL with routing key</li>
+                    <li><strong>SMS</strong> — Twilio or any SMS webhook</li>
+                </ul>
+                <p>Then enable <strong>On failure</strong> on any job's Alerts tab.</p>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('settings');showSettingsTab('notifications')">Configure Notifications</button></p>
+
+                <h4>4. Organize with Groups</h4>
+                <p>Create groups like <strong>ETL</strong>, <strong>Monitoring</strong>, <strong>Deploys</strong> to organize jobs. Go to <strong>Groups</strong> and click <strong>+ New Group</strong>.</p>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('groups')">Go to Groups</button></p>
+
+                <h4>5. Chain Jobs Together</h4>
+                <p>Jobs can depend on other jobs or react to events:</p>
+                <ul>
+                    <li><strong>Dependencies</strong> — on the Schedule tab, add jobs that must succeed first</li>
+                    <li><strong>Event triggers</strong> — schedule type "Event" fires when another job completes, fails, or outputs a pattern</li>
+                    <li><strong>Output extraction</strong> — extract values from stdout and write them to global variables for the next job to use with <code>{{VAR_NAME}}</code></li>
+                </ul>
+                <p>Visualize the dependency graph on the <strong>Map</strong> page.</p>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('map')">View Dependency Map</button></p>
+
+                <h4>6. Add a Remote Agent</h4>
+                <p>Run jobs on other machines by starting an agent:</p>
+<pre style="background:var(--bg-tertiary);padding:12px;border-radius:6px;font-size:12px;overflow-x:auto">KRONFORCE_CONTROLLER_URL=http://this-server:8080 \
+KRONFORCE_AGENT_KEY=kf_your_agent_key \
+KRONFORCE_AGENT_NAME=my-agent \
+cargo run --bin kronforce-agent</pre>
+                <p>Or use a custom agent in Python/Go/Node — see <strong>Docs &rarr; Custom Agents</strong>.</p>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('agents')">View Agents</button></p>
+
+                <h4>7. Secure Your Instance</h4>
+                <ul>
+                    <li><strong>API keys</strong> — create scoped keys for teams in <strong>Settings &rarr; API Keys</strong></li>
+                    <li><strong>SSO</strong> — enable OIDC login (Okta, Azure AD, Google) with <code>KRONFORCE_OIDC_ISSUER</code> env var</li>
+                    <li><strong>Approval workflows</strong> — require approval on critical jobs (Advanced tab)</li>
+                    <li><strong>SLA deadlines</strong> — set completion deadlines with warnings (Advanced tab)</li>
+                </ul>
+
+                <h4>8. Monitor</h4>
+                <ul>
+                    <li><strong>Dashboard</strong> — execution timeline, charts, and stats at a glance</li>
+                    <li><strong>Prometheus</strong> — scrape <code>/metrics</code> for Grafana dashboards</li>
+                    <li><strong>Events</strong> — activity feed with severity filtering</li>
+                    <li><strong>Audit log</strong> — who changed what and when (Settings &rarr; API: <code>GET /api/audit-log</code>)</li>
+                </ul>
+                <p><button class="btn btn-ghost btn-sm" onclick="showPage('dashboard')">Go to Dashboard</button></p>
+
+                <div style="margin-top:24px;padding:16px;background:var(--bg-tertiary);border-radius:8px;border:1px solid var(--border)">
+                    <strong>Need help?</strong> Check the <button class="btn btn-ghost btn-sm" onclick="showPage('docs')" style="padding:2px 8px">Docs</button> page for detailed API reference, workflow patterns, and custom agent protocol. Or visit <a href="https://github.com/mikemiles-dev/kronforce" target="_blank">GitHub</a> for issues and discussions.
+                </div>
+            </div>
+        </div>
+    </section>
