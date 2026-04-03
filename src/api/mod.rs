@@ -94,6 +94,7 @@ pub fn router(
                 .delete(jobs::delete_job),
         )
         .route("/api/jobs/{id}/trigger", post(jobs::trigger_job))
+        .route("/api/jobs/{id}/versions", get(jobs::list_job_versions))
         .route(
             "/api/jobs/groups",
             get(jobs::list_groups).post(jobs::create_group),

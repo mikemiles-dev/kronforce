@@ -7,12 +7,14 @@ use crate::error::AppError;
 
 fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
     let updated_str: String = row.get(2)?;
+    let secret_int: i32 = row.get(3).unwrap_or(0);
     Ok(Variable {
         name: row.get(0)?,
         value: row.get(1)?,
         updated_at: DateTime::parse_from_rfc3339(&updated_str)
             .unwrap()
             .with_timezone(&Utc),
+        secret: secret_int != 0,
     })
 }
 
@@ -24,7 +26,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT name, value, updated_at FROM variables ORDER BY name")
+            .prepare("SELECT name, value, updated_at, secret FROM variables ORDER BY name")
             .map_err(AppError::Db)?;
         let rows = stmt.query_map([], parse_variable).map_err(AppError::Db)?;
         let mut vars = Vec::new();
@@ -41,7 +43,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let result = conn.query_row(
-            "SELECT name, value, updated_at FROM variables WHERE name = ?1",
+            "SELECT name, value, updated_at, secret FROM variables WHERE name = ?1",
             params![name],
             parse_variable,
         );
@@ -59,8 +61,8 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
-            "INSERT INTO variables (name, value, updated_at) VALUES (?1, ?2, ?3)",
-            params![var.name, var.value, var.updated_at.to_rfc3339()],
+            "INSERT INTO variables (name, value, updated_at, secret) VALUES (?1, ?2, ?3, ?4)",
+            params![var.name, var.value, var.updated_at.to_rfc3339(), var.secret as i32],
         )
         .map_err(AppError::Db)?;
         Ok(())

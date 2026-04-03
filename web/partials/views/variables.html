@@ -14,6 +14,9 @@
                         <label class="settings-label" style="margin-bottom:4px">Value</label>
                         <input type="text" id="new-var-value" placeholder="value" style="width:100%">
                     </div>
+                    <div style="display:flex;align-items:center;gap:4px">
+                        <label style="font-size:12px;display:flex;align-items:center;gap:4px;white-space:nowrap" title="Secret variables are masked in the UI and API responses but substituted into tasks at runtime"><input type="checkbox" id="new-var-secret"> Secret</label>
+                    </div>
                     <div style="display:flex;gap:4px">
                         <button class="btn btn-primary btn-sm" onclick="createVariable()">Save</button>
                         <button class="btn btn-ghost btn-sm" onclick="hideAddVariableForm()">Cancel</button>

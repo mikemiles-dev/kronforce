@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
 - **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels
 - **Prometheus metrics** — `/metrics` endpoint with execution counts, job/agent/group totals, and database health in Prometheus exposition format
+- **Secret variables** — variables can be marked as secret; values are masked (`••••••••`) in API responses and the UI but still substituted into tasks at runtime
+- **Job version history** — every create/update snapshots the full job definition; query via `GET /api/jobs/{id}/versions` for audit trail and rollback reference
 - **HA/Litestream replication** — Docker Compose setup for continuous SQLite replication to S3 with automatic restore on failover
 - **Enhanced health endpoint** — `/api/health` now reports database status, file size, WAL size, and connection pool info
 - **Graceful shutdown** — WAL checkpoint on SIGTERM/SIGINT ensures clean database state for replication

@@ -7,4 +7,7 @@ pub struct Variable {
     pub name: String,
     pub value: String,
     pub updated_at: DateTime<Utc>,
+    /// If true, the value is masked in API responses and the UI.
+    #[serde(default)]
+    pub secret: bool,
 }

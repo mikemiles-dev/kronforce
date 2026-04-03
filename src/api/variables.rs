@@ -9,22 +9,34 @@ use crate::db::db_call;
 use crate::db::models::Variable;
 use crate::error::AppError;
 
-/// Returns all global variables.
+/// Masks the value of secret variables for API responses.
+fn mask_secret(var: Variable) -> Variable {
+    if var.secret {
+        Variable {
+            value: "••••••••".to_string(),
+            ..var
+        }
+    } else {
+        var
+    }
+}
+
+/// Returns all global variables (secret values are masked).
 pub(crate) async fn list_variables(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<Variable>>, AppError> {
     let vars = db_call(&state.db, move |db| db.list_variables()).await?;
-    Ok(Json(vars))
+    Ok(Json(vars.into_iter().map(mask_secret).collect()))
 }
 
-/// Returns a single variable by name.
+/// Returns a single variable by name (secret values are masked).
 pub(crate) async fn get_variable(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<Variable>, AppError> {
     let var = db_call(&state.db, move |db| db.get_variable(&name)).await?;
     match var {
-        Some(v) => Ok(Json(v)),
+        Some(v) => Ok(Json(mask_secret(v))),
         None => Err(AppError::NotFound("variable not found".into())),
     }
 }
@@ -47,6 +59,8 @@ fn validate_variable_name(name: &str) -> Result<(), AppError> {
 pub(crate) struct CreateVariableRequest {
     name: String,
     value: String,
+    #[serde(default)]
+    secret: bool,
 }
 
 /// Checks that the authenticated user has write access.
@@ -74,6 +88,7 @@ pub(crate) async fn create_variable(
         name: req.name,
         value: req.value,
         updated_at: Utc::now(),
+        secret: req.secret,
     };
     let var_clone = var.clone();
     db_call(&state.db, move |db| db.insert_variable(&var_clone)).await?;
@@ -94,7 +109,7 @@ pub(crate) async fn create_variable(
     })
     .await;
 
-    Ok((axum::http::StatusCode::CREATED, Json(var)))
+    Ok((axum::http::StatusCode::CREATED, Json(mask_secret(var))))
 }
 
 /// Request body for updating a variable's value.
@@ -136,7 +151,7 @@ pub(crate) async fn update_variable(
     let var = db_call(&state.db, move |db| db.get_variable(&name))
         .await?
         .ok_or_else(|| AppError::NotFound("variable not found".into()))?;
-    Ok(Json(var))
+    Ok(Json(mask_secret(var)))
 }
 
 /// Deletes a variable by name.

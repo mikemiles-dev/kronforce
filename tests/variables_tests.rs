@@ -20,6 +20,7 @@ fn test_variable_create_and_get() {
         name: "API_HOST".to_string(),
         value: "https://api.example.com".to_string(),
         updated_at: Utc::now(),
+        secret: false,
     };
     db.insert_variable(&var).unwrap();
 
@@ -41,12 +42,14 @@ fn test_variable_list() {
         name: "B_VAR".to_string(),
         value: "b".to_string(),
         updated_at: Utc::now(),
+        secret: false,
     })
     .unwrap();
     db.insert_variable(&Variable {
         name: "A_VAR".to_string(),
         value: "a".to_string(),
         updated_at: Utc::now(),
+        secret: false,
     })
     .unwrap();
 
@@ -63,6 +66,7 @@ fn test_variable_update() {
         name: "HOST".to_string(),
         value: "old".to_string(),
         updated_at: Utc::now(),
+        secret: false,
     })
     .unwrap();
 
@@ -84,6 +88,7 @@ fn test_variable_delete() {
         name: "TO_DELETE".to_string(),
         value: "val".to_string(),
         updated_at: Utc::now(),
+        secret: false,
     })
     .unwrap();
 

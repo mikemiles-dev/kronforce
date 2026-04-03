@@ -527,4 +527,78 @@ impl Db {
         };
         Ok(count as u32)
     }
+
+    /// Saves a snapshot of a job definition as a new version.
+    pub fn save_job_version(
+        &self,
+        job: &Job,
+        actor_key_id: Option<uuid::Uuid>,
+        actor_name: Option<&str>,
+    ) -> Result<i64, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+
+        let job_id_str = job.id.to_string();
+        let next_version: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) + 1 FROM job_versions WHERE job_id = ?1",
+                params![job_id_str],
+                |row| row.get(0),
+            )
+            .map_err(AppError::Db)?;
+
+        let snapshot = serde_json::to_string(job)
+            .map_err(|e| AppError::Internal(format!("serialize job snapshot: {e}")))?;
+        let now = chrono::Utc::now().to_rfc3339();
+
+        conn.execute(
+            "INSERT INTO job_versions (job_id, version, snapshot_json, changed_by_key_id, changed_by_name, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                job_id_str,
+                next_version,
+                snapshot,
+                actor_key_id.map(|id| id.to_string()),
+                actor_name,
+                now,
+            ],
+        )
+        .map_err(AppError::Db)?;
+
+        Ok(next_version)
+    }
+
+    /// Returns version history for a job, newest first.
+    pub fn list_job_versions(
+        &self,
+        job_id: uuid::Uuid,
+    ) -> Result<Vec<serde_json::Value>, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        let mut stmt = conn
+            .prepare("SELECT version, snapshot_json, changed_by_name, created_at FROM job_versions WHERE job_id = ?1 ORDER BY version DESC")
+            .map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map(params![job_id.to_string()], |row| {
+                let version: i64 = row.get(0)?;
+                let snapshot: String = row.get(1)?;
+                let changed_by: Option<String> = row.get(2)?;
+                let created_at: String = row.get(3)?;
+                Ok(serde_json::json!({
+                    "version": version,
+                    "snapshot": serde_json::from_str::<serde_json::Value>(&snapshot).unwrap_or_default(),
+                    "changed_by": changed_by,
+                    "created_at": created_at,
+                }))
+            })
+            .map_err(AppError::Db)?;
+        let mut versions = Vec::new();
+        for row in rows {
+            versions.push(row.map_err(AppError::Db)?);
+        }
+        Ok(versions)
+    }
 }

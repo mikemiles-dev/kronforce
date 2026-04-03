@@ -294,6 +294,16 @@ pub(crate) async fn create_job(
     // Tell scheduler to reload
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
+    // Save initial version
+    let version_job = job.clone();
+    let version_actor_id = auth.0.as_ref().map(|k| k.id);
+    let version_actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_ver = state.db.clone();
+    let _ = db_call(&db_ver, move |db| {
+        db.save_job_version(&version_job, version_actor_id, version_actor_name.as_deref())
+    })
+    .await;
+
     log_and_notify(
         &state.db,
         &state.scheduler_tx,
@@ -422,6 +432,16 @@ pub(crate) async fn update_job(
 
     let job_clone = job.clone();
     db_call(&state.db, move |db| db.update_job(&job_clone)).await?;
+
+    // Save version snapshot
+    let version_job = job.clone();
+    let version_actor_id = auth.0.as_ref().map(|k| k.id);
+    let version_actor_name = auth.0.as_ref().map(|k| k.name.clone());
+    let db_ver = state.db.clone();
+    let _ = db_call(&db_ver, move |db| {
+        db.save_job_version(&version_job, version_actor_id, version_actor_name.as_deref())
+    })
+    .await;
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
 
@@ -766,4 +786,13 @@ pub(crate) async fn rename_group(
     .await;
 
     Ok(Json(serde_json::json!({"updated": count})))
+}
+
+/// Returns version history for a job, newest first.
+pub(crate) async fn list_job_versions(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<serde_json::Value>>, AppError> {
+    let versions = db_call(&state.db, move |db| db.list_job_versions(id)).await?;
+    Ok(Json(versions))
 }
