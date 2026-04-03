@@ -557,6 +557,11 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
 // --- Page Navigation ---
 let currentPage = 'jobs';
 
+function toggleWorkMenu() {
+    const menu = document.getElementById('work-submenu');
+    menu.classList.toggle('open');
+}
+
 function toggleCodeMenu() {
     const menu = document.getElementById('code-submenu');
     menu.classList.toggle('open');
