@@ -89,14 +89,18 @@ impl ControllerConfig {
                 let issuer = std::env::var("KRONFORCE_OIDC_ISSUER").ok();
                 let client_id = std::env::var("KRONFORCE_OIDC_CLIENT_ID").ok();
                 match (issuer, client_id) {
-                    (Some(issuer), Some(client_id)) if !issuer.is_empty() && !client_id.is_empty() => {
+                    (Some(issuer), Some(client_id))
+                        if !issuer.is_empty() && !client_id.is_empty() =>
+                    {
                         Some(OidcConfig {
                             issuer,
                             client_id,
                             client_secret: std::env::var("KRONFORCE_OIDC_CLIENT_SECRET")
                                 .unwrap_or_default(),
                             redirect_uri: std::env::var("KRONFORCE_OIDC_REDIRECT_URI")
-                                .unwrap_or_else(|_| format!("{}/api/auth/oidc/callback", callback_base_url)),
+                                .unwrap_or_else(|_| {
+                                    format!("{}/api/auth/oidc/callback", callback_base_url)
+                                }),
                             scopes: std::env::var("KRONFORCE_OIDC_SCOPES")
                                 .unwrap_or_else(|_| "openid email profile".to_string()),
                             role_claim: std::env::var("KRONFORCE_OIDC_ROLE_CLAIM")

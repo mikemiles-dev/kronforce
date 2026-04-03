@@ -267,9 +267,8 @@ pub(crate) async fn logout(
 
     // Clear the cookie
     let clear_cookie = "kf_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
-    let mut resp = axum::response::Response::new(axum::body::Body::from(
-        r#"{"status":"logged out"}"#,
-    ));
+    let mut resp =
+        axum::response::Response::new(axum::body::Body::from(r#"{"status":"logged out"}"#));
     resp.headers_mut().insert(
         axum::http::header::SET_COOKIE,
         clear_cookie.parse().unwrap(),

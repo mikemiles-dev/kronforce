@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::Json;
 use chrono::{Duration, Utc};
 use serde::Deserialize;
 use tracing::{error, info, warn};
@@ -9,8 +9,8 @@ use super::AppState;
 use crate::api::auth::hash_api_key;
 use crate::config::OidcConfig;
 use crate::db::db_call;
-use crate::db::models::session::OidcSession;
 use crate::db::models::ApiKeyRole;
+use crate::db::models::session::OidcSession;
 use crate::error::AppError;
 
 /// Cached OIDC provider endpoints from discovery.
@@ -78,12 +78,13 @@ fn decode_jwt_payload(jwt: &str) -> Result<serde_json::Value, String> {
     if parts.len() != 3 {
         return Err("invalid JWT format".to_string());
     }
-    let payload_bytes = base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, parts[1])
-        .or_else(|_| {
-            // Try with standard base64 (some IdPs use it)
-            base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, parts[1])
-        })
-        .map_err(|e| format!("JWT base64 decode failed: {e}"))?;
+    let payload_bytes =
+        base64::Engine::decode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, parts[1])
+            .or_else(|_| {
+                // Try with standard base64 (some IdPs use it)
+                base64::Engine::decode(&base64::engine::general_purpose::STANDARD_NO_PAD, parts[1])
+            })
+            .map_err(|e| format!("JWT base64 decode failed: {e}"))?;
     serde_json::from_slice(&payload_bytes).map_err(|e| format!("JWT payload parse failed: {e}"))
 }
 
@@ -133,9 +134,7 @@ pub(crate) async fn oidc_config(State(state): State<AppState>) -> Json<serde_jso
 }
 
 /// Initiates the OIDC login flow by redirecting to the IdP.
-pub(crate) async fn oidc_login(
-    State(state): State<AppState>,
-) -> Result<Response, AppError> {
+pub(crate) async fn oidc_login(State(state): State<AppState>) -> Result<Response, AppError> {
     let oidc = state
         .oidc
         .as_ref()
@@ -198,8 +197,8 @@ pub(crate) async fn oidc_callback(
     // Validate CSRF state
     let sp = state_param.clone();
     let auth_state = db_call(&state.db, move |db| db.consume_auth_state(&sp)).await?;
-    let auth_state =
-        auth_state.ok_or_else(|| AppError::BadRequest("invalid or expired state parameter".into()))?;
+    let auth_state = auth_state
+        .ok_or_else(|| AppError::BadRequest("invalid or expired state parameter".into()))?;
 
     // Exchange authorization code for tokens
     let client = reqwest::Client::new();
@@ -257,10 +256,7 @@ pub(crate) async fn oidc_callback(
     // Map role from claims
     let role = map_role(&claims, &oidc.config);
 
-    info!(
-        "OIDC login: {} ({}) mapped to role {:?}",
-        email, name, role
-    );
+    info!("OIDC login: {} ({}) mapped to role {:?}", email, name, role);
 
     // Create session
     let raw_session_id = random_string();

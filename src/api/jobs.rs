@@ -308,7 +308,11 @@ pub(crate) async fn create_job(
     let version_actor_name = auth.0.as_ref().map(|k| k.name.clone());
     let db_ver = state.db.clone();
     let _ = db_call(&db_ver, move |db| {
-        db.save_job_version(&version_job, version_actor_id, version_actor_name.as_deref())
+        db.save_job_version(
+            &version_job,
+            version_actor_id,
+            version_actor_name.as_deref(),
+        )
     })
     .await;
 
@@ -453,7 +457,11 @@ pub(crate) async fn update_job(
     let version_actor_name = auth.0.as_ref().map(|k| k.name.clone());
     let db_ver = state.db.clone();
     let _ = db_call(&db_ver, move |db| {
-        db.save_job_version(&version_job, version_actor_id, version_actor_name.as_deref())
+        db.save_job_version(
+            &version_job,
+            version_actor_id,
+            version_actor_name.as_deref(),
+        )
     })
     .await;
 
@@ -595,7 +603,10 @@ pub(crate) async fn trigger_job(
             &state.scheduler_tx,
             "job.pending_approval",
             EventSeverity::Warning,
-            &format!("Job '{}' awaiting approval (execution {})", job.name, exec_id),
+            &format!(
+                "Job '{}' awaiting approval (execution {})",
+                job.name, exec_id
+            ),
             Some(id),
             None,
             &auth,

@@ -245,7 +245,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize OIDC if configured
     let oidc_state = if let Some(oidc_config) = config.oidc {
-        info!("OIDC configured, discovering provider at {}", oidc_config.issuer);
+        info!(
+            "OIDC configured, discovering provider at {}",
+            oidc_config.issuer
+        );
         match kronforce::api::oidc::discover(&oidc_config.issuer).await {
             Ok(provider) => {
                 info!("OIDC provider discovered: {}", provider.issuer);

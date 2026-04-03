@@ -102,16 +102,12 @@ pub(crate) async fn prometheus_metrics(
         lines.push(format!("kronforce_db_ok {}", if health.ok { 1 } else { 0 }));
 
         if let Some(size) = health.size_bytes {
-            lines.push(
-                "# HELP kronforce_db_size_bytes Database file size in bytes.".to_string(),
-            );
+            lines.push("# HELP kronforce_db_size_bytes Database file size in bytes.".to_string());
             lines.push("# TYPE kronforce_db_size_bytes gauge".to_string());
             lines.push(format!("kronforce_db_size_bytes {}", size));
         }
         if let Some(wal) = health.wal_size_bytes {
-            lines.push(
-                "# HELP kronforce_db_wal_size_bytes WAL file size in bytes.".to_string(),
-            );
+            lines.push("# HELP kronforce_db_wal_size_bytes WAL file size in bytes.".to_string());
             lines.push("# TYPE kronforce_db_wal_size_bytes gauge".to_string());
             lines.push(format!("kronforce_db_wal_size_bytes {}", wal));
         }

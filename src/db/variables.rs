@@ -62,7 +62,12 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
             "INSERT INTO variables (name, value, updated_at, secret) VALUES (?1, ?2, ?3, ?4)",
-            params![var.name, var.value, var.updated_at.to_rfc3339(), var.secret as i32],
+            params![
+                var.name,
+                var.value,
+                var.updated_at.to_rfc3339(),
+                var.secret as i32
+            ],
         )
         .map_err(AppError::Db)?;
         Ok(())

@@ -375,7 +375,10 @@ pub async fn send_webhook(config: &WebhookConfig, subject: &str, body: &str) -> 
         }
     }
 
-    let resp = req.send().await.map_err(|e| format!("webhook error: {e}"))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("webhook error: {e}"))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
