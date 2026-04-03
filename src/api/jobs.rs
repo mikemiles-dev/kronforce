@@ -33,6 +33,9 @@ pub(crate) struct CreateJobRequest {
     approval_required: bool,
     #[serde(default)]
     priority: i32,
+    sla_deadline: Option<String>,
+    #[serde(default)]
+    sla_warning_mins: u32,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -55,6 +58,8 @@ pub(crate) struct UpdateJobRequest {
     retry_backoff: Option<f64>,
     approval_required: Option<bool>,
     priority: Option<i32>,
+    sla_deadline: Option<String>,
+    sla_warning_mins: Option<u32>,
 }
 
 /// Summary of a job's most recent execution.
@@ -293,6 +298,8 @@ pub(crate) async fn create_job(
         retry_backoff: req.retry_backoff.unwrap_or(1.0),
         approval_required: req.approval_required,
         priority: req.priority,
+        sla_deadline: req.sla_deadline,
+        sla_warning_mins: req.sla_warning_mins,
     };
 
     let job_clone = job.clone();
@@ -444,6 +451,12 @@ pub(crate) async fn update_job(
     }
     if let Some(p) = req.priority {
         job.priority = p;
+    }
+    if req.sla_deadline.is_some() {
+        job.sla_deadline = req.sla_deadline;
+    }
+    if let Some(w) = req.sla_warning_mins {
+        job.sla_warning_mins = w;
     }
 
     job.updated_at = Utc::now();

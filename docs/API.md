@@ -267,6 +267,19 @@ curl -X PUT http://localhost:8080/api/jobs/{id} \
   -d '{"priority": 10}'
 ```
 
+### SLA Deadlines
+
+Set a completion deadline per job. The background monitor fires events when running jobs approach or miss their deadline:
+
+```bash
+curl -X PUT http://localhost:8080/api/jobs/{id} \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"sla_deadline": "06:00", "sla_warning_mins": 15}'
+```
+
+When the job is still running at 05:45 UTC, a `sla.warning` event fires. At 06:00 UTC, a `sla.breach` event fires. Both trigger configured notifications (Slack, email, PagerDuty).
+
 ### Secret Variables
 
 Variables with `"secret": true` have their values masked in API responses:

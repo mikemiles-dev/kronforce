@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Job version history** — every create/update snapshots the full job definition; query via `GET /api/jobs/{id}/versions` for audit trail and rollback reference
 - **Approval workflows** — jobs can require approval before execution (`approval_required` flag); triggering creates a `pending_approval` execution that must be approved via `POST /api/executions/{id}/approve` before running
 - **`PendingApproval` execution status** — new execution lifecycle state for approval-gated jobs
+- **SLA deadlines** — per-job completion deadline (HH:MM UTC) with configurable early warning; background monitor fires `sla.warning` and `sla.breach` events when running jobs approach or miss their deadline
 - **API key group scoping** — API keys can be restricted to specific job groups (`allowed_groups`), giving team-level isolation without full multi-tenancy. Admin keys always see everything.
 - **Job priority** — `priority` field on jobs (default 0); higher priority jobs are scheduled first when multiple are due simultaneously
 - **HA/Litestream replication** — Docker Compose setup for continuous SQLite replication to S3 with automatic restore on failover

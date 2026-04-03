@@ -9,6 +9,18 @@ use kronforce::db::Db;
 use kronforce::executor::Executor;
 use kronforce::scheduler::Scheduler;
 
+/// Subtracts minutes from an HH:MM time string, wrapping at midnight.
+fn subtract_minutes(hhmm: &str, mins: u32) -> String {
+    let parts: Vec<&str> = hhmm.split(':').collect();
+    if parts.len() != 2 {
+        return hhmm.to_string();
+    }
+    let h: i32 = parts[0].parse().unwrap_or(0);
+    let m: i32 = parts[1].parse().unwrap_or(0);
+    let total = (h * 60 + m - mins as i32 + 1440) % 1440;
+    format!("{:02}:{:02}", total / 60, total % 60)
+}
+
 fn create_admin_key(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
     let (key, raw) = kronforce::db::models::ApiKey::bootstrap(
         kronforce::db::models::ApiKeyRole::Admin,
@@ -177,6 +189,60 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 // Cleanup expired OIDC sessions and auth states
                 let _ = db_tick.cleanup_expired_sessions();
+
+                // SLA deadline checks for running executions
+                if let Ok(jobs) = db_tick.list_jobs(None, None, None, 1000, 0) {
+                    let now_utc = chrono::Utc::now();
+                    let today_hhmm = now_utc.format("%H:%M").to_string();
+                    for job in &jobs {
+                        if let Some(ref deadline) = job.sla_deadline {
+                            if job.status != kronforce::db::models::JobStatus::Scheduled {
+                                continue;
+                            }
+                            // Check if there's a running execution for this job
+                            if let Ok(execs) =
+                                db_tick.list_executions_for_job(job.id, 1, 0)
+                            {
+                                let running = execs
+                                    .iter()
+                                    .any(|e| e.status == kronforce::db::models::ExecutionStatus::Running);
+                                if !running {
+                                    continue;
+                                }
+                                // Warning check
+                                if job.sla_warning_mins > 0 {
+                                    let warn_time = subtract_minutes(deadline, job.sla_warning_mins);
+                                    if today_hhmm == warn_time {
+                                        let _ = db_tick.log_event(
+                                            "sla.warning",
+                                            kronforce::db::models::EventSeverity::Warning,
+                                            &format!(
+                                                "Job '{}' SLA warning: must complete by {} UTC ({} min remaining)",
+                                                job.name, deadline, job.sla_warning_mins
+                                            ),
+                                            Some(job.id),
+                                            None,
+                                        );
+                                    }
+                                }
+                                // Breach check
+                                if today_hhmm == *deadline {
+                                    let _ = db_tick.log_event(
+                                        "sla.breach",
+                                        kronforce::db::models::EventSeverity::Error,
+                                        &format!(
+                                            "Job '{}' SLA BREACHED: deadline {} UTC missed",
+                                            job.name, deadline
+                                        ),
+                                        Some(job.id),
+                                        None,
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
                 went_offline
             })
             .await

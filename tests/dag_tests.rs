@@ -35,6 +35,8 @@ fn make_job(name: &str) -> Job {
         retry_backoff: 1.0,
         approval_required: false,
         priority: 0,
+        sla_deadline: None,
+        sla_warning_mins: 0,
     }
 }
 

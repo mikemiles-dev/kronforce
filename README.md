@@ -112,6 +112,7 @@ Calls gRPC services via [grpcurl](https://github.com/fullstorydev/grpcurl) with 
 - **Cron scheduling** — 6-field second-precision cron with visual builder
 - **Priority scheduling** — higher priority jobs fire first when multiple are due simultaneously
 - **Approval workflows** — jobs can require approval before execution; pending executions must be approved via API
+- **SLA deadlines** — set a completion deadline (HH:MM UTC) per job with early warning; fires `sla.warning` and `sla.breach` events with notifications
 - **Job version history** — every create/update snapshots the full job definition for audit trail and rollback
 - **Event triggers** — fire jobs reactively on system events or output pattern matches
 - **Dependency DAG** — job dependencies with time windows and visual map

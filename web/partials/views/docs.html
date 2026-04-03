@@ -359,7 +359,20 @@ python3 examples/mcp_test_server.py</code></pre>
                     <p>Variables marked as <strong>secret</strong> have their values masked (<code>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</code>) in API responses and the UI. Secret values are still substituted into task fields at runtime via <code>{{VAR_NAME}}</code>.</p>
 
                     <h3>Priority Scheduling</h3>
-                    <p>Jobs have a <code>priority</code> field (default 0). Higher priority jobs are scheduled first when multiple are due simultaneously. Set via the job create/update API.</p>
+                    <p>Jobs have a <code>priority</code> field (default 0). Higher priority jobs are scheduled first when multiple are due simultaneously. Set via the job create/update API or the Advanced tab in the job modal.</p>
+
+                    <h3>SLA Deadlines</h3>
+                    <p>Set an SLA deadline on a job to track whether it completes on time. Configure in the job modal Advanced tab:</p>
+                    <ul>
+                        <li><strong>Deadline</strong> &mdash; time by which the job must finish (HH:MM, UTC)</li>
+                        <li><strong>Warning</strong> &mdash; minutes before the deadline to fire a warning event</li>
+                    </ul>
+                    <p>When a job with an SLA deadline is still running:</p>
+                    <ul>
+                        <li>At <code>deadline - warning_mins</code>: fires <code>sla.warning</code> event (severity: warning)</li>
+                        <li>At <code>deadline</code>: fires <code>sla.breach</code> event (severity: error)</li>
+                    </ul>
+                    <p>SLA events trigger notifications (Slack, email, PagerDuty, etc.) and can also trigger other jobs via event-driven scheduling.</p>
 
                     <h3>OIDC/SSO (Optional)</h3>
                     <p>Set <code>KRONFORCE_OIDC_ISSUER</code> and <code>KRONFORCE_OIDC_CLIENT_ID</code> to enable SSO. The login screen shows a "Sign in with SSO" button alongside API key login.</p>

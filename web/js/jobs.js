@@ -292,6 +292,7 @@ function renderJobDetail(job) {
         field('Dependencies', deps) +
         (job.priority ? field('Priority', String(job.priority)) : '') +
         (job.approval_required ? field('Approval', '<span class="badge badge-pending_approval">required</span>') : '') +
+        (job.sla_deadline ? field('SLA Deadline', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + ' min before)' : '')) : '') +
         field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '-') +
         field('Created', fmtDate(job.created_at)) +
         field('Updated', fmtDate(job.updated_at)) +

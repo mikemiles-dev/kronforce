@@ -36,6 +36,8 @@ function openCreateModal() {
     document.getElementById('f-retry-backoff').value = '1.0';
     document.getElementById('f-priority').value = '0';
     document.getElementById('f-approval-required').checked = false;
+    document.getElementById('f-sla-deadline').value = '';
+    document.getElementById('f-sla-warning').value = '0';
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
     document.getElementById('f-timeout').value = '';
@@ -94,6 +96,8 @@ async function copyJob(id) {
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
         document.getElementById('f-priority').value = job.priority || 0;
         document.getElementById('f-approval-required').checked = job.approval_required || false;
+        document.getElementById('f-sla-deadline').value = job.sla_deadline || '';
+        document.getElementById('f-sla-warning').value = job.sla_warning_mins || 0;
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -1070,6 +1074,12 @@ async function submitJobForm() {
     const priority = parseInt(document.getElementById('f-priority').value) || 0;
     if (priority !== 0) body.priority = priority;
     if (document.getElementById('f-approval-required').checked) body.approval_required = true;
+    const slaDeadline = document.getElementById('f-sla-deadline').value.trim();
+    if (slaDeadline) {
+        body.sla_deadline = slaDeadline;
+        const slaWarning = parseInt(document.getElementById('f-sla-warning').value) || 0;
+        if (slaWarning > 0) body.sla_warning_mins = slaWarning;
+    }
 
     try {
         if (editingJobId) {
