@@ -307,8 +307,13 @@ pub(crate) async fn log_and_notify(
     };
     let db2 = db.clone();
     let event2 = event.clone();
-    let _ = tokio::task::spawn_blocking(move || db2.insert_event(&event2)).await;
-    let _ = scheduler_tx
+    if let Err(e) = tokio::task::spawn_blocking(move || db2.insert_event(&event2)).await {
+        tracing::warn!("failed to log event: {e}");
+    }
+    if let Err(e) = scheduler_tx
         .send(SchedulerCommand::EventOccurred(event))
-        .await;
+        .await
+    {
+        tracing::warn!("failed to notify scheduler of event: {e}");
+    }
 }

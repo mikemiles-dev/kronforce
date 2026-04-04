@@ -36,6 +36,17 @@ pub fn router(state: AgentState) -> Router {
 }
 
 /// Validates that the request has the correct agent key. Returns error response if invalid.
+/// Constant-time comparison to prevent timing attacks on key validation.
+fn constant_time_eq(a: &str, b: &str) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.bytes()
+        .zip(b.bytes())
+        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+        == 0
+}
+
 fn validate_agent_auth(
     headers: &axum::http::HeaderMap,
     expected_key: &Option<String>,
@@ -50,7 +61,7 @@ fn validate_agent_auth(
         .and_then(|s| s.strip_prefix("Bearer "));
 
     match auth {
-        Some(token) if token == key => Ok(()),
+        Some(token) if constant_time_eq(token, key) => Ok(()),
         _ => Err((
             axum::http::StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "invalid or missing agent key"})),
