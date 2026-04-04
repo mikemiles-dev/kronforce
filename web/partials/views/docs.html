@@ -358,6 +358,15 @@ python3 examples/mcp_test_server.py</code></pre>
                     <h3>Secret Variables</h3>
                     <p>Variables marked as <strong>secret</strong> have their values masked (<code>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</code>) in API responses and the UI. Secret values are still substituted into task fields at runtime via <code>{{VAR_NAME}}</code>.</p>
 
+                    <h3>Job Templates</h3>
+                    <p>Save any job as a reusable template, then create new jobs from it.</p>
+                    <ul>
+                        <li><strong>Save</strong> &mdash; click "Save as Template" on any job's detail page</li>
+                        <li><strong>Create</strong> &mdash; click "From Template" on the Jobs page to browse and select</li>
+                        <li><strong>Share</strong> &mdash; export via <code>GET /api/templates</code>, import via <code>POST /api/templates</code></li>
+                    </ul>
+                    <p>Templates capture task config, target, notifications, retry, SLA, and approval settings. Schedule and name are set fresh on each use.</p>
+
                     <h3>Priority Scheduling</h3>
                     <p>Jobs have a <code>priority</code> field (default 0). Higher priority jobs are scheduled first when multiple are due simultaneously. Set via the job create/update API or the Advanced tab in the job modal.</p>
 

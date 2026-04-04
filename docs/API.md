@@ -280,6 +280,24 @@ curl -X PUT http://localhost:8080/api/jobs/{id} \
 
 When the job is still running at 05:45 UTC, a `sla.warning` event fires. At 06:00 UTC, a `sla.breach` event fires. Both trigger configured notifications (Slack, email, PagerDuty).
 
+### Job Templates
+
+Save reusable job definitions and create new jobs from them:
+
+```bash
+# List all templates
+curl http://localhost:8080/api/templates
+
+# Save a template
+curl -X POST http://localhost:8080/api/templates \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "health-check-template", "description": "HTTP health check pattern", "snapshot": {"task": {"type": "http", "method": "GET", "url": "https://example.com/health"}, "notifications": {"on_failure": true}}}'
+
+# Delete a template
+curl -X DELETE http://localhost:8080/api/templates/health-check-template
+```
+
 ### Secret Variables
 
 Variables with `"secret": true` have their values masked in API responses:

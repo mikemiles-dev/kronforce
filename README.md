@@ -46,6 +46,7 @@ That's it. You have a running scheduler with a web dashboard.
 - **12 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, MCP (AI tools), file push, Kafka, RabbitMQ, MQTT, Redis, and custom agent-defined types
 - **Flexible scheduling** — cron (second precision with visual builder), one-shot, on-demand, and event-driven
 - **Priority scheduling** — higher priority jobs fire first when multiple are due
+- **Job templates** — save any job as a reusable template, create new jobs from the template library
 - **Execution retry** — automatic retry on failure/timeout with configurable backoff
 - **Approval workflows** — require sign-off before critical jobs run
 - **SLA deadlines** — set completion deadlines with early warning alerts
@@ -219,7 +220,7 @@ See [Migration Guide](docs/MIGRATION.md) for migrating from Rundeck and Airflow 
 - [API Reference](docs/API.md) — all endpoints with examples, approval workflows, SLA deadlines, secret variables
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains
 - [Custom Agents](docs/CUSTOM_AGENTS.md) — protocol, task types, gRPC agent, queue behavior
-- [Migration Guide](docs/MIGRATION.md) — migrate from cron, Rundeck, or Airflow with crontab import tool
+- [Migration Guide](docs/MIGRATION.md) — migrate from cron (with auto-import tool), Rundeck, or Airflow
 - [Testing](docs/TESTING.md) — test suite, seed data, MCP testing, Docker testing
 
 ## Docker
