@@ -221,6 +221,7 @@ See [Migration Guide](docs/MIGRATION.md) for migrating from Rundeck and Airflow 
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains
 - [Custom Agents](docs/CUSTOM_AGENTS.md) — protocol, task types, gRPC agent, queue behavior
 - [Migration Guide](docs/MIGRATION.md) — migrate from cron (with auto-import tool), Rundeck, or Airflow
+- [Performance Guide](docs/PERFORMANCE.md) — expected limits, tuning parameters, scaling strategies
 - [Testing](docs/TESTING.md) — test suite, seed data, MCP testing, Docker testing
 
 ## Docker
