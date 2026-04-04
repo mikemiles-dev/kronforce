@@ -16,6 +16,7 @@ pub mod rate_limit;
 mod scripts;
 mod settings;
 mod stats;
+mod templates;
 mod variables;
 
 use axum::extract::State;
@@ -152,6 +153,14 @@ pub fn router(
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
+        .route(
+            "/api/templates",
+            get(templates::list_templates).post(templates::save_template),
+        )
+        .route(
+            "/api/templates/{name}",
+            get(templates::get_template).delete(templates::delete_template),
+        )
         .route(
             "/api/variables",
             get(variables::list_variables).post(variables::create_variable),

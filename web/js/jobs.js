@@ -281,6 +281,7 @@ function renderJobDetail(job) {
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Save as Template</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
@@ -552,6 +553,125 @@ async function showJobVersions(jobId) {
         }
         modal.querySelector('.modal-card').innerHTML = html;
         modal.style.display = '';
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+// --- Templates ---
+
+async function saveAsTemplate(jobId) {
+    try {
+        const job = await api('GET', '/api/jobs/' + jobId);
+        const name = prompt('Template name:', job.name + '-template');
+        if (!name) return;
+        const description = prompt('Description (optional):', job.description || '');
+        // Build snapshot: task + config, strip identity/schedule
+        const snapshot = {
+            task: job.task,
+            target: job.target,
+            output_rules: job.output_rules,
+            notifications: job.notifications,
+            group: job.group,
+            run_as: job.run_as,
+            timeout_secs: job.timeout_secs,
+            retry_max: job.retry_max,
+            retry_delay_secs: job.retry_delay_secs,
+            retry_backoff: job.retry_backoff,
+            priority: job.priority,
+            approval_required: job.approval_required,
+            sla_deadline: job.sla_deadline,
+            sla_warning_mins: job.sla_warning_mins,
+        };
+        await api('POST', '/api/templates', { name, description: description || null, snapshot });
+        toast('Template "' + name + '" saved');
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function showTemplatesPicker() {
+    try {
+        const templates = await api('GET', '/api/templates');
+        if (templates.length === 0) {
+            toast('No saved templates. Save a job as template from the job detail page.', 'info');
+            return;
+        }
+        let modal = document.getElementById('templates-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'templates-modal';
+            modal.className = 'modal-overlay';
+            modal.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+            modal.innerHTML = '<div class="modal-card" style="max-width:700px"></div>';
+            document.body.appendChild(modal);
+        }
+        let html = '<div class="card"><div class="card-header"><h3>Job Templates</h3>' +
+            '<button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'templates-modal\').style.display=\'none\'">Close</button></div>';
+        html += '<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">';
+        for (const t of templates) {
+            const taskType = t.snapshot && t.snapshot.task ? (t.snapshot.task.type || 'unknown') : 'unknown';
+            html += '<div class="card" style="cursor:pointer;border:1px solid var(--border);transition:border-color 0.15s" onclick="createFromTemplate(\'' + esc(t.name) + '\')" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'">';
+            html += '<div style="padding:14px">';
+            html += '<div style="font-weight:600;font-size:14px;margin-bottom:4px">' + esc(t.name) + '</div>';
+            if (t.description) html += '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">' + esc(t.description) + '</div>';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center">';
+            html += '<span class="badge badge-' + taskType + '" style="font-size:10px">' + taskType + '</span>';
+            html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger);font-size:11px;padding:2px 6px" onclick="event.stopPropagation();deleteTemplate(\'' + esc(t.name) + '\')">&times;</button>';
+            html += '</div></div></div>';
+        }
+        html += '</div></div>';
+        modal.querySelector('.modal-card').innerHTML = html;
+        modal.style.display = '';
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function createFromTemplate(templateName) {
+    try {
+        const t = await api('GET', '/api/templates/' + encodeURIComponent(templateName));
+        // Close templates modal
+        const modal = document.getElementById('templates-modal');
+        if (modal) modal.style.display = 'none';
+        // Open create modal and populate from snapshot
+        openCreateModal();
+        setTimeout(() => {
+            const snap = t.snapshot;
+            if (snap.task) populateTaskForm(snap.task);
+            if (snap.group) populateGroupSelect(snap.group);
+            if (snap.run_as) document.getElementById('f-run-as').value = snap.run_as;
+            if (snap.timeout_secs) document.getElementById('f-timeout').value = snap.timeout_secs;
+            if (snap.retry_max) document.getElementById('f-retry-max').value = snap.retry_max;
+            if (snap.retry_delay_secs) document.getElementById('f-retry-delay').value = snap.retry_delay_secs;
+            if (snap.retry_backoff) document.getElementById('f-retry-backoff').value = snap.retry_backoff;
+            if (snap.priority) document.getElementById('f-priority').value = snap.priority;
+            if (snap.approval_required) document.getElementById('f-approval-required').checked = true;
+            if (snap.sla_deadline) document.getElementById('f-sla-deadline').value = snap.sla_deadline;
+            if (snap.sla_warning_mins) document.getElementById('f-sla-warning').value = snap.sla_warning_mins;
+            if (snap.output_rules) populateOutputRules(snap.output_rules);
+            if (snap.notifications) populateJobNotifications(snap.notifications);
+            // Set target
+            if (snap.target) {
+                if (snap.target.type === 'tagged') {
+                    document.getElementById('f-target-type').value = 'tagged';
+                    document.getElementById('f-target-tag').value = snap.target.tag || '';
+                } else if (snap.target.type) {
+                    document.getElementById('f-target-type').value = snap.target.type;
+                }
+            }
+        }, 100);
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function deleteTemplate(name) {
+    if (!confirm('Delete template "' + name + '"?')) return;
+    try {
+        await api('DELETE', '/api/templates/' + encodeURIComponent(name));
+        toast('Template deleted');
+        showTemplatesPicker(); // Refresh
     } catch (e) {
         toast(e.message, 'error');
     }

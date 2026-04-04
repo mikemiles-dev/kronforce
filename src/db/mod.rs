@@ -14,6 +14,7 @@ pub mod models;
 mod queue;
 mod sessions;
 mod settings;
+pub mod templates;
 mod variables;
 
 use chrono::Utc;

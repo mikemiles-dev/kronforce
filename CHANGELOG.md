@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Getting Started page** — interactive in-app guide with step-by-step setup and action buttons
 - **Migration guide** — docs for migrating from cron, Rundeck, and Airflow with feature mapping tables and step-by-step instructions
 - **Crontab import tool** — `scripts/kronforce-import-crontab` reads crontab from stdin and creates Kronforce jobs via API, with dry-run mode, group assignment, and name prefixing
+- **Job templates** — save any job as a reusable template, create new jobs from templates via "From Template" button on Jobs page; templates stored in SQLite with API (`GET/POST /api/templates`, `GET/DELETE /api/templates/{name}`)
 - **Job Groups** — organize jobs into named groups with a dedicated Groups page, Default group for all new jobs, group filter on jobs list, and group dropdown in job create/edit modal
 - **Dashboard Charts** — donut charts for execution outcomes, task types, and schedule types with SVG rendering
 - **Dashboard Tabs** — tabbed layout (Overview, Activity, Infrastructure) to reduce scrolling

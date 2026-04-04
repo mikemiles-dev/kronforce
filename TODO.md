@@ -12,6 +12,6 @@ Internal roadmap — not published in docs or README.
 
 - [ ] Kubernetes Helm chart / operator
 - [ ] OpenTelemetry / distributed tracing integration
-- [ ] Job templates / reusable workflow definitions
+- [x] Job templates / reusable workflow definitions (save as template + create from template)
 - [ ] More granular RBAC (per-endpoint permissions beyond 4 fixed roles)
 - [ ] Native Slack app with interactive approve/reject buttons (vs incoming webhook)
