@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Regex full-match fallback** — extraction patterns without capture groups now return the full match instead of silently returning nothing
 - **gRPC custom agent example** — `examples/grpc_agent.py` wraps grpcurl for calling gRPC services via the custom agent protocol
 - **Getting Started page** — interactive in-app guide with step-by-step setup and action buttons
+- **Migration guide** — docs for migrating from cron, Rundeck, and Airflow with feature mapping tables and step-by-step instructions
+- **Crontab import tool** — `scripts/kronforce-import-crontab` reads crontab from stdin and creates Kronforce jobs via API, with dry-run mode, group assignment, and name prefixing
 - **Job Groups** — organize jobs into named groups with a dedicated Groups page, Default group for all new jobs, group filter on jobs list, and group dropdown in job create/edit modal
 - **Dashboard Charts** — donut charts for execution outcomes, task types, and schedule types with SVG rendering
 - **Dashboard Tabs** — tabbed layout (Overview, Activity, Infrastructure) to reduce scrolling

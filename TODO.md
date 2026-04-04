@@ -5,7 +5,7 @@ Internal roadmap — not published in docs or README.
 ## Practical Gaps
 
 - [ ] Performance baseline documentation (load test: max jobs/sec, concurrent executions, DB size limits)
-- [ ] Migration guide from cron/Rundeck/Airflow ("move your existing cron jobs to Kronforce")
+- [x] Migration guide from cron/Rundeck/Airflow (docs/MIGRATION.md + crontab import tool)
 - [ ] v1.0 stable release (API/schema stability guarantees, semver commitment, CHANGELOG entry)
 
 ## Nice-to-Have

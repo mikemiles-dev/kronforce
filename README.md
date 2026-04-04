@@ -196,6 +196,21 @@ KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
 
 </details>
 
+## Migrate from Cron
+
+```bash
+# Import your entire crontab in one command
+crontab -l | ./scripts/kronforce-import-crontab kf_your_admin_key
+
+# Dry run first to see what would be created
+crontab -l | ./scripts/kronforce-import-crontab kf_your_admin_key --dry-run
+
+# Import into a specific group
+crontab -l | ./scripts/kronforce-import-crontab kf_your_admin_key --group Monitoring
+```
+
+See [Migration Guide](docs/MIGRATION.md) for migrating from Rundeck and Airflow too.
+
 ## Documentation
 
 - [Deployment](docs/DEPLOYMENT.md) — Docker Compose, HA with Litestream, configuration, scaling
@@ -204,6 +219,7 @@ KRONFORCE_AGENT_KEY=kf_your_agent_key python3 examples/grpc_agent.py
 - [API Reference](docs/API.md) — all endpoints with examples, approval workflows, SLA deadlines, secret variables
 - [Triggers & Workflows](docs/TRIGGERS_AND_WORKFLOWS.md) — event-driven automation, output intelligence, dependency chains
 - [Custom Agents](docs/CUSTOM_AGENTS.md) — protocol, task types, gRPC agent, queue behavior
+- [Migration Guide](docs/MIGRATION.md) — migrate from cron, Rundeck, or Airflow with crontab import tool
 - [Testing](docs/TESTING.md) — test suite, seed data, MCP testing, Docker testing
 
 ## Docker
