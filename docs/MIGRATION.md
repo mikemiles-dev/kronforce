@@ -46,6 +46,7 @@ Each cron line maps directly to a Kronforce shell job:
 **Key differences:**
 - Kronforce uses **6-field cron** (seconds, minutes, hours, day-of-month, month, day-of-week)
 - Standard cron uses 5 fields (no seconds). Prepend `0` to keep the same schedule.
+- **Day-of-month / day-of-week** follows POSIX OR semantics: when both are set (not `*`), the job fires if either matches. `0 0 0 15 * 5` fires on the 15th OR any Friday.
 - Output is captured automatically — no need for `>> logfile 2>&1`
 - Environment variables use `{{VAR_NAME}}` syntax instead of shell `$VAR`
 

@@ -633,6 +633,7 @@ python3 examples/mcp_test_server.py</code></pre>
                         <tr><td><code>*/30 * * * * *</code></td><td>Every 30 seconds</td></tr>
                     </table>
                     <p>Supports: <code>*</code>, ranges (<code>1-5</code>), lists (<code>1,3,5</code>), steps (<code>*/5</code>, <code>1-30/5</code>).</p>
+                    <p><strong>Day-of-month / day-of-week:</strong> follows POSIX OR semantics. When both are set (not <code>*</code>), the job fires if <em>either</em> matches. Example: <code>0 0 0 15 * 5</code> fires on the 15th of any month <em>or</em> any Friday.</p>
 
                     <h3>Schedule Types</h3>
                     <table>

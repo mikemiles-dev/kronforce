@@ -72,7 +72,7 @@ curl -X DELETE http://localhost:8080/api/jobs/{id}
 | Type | JSON | Description |
 |---|---|---|
 | One-shot | `{"type": "one_shot", "value": "2026-04-01T00:00:00Z"}` | Fires once at the specified time |
-| Cron | `{"type": "cron", "value": "0 * * * * *"}` | Recurring cron schedule (6-field, second precision) |
+| Cron | `{"type": "cron", "value": "0 * * * * *"}` | Recurring cron schedule (6-field: sec min hour dom month dow). POSIX OR semantics for dom/dow. |
 | On-demand | `{"type": "on_demand"}` | Triggered via API/UI only |
 | Event | `{"type": "event", "value": {...}}` | Fires when a matching system event occurs |
 
