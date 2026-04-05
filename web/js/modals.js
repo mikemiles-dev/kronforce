@@ -1499,6 +1499,30 @@ async function renderMap() {
         showJobDetail(evt.target.id());
     });
 
+    // Save positions when nodes are dragged
+    cyInstance.on('dragfree', 'node', function() {
+        saveMapPositions();
+    });
+
+    // Restore saved positions
+    const saved = localStorage.getItem('kf-mapPositions');
+    if (saved) {
+        try {
+            const positions = JSON.parse(saved);
+            let restored = 0;
+            cyInstance.nodes().forEach(function(n) {
+                if (positions[n.id()]) {
+                    n.position(positions[n.id()]);
+                    restored++;
+                }
+            });
+            if (restored > 0) {
+                // Don't re-layout if we restored positions
+                cyInstance.fit(undefined, 40);
+            }
+        } catch (e) { /* ignore corrupt data */ }
+    }
+
     // Sync zoom slider
     const slider = document.getElementById('map-zoom-slider');
     if (slider) {
@@ -1514,6 +1538,20 @@ async function renderMap() {
     // Fit to view
     cyInstance.fit(undefined, 40);
     if (slider) slider.value = Math.round(cyInstance.zoom() * 100);
+}
+
+function saveMapPositions() {
+    if (!cyInstance) return;
+    const positions = {};
+    cyInstance.nodes().forEach(function(n) {
+        positions[n.id()] = n.position();
+    });
+    localStorage.setItem('kf-mapPositions', JSON.stringify(positions));
+}
+
+function clearMapPositions() {
+    localStorage.removeItem('kf-mapPositions');
+    renderMap();
 }
 
 // --- Mini Dependency Map ---

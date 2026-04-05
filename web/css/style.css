@@ -2615,7 +2615,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 
 .map-controls {
     position: absolute;
-    top: 12px;
+    bottom: 12px;
     right: 12px;
     display: flex;
     flex-direction: column;
