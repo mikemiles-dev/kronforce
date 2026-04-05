@@ -2615,15 +2615,14 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 
 .map-controls {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 12px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 8px 6px;
-    align-self: flex-start;
-    flex-shrink: 0;
 }
 
 .map-controls button {
@@ -2640,20 +2639,15 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     align-items: center;
     justify-content: center;
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .map-controls button:hover {
     background: var(--bg-tertiary);
 }
 
-.map-fit-btn {
-    margin-bottom: 4px;
-}
-
 .map-controls input[type="range"] {
-    writing-mode: vertical-lr;
-    width: 28px;
-    height: 120px;
+    height: 4px;
     cursor: pointer;
     accent-color: var(--accent);
 }
