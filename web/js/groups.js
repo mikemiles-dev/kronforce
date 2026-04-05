@@ -2,6 +2,17 @@
 // --- Groups Page ---
 
 let groupsPageJobs = [];
+let groupsViewMode = localStorage.getItem('kf-groupsView') || 'cards';
+
+function setGroupsView(mode) {
+    groupsViewMode = mode;
+    localStorage.setItem('kf-groupsView', mode);
+    document.querySelectorAll('.groups-view-btn').forEach(b => {
+        b.classList.toggle('active', b.id === 'gv-' + mode);
+        b.style.background = b.id === 'gv-' + mode ? 'var(--bg-primary)' : '';
+    });
+    fetchGroupsPage();
+}
 
 async function fetchGroupsPage() {
     try {
@@ -47,42 +58,127 @@ async function fetchGroupsPage() {
             return a.localeCompare(b);
         });
 
-        let html = '';
+        // Restore view toggle state
+        document.querySelectorAll('.groups-view-btn').forEach(b => {
+            b.classList.toggle('active', b.id === 'gv-' + groupsViewMode);
+            b.style.background = b.id === 'gv-' + groupsViewMode ? 'var(--bg-primary)' : '';
+        });
 
-        // Group cards
-        for (const g of sortedGroups) {
-            const groupJobs = jobsByGroup[g] || [];
-            const count = groupJobs.length;
-            const color = groupColor(g);
-            html += '<div class="group-card">';
-            html += '<div class="group-card-header" style="cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
-            html += '<span class="group-card-dot" style="background:' + color + '"></span>';
-            html += '<span class="group-card-name">' + esc(g) + '</span>';
-            html += '<span style="margin-left:auto;font-size:11px;color:var(--accent)">&rarr;</span>';
-            html += '</div>';
-            html += '<div class="group-card-count">' + count + ' job' + (count !== 1 ? 's' : '') + '</div>';
-            // Show job names (up to 5)
-            if (groupJobs.length > 0) {
-                html += '<div class="group-card-jobs">';
-                for (const j of groupJobs.slice(0, 5)) {
-                    html += '<div class="group-card-job">' + esc(j.name) + '</div>';
-                }
-                if (groupJobs.length > 5) {
-                    html += '<div class="group-card-job" style="color:var(--text-muted)">...and ' + (groupJobs.length - 5) + ' more</div>';
-                }
-                html += '</div>';
-            }
-            html += '<div class="group-card-actions">';
-            html += '<button class="btn btn-ghost btn-sm" onclick="renameGroup(\'' + esc(g) + '\')">Rename</button>';
-            html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteGroup(\'' + esc(g) + '\')">Delete</button>';
-            html += '</div>';
-            html += '</div>';
+        if (groupsViewMode === 'pipeline') {
+            renderPipelineView(sortedGroups, jobsByGroup);
+        } else {
+            renderCardsView(sortedGroups, jobsByGroup);
         }
-
-        grid.innerHTML = html;
     } catch (e) {
         console.error('fetchGroupsPage:', e);
     }
+}
+
+function renderCardsView(sortedGroups, jobsByGroup) {
+    const grid = document.getElementById('groups-grid');
+    grid.className = 'groups-grid';
+    let html = '';
+    for (const g of sortedGroups) {
+        const groupJobs = jobsByGroup[g] || [];
+        const count = groupJobs.length;
+        const color = groupColor(g);
+        html += '<div class="group-card">';
+        html += '<div class="group-card-header" style="cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
+        html += '<span class="group-card-dot" style="background:' + color + '"></span>';
+        html += '<span class="group-card-name">' + esc(g) + '</span>';
+        html += '<span style="margin-left:auto;font-size:11px;color:var(--accent)">&rarr;</span>';
+        html += '</div>';
+        html += '<div class="group-card-count">' + count + ' job' + (count !== 1 ? 's' : '') + '</div>';
+        if (groupJobs.length > 0) {
+            html += '<div class="group-card-jobs">';
+            for (const j of groupJobs.slice(0, 5)) {
+                html += '<div class="group-card-job">' + esc(j.name) + '</div>';
+            }
+            if (groupJobs.length > 5) {
+                html += '<div class="group-card-job" style="color:var(--text-muted)">...and ' + (groupJobs.length - 5) + ' more</div>';
+            }
+            html += '</div>';
+        }
+        html += '<div class="group-card-actions">';
+        html += '<button class="btn btn-ghost btn-sm" onclick="renameGroup(\'' + esc(g) + '\')">Rename</button>';
+        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteGroup(\'' + esc(g) + '\')">Delete</button>';
+        html += '</div>';
+        html += '</div>';
+    }
+    grid.innerHTML = html;
+}
+
+function renderPipelineView(sortedGroups, jobsByGroup) {
+    const grid = document.getElementById('groups-grid');
+    grid.className = '';
+    let html = '';
+
+    for (const g of sortedGroups) {
+        const groupJobs = jobsByGroup[g] || [];
+        if (groupJobs.length === 0) continue;
+        const color = groupColor(g);
+
+        // Sort jobs: roots first (no deps in this group), then by dependency chain
+        const inGroup = new Set(groupJobs.map(j => j.id));
+        const depMap = {};
+        for (const j of groupJobs) {
+            depMap[j.id] = (j.depends_on || []).filter(d => inGroup.has(d.job_id)).map(d => d.job_id);
+        }
+        // Topological sort
+        const sorted = [];
+        const visited = new Set();
+        function visit(id) {
+            if (visited.has(id)) return;
+            visited.add(id);
+            for (const pid of (depMap[id] || [])) visit(pid);
+            sorted.push(id);
+        }
+        for (const j of groupJobs) visit(j.id);
+        const jobMap = {};
+        for (const j of groupJobs) jobMap[j.id] = j;
+
+        // Pipeline header
+        html += '<div style="margin-bottom:20px">';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
+        html += '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
+        html += '<strong style="font-size:14px">' + esc(g) + '</strong>';
+        html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
+        html += '</div>';
+
+        // Pipeline stages
+        html += '<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 0">';
+        for (let i = 0; i < sorted.length; i++) {
+            const j = jobMap[sorted[i]];
+            if (!j) continue;
+            const last = j.last_execution;
+            const status = last ? last.status : 'idle';
+
+            let bg, border, statusIcon;
+            if (status === 'succeeded') { bg = 'rgba(46,204,113,0.12)'; border = '#2ecc71'; statusIcon = '\u2714'; }
+            else if (status === 'failed' || status === 'timed_out') { bg = 'rgba(224,82,82,0.12)'; border = '#e05252'; statusIcon = '\u2718'; }
+            else if (status === 'running') { bg = 'rgba(62,139,255,0.12)'; border = '#3e8bff'; statusIcon = '\u25B6'; }
+            else if (status === 'pending_approval') { bg = 'rgba(230,168,23,0.12)'; border = '#e6a817'; statusIcon = '\u23F3'; }
+            else { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u25CB'; }
+
+            // Arrow between stages
+            if (i > 0) {
+                html += '<div style="color:var(--text-muted);font-size:18px;padding:0 2px;flex-shrink:0">\u25B8</div>';
+            }
+
+            // Stage card
+            html += '<div style="background:' + bg + ';border:2px solid ' + border + ';border-radius:8px;padding:10px 14px;min-width:140px;cursor:pointer;flex-shrink:0;text-align:center" onclick="showJobDetail(\'' + j.id + '\')">';
+            html += '<div style="font-size:18px;margin-bottom:4px">' + statusIcon + '</div>';
+            html += '<div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap">' + esc(j.name) + '</div>';
+            html += '<div style="font-size:10px;color:var(--text-muted)">' + status + '</div>';
+            if (last && last.finished_at) {
+                html += '<div style="font-size:9px;color:var(--text-muted)">' + fmtDate(last.finished_at) + '</div>';
+            }
+            html += '</div>';
+        }
+        html += '</div></div>';
+    }
+
+    grid.innerHTML = html;
 }
 
 async function createNewGroup() {
