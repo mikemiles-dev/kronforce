@@ -1378,6 +1378,16 @@ async function renderMap() {
     if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
     container.innerHTML = '';
 
+    // Check for saved positions
+    const savedPositions = localStorage.getItem('kf-mapPositions');
+    let hasSaved = false;
+    if (savedPositions) {
+        try {
+            const sp = JSON.parse(savedPositions);
+            hasSaved = elements.some(e => e.data && !e.data.source && sp[e.data.id]);
+        } catch(e) {}
+    }
+
     cyInstance = cytoscape({
         container: container,
         elements: elements,
@@ -1482,13 +1492,7 @@ async function renderMap() {
                 }
             },
         ],
-        layout: {
-            name: 'breadthfirst',
-            directed: true,
-            spacingFactor: 1.6,
-            avoidOverlap: true,
-            padding: 50,
-        },
+        layout: { name: 'preset' },
         minZoom: 0.15,
         maxZoom: 3,
         wheelSensitivity: 0.3,
@@ -1504,23 +1508,30 @@ async function renderMap() {
         saveMapPositions();
     });
 
-    // Restore saved positions
-    const saved = localStorage.getItem('kf-mapPositions');
-    if (saved) {
+    function fitAndSync() {
+        cyInstance.fit(undefined, 30);
+        const slider = document.getElementById('map-zoom-slider');
+        if (slider) slider.value = Math.round(cyInstance.zoom() * 100);
+    }
+
+    // Restore saved positions or run auto-layout
+    if (hasSaved) {
         try {
-            const positions = JSON.parse(saved);
-            let restored = 0;
+            const positions = JSON.parse(savedPositions);
             cyInstance.nodes().forEach(function(n) {
-                if (positions[n.id()]) {
-                    n.position(positions[n.id()]);
-                    restored++;
-                }
+                if (positions[n.id()]) n.position(positions[n.id()]);
             });
-            if (restored > 0) {
-                // Don't re-layout if we restored positions
-                cyInstance.fit(undefined, 40);
-            }
-        } catch (e) { /* ignore corrupt data */ }
+        } catch (e) {}
+        fitAndSync();
+    } else {
+        cyInstance.layout({
+            name: 'breadthfirst',
+            directed: true,
+            spacingFactor: 1.2,
+            avoidOverlap: true,
+            padding: 30,
+            stop: fitAndSync,
+        }).run();
     }
 
     // Sync zoom slider
@@ -1534,10 +1545,6 @@ async function renderMap() {
     // Show controls
     const controls = document.getElementById('map-controls');
     if (controls) controls.style.display = '';
-
-    // Fit to view
-    cyInstance.fit(undefined, 40);
-    if (slider) slider.value = Math.round(cyInstance.zoom() * 100);
 }
 
 function saveMapPositions() {
