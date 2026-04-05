@@ -342,13 +342,16 @@ impl Scheduler {
             None => return,
         };
 
+        // Build job name lookup from cache for event matching
+        let job_names: HashMap<Uuid, String> = jobs.iter().map(|j| (j.id, j.name.clone())).collect();
+
         for job in &jobs {
             if job.status != JobStatus::Scheduled {
                 continue;
             }
 
             if let ScheduleKind::Event(ref config) = job.schedule {
-                if !Self::event_matches(&event, config) {
+                if !Self::event_matches(&event, config, &job_names) {
                     continue;
                 }
 
@@ -386,7 +389,7 @@ impl Scheduler {
         self.next_fire_times.clear();
     }
 
-    fn event_matches(event: &Event, config: &EventTriggerConfig) -> bool {
+    fn event_matches(event: &Event, config: &EventTriggerConfig, job_names: &HashMap<Uuid, String>) -> bool {
         if !Self::pattern_matches(&config.kind_pattern, &event.kind) {
             return false;
         }
@@ -395,13 +398,19 @@ impl Scheduler {
         {
             return false;
         }
-        if let Some(ref name_filter) = config.job_name_filter
-            && !event
-                .message
-                .to_lowercase()
-                .contains(&name_filter.to_lowercase())
-        {
-            return false;
+        if let Some(ref name_filter) = config.job_name_filter {
+            let filter_lower = name_filter.to_lowercase();
+            // Check against the source job's actual name (via job_id on the event)
+            let job_name_match = event
+                .job_id
+                .and_then(|id| job_names.get(&id))
+                .map(|name| name.to_lowercase().contains(&filter_lower))
+                .unwrap_or(false);
+            // Also check message text as fallback for non-job events
+            let message_match = event.message.to_lowercase().contains(&filter_lower);
+            if !job_name_match && !message_match {
+                return false;
+            }
         }
         true
     }
