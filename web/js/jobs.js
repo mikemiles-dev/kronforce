@@ -318,33 +318,51 @@ function renderJobDetail(job) {
         if (parts.length) rulesHtml = parts.join(', ');
     }
 
+    function section(title) { return '<div class="detail-section-header">' + title + '</div>'; }
+
     document.getElementById('detail-card').innerHTML =
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
-        '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Save as Template</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Template</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
         '<div class="detail-grid">' +
-        field('Task', fmtTaskDetail(job.task)) +
-        field('Schedule', fmtScheduleDetail(job.schedule)) +
+
+        // Overview
+        section('Overview') +
         field('Group', '<span style="color:var(--accent)">' + esc(job.group || 'Default') + '</span>') +
+        field('Description', job.description || '<span style="color:var(--text-muted)">-</span>') +
         field('Last Run', lastHtml) +
         field('Executions', statsHtml) +
-        field('Description', job.description || '<span style="color:var(--text-muted)">-</span>') +
+
+        // Task & Schedule
+        section('Task & Schedule') +
+        field('Task', fmtTaskDetail(job.task)) +
+        field('Schedule', fmtScheduleDetail(job.schedule)) +
         field('Target', fmtTarget(job.target)) +
+        field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '<span style="color:var(--text-muted)">-</span>') +
+
+        // Workflow
+        section('Workflow') +
         field('Dependencies', deps) +
+        field('Output Rules', rulesHtml) +
+        field('Notifications', notifHtml) +
         field('Retry', retryHtml) +
+
+        // Controls
+        section('Controls') +
         field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : '<span style="color:var(--text-muted)">none</span>') +
         field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : '<span style="color:var(--text-muted)">default</span>') +
-        field('Notifications', notifHtml) +
-        field('Output Rules', rulesHtml) +
-        (job.priority ? field('Priority', String(job.priority)) : '') +
-        (job.approval_required ? field('Approval', '<span class="badge badge-pending_approval">required</span>') : '') +
+        field('Priority', job.priority ? String(job.priority) : '<span style="color:var(--text-muted)">0</span>') +
+        field('Approval', job.approval_required ? '<span class="badge badge-pending_approval">required</span>' : '<span style="color:var(--text-muted)">not required</span>') +
         (job.sla_deadline ? field('SLA Deadline', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + ' min before)' : '')) : '') +
-        field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '-') +
+
+        // Metadata
+        section('Metadata') +
         field('Created', fmtDate(job.created_at)) +
         field('Updated', fmtDate(job.updated_at)) +
+
         '</div></div>';
 }
 
