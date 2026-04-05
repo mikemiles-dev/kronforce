@@ -48,6 +48,7 @@ pub struct Scheduler {
     tick_interval: std::time::Duration,
     callback_base_url: String,
     next_fire_times: HashMap<Uuid, DateTime<Utc>>,
+    last_fired: HashMap<Uuid, DateTime<Utc>>,
     jobs_cache: Option<Vec<Job>>,
 }
 
@@ -70,6 +71,7 @@ impl Scheduler {
             tick_interval: config.tick_interval,
             callback_base_url: config.callback_base_url.clone(),
             next_fire_times: HashMap::new(),
+            last_fired: HashMap::new(),
             jobs_cache: None,
         }
     }
@@ -149,6 +151,21 @@ impl Scheduler {
         };
 
         if now >= fire_time {
+            // Prevent double-fire: skip if we already fired at this time
+            if let Some(last) = self.last_fired.get(&job.id)
+                && *last >= fire_time
+            {
+                // Already fired for this time slot, just recalculate next
+                let Ok(schedule) = CronSchedule::parse(cron_expr) else {
+                    return;
+                };
+                if let Some(next) = schedule.next_after(now) {
+                    self.next_fire_times.insert(job.id, next);
+                }
+                return;
+            }
+
+            self.last_fired.insert(job.id, fire_time);
             self.fire_job(job, TriggerSource::Scheduler).await;
 
             let Ok(schedule) = CronSchedule::parse(cron_expr) else {

@@ -58,7 +58,7 @@ impl super::Executor {
         }
 
         // Pick random agent
-        let idx = (Utc::now().timestamp_nanos_opt().unwrap_or(0) as usize) % agents.len();
+        let idx = rand::Rng::random_range(&mut rand::rng(), 0..agents.len());
         let agent = &agents[idx];
 
         self.dispatch_to_specific_agent(agent, job, trigger, callback_base_url)
@@ -94,7 +94,7 @@ impl super::Executor {
             )));
         }
 
-        let idx = (Utc::now().timestamp_nanos_opt().unwrap_or(0) as usize) % agents.len();
+        let idx = rand::Rng::random_range(&mut rand::rng(), 0..agents.len());
         let agent = &agents[idx];
 
         self.dispatch_to_specific_agent(agent, job, trigger, callback_base_url)
