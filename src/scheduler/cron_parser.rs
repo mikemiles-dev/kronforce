@@ -178,32 +178,59 @@ impl CronSchedule {
 
             let dim = days_in_month(c.year, c.month);
 
-            // Find next matching day of month
-            let Some(d) = self.day_of_month.next_match(c.day, 1, dim) else {
-                c.advance_month();
-                continue;
-            };
-            if d > c.day {
-                c.day = d;
-                c.reset_to_day();
-            }
+            // POSIX cron semantics: when both day-of-month and day-of-week are
+            // restricted (not *), fire if EITHER matches (OR logic). When only one
+            // is restricted, the other acts as a pass-through (AND logic).
+            let dom_restricted = !matches!(self.day_of_month, FieldSpec::All);
+            let dow_restricted = !matches!(self.day_of_week, FieldSpec::All);
+            let use_or = dom_restricted && dow_restricted;
 
-            if c.day > dim {
-                c.advance_month();
-                continue;
-            }
+            if use_or {
+                // OR mode: find next day where day-of-month OR day-of-week matches
+                let mut found = false;
+                while c.day <= dim {
+                    let dom_ok = self.day_of_month.matches(c.day);
+                    let dow_ok = NaiveDate::from_ymd_opt(c.year, c.month, c.day)
+                        .map(|d| self.day_of_week.matches(d.weekday().num_days_from_sunday()))
+                        .unwrap_or(false);
+                    if dom_ok || dow_ok {
+                        found = true;
+                        break;
+                    }
+                    c.day += 1;
+                    c.reset_to_day();
+                }
+                if !found {
+                    c.advance_month();
+                    continue;
+                }
+            } else {
+                // AND mode (standard): day-of-month must match, then day-of-week must match
+                let Some(d) = self.day_of_month.next_match(c.day, 1, dim) else {
+                    c.advance_month();
+                    continue;
+                };
+                if d > c.day {
+                    c.day = d;
+                    c.reset_to_day();
+                }
 
-            // Check day of week
-            let Some(date) = NaiveDate::from_ymd_opt(c.year, c.month, c.day) else {
-                c.advance_month();
-                continue;
-            };
-            if !self
-                .day_of_week
-                .matches(date.weekday().num_days_from_sunday())
-            {
-                c.advance_day(dim);
-                continue;
+                if c.day > dim {
+                    c.advance_month();
+                    continue;
+                }
+
+                let Some(date) = NaiveDate::from_ymd_opt(c.year, c.month, c.day) else {
+                    c.advance_month();
+                    continue;
+                };
+                if !self
+                    .day_of_week
+                    .matches(date.weekday().num_days_from_sunday())
+                {
+                    c.advance_day(dim);
+                    continue;
+                }
             }
 
             return true;
