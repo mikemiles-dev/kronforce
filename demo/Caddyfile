@@ -1,0 +1,8 @@
+# demo.kronforce.dev — auto-TLS via Let's Encrypt
+#
+# Change the domain below to match your setup.
+# Caddy automatically obtains and renews certificates.
+
+{$DEMO_DOMAIN:demo.kronforce.dev} {
+    reverse_proxy kronforce:8080
+}

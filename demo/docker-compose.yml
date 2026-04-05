@@ -1,0 +1,63 @@
+# Kronforce Demo Instance
+#
+# Runs a read-only demo with seed data at demo.kronforce.dev
+#
+# Usage:
+#   cd demo
+#   docker compose up -d
+#
+# First startup: loads seed data + creates viewer key automatically.
+# Caddy handles TLS via Let's Encrypt.
+
+services:
+  kronforce:
+    image: ghcr.io/mikemiles-dev/kronforce:latest
+    restart: unless-stopped
+    volumes:
+      - demo-data:/data
+      - demo-scripts:/scripts
+      - ./seed-demo.sh:/seed-demo.sh:ro
+    environment:
+      - KRONFORCE_DB=/data/kronforce.db
+      - KRONFORCE_BIND=0.0.0.0:8080
+      - KRONFORCE_SCRIPTS_DIR=/scripts
+      - KRONFORCE_CALLBACK_URL=http://kronforce:8080
+      - RUST_LOG=kronforce=info
+      # Pre-set keys so they're stable across restarts
+      - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${DEMO_ADMIN_KEY:-kf_demo_admin_key_change_me}
+      - KRONFORCE_BOOTSTRAP_AGENT_KEY=${DEMO_AGENT_KEY:-kf_demo_agent_key_change_me}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  seed:
+    image: ghcr.io/mikemiles-dev/kronforce:latest
+    depends_on:
+      kronforce:
+        condition: service_healthy
+    volumes:
+      - ./seed-demo.sh:/seed-demo.sh:ro
+    entrypoint: ["/bin/sh", "/seed-demo.sh"]
+    environment:
+      - KRONFORCE_URL=http://kronforce:8080
+      - ADMIN_KEY=${DEMO_ADMIN_KEY:-kf_demo_admin_key_change_me}
+    restart: "no"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  demo-data:
+  demo-scripts:
+  caddy-data:
+  caddy-config:
