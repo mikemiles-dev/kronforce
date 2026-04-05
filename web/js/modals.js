@@ -1242,11 +1242,12 @@ async function submitJobForm() {
 
 // --- Dependency Map ---
 
+let cyInstance = null;
+
 async function renderMap() {
-    // Fetch all jobs (unpaginated) for the map
     let jobs;
     try {
-        const res = await api('GET', '/api/jobs?per_page=100');
+        const res = await api('GET', '/api/jobs?per_page=1000');
         jobs = res.data;
     } catch (e) {
         console.error('renderMap:', e);
@@ -1264,261 +1265,183 @@ async function renderMap() {
         for (const g of groups) {
             mapGroupFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(g) + '</option>';
         }
-        // Filter jobs by selected group
         if (selectedGroup) {
             jobs = jobs.filter(j => (j.group || 'Default') === selectedGroup);
         }
     }
 
     if (jobs.length === 0) {
+        if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
         container.innerHTML = renderRichEmptyState({
             icon: '&#9741;',
             title: 'No jobs to display',
             description: 'The dependency map visualizes how jobs depend on each other. Create jobs with dependencies to see the graph.',
-            actions: [
-                { label: 'Create a Job', onclick: 'openCreateModal()', primary: true },
-            ],
+            actions: [{ label: 'Create a Job', onclick: 'openCreateModal()', primary: true }],
         });
         return;
     }
 
-    // Restore the SVG element if it was replaced by empty state
-    if (!document.getElementById('map-svg')) {
-        container.innerHTML = '<svg id="map-svg"></svg>';
-    }
-    const svg = document.getElementById('map-svg');
-
-    // Build adjacency: job -> jobs that depend on it (children)
+    // Build Cytoscape elements
     const jobMap = {};
     for (const j of jobs) jobMap[j.id] = j;
 
-    const children = {};   // parent_id -> [child_id]
-    const parents = {};    // child_id -> [parent_id]
+    const elements = [];
+    const edgeSet = new Set();
+
+    // Nodes
     for (const j of jobs) {
-        children[j.id] = children[j.id] || [];
-        parents[j.id] = parents[j.id] || [];
+        const lastStatus = j.last_execution ? j.last_execution.status : 'none';
+        elements.push({
+            data: {
+                id: j.id,
+                label: j.name,
+                group: j.group || 'Default',
+                status: j.status,
+                lastStatus: lastStatus,
+                taskType: j.task ? j.task.type : 'unknown',
+                schedType: j.schedule ? j.schedule.type : 'unknown',
+                approval: j.approval_required || false,
+                priority: j.priority || 0,
+            }
+        });
+    }
+
+    // Dependency edges
+    for (const j of jobs) {
         for (const dep of j.depends_on) {
-            const pid = dep.job_id;
-            children[pid] = children[pid] || [];
-            children[pid].push(j.id);
-            parents[j.id].push(pid);
+            if (!jobMap[dep.job_id]) continue;
+            const eid = dep.job_id + '->' + j.id;
+            if (!edgeSet.has(eid)) {
+                edgeSet.add(eid);
+                const label = dep.within_secs ? 'within ' + fmtSeconds(dep.within_secs) : '';
+                elements.push({ data: { id: eid, source: dep.job_id, target: j.id, label: label, edgeType: 'dependency' } });
+            }
         }
     }
 
-    // Include event trigger relationships in the graph for layout
+    // Event trigger edges
     for (const j of jobs) {
         if (j.schedule.type !== 'event' || !j.schedule.value || !j.schedule.value.job_name_filter) continue;
         const filter = j.schedule.value.job_name_filter.toLowerCase();
+        const kind = j.schedule.value.kind_pattern || '*';
         for (const src of jobs) {
             if (src.id === j.id) continue;
-            if (src.name.toLowerCase().includes(filter)) {
-                children[src.id] = children[src.id] || [];
-                if (!children[src.id].includes(j.id)) children[src.id].push(j.id);
-                parents[j.id] = parents[j.id] || [];
-                if (!parents[j.id].includes(src.id)) parents[j.id].push(src.id);
+            if (!src.name.toLowerCase().includes(filter)) continue;
+            const eid = src.id + '=>' + j.id;
+            if (!edgeSet.has(eid)) {
+                edgeSet.add(eid);
+                elements.push({ data: { id: eid, source: src.id, target: j.id, label: kind, edgeType: 'event' } });
             }
         }
     }
 
-    // Assign layers via BFS from roots (nodes with no parents in the graph)
-    const layers = {};
-    const roots = jobs.filter(j => (parents[j.id] || []).length === 0).map(j => j.id);
-    const visited = new Set();
-    const queue = roots.map(id => ({ id, layer: 0 }));
-    // Also handle jobs whose parents aren't in the job list
-    for (const j of jobs) {
-        if (!roots.includes(j.id) && (parents[j.id] || []).every(pid => !jobMap[pid])) {
-            queue.push({ id: j.id, layer: 0 });
-        }
+    // Color helper
+    function statusColor(s) {
+        if (s === 'succeeded') return '#2ecc71';
+        if (s === 'failed' || s === 'timed_out') return '#e05252';
+        if (s === 'running') return '#3e8bff';
+        return '#7c8298';
     }
 
-    while (queue.length > 0) {
-        const { id, layer } = queue.shift();
-        if (visited.has(id)) {
-            layers[id] = Math.max(layers[id] || 0, layer);
-            continue;
-        }
-        visited.add(id);
-        layers[id] = layer;
-        for (const cid of (children[id] || [])) {
-            queue.push({ id: cid, layer: layer + 1 });
-        }
-    }
+    // Determine theme
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#c8ccd8' : '#2d3142';
+    const bgColor = isDark ? '#1e2030' : '#f5f6fa';
+    const borderColor = isDark ? '#353849' : '#dde0e8';
 
-    // Handle any unvisited (disconnected) jobs
-    for (const j of jobs) {
-        if (!visited.has(j.id)) {
-            layers[j.id] = 0;
-        }
-    }
+    // Destroy previous instance
+    if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
+    container.innerHTML = '';
 
-    // Group by layer
-    const layerGroups = {};
-    let maxLayer = 0;
-    for (const [id, layer] of Object.entries(layers)) {
-        layerGroups[layer] = layerGroups[layer] || [];
-        layerGroups[layer].push(id);
-        maxLayer = Math.max(maxLayer, layer);
-    }
-
-    // Layout constants
-    const nodeW = 180;
-    const nodeH = 56;
-    const layerGap = 100;
-    const nodeGap = 20;
-    const padX = 40;
-    const padY = 40;
-
-    // Position nodes
-    const positions = {};
-    let totalW = 0;
-    let totalH = 0;
-
-    for (let l = 0; l <= maxLayer; l++) {
-        const group = layerGroups[l] || [];
-        const colX = padX + l * (nodeW + layerGap);
-        for (let i = 0; i < group.length; i++) {
-            const y = padY + i * (nodeH + nodeGap);
-            positions[group[i]] = { x: colX, y };
-            totalW = Math.max(totalW, colX + nodeW + padX);
-            totalH = Math.max(totalH, y + nodeH + padY);
-        }
-    }
-
-    svg.setAttribute('width', totalW);
-    svg.setAttribute('height', totalH);
-    svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
-
-    let svgHtml = '';
-
-    // Defs for arrowhead
-    svgHtml += '<defs><marker id="arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 3 L 0 6 z" class="map-arrowhead"/></marker></defs>';
-
-    // Draw edges
-    for (const j of jobs) {
-        for (const dep of j.depends_on) {
-            const from = positions[dep.job_id];
-            const to = positions[j.id];
-            if (!from || !to) continue;
-
-            const x1 = from.x + nodeW;
-            const y1 = from.y + nodeH / 2;
-            const x2 = to.x;
-            const y2 = to.y + nodeH / 2;
-            const cx1 = x1 + (x2 - x1) * 0.4;
-            const cx2 = x2 - (x2 - x1) * 0.4;
-
-            // Window label
-            let label = '';
-            if (dep.within_secs) {
-                const mid_x = (x1 + x2) / 2;
-                const mid_y = (y1 + y2) / 2 - 8;
-                label = '<text x="' + mid_x + '" y="' + mid_y + '" text-anchor="middle" font-size="9" fill="' + 'var(--text-muted)' + '">within ' + fmtSeconds(dep.within_secs) + '</text>';
+    cyInstance = cytoscape({
+        container: container,
+        elements: elements,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'font-size': '11px',
+                    'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    'color': textColor,
+                    'background-color': bgColor,
+                    'border-width': 2,
+                    'border-color': function(ele) { return statusColor(ele.data('lastStatus')); },
+                    'shape': 'round-rectangle',
+                    'width': 160,
+                    'height': 50,
+                    'text-wrap': 'ellipsis',
+                    'text-max-width': '140px',
+                    'padding': '8px',
+                }
+            },
+            {
+                selector: 'node[?approval]',
+                style: {
+                    'border-style': 'dashed',
+                }
+            },
+            {
+                selector: 'edge[edgeType="dependency"]',
+                style: {
+                    'width': 2,
+                    'line-color': '#7c8298',
+                    'target-arrow-color': '#7c8298',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': 'data(label)',
+                    'font-size': '9px',
+                    'color': '#7c8298',
+                    'text-rotation': 'autorotate',
+                    'text-margin-y': -8,
+                }
+            },
+            {
+                selector: 'edge[edgeType="event"]',
+                style: {
+                    'width': 2,
+                    'line-color': '#e6a817',
+                    'line-style': 'dashed',
+                    'target-arrow-color': '#e6a817',
+                    'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': function(ele) { return '\u26A1 ' + ele.data('label'); },
+                    'font-size': '9px',
+                    'color': '#e6a817',
+                    'text-rotation': 'autorotate',
+                    'text-margin-y': -8,
+                }
+            },
+            {
+                selector: 'node:selected',
+                style: {
+                    'border-color': '#3e8bff',
+                    'border-width': 3,
+                    'background-color': isDark ? '#252840' : '#e8f0fe',
+                }
             }
+        ],
+        layout: {
+            name: 'breadthfirst',
+            directed: true,
+            spacingFactor: 1.4,
+            avoidOverlap: true,
+            padding: 30,
+        },
+        minZoom: 0.2,
+        maxZoom: 3,
+        wheelSensitivity: 0.3,
+    });
 
-            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--text-muted)" marker-end="url(#arrow)"/>' + label;
-        }
-    }
+    // Click node to show job detail
+    cyInstance.on('tap', 'node', function(evt) {
+        showJobDetail(evt.target.id());
+    });
 
-    // Draw event trigger edges (dashed) — only when a specific job_name_filter is set
-    for (const j of jobs) {
-        if (j.schedule.type !== 'event' || !j.schedule.value) continue;
-        const to = positions[j.id];
-        if (!to) continue;
-        const filter = j.schedule.value.job_name_filter;
-        const kindPattern = j.schedule.value.kind_pattern || '*';
-        // Only draw specific edges when a job name filter identifies the source
-        if (!filter) continue;
-        for (const src of jobs) {
-            if (src.id === j.id) continue;
-            if (!src.name.toLowerCase().includes(filter.toLowerCase())) continue;
-            const from = positions[src.id];
-            if (!from) continue;
-
-            // Route the curve: handle same-column or right-to-left cases
-            let x1, y1, x2, y2, cx1, cx2;
-            if (from.x + nodeW <= to.x) {
-                // Normal left-to-right
-                x1 = from.x + nodeW; y1 = from.y + nodeH / 2;
-                x2 = to.x; y2 = to.y + nodeH / 2;
-                cx1 = x1 + (x2 - x1) * 0.4; cx2 = x2 - (x2 - x1) * 0.4;
-            } else if (to.x + nodeW <= from.x) {
-                // Right-to-left
-                x1 = from.x; y1 = from.y + nodeH / 2;
-                x2 = to.x + nodeW; y2 = to.y + nodeH / 2;
-                cx1 = x1 - Math.abs(x1 - x2) * 0.4; cx2 = x2 + Math.abs(x1 - x2) * 0.4;
-            } else {
-                // Same column — route below the nodes with a U-shaped curve
-                x1 = from.x + nodeW / 2; y1 = from.y + nodeH;
-                x2 = to.x + nodeW / 2; y2 = to.y + nodeH;
-                const drop = 40;
-                cx1 = x1; cx2 = x2;
-                // Use a quadratic-ish path going down and across
-                svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + x1 + ' ' + (y1 + drop) + ', ' + x2 + ' ' + (y2 + drop) + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" fill="none" marker-end="url(#arrow)"/>';
-                svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + (Math.max(y1,y2) + drop - 4) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + esc(kindPattern) + '</text>';
-                continue;
-            }
-            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--warning)" stroke-dasharray="6 3" fill="none" marker-end="url(#arrow)"/>';
-            svgHtml += '<text x="' + ((x1+x2)/2) + '" y="' + ((y1+y2)/2 - 8) + '" text-anchor="middle" font-size="8" fill="var(--warning)">\u26A1 ' + esc(kindPattern) + '</text>';
-        }
-    }
-
-    // Draw nodes
-    for (const j of jobs) {
-        const pos = positions[j.id];
-        if (!pos) continue;
-
-        let fill, stroke;
-        const lastStatus = j.last_execution ? j.last_execution.status : null;
-        if (lastStatus === 'succeeded') { fill = 'rgba(46,204,113,0.15)'; stroke = 'var(--success)'; }
-        else if (lastStatus === 'failed' || lastStatus === 'timed_out') { fill = 'rgba(224,82,82,0.15)'; stroke = 'var(--danger)'; }
-        else if (lastStatus === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
-        else { fill = 'var(--bg-tertiary)'; stroke = 'var(--border)'; }
-
-        if (j.status === 'paused') {
-            fill = 'var(--bg-tertiary)'; stroke = 'var(--text-muted)';
-        }
-
-        const targetText = j.target ? (j.target.type === 'local' ? '' : j.target.type) : '';
-
-        // Status indicator color
-        let dotColor;
-        if (lastStatus === 'succeeded') dotColor = 'var(--success)';
-        else if (lastStatus === 'failed' || lastStatus === 'timed_out') dotColor = 'var(--danger)';
-        else if (lastStatus === 'running') dotColor = 'var(--info)';
-        else dotColor = 'var(--text-muted)';
-
-        // Schedule icon
-        let schedIcon = '\u23F0'; // alarm clock - cron
-        if (j.schedule.type === 'on_demand') schedIcon = '\u270B'; // hand - on-demand
-        else if (j.schedule.type === 'event') schedIcon = '\u26A1'; // lightning - event
-        else if (j.schedule.type === 'one_shot') schedIcon = '\u26A1'; // lightning - one-shot
-
-        // Target icon
-        let targetIcon = '';
-        if (j.target && j.target.type !== 'local') targetIcon = ' \uD83D\uDDA5'; // computer
-
-        svgHtml += '<g class="map-node" onclick="showJobDetail(\'' + j.id + '\')">';
-        svgHtml += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + fill + '" stroke="' + stroke + '"/>';
-        // Status dot
-        svgHtml += '<circle cx="' + (pos.x + 14) + '" cy="' + (pos.y + 17) + '" r="4" fill="' + dotColor + '"/>';
-        // Name with schedule icon
-        svgHtml += '<text class="node-name" x="' + (pos.x + 24) + '" y="' + (pos.y + 20) + '">' + schedIcon + ' ' + esc(j.name) + '</text>';
-        // Status line
-        svgHtml += '<text class="node-status" x="' + (pos.x + 24) + '" y="' + (pos.y + 35) + '">' + j.status + (lastStatus ? ' \u2022 ' + lastStatus : '') + '</text>';
-        // Group badge
-        const groupName = j.group || 'Default';
-        const gColor = groupColor(groupName);
-        svgHtml += '<rect x="' + (pos.x + 24) + '" y="' + (pos.y + 40) + '" width="' + Math.min(groupName.length * 6 + 10, nodeW - 30) + '" height="14" rx="7" fill="' + gColor + '" opacity="0.8"/>';
-        svgHtml += '<text x="' + (pos.x + 29) + '" y="' + (pos.y + 50) + '" font-size="8" font-weight="600" fill="#fff">' + esc(groupName) + '</text>';
-        // Target
-        if (targetText) {
-            svgHtml += '<text class="node-target" x="' + (pos.x + nodeW - 8) + '" y="' + (pos.y + 50) + '" text-anchor="end" font-size="8" fill="var(--text-muted)">' + targetIcon + ' ' + targetText + '</text>';
-        }
-        svgHtml += '</g>';
-    }
-
-    svg.innerHTML = svgHtml;
+    // Fit to view
+    cyInstance.fit(undefined, 30);
 }
 
 // --- Mini Dependency Map ---
