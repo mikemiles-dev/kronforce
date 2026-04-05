@@ -13,9 +13,10 @@ let jobsPage = 1;
 const ALL_VIEWS = ['dashboard','jobs','groups','detail','map','agents','executions','scripts','events','variables','settings','docs','guide'];
 const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
-// Time range state
-const timeRanges = { jobs: '', execs: '', events: '' };
-const timeRangeCustom = { jobs: { from: '', to: '' }, execs: { from: '', to: '' }, events: { from: '', to: '' } };
+// Time range state — persisted in localStorage
+const timeRanges = JSON.parse(localStorage.getItem('kf-timeRanges') || '{"jobs":"","execs":"","events":""}');
+const timeRangeCustom = JSON.parse(localStorage.getItem('kf-timeRangeCustom') || '{"jobs":{"from":"","to":""},"execs":{"from":"","to":""},"events":{"from":"","to":""}}');
+function persistTimeRanges() { localStorage.setItem('kf-timeRanges', JSON.stringify(timeRanges)); localStorage.setItem('kf-timeRangeCustom', JSON.stringify(timeRangeCustom)); }
 let activePopup = null;
 
 const quickRanges = [
@@ -92,6 +93,7 @@ function applyQuickRange(scope, value) {
         timeRanges[scope] = value;
     }
     timeRangeCustom[scope] = { from: '', to: '' };
+    persistTimeRanges();
     updateTrLabel(scope);
     closeTimeRangePopup();
     refreshForScope(scope);
@@ -102,11 +104,11 @@ function applyCustomRange(scope) {
     const to = document.getElementById('tr-to-' + scope).value;
     if (!from) { toast('Select a start date', 'error'); return; }
     timeRangeCustom[scope] = { from, to };
-    // Calculate minutes from now to 'from'
     const fromDate = new Date(from);
     const toDate = to ? new Date(to) : new Date();
     const minutes = Math.ceil((toDate - fromDate) / 60000);
     timeRanges[scope] = minutes.toString();
+    persistTimeRanges();
     updateTrLabel(scope);
     closeTimeRangePopup();
     refreshForScope(scope);
@@ -961,6 +963,10 @@ fetchHealth();
     const authed = await checkAuth();
     if (authed) {
         await fetchAgents();
+        // Restore time range labels from persisted state
+        for (const scope of ['jobs', 'execs', 'events']) {
+            if (timeRanges[scope]) updateTrLabel(scope);
+        }
         handleRoute();
         startPolling();
         checkWizardNeeded();
