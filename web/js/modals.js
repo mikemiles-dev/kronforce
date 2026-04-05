@@ -1335,7 +1335,7 @@ async function renderMap() {
         }
     }
 
-    // Color helpers
+    // Colors
     function statusColor(s) {
         if (s === 'succeeded') return '#2ecc71';
         if (s === 'failed' || s === 'timed_out') return '#e05252';
@@ -1343,24 +1343,36 @@ async function renderMap() {
         if (s === 'pending_approval') return '#e6a817';
         return '#7c8298';
     }
-    function statusBg(s, dark) {
-        if (s === 'succeeded') return dark ? 'rgba(46,204,113,0.18)' : 'rgba(46,204,113,0.12)';
-        if (s === 'failed' || s === 'timed_out') return dark ? 'rgba(224,82,82,0.18)' : 'rgba(224,82,82,0.12)';
-        if (s === 'running') return dark ? 'rgba(62,139,255,0.18)' : 'rgba(62,139,255,0.12)';
-        if (s === 'pending_approval') return dark ? 'rgba(230,168,23,0.18)' : 'rgba(230,168,23,0.12)';
-        return dark ? '#252840' : '#f0f1f5';
+
+    // Group → distinct pastel background
+    const groupPalette = {
+        light: ['#dbeafe','#d1fae5','#fef3c7','#fce7f3','#ede9fe','#ffedd5','#ccfbf1','#e0e7ff'],
+        dark:  ['#1e3a5f','#1a3d2e','#3d3520','#3d1f2e','#2d2650','#3d2a1a','#1a3d38','#252a50'],
+    };
+    function groupBg(group, dark) {
+        let h = 0;
+        for (let i = 0; i < group.length; i++) h = ((h << 5) - h + group.charCodeAt(i)) | 0;
+        const pal = dark ? groupPalette.dark : groupPalette.light;
+        return pal[Math.abs(h) % pal.length];
     }
-    function schedIcon(t) {
-        if (t === 'cron') return '\u23F0 ';
-        if (t === 'event') return '\u26A1 ';
-        if (t === 'on_demand') return '\u270B ';
-        return '';
+
+    // Task type SVG icons (16x16, white fill for contrast)
+    function taskIcon(type) {
+        const icons = {
+            shell: '<path d="M4 3l5 5-5 5" stroke="%23666" fill="none" stroke-width="1.5" stroke-linecap="round"/><line x1="10" y1="13" x2="14" y2="13" stroke="%23666" stroke-width="1.5" stroke-linecap="round"/>',
+            http: '<circle cx="8" cy="8" r="6" stroke="%23666" fill="none" stroke-width="1.2"/><path d="M2 8h12M8 2c-2 2-2 10 0 12M8 2c2 2 2 10 0 12" stroke="%23666" fill="none" stroke-width="1"/>',
+            sql: '<ellipse cx="8" cy="5" rx="5" ry="2.5" stroke="%23666" fill="none" stroke-width="1.2"/><path d="M3 5v6c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V5" stroke="%23666" fill="none" stroke-width="1.2"/>',
+            mcp: '<rect x="3" y="3" width="10" height="10" rx="2" stroke="%23666" fill="none" stroke-width="1.2"/><circle cx="8" cy="8" r="2" fill="%23666"/>',
+            custom: '<path d="M8 2L14 6v4l-6 4-6-4V6z" stroke="%23666" fill="none" stroke-width="1.2"/>',
+        };
+        const path = icons[type] || icons.shell;
+        return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">' + path + '</svg>');
     }
 
     // Theme
     const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-    const textColor = isDark ? '#c8ccd8' : '#2d3142';
-    const subtextColor = isDark ? '#7c8298' : '#8b90a0';
+    const textColor = isDark ? '#e0e2eb' : '#1a1d2e';
+    const subtextColor = isDark ? '#8890a8' : '#6b7280';
 
     // Destroy previous instance
     if (cyInstance) { cyInstance.destroy(); cyInstance = null; }
@@ -1373,114 +1385,109 @@ async function renderMap() {
             {
                 selector: 'node',
                 style: {
-                    'label': function(ele) {
-                        const icon = schedIcon(ele.data('schedType'));
-                        const group = ele.data('group');
-                        const priority = ele.data('priority');
-                        let label = icon + ele.data('label');
-                        label += '\n' + group;
-                        if (priority > 0) label += ' \u2022 P' + priority;
-                        return label;
-                    },
+                    'label': 'data(label)',
                     'text-valign': 'center',
                     'text-halign': 'center',
-                    'font-size': '11px',
-                    'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    'font-size': 13,
+                    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
                     'color': textColor,
-                    'background-color': function(ele) { return statusBg(ele.data('lastStatus'), isDark); },
-                    'border-width': 2.5,
+                    'background-color': function(ele) { return statusColor(ele.data('lastStatus')); },
+                    'background-opacity': 0.15,
+                    'border-width': 3,
                     'border-color': function(ele) { return statusColor(ele.data('lastStatus')); },
                     'shape': 'round-rectangle',
-                    'width': 180,
-                    'height': 55,
-                    'text-wrap': 'wrap',
-                    'text-max-width': '160px',
-                    'padding': '10px',
-                    'shadow-blur': 8,
-                    'shadow-color': function(ele) { return statusColor(ele.data('lastStatus')); },
-                    'shadow-opacity': 0.2,
-                    'shadow-offset-x': 0,
-                    'shadow-offset-y': 2,
-                    'transition-property': 'border-width, shadow-opacity',
-                    'transition-duration': '0.15s',
+                    'width': function(ele) { return Math.max(120, ele.data('label').length * 9 + 30); },
+                    'height': 40,
+                    'text-wrap': 'ellipsis',
+                    'text-max-width': function(ele) { return Math.max(100, ele.data('label').length * 9 + 10); },
                 }
             },
             {
                 selector: 'node[?approval]',
                 style: {
                     'border-style': 'dashed',
-                    'border-width': 3,
+                    'border-width': 3.5,
                 }
             },
             {
                 selector: 'node[lastStatus = "running"]',
                 style: {
-                    'shadow-opacity': 0.5,
-                    'shadow-blur': 15,
+                    'underlay-opacity': 0.35,
+                    'underlay-padding': 9,
+                    'border-width': 4,
+                }
+            },
+            {
+                selector: 'node[lastStatus = "failed"], node[lastStatus = "timed_out"]',
+                style: {
+                    'underlay-opacity': 0.25,
+                    'underlay-padding': 7,
                 }
             },
             {
                 selector: 'node:active',
                 style: {
-                    'overlay-opacity': 0.08,
+                    'overlay-opacity': 0.06,
                 }
             },
             {
                 selector: 'node:selected',
                 style: {
                     'border-color': '#3e8bff',
-                    'border-width': 3.5,
-                    'shadow-color': '#3e8bff',
-                    'shadow-opacity': 0.4,
+                    'border-width': 4,
+                    'underlay-color': '#3e8bff',
+                    'underlay-opacity': 0.2,
                 }
             },
             {
                 selector: 'edge[edgeType="dependency"]',
                 style: {
                     'width': 2.5,
-                    'line-color': isDark ? '#4a4f6a' : '#b0b5c5',
-                    'target-arrow-color': isDark ? '#4a4f6a' : '#b0b5c5',
+                    'line-color': isDark ? '#4a5070' : '#a0a8c0',
+                    'target-arrow-color': isDark ? '#6a7090' : '#8890a8',
                     'target-arrow-shape': 'triangle',
-                    'arrow-scale': 1.2,
+                    'arrow-scale': 1.3,
                     'curve-style': 'bezier',
                     'label': 'data(label)',
-                    'font-size': '9px',
+                    'font-size': '10px',
                     'color': subtextColor,
                     'text-rotation': 'autorotate',
                     'text-margin-y': -10,
-                    'text-background-color': isDark ? '#1a1b2e' : '#fff',
-                    'text-background-opacity': 0.85,
-                    'text-background-padding': '2px',
+                    'text-background-color': isDark ? '#1a1b2e' : '#ffffff',
+                    'text-background-opacity': 0.9,
+                    'text-background-padding': '3px',
+                    'text-background-shape': 'round-rectangle',
                 }
             },
             {
                 selector: 'edge[edgeType="event"]',
                 style: {
-                    'width': 2,
+                    'width': 2.5,
                     'line-color': '#e6a817',
                     'line-style': 'dashed',
-                    'line-dash-pattern': [8, 4],
+                    'line-dash-pattern': [10, 5],
                     'target-arrow-color': '#e6a817',
                     'target-arrow-shape': 'triangle',
-                    'arrow-scale': 1.2,
+                    'arrow-scale': 1.3,
                     'curve-style': 'bezier',
                     'label': function(ele) { return '\u26A1 ' + ele.data('label'); },
-                    'font-size': '9px',
-                    'color': '#e6a817',
+                    'font-size': '10px',
+                    'color': '#d49b10',
                     'text-rotation': 'autorotate',
                     'text-margin-y': -10,
-                    'text-background-color': isDark ? '#1a1b2e' : '#fff',
-                    'text-background-opacity': 0.85,
-                    'text-background-padding': '2px',
+                    'text-background-color': isDark ? '#1a1b2e' : '#ffffff',
+                    'text-background-opacity': 0.9,
+                    'text-background-padding': '3px',
+                    'text-background-shape': 'round-rectangle',
                 }
             },
         ],
         layout: {
             name: 'breadthfirst',
             directed: true,
-            spacingFactor: 1.5,
+            spacingFactor: 1.6,
             avoidOverlap: true,
-            padding: 40,
+            padding: 50,
         },
         minZoom: 0.15,
         maxZoom: 3,
@@ -1492,8 +1499,21 @@ async function renderMap() {
         showJobDetail(evt.target.id());
     });
 
+    // Sync zoom slider
+    const slider = document.getElementById('map-zoom-slider');
+    if (slider) {
+        cyInstance.on('zoom', function() {
+            slider.value = Math.round(cyInstance.zoom() * 100);
+        });
+    }
+
+    // Show controls
+    const controls = document.getElementById('map-controls');
+    if (controls) controls.style.display = '';
+
     // Fit to view
     cyInstance.fit(undefined, 40);
+    if (slider) slider.value = Math.round(cyInstance.zoom() * 100);
 }
 
 // --- Mini Dependency Map ---

@@ -2591,3 +2591,50 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 [data-theme="light"] .map-container {
     background-image: radial-gradient(circle, #d0d3dc 1px, transparent 1px);
 }
+
+.map-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 6px;
+    z-index: 10;
+}
+
+.map-controls button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.map-controls button:hover {
+    background: var(--bg-tertiary);
+}
+
+.map-fit-btn {
+    margin-bottom: 4px;
+}
+
+.map-controls input[type="range"] {
+    writing-mode: vertical-lr;
+    width: 28px;
+    height: 120px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
