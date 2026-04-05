@@ -11,7 +11,20 @@ function setGroupsView(mode) {
         b.classList.toggle('active', b.id === 'gv-' + mode);
         b.style.background = b.id === 'gv-' + mode ? 'var(--bg-primary)' : '';
     });
-    fetchGroupsPage();
+    const grid = document.getElementById('groups-grid');
+    const mapWrap = document.getElementById('groups-map-wrap');
+    const groupFilter = document.getElementById('map-group-filter');
+    if (mode === 'map') {
+        if (grid) grid.style.display = 'none';
+        if (mapWrap) mapWrap.style.display = '';
+        if (groupFilter) groupFilter.style.display = '';
+        renderMap();
+    } else {
+        if (grid) grid.style.display = '';
+        if (mapWrap) mapWrap.style.display = 'none';
+        if (groupFilter) groupFilter.style.display = 'none';
+        fetchGroupsPage();
+    }
 }
 
 async function fetchGroupsPage() {
