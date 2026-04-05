@@ -318,51 +318,36 @@ function renderJobDetail(job) {
         if (parts.length) rulesHtml = parts.join(', ');
     }
 
-    function section(title) { return '<div class="detail-section-header">' + title + '</div>'; }
+    // Only show non-default fields in the extras section
+    const extras = [];
+    if (job.retry_max > 0) extras.push(field('Retry', retryHtml));
+    if (job.timeout_secs) extras.push(field('Timeout', job.timeout_secs + 's'));
+    if (job.run_as) extras.push(field('Run As', '<code>' + esc(job.run_as) + '</code>'));
+    if (job.priority) extras.push(field('Priority', String(job.priority)));
+    if (job.approval_required) extras.push(field('Approval', '<span class="badge badge-pending_approval">required</span>'));
+    if (job.sla_deadline) extras.push(field('SLA', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + 'm)' : '')));
+    if (notifHtml.indexOf('off') === -1) extras.push(field('Alerts', notifHtml));
+    if (rulesHtml.indexOf('none') === -1) extras.push(field('Output', rulesHtml));
 
     document.getElementById('detail-card').innerHTML =
-        '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
+        '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) +
+        ' <span style="font-size:12px;font-weight:400;color:var(--accent)">' + esc(job.group || 'Default') + '</span></h3>' +
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Template</button> ' +
         '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
+        (job.description ? '<div style="padding:0 16px 8px;color:var(--text-secondary);font-size:13px">' + esc(job.description) + '</div>' : '') +
         '<div class="detail-grid">' +
-
-        // Overview
-        section('Overview') +
-        field('Group', '<span style="color:var(--accent)">' + esc(job.group || 'Default') + '</span>') +
-        field('Description', job.description || '<span style="color:var(--text-muted)">-</span>') +
-        field('Last Run', lastHtml) +
-        field('Executions', statsHtml) +
-
-        // Task & Schedule
-        section('Task & Schedule') +
         field('Task', fmtTaskDetail(job.task)) +
         field('Schedule', fmtScheduleDetail(job.schedule)) +
         field('Target', fmtTarget(job.target)) +
-        field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '<span style="color:var(--text-muted)">-</span>') +
-
-        // Workflow
-        section('Workflow') +
-        field('Dependencies', deps) +
-        field('Output Rules', rulesHtml) +
-        field('Notifications', notifHtml) +
-        field('Retry', retryHtml) +
-
-        // Controls
-        section('Controls') +
-        field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : '<span style="color:var(--text-muted)">none</span>') +
-        field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : '<span style="color:var(--text-muted)">default</span>') +
-        field('Priority', job.priority ? String(job.priority) : '<span style="color:var(--text-muted)">0</span>') +
-        field('Approval', job.approval_required ? '<span class="badge badge-pending_approval">required</span>' : '<span style="color:var(--text-muted)">not required</span>') +
-        (job.sla_deadline ? field('SLA Deadline', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + ' min before)' : '')) : '') +
-
-        // Metadata
-        section('Metadata') +
-        field('Created', fmtDate(job.created_at)) +
+        field('Next Fire', job.next_fire_time ? fmtDate(job.next_fire_time) : '-') +
+        field('Last Run', lastHtml) +
+        field('Runs', statsHtml) +
+        field('Deps', deps) +
         field('Updated', fmtDate(job.updated_at)) +
-
+        extras.join('') +
         '</div></div>';
 }
 
