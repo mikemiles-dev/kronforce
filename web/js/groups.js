@@ -145,35 +145,50 @@ function renderPipelineView(sortedGroups, jobsByGroup) {
         html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
         html += '</div>';
 
-        // Pipeline stages
-        html += '<div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:4px 0">';
-        for (let i = 0; i < sorted.length; i++) {
-            const j = jobMap[sorted[i]];
-            if (!j) continue;
+        // Build set of which jobs have a dependency arrow FROM the previous job in sorted order
+        const hasArrowFrom = new Set();
+        for (const j of groupJobs) {
+            for (const d of (j.depends_on || [])) {
+                if (inGroup.has(d.job_id)) hasArrowFrom.add(j.id);
+            }
+        }
+
+        // Render stage card helper
+        function stageCard(j) {
             const last = j.last_execution;
             const status = last ? last.status : 'idle';
-
             let bg, border, statusIcon;
             if (status === 'succeeded') { bg = 'rgba(46,204,113,0.12)'; border = '#2ecc71'; statusIcon = '\u2714'; }
             else if (status === 'failed' || status === 'timed_out') { bg = 'rgba(224,82,82,0.12)'; border = '#e05252'; statusIcon = '\u2718'; }
             else if (status === 'running') { bg = 'rgba(62,139,255,0.12)'; border = '#3e8bff'; statusIcon = '\u25B6'; }
             else if (status === 'pending_approval') { bg = 'rgba(230,168,23,0.12)'; border = '#e6a817'; statusIcon = '\u23F3'; }
             else { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u25CB'; }
+            let s = '<div style="background:' + bg + ';border:2px solid ' + border + ';border-radius:8px;padding:10px 14px;min-width:130px;cursor:pointer;flex-shrink:0;text-align:center" onclick="showJobDetail(\'' + j.id + '\')">';
+            s += '<div style="font-size:18px;margin-bottom:4px">' + statusIcon + '</div>';
+            s += '<div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap">' + esc(j.name) + '</div>';
+            s += '<div style="font-size:10px;color:var(--text-muted)">' + status + '</div>';
+            if (last && last.finished_at) s += '<div style="font-size:9px;color:var(--text-muted)">' + fmtDate(last.finished_at) + '</div>';
+            s += '</div>';
+            return s;
+        }
 
-            // Arrow between stages
-            if (i > 0) {
-                html += '<div style="display:flex;align-items:center;flex-shrink:0"><div style="width:20px;height:3px;background:var(--accent);border-radius:2px"></div><div style="width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid var(--accent)"></div></div>';
+        const arrow = '<div style="display:flex;align-items:center;flex-shrink:0"><div style="width:20px;height:3px;background:var(--accent);border-radius:2px"></div><div style="width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid var(--accent)"></div></div>';
+
+        // Pipeline stages — only show arrows between jobs with actual dependencies
+        html += '<div style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:4px 0;flex-wrap:wrap">';
+        for (let i = 0; i < sorted.length; i++) {
+            const j = jobMap[sorted[i]];
+            if (!j) continue;
+
+            // Arrow only if this job depends on another job in this group
+            if (i > 0 && hasArrowFrom.has(j.id)) {
+                html += arrow;
+            } else if (i > 0) {
+                // Gap separator for independent jobs (no arrow)
+                html += '<div style="width:8px;flex-shrink:0"></div>';
             }
 
-            // Stage card
-            html += '<div style="background:' + bg + ';border:2px solid ' + border + ';border-radius:8px;padding:10px 14px;min-width:140px;cursor:pointer;flex-shrink:0;text-align:center" onclick="showJobDetail(\'' + j.id + '\')">';
-            html += '<div style="font-size:18px;margin-bottom:4px">' + statusIcon + '</div>';
-            html += '<div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap">' + esc(j.name) + '</div>';
-            html += '<div style="font-size:10px;color:var(--text-muted)">' + status + '</div>';
-            if (last && last.finished_at) {
-                html += '<div style="font-size:9px;color:var(--text-muted)">' + fmtDate(last.finished_at) + '</div>';
-            }
-            html += '</div>';
+            html += stageCard(j);
         }
         html += '</div></div>';
     }
