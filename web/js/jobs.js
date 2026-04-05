@@ -276,6 +276,48 @@ function renderJobDetail(job) {
         }).join(' ');
     }
 
+    // Execution stats
+    const counts = job.execution_counts || {};
+    const statsHtml = '<span style="color:var(--success)">' + (counts.succeeded || 0) + ' passed</span> / ' +
+        '<span style="color:var(--danger)">' + (counts.failed || 0) + ' failed</span> / ' +
+        (counts.total || 0) + ' total';
+
+    // Last execution
+    const last = job.last_execution;
+    const lastHtml = last
+        ? badge(last.status) + (last.finished_at ? ' ' + fmtDate(last.finished_at) : '')
+        : '<span style="color:var(--text-muted)">never run</span>';
+
+    // Retry config
+    let retryHtml = 'None';
+    if (job.retry_max > 0) {
+        retryHtml = job.retry_max + ' retries';
+        if (job.retry_delay_secs) retryHtml += ', ' + job.retry_delay_secs + 's delay';
+        if (job.retry_backoff > 1) retryHtml += ', ' + job.retry_backoff + 'x backoff';
+    }
+
+    // Notifications
+    const notif = job.notifications;
+    let notifHtml = '<span style="color:var(--text-muted)">off</span>';
+    if (notif) {
+        const triggers = [];
+        if (notif.on_failure) triggers.push('failure');
+        if (notif.on_success) triggers.push('success');
+        if (notif.on_assertion_failure) triggers.push('assertion');
+        notifHtml = triggers.length ? triggers.join(', ') : '<span style="color:var(--text-muted)">off</span>';
+    }
+
+    // Output rules summary
+    const rules = job.output_rules;
+    let rulesHtml = '<span style="color:var(--text-muted)">none</span>';
+    if (rules) {
+        const parts = [];
+        if (rules.extractions && rules.extractions.length) parts.push(rules.extractions.length + ' extraction' + (rules.extractions.length > 1 ? 's' : ''));
+        if (rules.triggers && rules.triggers.length) parts.push(rules.triggers.length + ' trigger' + (rules.triggers.length > 1 ? 's' : ''));
+        if (rules.assertions && rules.assertions.length) parts.push(rules.assertions.length + ' assertion' + (rules.assertions.length > 1 ? 's' : ''));
+        if (parts.length) rulesHtml = parts.join(', ');
+    }
+
     document.getElementById('detail-card').innerHTML =
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) + '</h3>' +
         '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
@@ -286,11 +328,17 @@ function renderJobDetail(job) {
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
         field('Schedule', fmtScheduleDetail(job.schedule)) +
-        field('Description', job.description || '-') +
-        field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : 'Default') +
-        field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : 'None') +
+        field('Group', '<span style="color:var(--accent)">' + esc(job.group || 'Default') + '</span>') +
+        field('Last Run', lastHtml) +
+        field('Executions', statsHtml) +
+        field('Description', job.description || '<span style="color:var(--text-muted)">-</span>') +
         field('Target', fmtTarget(job.target)) +
         field('Dependencies', deps) +
+        field('Retry', retryHtml) +
+        field('Timeout', job.timeout_secs ? job.timeout_secs + 's' : '<span style="color:var(--text-muted)">none</span>') +
+        field('Run As', job.run_as ? '<code>' + esc(job.run_as) + '</code>' : '<span style="color:var(--text-muted)">default</span>') +
+        field('Notifications', notifHtml) +
+        field('Output Rules', rulesHtml) +
         (job.priority ? field('Priority', String(job.priority)) : '') +
         (job.approval_required ? field('Approval', '<span class="badge badge-pending_approval">required</span>') : '') +
         (job.sla_deadline ? field('SLA Deadline', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + ' min before)' : '')) : '') +
