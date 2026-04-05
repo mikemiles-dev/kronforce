@@ -277,10 +277,12 @@ pub(crate) async fn oidc_callback(
 
     db_call(&state.db, move |db| db.insert_session(&session)).await?;
 
-    // Build Set-Cookie header
+    // Build Set-Cookie header — set Secure flag when redirect_uri uses HTTPS
+    let is_https = oidc.config.redirect_uri.starts_with("https://");
     let cookie = cookie::Cookie::build(("kf_session", raw_session_id))
         .http_only(true)
         .same_site(cookie::SameSite::Lax)
+        .secure(is_https)
         .path("/")
         .max_age(cookie::time::Duration::seconds(
             oidc.config.session_ttl_secs as i64,

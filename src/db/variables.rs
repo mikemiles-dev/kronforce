@@ -12,8 +12,8 @@ fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
         name: row.get(0)?,
         value: row.get(1)?,
         updated_at: DateTime::parse_from_rfc3339(&updated_str)
-            .unwrap()
-            .with_timezone(&Utc),
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now()),
         secret: secret_int != 0,
     })
 }

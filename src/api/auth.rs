@@ -265,8 +265,8 @@ pub(crate) async fn logout(
         let _ = db_call(&state.db, move |db| db.delete_session(&session_hash)).await;
     }
 
-    // Clear the cookie
-    let clear_cookie = "kf_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0";
+    // Clear the cookie — include Secure flag to match how it was set
+    let clear_cookie = "kf_session=; HttpOnly; SameSite=Lax; Secure; Path=/; Max-Age=0";
     let mut resp =
         axum::response::Response::new(axum::body::Body::from(r#"{"status":"logged out"}"#));
     resp.headers_mut().insert(

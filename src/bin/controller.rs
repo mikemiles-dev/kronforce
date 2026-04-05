@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use chrono::Timelike;
 use tracing::{info, warn};
 
 use kronforce::agent::AgentClient;
@@ -9,16 +10,15 @@ use kronforce::db::Db;
 use kronforce::executor::Executor;
 use kronforce::scheduler::Scheduler;
 
-/// Subtracts minutes from an HH:MM time string, wrapping at midnight.
-fn subtract_minutes(hhmm: &str, mins: u32) -> String {
+/// Parses an HH:MM string to minutes since midnight. Returns None on invalid input.
+fn parse_hhmm(hhmm: &str) -> Option<i32> {
     let parts: Vec<&str> = hhmm.split(':').collect();
     if parts.len() != 2 {
-        return hhmm.to_string();
+        return None;
     }
-    let h: i32 = parts[0].parse().unwrap_or(0);
-    let m: i32 = parts[1].parse().unwrap_or(0);
-    let total = (h * 60 + m - mins as i32 + 1440) % 1440;
-    format!("{:02}:{:02}", total / 60, total % 60)
+    let h: i32 = parts[0].parse().ok()?;
+    let m: i32 = parts[1].parse().ok()?;
+    Some(h * 60 + m)
 }
 
 fn create_admin_key(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
@@ -193,12 +193,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // SLA deadline checks for running executions
                 if let Ok(jobs) = db_tick.list_jobs(None, None, None, 1000, 0) {
                     let now_utc = chrono::Utc::now();
-                    let today_hhmm = now_utc.format("%H:%M").to_string();
+                    let now_mins = (now_utc.hour() * 60 + now_utc.minute()) as i32;
                     for job in &jobs {
                         if let Some(ref deadline) = job.sla_deadline {
                             if job.status != kronforce::db::models::JobStatus::Scheduled {
                                 continue;
                             }
+                            let Some(deadline_mins) = parse_hhmm(deadline) else {
+                                continue;
+                            };
                             // Check if there's a running execution for this job
                             if let Ok(execs) =
                                 db_tick.list_executions_for_job(job.id, 1, 0)
@@ -209,10 +212,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 if !running {
                                     continue;
                                 }
-                                // Warning check
+                                // Warning check (fire once when crossing the threshold)
                                 if job.sla_warning_mins > 0 {
-                                    let warn_time = subtract_minutes(deadline, job.sla_warning_mins);
-                                    if today_hhmm == warn_time {
+                                    let warn_mins = (deadline_mins - job.sla_warning_mins as i32 + 1440) % 1440;
+                                    if now_mins == warn_mins {
                                         let _ = db_tick.log_event(
                                             "sla.warning",
                                             kronforce::db::models::EventSeverity::Warning,
@@ -226,7 +229,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 }
                                 // Breach check
-                                if today_hhmm == *deadline {
+                                if now_mins == deadline_mins {
                                     let _ = db_tick.log_event(
                                         "sla.breach",
                                         kronforce::db::models::EventSeverity::Error,

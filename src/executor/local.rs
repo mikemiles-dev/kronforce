@@ -643,7 +643,12 @@ const MAX_RETRY_DELAY_SECS: u64 = 3600;
 /// Calculates the retry delay for the given attempt, capped at MAX_RETRY_DELAY_SECS.
 pub(crate) fn calculate_retry_delay(delay_secs: u64, backoff: f64, attempt: u32) -> u64 {
     let delay = (delay_secs as f64) * backoff.powi((attempt - 1) as i32);
-    (delay as u64).min(MAX_RETRY_DELAY_SECS)
+    // Clamp before cast to prevent f64 overflow → u64 saturation
+    if delay.is_nan() || delay.is_infinite() || delay > MAX_RETRY_DELAY_SECS as f64 {
+        MAX_RETRY_DELAY_SECS
+    } else {
+        (delay as u64).min(MAX_RETRY_DELAY_SECS)
+    }
 }
 
 /// Returns true if the execution should be retried based on job config and status.
