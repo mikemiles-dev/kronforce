@@ -2581,3 +2581,13 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     table { font-size: 12px; }
     th, td { padding: 8px 6px; }
 }
+
+/* Dependency map */
+.map-container {
+    background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+[data-theme="light"] .map-container {
+    background-image: radial-gradient(circle, #d0d3dc 1px, transparent 1px);
+}
