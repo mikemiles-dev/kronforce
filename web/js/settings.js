@@ -1,6 +1,6 @@
 // Kronforce - Settings, keys, notification configuration
 let currentSettingsTab = 'general';
-const SETTINGS_TABS = ['general', 'auth', 'notifications'];
+const SETTINGS_TABS = ['general', 'auth', 'notifications', 'agents'];
 
 function showSettingsTab(tab) {
     currentSettingsTab = tab;
@@ -14,6 +14,40 @@ function showSettingsTab(tab) {
             btn.style.borderBottom = t === tab ? '2px solid var(--accent)' : '';
         }
     });
+    if (tab === 'agents') renderSettingsAgents();
+}
+
+async function renderSettingsAgents() {
+    const wrap = document.getElementById('settings-agents-wrap');
+    if (!wrap) return;
+    try {
+        const agents = await api('GET', '/api/agents');
+        if (agents.length === 0) {
+            wrap.innerHTML = '<div class="card"><div style="padding:24px;text-align:center;color:var(--text-muted)">No agents registered. Start an agent to see it here.</div></div>';
+            return;
+        }
+        let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">';
+        for (const a of agents) {
+            const online = a.status === 'online';
+            const dot = online ? '<span style="color:var(--success)">&#9679;</span>' : '<span style="color:var(--text-muted)">&#9679;</span>';
+            const typeBadge = a.agent_type === 'custom' ? ' <span class="badge badge-paused" style="font-size:9px">custom</span>' : '';
+            const tags = (a.tags || []).map(t => '<span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:8px">' + esc(t) + '</span>').join(' ');
+            html += '<div class="card" style="cursor:pointer" onclick="showPage(\'agents\')">';
+            html += '<div style="padding:14px">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+            html += '<strong>' + dot + ' ' + esc(a.name) + typeBadge + '</strong>';
+            html += '<span style="font-size:11px;color:var(--text-muted)">' + esc(a.hostname || '') + '</span>';
+            html += '</div>';
+            if (tags) html += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px">' + tags + '</div>';
+            html += '<div style="font-size:11px;color:var(--text-muted)">' + esc(a.address || '') + ':' + (a.port || '') + '</div>';
+            if (a.last_heartbeat) html += '<div style="font-size:11px;color:var(--text-muted)">heartbeat ' + fmtDate(a.last_heartbeat) + '</div>';
+            html += '</div></div>';
+        }
+        html += '</div>';
+        wrap.innerHTML = html;
+    } catch (e) {
+        wrap.innerHTML = '<div class="card"><div style="padding:16px;color:var(--danger)">Failed to load agents</div></div>';
+    }
 }
 
 async function loadRetention() {

@@ -3,6 +3,7 @@
             <button class="btn btn-ghost btn-sm settings-tab active" onclick="showSettingsTab('general')" id="stab-general" style="border-radius:6px 6px 0 0;padding:6px 16px">General</button>
             <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('auth')" id="stab-auth" style="border-radius:6px 6px 0 0;padding:6px 16px">Auth &amp; Keys</button>
             <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('notifications')" id="stab-notifications" style="border-radius:6px 6px 0 0;padding:6px 16px">Notifications</button>
+            <button class="btn btn-ghost btn-sm settings-tab" onclick="showSettingsTab('agents')" id="stab-agents" style="border-radius:6px 6px 0 0;padding:6px 16px">Agents</button>
         </div>
 
         <!-- General Tab -->
@@ -164,5 +165,10 @@
                     <span id="notif-status" style="font-size:11px;color:var(--text-muted);align-self:center"></span>
                 </div>
             </div>
+        </div>
+
+        <!-- Agents Tab -->
+        <div id="settings-panel-agents" style="display:none">
+            <div id="settings-agents-wrap"></div>
         </div>
     </section>
