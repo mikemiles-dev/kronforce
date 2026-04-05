@@ -162,7 +162,7 @@ function renderPipelineView(sortedGroups, jobsByGroup) {
 
             // Arrow between stages
             if (i > 0) {
-                html += '<div style="color:var(--text-muted);font-size:18px;padding:0 2px;flex-shrink:0">\u25B8</div>';
+                html += '<div style="display:flex;align-items:center;flex-shrink:0"><div style="width:20px;height:3px;background:var(--accent);border-radius:2px"></div><div style="width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid var(--accent)"></div></div>';
             }
 
             // Stage card
