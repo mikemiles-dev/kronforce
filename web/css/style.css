@@ -2614,9 +2614,6 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .map-controls {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2625,7 +2622,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px 6px;
-    z-index: 10;
+    align-self: flex-start;
+    flex-shrink: 0;
 }
 
 .map-controls button {
