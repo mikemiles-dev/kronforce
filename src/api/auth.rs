@@ -191,11 +191,30 @@ pub(crate) async fn agent_auth_middleware(
 
 /// Middleware that authenticates user-facing API endpoints using Bearer tokens
 /// or session cookies. Skips auth if no API keys are configured (first-time setup).
+/// In demo mode, injects a read-only viewer identity.
 pub(crate) async fn auth_middleware(
     State(state): State<AppState>,
     mut req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
+    // Demo mode: inject viewer identity, no auth required
+    if state.demo_mode {
+        req.extensions_mut().insert(ApiKey {
+            id: Uuid::nil(),
+            key_prefix: String::new(),
+            key_hash: String::new(),
+            name: "demo".to_string(),
+            role: ApiKeyRole::Viewer,
+            created_at: Utc::now(),
+            last_used_at: None,
+            active: true,
+            allowed_groups: None,
+            ip_allowlist: None,
+            expires_at: None,
+        });
+        return Ok(next.run(req).await);
+    }
+
     // Try Bearer token first
     let has_bearer = req
         .headers()

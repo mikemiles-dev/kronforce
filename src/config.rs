@@ -34,6 +34,8 @@ pub struct ControllerConfig {
     pub oidc: Option<OidcConfig>,
     pub tls_cert: Option<String>,
     pub tls_key: Option<String>,
+    /// Demo mode: disables auth, all requests are read-only (viewer role).
+    pub demo_mode: bool,
 }
 
 impl ControllerConfig {
@@ -138,6 +140,9 @@ impl ControllerConfig {
             tls_key: std::env::var("KRONFORCE_TLS_KEY")
                 .ok()
                 .filter(|s| !s.is_empty()),
+            demo_mode: std::env::var("KRONFORCE_DEMO_MODE")
+                .map(|v| v == "true" || v == "1")
+                .unwrap_or(false),
         }
     }
 }

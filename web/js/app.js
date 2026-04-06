@@ -963,10 +963,26 @@ function renderRichEmptyState(config) {
 // --- Init ---
 fetchHealth();
 (async () => {
+    // Check demo mode — skip login if enabled
+    try {
+        const cfg = await (await fetch('/api/config')).json();
+        if (cfg.demo_mode) {
+            currentUser = { authenticated: true, auth_type: 'demo', name: 'Demo', role: 'viewer' };
+            showApp();
+            renderSidebarUser();
+            await fetchAgents();
+            for (const scope of ['jobs', 'execs', 'events']) {
+                if (timeRanges[scope]) updateTrLabel(scope);
+            }
+            handleRoute();
+            startPolling();
+            return;
+        }
+    } catch (e) { /* not demo mode */ }
+
     const authed = await checkAuth();
     if (authed) {
         await fetchAgents();
-        // Restore time range labels from persisted state
         for (const scope of ['jobs', 'execs', 'events']) {
             if (timeRanges[scope]) updateTrLabel(scope);
         }

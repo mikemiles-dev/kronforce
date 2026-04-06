@@ -357,7 +357,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         callback_base_url: config.callback_base_url.clone(),
         script_store: script_store.clone(),
         oidc: oidc_state,
+        demo_mode: config.demo_mode,
     };
+    if config.demo_mode {
+        info!("DEMO MODE: auth disabled, all requests are read-only (viewer)");
+    }
     // Clone DB handle before moving state into router
     let shutdown_db = state.db.clone();
     let app = kronforce::api::router(state, rate_limiters, config.mcp_enabled);

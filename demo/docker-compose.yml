@@ -22,8 +22,9 @@ services:
       - KRONFORCE_BIND=0.0.0.0:8080
       - KRONFORCE_SCRIPTS_DIR=/scripts
       - KRONFORCE_CALLBACK_URL=http://kronforce:8080
+      - KRONFORCE_DEMO_MODE=true
       - RUST_LOG=kronforce=info
-      # Pre-set keys so they're stable across restarts
+      # Keys still needed for seed script to load data
       - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${DEMO_ADMIN_KEY:-kf_demo_admin_key_change_me}
       - KRONFORCE_BOOTSTRAP_AGENT_KEY=${DEMO_AGENT_KEY:-kf_demo_agent_key_change_me}
     healthcheck:

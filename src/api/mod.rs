@@ -51,6 +51,7 @@ pub struct AppState {
     pub callback_base_url: String,
     pub script_store: ScriptStore,
     pub oidc: Option<Arc<oidc::OidcState>>,
+    pub demo_mode: bool,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
@@ -210,6 +211,7 @@ pub fn router(
     let public = Router::new()
         .route("/", get(dashboard))
         .route("/api/health", get(health))
+        .route("/api/config", get(public_config))
         .route("/metrics", get(stats::prometheus_metrics))
         .route("/api/auth/oidc/config", get(oidc::oidc_config))
         .route("/api/auth/oidc/login", get(oidc::oidc_login))
@@ -262,6 +264,12 @@ async fn add_security_headers(
 
 async fn dashboard() -> Html<&'static str> {
     Html(DASHBOARD_HTML)
+}
+
+async fn public_config(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "demo_mode": state.demo_mode,
+    }))
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
