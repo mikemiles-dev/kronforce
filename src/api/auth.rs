@@ -197,22 +197,31 @@ pub(crate) async fn auth_middleware(
     mut req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    // Demo mode: inject viewer identity, no auth required
+    // Demo mode: allow Bearer token auth if provided (for seeding),
+    // otherwise inject a read-only viewer identity
     if state.demo_mode {
-        req.extensions_mut().insert(ApiKey {
-            id: Uuid::nil(),
-            key_prefix: String::new(),
-            key_hash: String::new(),
-            name: "demo".to_string(),
-            role: ApiKeyRole::Viewer,
-            created_at: Utc::now(),
-            last_used_at: None,
-            active: true,
-            allowed_groups: None,
-            ip_allowlist: None,
-            expires_at: None,
-        });
-        return Ok(next.run(req).await);
+        let has_bearer = req
+            .headers()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|s| s.starts_with("Bearer "));
+        if !has_bearer {
+            req.extensions_mut().insert(ApiKey {
+                id: Uuid::nil(),
+                key_prefix: String::new(),
+                key_hash: String::new(),
+                name: "demo".to_string(),
+                role: ApiKeyRole::Viewer,
+                created_at: Utc::now(),
+                last_used_at: None,
+                active: true,
+                allowed_groups: None,
+                ip_allowlist: None,
+                expires_at: None,
+            });
+            return Ok(next.run(req).await);
+        }
+        // Has Bearer token — fall through to normal auth
     }
 
     // Try Bearer token first
