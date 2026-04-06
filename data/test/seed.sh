@@ -10,8 +10,6 @@
 # Creates: 4 groups, 12 jobs (various types/schedules), 5 global variables
 # Requires: curl, jq (optional, for pretty output)
 
-set -e
-
 URL="${KRONFORCE_URL:-http://localhost:8080}"
 KEY="${1:-}"
 SEED_FILE="$(dirname "$0")/seed_data.json"
