@@ -165,12 +165,16 @@ impl super::Executor {
             severity,
             message: {
                 // Look up job name for richer event message
-                let job_name = db.get_job(updated.job_id)
+                let job_name = db
+                    .get_job(updated.job_id)
                     .ok()
                     .flatten()
                     .map(|j| j.name)
                     .unwrap_or_else(|| updated.job_id.to_string());
-                format!("Job '{}' execution {} finished: {:?}", job_name, exec_id, updated.status)
+                format!(
+                    "Job '{}' execution {} finished: {:?}",
+                    job_name, exec_id, updated.status
+                )
             },
             job_id: Some(updated.job_id),
             agent_id: None,

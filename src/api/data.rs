@@ -14,7 +14,9 @@ pub(crate) async fn export_data(
     if let Some(ref key) = auth.0
         && !key.role.can_manage_keys()
     {
-        return Err(AppError::Forbidden("admin role required for data export".into()));
+        return Err(AppError::Forbidden(
+            "admin role required for data export".into(),
+        ));
     }
 
     let db = state.db.clone();

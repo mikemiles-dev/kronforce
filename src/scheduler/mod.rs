@@ -343,7 +343,8 @@ impl Scheduler {
         };
 
         // Build job name lookup from cache for event matching
-        let job_names: HashMap<Uuid, String> = jobs.iter().map(|j| (j.id, j.name.clone())).collect();
+        let job_names: HashMap<Uuid, String> =
+            jobs.iter().map(|j| (j.id, j.name.clone())).collect();
 
         for job in &jobs {
             if job.status != JobStatus::Scheduled {
@@ -389,7 +390,11 @@ impl Scheduler {
         self.next_fire_times.clear();
     }
 
-    fn event_matches(event: &Event, config: &EventTriggerConfig, job_names: &HashMap<Uuid, String>) -> bool {
+    fn event_matches(
+        event: &Event,
+        config: &EventTriggerConfig,
+        job_names: &HashMap<Uuid, String>,
+    ) -> bool {
         if !Self::pattern_matches(&config.kind_pattern, &event.kind) {
             return false;
         }

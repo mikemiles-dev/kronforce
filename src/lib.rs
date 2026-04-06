@@ -5,8 +5,8 @@
 
 pub mod agent;
 pub mod api;
-pub mod crypto;
 pub mod config;
+pub mod crypto;
 pub mod dag;
 pub mod db;
 pub mod error;

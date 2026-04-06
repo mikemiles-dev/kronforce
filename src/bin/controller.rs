@@ -44,9 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .json()
             .init();
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .init();
+        tracing_subscriber::fmt().with_env_filter(env_filter).init();
     }
 
     let args: Vec<String> = std::env::args().collect();
