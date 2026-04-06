@@ -33,12 +33,21 @@ fn create_admin_key(db: &Db) -> Result<String, Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "kronforce=debug,info".parse().unwrap()),
-        )
-        .init();
+    let log_format = std::env::var("KRONFORCE_LOG_FORMAT")
+        .unwrap_or_default()
+        .to_lowercase();
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "kronforce=debug,info".parse().unwrap());
+    if log_format == "json" {
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .json()
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(env_filter)
+            .init();
+    }
 
     let args: Vec<String> = std::env::args().collect();
     let reset_key = args.iter().any(|a| a == "--reset-admin-key");
@@ -54,6 +63,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         eprintln!();
         eprintln!("Configuration is via environment variables. See docs for details.");
         std::process::exit(0);
+    }
+
+    kronforce::crypto::init();
+    if kronforce::crypto::is_enabled() {
+        info!("field encryption enabled (KRONFORCE_ENCRYPTION_KEY set)");
     }
 
     let config = ControllerConfig::from_env();

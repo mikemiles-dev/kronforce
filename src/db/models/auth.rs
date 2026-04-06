@@ -18,6 +18,9 @@ pub struct ApiKey {
     /// None means no restriction (all groups visible). Admin keys ignore this.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub allowed_groups: Option<Vec<String>>,
+    /// If set, restricts this key to requests from these IP addresses/CIDRs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ip_allowlist: Option<Vec<String>>,
 }
 
 const KEY_PREFIX_LEN: usize = 11;
@@ -43,6 +46,7 @@ impl ApiKey {
                 last_used_at: None,
                 active: true,
                 allowed_groups: None,
+                ip_allowlist: None,
             },
             raw_key,
         )
@@ -60,6 +64,7 @@ impl ApiKey {
         let last_used_str: Option<String> = row.get(6)?;
         let active_int: i32 = row.get(7)?;
         let groups_json: Option<String> = row.get(8).unwrap_or(None);
+        let ip_json: Option<String> = row.get(9).unwrap_or(None);
 
         Ok(ApiKey {
             id: parse_uuid(&id_str)?,
@@ -71,6 +76,7 @@ impl ApiKey {
             last_used_at: last_used_str.map(|s| parse_datetime(&s)).transpose()?,
             active: active_int != 0,
             allowed_groups: groups_json.and_then(|s| serde_json::from_str(&s).ok()),
+            ip_allowlist: ip_json.and_then(|s| serde_json::from_str(&s).ok()),
         })
     }
 }

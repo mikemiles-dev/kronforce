@@ -109,7 +109,8 @@ async fn validate_session_cookie(
                 created_at: sess.created_at,
                 last_used_at: Some(Utc::now()),
                 active: true,
-                allowed_groups: None, // OIDC sessions have no group restrictions
+                allowed_groups: None,
+                ip_allowlist: None,
             }))
         }
         None => Ok(None),
@@ -327,6 +328,7 @@ pub(crate) async fn create_api_key(
         last_used_at: None,
         active: true,
         allowed_groups: body.allowed_groups.filter(|g| !g.is_empty()),
+        ip_allowlist: None,
     };
 
     let key2 = key.clone();

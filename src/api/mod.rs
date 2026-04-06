@@ -7,6 +7,7 @@ mod agents;
 mod audit;
 pub mod auth;
 mod callbacks;
+mod data;
 mod events;
 mod executions;
 mod jobs;
@@ -153,6 +154,8 @@ pub fn router(
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
+        .route("/api/data/export", get(data::export_data))
+        .route("/api/data/delete", delete(data::delete_all_data))
         .route(
             "/api/templates",
             get(templates::list_templates).post(templates::save_template),

@@ -161,6 +161,30 @@ impl Db {
         })
     }
 
+    /// Deletes all user data (jobs, executions, variables, templates, events, etc.).
+    pub fn delete_all_data(&self) -> Result<serde_json::Value, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        let jobs: i64 = conn
+            .query_row("SELECT COUNT(*) FROM jobs", [], |r| r.get(0))
+            .unwrap_or(0);
+        conn.execute_batch(
+            "DELETE FROM executions;
+             DELETE FROM jobs;
+             DELETE FROM variables;
+             DELETE FROM job_templates;
+             DELETE FROM events;
+             DELETE FROM audit_log;
+             DELETE FROM oidc_sessions;
+             DELETE FROM oidc_auth_states;
+             DELETE FROM job_versions;",
+        )
+        .map_err(AppError::Db)?;
+        Ok(serde_json::json!({"deleted": true, "jobs_removed": jobs}))
+    }
+
     /// Forces a WAL checkpoint, flushing all WAL data to the main database file.
     pub fn checkpoint(&self) -> Result<(), AppError> {
         let conn = self

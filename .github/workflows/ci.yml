@@ -88,6 +88,18 @@ jobs:
             exit 1
           fi
 
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+      - name: Audit dependencies
+        run: cargo audit
+      - name: Check for yanked crates
+        run: cargo audit --deny yanked
+
   build:
     name: Build
     runs-on: ubuntu-latest

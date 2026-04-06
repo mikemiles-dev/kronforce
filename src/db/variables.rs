@@ -8,13 +8,21 @@ use crate::error::AppError;
 fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
     let updated_str: String = row.get(2)?;
     let secret_int: i32 = row.get(3).unwrap_or(0);
+    let is_secret = secret_int != 0;
+    let raw_value: String = row.get(1)?;
+    // Decrypt secret values that are stored encrypted
+    let value = if is_secret {
+        crate::crypto::decrypt(&raw_value).unwrap_or(raw_value)
+    } else {
+        raw_value
+    };
     Ok(Variable {
         name: row.get(0)?,
-        value: row.get(1)?,
+        value,
         updated_at: DateTime::parse_from_rfc3339(&updated_str)
             .map(|d| d.with_timezone(&Utc))
             .unwrap_or_else(|_| Utc::now()),
-        secret: secret_int != 0,
+        secret: is_secret,
     })
 }
 
@@ -54,17 +62,22 @@ impl Db {
         }
     }
 
-    /// Inserts a new global variable.
+    /// Inserts a new global variable. Secret values are encrypted at rest.
     pub fn insert_variable(&self, var: &Variable) -> Result<(), AppError> {
         let conn = self
             .pool
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        let stored_value = if var.secret {
+            crate::crypto::encrypt(&var.value)
+        } else {
+            var.value.clone()
+        };
         conn.execute(
             "INSERT INTO variables (name, value, updated_at, secret) VALUES (?1, ?2, ?3, ?4)",
             params![
                 var.name,
-                var.value,
+                stored_value,
                 var.updated_at.to_rfc3339(),
                 var.secret as i32
             ],
@@ -73,17 +86,31 @@ impl Db {
         Ok(())
     }
 
-    /// Updates a variable's value. Returns true if the variable existed.
+    /// Updates a variable's value. Encrypts if the variable is marked secret.
     pub fn update_variable(&self, name: &str, value: &str) -> Result<bool, AppError> {
         let conn = self
             .pool
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        // Check if variable is secret
+        let is_secret: bool = conn
+            .query_row(
+                "SELECT secret FROM variables WHERE name = ?1",
+                params![name],
+                |row| row.get::<_, i32>(0),
+            )
+            .map(|v| v != 0)
+            .unwrap_or(false);
+        let stored_value = if is_secret {
+            crate::crypto::encrypt(value)
+        } else {
+            value.to_string()
+        };
         let now = Utc::now().to_rfc3339();
         let changed = conn
             .execute(
                 "UPDATE variables SET value = ?1, updated_at = ?2 WHERE name = ?3",
-                params![value, now, name],
+                params![stored_value, now, name],
             )
             .map_err(AppError::Db)?;
         Ok(changed > 0)

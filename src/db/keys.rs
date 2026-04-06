@@ -37,7 +37,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json FROM api_keys WHERE key_hash = ?1 AND active = 1")
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json, ip_allowlist FROM api_keys WHERE key_hash = ?1 AND active = 1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![hash], ApiKey::from_row)
@@ -56,7 +56,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json FROM api_keys ORDER BY created_at DESC")
+            .prepare("SELECT id, key_prefix, key_hash, name, role, created_at, last_used_at, active, allowed_groups_json, ip_allowlist FROM api_keys ORDER BY created_at DESC")
             .map_err(AppError::Db)?;
         let rows = stmt.query_map([], ApiKey::from_row).map_err(AppError::Db)?;
         let mut keys = Vec::new();
