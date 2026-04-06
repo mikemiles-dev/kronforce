@@ -21,6 +21,9 @@ pub struct ApiKey {
     /// If set, restricts this key to requests from these IP addresses/CIDRs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ip_allowlist: Option<Vec<String>>,
+    /// If set, the key expires at this time and can no longer authenticate.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 const KEY_PREFIX_LEN: usize = 11;
@@ -47,6 +50,7 @@ impl ApiKey {
                 active: true,
                 allowed_groups: None,
                 ip_allowlist: None,
+                expires_at: None,
             },
             raw_key,
         )
@@ -65,6 +69,7 @@ impl ApiKey {
         let active_int: i32 = row.get(7)?;
         let groups_json: Option<String> = row.get(8).unwrap_or(None);
         let ip_json: Option<String> = row.get(9).unwrap_or(None);
+        let expires_str: Option<String> = row.get(10).unwrap_or(None);
 
         Ok(ApiKey {
             id: parse_uuid(&id_str)?,
@@ -77,6 +82,9 @@ impl ApiKey {
             active: active_int != 0,
             allowed_groups: groups_json.and_then(|s| serde_json::from_str(&s).ok()),
             ip_allowlist: ip_json.and_then(|s| serde_json::from_str(&s).ok()),
+            expires_at: expires_str
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|d| d.with_timezone(&Utc)),
         })
     }
 }

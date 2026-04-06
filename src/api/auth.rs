@@ -60,7 +60,14 @@ async fn validate_bearer_token(
     let api_key = db_call(db, move |db| db.get_api_key_by_hash(&hash)).await?;
 
     match api_key {
-        Some(key) => Ok(Some(key)),
+        Some(key) => {
+            if let Some(expires) = key.expires_at
+                && Utc::now() > expires
+            {
+                return Err(AppError::Unauthorized("API key has expired".into()));
+            }
+            Ok(Some(key))
+        }
         None => Err(AppError::Unauthorized("invalid API key".into())),
     }
 }
@@ -111,9 +118,44 @@ async fn validate_session_cookie(
                 active: true,
                 allowed_groups: None,
                 ip_allowlist: None,
+                expires_at: None,
             }))
         }
         None => Ok(None),
+    }
+}
+
+/// Checks if the request IP is allowed by the key's IP allowlist.
+fn check_ip_allowlist(key: &ApiKey, req: &Request) -> Result<(), AppError> {
+    let Some(ref allowlist) = key.ip_allowlist else {
+        return Ok(()); // No restriction
+    };
+    if allowlist.is_empty() {
+        return Ok(());
+    }
+
+    // Extract client IP from X-Forwarded-For, X-Real-IP, or connection info
+    let client_ip = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            req.headers()
+                .get("x-real-ip")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+
+    if allowlist.iter().any(|allowed| allowed == &client_ip) {
+        Ok(())
+    } else {
+        Err(AppError::Forbidden(format!(
+            "IP {} not in allowlist for this API key",
+            client_ip
+        )))
     }
 }
 
@@ -137,6 +179,7 @@ pub(crate) async fn agent_auth_middleware(
     };
 
     if key.role.is_agent() || key.role.can_manage_keys() {
+        check_ip_allowlist(&key, &req)?;
         touch_api_key(&state.db, key.id).await;
         Ok(next.run(req).await)
     } else {
@@ -170,6 +213,7 @@ pub(crate) async fn auth_middleware(
         else {
             return Ok(next.run(req).await);
         };
+        check_ip_allowlist(&key, &req)?;
         touch_api_key(&state.db, key.id).await;
         req.extensions_mut().insert(key);
         return Ok(next.run(req).await);
@@ -329,6 +373,7 @@ pub(crate) async fn create_api_key(
         active: true,
         allowed_groups: body.allowed_groups.filter(|g| !g.is_empty()),
         ip_allowlist: None,
+        expires_at: None,
     };
 
     let key2 = key.clone();

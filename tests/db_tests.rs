@@ -426,6 +426,7 @@ fn test_api_key_crud() {
         active: true,
         allowed_groups: None,
         ip_allowlist: None,
+        expires_at: None,
     };
     db.insert_api_key(&key).unwrap();
 
@@ -457,6 +458,7 @@ fn test_api_key_agent_role() {
         active: true,
         allowed_groups: None,
         ip_allowlist: None,
+        expires_at: None,
     };
     db.insert_api_key(&key).unwrap();
 
