@@ -86,14 +86,65 @@ echo "$JOBS" | while read -r job; do
     fi
 done
 
+# Set up dependencies between jobs
+echo ""
+echo "Setting up dependencies..."
+
+# Helper to get job ID by name
+get_job_id() {
+    curl -sf "$URL/api/jobs?per_page=100" -H "$AUTH" | python3 -c "
+import json, sys
+for j in json.load(sys.stdin).get('data', []):
+    if j['name'] == '$1':
+        print(j['id'])
+        break
+" 2>/dev/null
+}
+
+ETL_EXTRACT_ID=$(get_job_id "etl-extract")
+ETL_TRANSFORM_ID=$(get_job_id "etl-transform")
+ETL_LOAD_ID=$(get_job_id "etl-load")
+DEPLOY_STAGING_ID=$(get_job_id "deploy-staging")
+DEPLOY_PROD_ID=$(get_job_id "deploy-production")
+DB_BACKUP_ID=$(get_job_id "db-backup")
+LOG_ROTATE_ID=$(get_job_id "log-rotate")
+
+# ETL pipeline: extract → transform → load
+if [ -n "$ETL_EXTRACT_ID" ] && [ -n "$ETL_TRANSFORM_ID" ]; then
+    curl -sf -X PUT "$URL/api/jobs/$ETL_TRANSFORM_ID" -H "$AUTH" -H "$CT" \
+        -d "{\"depends_on\": [{\"job_id\": \"$ETL_EXTRACT_ID\", \"within_secs\": 3600}]}" > /dev/null 2>&1 \
+        && echo "  ✓ etl-transform depends on etl-extract" || echo "  ⚠ etl-transform dependency failed"
+fi
+if [ -n "$ETL_TRANSFORM_ID" ] && [ -n "$ETL_LOAD_ID" ]; then
+    curl -sf -X PUT "$URL/api/jobs/$ETL_LOAD_ID" -H "$AUTH" -H "$CT" \
+        -d "{\"depends_on\": [{\"job_id\": \"$ETL_TRANSFORM_ID\", \"within_secs\": 3600}]}" > /dev/null 2>&1 \
+        && echo "  ✓ etl-load depends on etl-transform" || echo "  ⚠ etl-load dependency failed"
+fi
+
+# Deploy pipeline: staging → production
+if [ -n "$DEPLOY_STAGING_ID" ] && [ -n "$DEPLOY_PROD_ID" ]; then
+    curl -sf -X PUT "$URL/api/jobs/$DEPLOY_PROD_ID" -H "$AUTH" -H "$CT" \
+        -d "{\"depends_on\": [{\"job_id\": \"$DEPLOY_STAGING_ID\", \"within_secs\": 7200}]}" > /dev/null 2>&1 \
+        && echo "  ✓ deploy-production depends on deploy-staging" || echo "  ⚠ deploy-production dependency failed"
+fi
+
+# Maintenance: log-rotate after db-backup
+if [ -n "$DB_BACKUP_ID" ] && [ -n "$LOG_ROTATE_ID" ]; then
+    curl -sf -X PUT "$URL/api/jobs/$LOG_ROTATE_ID" -H "$AUTH" -H "$CT" \
+        -d "{\"depends_on\": [{\"job_id\": \"$DB_BACKUP_ID\", \"within_secs\": 7200}]}" > /dev/null 2>&1 \
+        && echo "  ✓ log-rotate depends on db-backup" || echo "  ⚠ log-rotate dependency failed"
+fi
+
 echo ""
 echo "========================="
 echo "Seed complete!"
 echo ""
 echo "What was created:"
 echo "  • 4 groups: ETL, Monitoring, Deploys, Maintenance"
-echo "  • 12 jobs across all groups with various schedules"
+echo "  • 14 jobs with dependencies, event triggers, and output rules"
 echo "  • 5 global variables (LAST_ETL_COUNT, DEPLOY_VERSION, ENV, API_HOST, ALERT_EMAIL)"
+echo "  • Dependencies: extract→transform→load, staging→production, backup→log-rotate"
+echo "  • Event triggers: etl-failure-alert, deploy-notify"
 echo ""
 echo "Try triggering a job:"
 echo "  curl -X POST $URL/api/jobs/<id>/trigger -H '$AUTH'"

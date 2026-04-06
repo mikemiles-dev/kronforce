@@ -119,6 +119,20 @@
       "schedule": {"type": "cron", "value": "0 */10 * * * *"},
       "group": "Monitoring",
       "timeout_secs": 10
+    },
+    {
+      "name": "etl-failure-alert",
+      "description": "Send alert when ETL pipeline fails",
+      "task": {"type": "shell", "command": "echo 'ETL ALERT: Pipeline failure detected. Notifying on-call team.'"},
+      "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "severity": "error", "job_name_filter": "etl-"}},
+      "group": "ETL"
+    },
+    {
+      "name": "deploy-notify",
+      "description": "Notify team after production deploy",
+      "task": {"type": "shell", "command": "echo 'DEPLOY NOTIFICATION: {{DEPLOY_VERSION}} deployed to production'"},
+      "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "job_name_filter": "deploy-production"}},
+      "group": "Deploys"
     }
   ],
   "variables": [
