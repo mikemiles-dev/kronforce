@@ -2,6 +2,98 @@
 // --- Job Groups ---
 let cachedGroups = [];
 let groupFilter = '';
+let jobsTab = 'list';
+
+function setJobsTab(tab) {
+    jobsTab = tab;
+    document.querySelectorAll('#jobs-view .groups-tab').forEach(b => {
+        b.classList.toggle('active', b.id === 'jt-' + tab);
+    });
+    const listPanel = document.getElementById('jobs-list-panel');
+    const groupsPanel = document.getElementById('jobs-groups-panel');
+    const stagesPanel = document.getElementById('jobs-stages-panel');
+    if (listPanel) listPanel.style.display = tab === 'list' ? '' : 'none';
+    if (groupsPanel) groupsPanel.style.display = tab === 'groups' ? '' : 'none';
+    if (stagesPanel) stagesPanel.style.display = tab === 'stages' ? '' : 'none';
+
+    if (tab === 'list') {
+        fetchJobs();
+    } else if (tab === 'groups') {
+        renderJobsGroupsTab();
+    } else if (tab === 'stages') {
+        renderJobsStagesTab();
+    }
+}
+
+async function renderJobsGroupsTab() {
+    try {
+        const [groups, jobsRes] = await Promise.all([
+            api('GET', '/api/jobs/groups'),
+            api('GET', '/api/jobs?per_page=1000'),
+        ]);
+        const jobs = jobsRes.data;
+        const jobsByGroup = {};
+        for (const j of jobs) {
+            const g = j.group || 'Default';
+            if (!jobsByGroup[g]) jobsByGroup[g] = [];
+            jobsByGroup[g].push(j);
+        }
+        const allGroups = new Set(groups);
+        for (const g of Object.keys(jobsByGroup)) allGroups.add(g);
+        const sortedGroups = [...allGroups].sort((a, b) => {
+            if (a === 'Default') return -1;
+            if (b === 'Default') return 1;
+            return a.localeCompare(b);
+        });
+        const grid = document.getElementById('groups-grid');
+        if (grid) renderCardsView(sortedGroups, jobsByGroup);
+    } catch (e) {
+        console.error('renderJobsGroupsTab:', e);
+    }
+}
+
+async function renderJobsStagesTab() {
+    try {
+        const [groups, jobsRes] = await Promise.all([
+            api('GET', '/api/jobs/groups'),
+            api('GET', '/api/jobs?per_page=1000'),
+        ]);
+        const jobs = jobsRes.data;
+        const jobsByGroup = {};
+        for (const j of jobs) {
+            const g = j.group || 'Default';
+            if (!jobsByGroup[g]) jobsByGroup[g] = [];
+            jobsByGroup[g].push(j);
+        }
+
+        // Use the group filter dropdown value, or show all
+        const selected = groupFilter;
+        const content = document.getElementById('stages-content');
+        if (!content) return;
+
+        const allGroups = new Set(groups);
+        for (const g of Object.keys(jobsByGroup)) allGroups.add(g);
+        const sortedGroups = [...allGroups].sort((a, b) => {
+            if (a === 'Default') return -1;
+            if (b === 'Default') return 1;
+            return a.localeCompare(b);
+        });
+
+        const groupsToShow = selected ? [selected] : sortedGroups;
+
+        // Reuse the pipeline renderer but target stages-content
+        const origGrid = document.getElementById('groups-grid');
+        const tempId = 'stages-content';
+        // Temporarily swap the ID so renderPipelineView writes to stages-content
+        if (origGrid) origGrid.id = '_groups-grid-tmp';
+        content.id = 'groups-grid';
+        renderPipelineView(groupsToShow.filter(g => jobsByGroup[g] && jobsByGroup[g].length > 0), jobsByGroup);
+        content.id = tempId;
+        if (origGrid) origGrid.id = 'groups-grid';
+    } catch (e) {
+        console.error('renderJobsStagesTab:', e);
+    }
+}
 
 const GROUP_COLORS = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--danger)', 'var(--info)', '#9b59b6', '#1abc9c', '#e67e22'];
 

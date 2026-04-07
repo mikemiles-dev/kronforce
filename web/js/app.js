@@ -607,14 +607,12 @@ function showPage(page) {
     } else if (page === 'agents') {
         fetchAgents();
     } else if (page === 'groups') {
-        setGroupsView(groupsViewMode);
+        renderMap();
     } else if (page === 'jobs') {
         currentJobId = null;
         fetchGroups();
-        fetchJobs();
+        setJobsTab(jobsTab);
     } else if (page === 'map') {
-        // Redirect to groups with map view
-        groupsViewMode = 'map';
         showPage('groups');
         return;
     } else if (page === 'executions') {
