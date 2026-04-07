@@ -16,6 +16,16 @@ function setJobsTab(tab) {
     if (groupsPanel) groupsPanel.style.display = tab === 'groups' ? '' : 'none';
     if (stagesPanel) stagesPanel.style.display = tab === 'stages' ? '' : 'none';
 
+    // Show/hide contextual buttons
+    const templateBtn = document.getElementById('jobs-template-btn');
+    const newGroupBtn = document.getElementById('jobs-newgroup-btn');
+    if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
+    if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
+
+    // Show/hide jobs action bar (search, filters)
+    const actionBar = document.getElementById('jobs-action-bar');
+    if (actionBar) actionBar.style.display = tab === 'list' ? '' : 'none';
+
     if (tab === 'list') {
         fetchJobs();
     } else if (tab === 'groups') {
