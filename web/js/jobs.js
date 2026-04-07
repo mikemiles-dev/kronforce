@@ -21,11 +21,14 @@ function setJobsTab(tab) {
     if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
     if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
 
-    // Keep the action bar background visible but hide the controls on non-Jobs tabs
+    // Keep the action bar visible but hide search/filter controls on non-Jobs tabs
+    // Keep the share button always visible
     const actionBar = document.getElementById('jobs-action-bar');
     if (actionBar) {
-        const inner = actionBar.querySelector('.action-bar-inner');
-        if (inner) inner.style.visibility = tab === 'list' ? '' : 'hidden';
+        const isJobs = tab === 'list';
+        actionBar.querySelectorAll('.action-bar-left, .time-range-wrap, .refresh-control').forEach(el => {
+            el.style.visibility = isJobs ? '' : 'hidden';
+        });
     }
 
     if (tab === 'list') {
