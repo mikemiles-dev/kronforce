@@ -30,7 +30,7 @@ function openCreateModal() {
     populateTaskForm(null);
     parseCronToUI('');
     document.getElementById('f-desc').value = '';
-    populateGroupSelect('');
+    populateGroupSelect(groupFilter || '');
     document.getElementById('f-retry-max').value = '0';
     document.getElementById('f-retry-delay').value = '0';
     document.getElementById('f-retry-backoff').value = '1.0';
