@@ -21,8 +21,12 @@ function setJobsTab(tab) {
     if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
     if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
 
+    // Keep the action bar background visible but hide the controls on non-Jobs tabs
     const actionBar = document.getElementById('jobs-action-bar');
-    if (actionBar) actionBar.style.display = tab === 'list' ? '' : 'none';
+    if (actionBar) {
+        const inner = actionBar.querySelector('.action-bar-inner');
+        if (inner) inner.style.visibility = tab === 'list' ? '' : 'hidden';
+    }
 
     if (tab === 'list') {
         fetchJobs();
