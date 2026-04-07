@@ -118,6 +118,8 @@ function updateTrLabel(scope) {
     const label = document.getElementById('tr-label-' + scope);
     const val = timeRanges[scope];
     const cust = timeRangeCustom[scope];
+    const trigger = label ? label.closest('.time-range-trigger') : null;
+    const isFiltered = !!(val || cust.from);
     if (cust.from) {
         const from = cust.from.replace('T', ' ').slice(5);
         const to = cust.to ? cust.to.replace('T', ' ').slice(5) : 'now';
@@ -126,6 +128,7 @@ function updateTrLabel(scope) {
         const r = quickRanges.find(r => r.value === val);
         label.textContent = r ? r.label : 'All time';
     }
+    if (trigger) trigger.classList.toggle('tr-active', isFiltered);
 }
 
 function closeTimeRangePopup() {

@@ -1304,23 +1304,28 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .refresh-now:hover { color: var(--text-primary); border-color: var(--text-secondary); }
 
 .time-range-trigger {
-    padding: 4px 10px;
+    padding: 6px 12px;
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--bg-tertiary);
     color: var(--text-secondary);
-    font-size: 11px;
+    font-size: 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     white-space: nowrap;
     transition: all 0.15s;
 }
 
-.time-range-trigger:hover { border-color: var(--text-secondary); color: var(--text-primary); }
-.time-range-trigger .tr-icon { font-size: 12px; }
-.time-range-trigger .tr-label { font-weight: 500; }
+.time-range-trigger:hover { border-color: var(--accent); color: var(--text-primary); }
+.time-range-trigger .tr-icon { font-size: 14px; }
+.time-range-trigger .tr-label { font-weight: 600; }
+.time-range-trigger.tr-active {
+    border-color: var(--warning);
+    background: rgba(230,168,23,0.1);
+    color: var(--warning);
+}
 
 .time-range-popup {
     position: absolute;
