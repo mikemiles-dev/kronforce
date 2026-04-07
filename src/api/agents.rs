@@ -113,6 +113,13 @@ pub(crate) async fn deregister_agent(
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     // Look up agent to get address before deleting
     let agent = db_call(&state.db, move |db| db.get_agent(id)).await?;
 
@@ -173,8 +180,16 @@ pub(crate) async fn get_agent_task_types(
 pub(crate) async fn update_agent_task_types(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: super::auth::AuthUser,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     let task_types: Vec<TaskTypeDefinition> = serde_json::from_value(
         body.get("task_types")
             .cloned()

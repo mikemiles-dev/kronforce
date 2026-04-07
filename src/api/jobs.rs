@@ -244,6 +244,13 @@ pub(crate) async fn create_job(
     auth: AuthUser,
     Json(req): Json<CreateJobRequest>,
 ) -> Result<(axum::http::StatusCode, Json<JobResponse>), AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     validate_job_name(&req.name)?;
 
     // Validate cron expression
@@ -376,6 +383,13 @@ pub(crate) async fn update_job(
     auth: AuthUser,
     Json(req): Json<UpdateJobRequest>,
 ) -> Result<Json<JobResponse>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     let mut job = db_call(&state.db, move |db| db.get_job(id))
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
@@ -541,6 +555,13 @@ pub(crate) async fn delete_job(
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<axum::http::StatusCode, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     db_call(&state.db, move |db| db.delete_job(id)).await?;
 
     let _ = state.scheduler_tx.send(SchedulerCommand::Reload).await;
@@ -583,6 +604,13 @@ pub(crate) async fn trigger_job(
     Path(id): Path<Uuid>,
     auth: AuthUser,
 ) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     let job = db_call(&state.db, move |db| db.get_job(id))
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;

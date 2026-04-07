@@ -21,6 +21,13 @@ pub(crate) async fn update_settings(
     auth: AuthUser,
     Json(body): Json<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     db_call(&state.db, move |db| {
         for (key, value) in &body {
             db.set_setting(key, value)?;
@@ -50,7 +57,15 @@ pub(crate) async fn update_settings(
 /// Sends a test notification using the currently configured notification channel.
 pub(crate) async fn test_notification(
     State(state): State<AppState>,
+    auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     let result = send_test(&state.db).await;
     match result {
         Ok(msg) => Ok(Json(serde_json::json!({ "status": "ok", "message": msg }))),

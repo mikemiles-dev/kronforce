@@ -120,7 +120,15 @@ pub(crate) async fn get_execution(
 pub(crate) async fn cancel_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: super::auth::AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
     state
         .scheduler_tx
         .send(SchedulerCommand::CancelExecution(id))
