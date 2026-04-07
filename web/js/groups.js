@@ -256,9 +256,9 @@ async function createNewGroup() {
 
 function navToGroupJobs(group) {
     groupFilter = group;
-    showPage('jobs');
     const sel = document.getElementById('group-filter');
     if (sel) sel.value = group;
+    setJobsTab('list');
     fetchJobs(true);
 }
 
