@@ -143,7 +143,12 @@ function refreshForScope(scope) {
 }
 
 function shareCurrentPage() {
-    copyToClipboard(window.location.href, 'Link copied to clipboard');
+    let url = window.location.href;
+    // Include jobs tab in the URL if not on the default list tab
+    if (currentPage === 'jobs' && typeof jobsTab !== 'undefined' && jobsTab !== 'list') {
+        url = window.location.origin + window.location.pathname + '#/jobs/' + jobsTab;
+    }
+    copyToClipboard(url, 'Link copied to clipboard');
 }
 
 function getSinceISO(minutes) {
@@ -894,6 +899,12 @@ function handleRoute() {
     const parts = hash.replace('#/', '').split('/');
 
     if (parts[0] === 'jobs' && parts[1]) {
+        // Jobs tab: #/jobs/groups, #/jobs/stages, #/jobs/map
+        if (['groups', 'stages', 'map'].includes(parts[1])) {
+            jobsTab = parts[1];
+            showPage('jobs');
+            return;
+        }
         // Job detail: #/jobs/{id}
         currentPage = 'jobs';
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
