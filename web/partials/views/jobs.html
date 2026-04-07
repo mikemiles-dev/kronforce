@@ -1,41 +1,38 @@
     <section id="jobs-view" style="display:none">
-        <div class="groups-tabs" style="margin-bottom:0">
-            <button class="groups-tab active" id="jt-list" onclick="setJobsTab('list')">Jobs</button>
-            <button class="groups-tab" id="jt-groups" onclick="setJobsTab('groups')">Groups</button>
-            <button class="groups-tab" id="jt-stages" onclick="setJobsTab('stages')">Stages</button>
+        <div class="jobs-tab-bar">
+            <div class="jobs-tab-left">
+                <button class="jobs-tab active" id="jt-list" onclick="setJobsTab('list')">Jobs</button>
+                <button class="jobs-tab" id="jt-groups" onclick="setJobsTab('groups')">Groups</button>
+                <button class="jobs-tab" id="jt-stages" onclick="setJobsTab('stages')">Stages</button>
+                <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:12px;padding:4px 10px;margin-left:8px">
+                    <option value="">All Groups</option>
+                </select>
+            </div>
+            <div class="jobs-tab-right">
+                <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ Create</button>
+                <button class="btn btn-ghost btn-sm" id="jobs-template-btn" onclick="showTemplatesPicker()">Template</button>
+                <button class="btn btn-ghost btn-sm" id="jobs-newgroup-btn" onclick="createNewGroup()" style="display:none">+ Group</button>
+            </div>
         </div>
         <div id="jobs-list-panel">
-            <div class="jobs-toolbar" id="jobs-toolbar">
-                <div class="jobs-toolbar-left">
-                    <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ Create</button>
-                    <button class="btn btn-ghost btn-sm" onclick="showTemplatesPicker()">Template</button>
-                    <button class="btn btn-primary btn-sm" id="bulk-run-btn" onclick="bulkTrigger()" disabled>&#9654; Run</button>
-                    <button class="btn btn-ghost btn-sm" id="bulk-group-btn" onclick="bulkSetGroup()" disabled>Set Group</button>
-                    <button class="btn btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
-                    <button class="btn btn-ghost btn-sm" id="bulk-clear-btn" onclick="clearSelection()" disabled>Clear</button>
-                    <span id="bulk-count-text" class="bulk-count-text"></span>
-                </div>
+            <div class="jobs-sub-toolbar" id="jobs-bulk-bar">
+                <button class="btn btn-primary btn-sm" id="bulk-run-btn" onclick="bulkTrigger()" disabled>&#9654; Run</button>
+                <button class="btn btn-ghost btn-sm" id="bulk-group-btn" onclick="bulkSetGroup()" disabled>Set Group</button>
+                <button class="btn btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
+                <button class="btn btn-ghost btn-sm" id="bulk-clear-btn" onclick="clearSelection()" disabled>Clear</button>
+                <span id="bulk-count-text" class="bulk-count-text"></span>
             </div>
             <div id="jobs-table-wrap"></div>
             <div id="jobs-pagination" class="pagination"></div>
         </div>
         <div id="jobs-groups-panel" style="display:none">
-            <div class="jobs-toolbar">
-                <div class="jobs-toolbar-left">
-                    <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ New Group</button>
-                    <button class="btn btn-ghost btn-sm" onclick="openCreateModal()">+ Create Job</button>
-                </div>
-            </div>
             <div id="groups-grid" class="groups-grid"></div>
         </div>
         <div id="jobs-stages-panel" style="display:none">
-            <div class="jobs-toolbar">
-                <div class="jobs-toolbar-left">
-                    <select id="stages-group-select" class="group-filter-select" onchange="renderJobsStagesTab()" style="font-size:13px;padding:5px 10px;min-width:160px">
-                        <option value="">All Groups</option>
-                    </select>
-                    <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ New Group</button>
-                </div>
+            <div class="jobs-sub-toolbar">
+                <select id="stages-group-select" class="group-filter-select" onchange="renderJobsStagesTab()" style="font-size:13px;padding:5px 10px;min-width:160px">
+                    <option value="">All Groups</option>
+                </select>
             </div>
             <div id="stages-content"></div>
         </div>

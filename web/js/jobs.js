@@ -6,7 +6,7 @@ let jobsTab = 'list';
 
 function setJobsTab(tab) {
     jobsTab = tab;
-    document.querySelectorAll('#jobs-view .groups-tab').forEach(b => {
+    document.querySelectorAll('.jobs-tab').forEach(b => {
         b.classList.toggle('active', b.id === 'jt-' + tab);
     });
     const panels = { list: 'jobs-list-panel', groups: 'jobs-groups-panel', stages: 'jobs-stages-panel' };
@@ -14,6 +14,12 @@ function setJobsTab(tab) {
         const el = document.getElementById(id);
         if (el) el.style.display = key === tab ? '' : 'none';
     }
+
+    // Show/hide contextual buttons
+    const templateBtn = document.getElementById('jobs-template-btn');
+    const newGroupBtn = document.getElementById('jobs-newgroup-btn');
+    if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
+    if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
 
     // Show/hide jobs action bar (search, filters) — only on Jobs tab
     const actionBar = document.getElementById('jobs-action-bar');
