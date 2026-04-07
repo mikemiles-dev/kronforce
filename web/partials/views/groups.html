@@ -1,17 +1,19 @@
     <section id="groups-view" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div class="groups-tabs">
-                <button class="groups-tab active" id="gv-cards" onclick="setGroupsView('cards')">Groups</button>
-                <button class="groups-tab" id="gv-pipeline" onclick="setGroupsView('pipeline')">Stages</button>
-                <button class="groups-tab" id="gv-map" onclick="setGroupsView('map')">Map</button>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-                <select id="stages-group-filter" class="group-filter-select" onchange="fetchGroupsPage()" style="display:none">
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                <div class="groups-tabs">
+                    <button class="groups-tab active" id="gv-cards" onclick="setGroupsView('cards')">Groups</button>
+                    <button class="groups-tab" id="gv-pipeline" onclick="setGroupsView('pipeline')">Stages</button>
+                    <button class="groups-tab" id="gv-map" onclick="setGroupsView('map')">Map</button>
+                </div>
+                <select id="stages-group-filter" class="group-filter-select" onchange="fetchGroupsPage()" style="display:none;font-size:14px;padding:6px 12px;min-width:180px">
                     <option value="">Select a group...</option>
                 </select>
-                <select id="map-group-filter" class="group-filter-select" onchange="renderMap()" style="display:none">
+                <select id="map-group-filter" class="group-filter-select" onchange="renderMap()" style="display:none;font-size:14px;padding:6px 12px;min-width:180px">
                     <option value="">All Groups</option>
                 </select>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
                 <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
                 <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ New Group</button>
             </div>
