@@ -9,7 +9,7 @@ function setJobsTab(tab) {
     document.querySelectorAll('.jobs-tab').forEach(b => {
         b.classList.toggle('active', b.id === 'jt-' + tab);
     });
-    const panels = { list: 'jobs-list-panel', groups: 'jobs-groups-panel', stages: 'jobs-stages-panel' };
+    const panels = { list: 'jobs-list-panel', groups: 'jobs-groups-panel', stages: 'jobs-stages-panel', map: 'jobs-map-panel' };
     for (const [key, id] of Object.entries(panels)) {
         const el = document.getElementById(id);
         if (el) el.style.display = key === tab ? '' : 'none';
@@ -34,6 +34,8 @@ function setJobsTab(tab) {
         renderJobsGroupsTab();
     } else if (tab === 'stages') {
         renderJobsStagesTab();
+    } else if (tab === 'map') {
+        renderMap();
     }
 }
 
