@@ -9,20 +9,13 @@ function setJobsTab(tab) {
     document.querySelectorAll('#jobs-view .groups-tab').forEach(b => {
         b.classList.toggle('active', b.id === 'jt-' + tab);
     });
-    const listPanel = document.getElementById('jobs-list-panel');
-    const groupsPanel = document.getElementById('jobs-groups-panel');
-    const stagesPanel = document.getElementById('jobs-stages-panel');
-    if (listPanel) listPanel.style.display = tab === 'list' ? '' : 'none';
-    if (groupsPanel) groupsPanel.style.display = tab === 'groups' ? '' : 'none';
-    if (stagesPanel) stagesPanel.style.display = tab === 'stages' ? '' : 'none';
+    const panels = { list: 'jobs-list-panel', groups: 'jobs-groups-panel', stages: 'jobs-stages-panel' };
+    for (const [key, id] of Object.entries(panels)) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = key === tab ? '' : 'none';
+    }
 
-    // Show/hide contextual buttons
-    const templateBtn = document.getElementById('jobs-template-btn');
-    const newGroupBtn = document.getElementById('jobs-newgroup-btn');
-    if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
-    if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
-
-    // Show/hide jobs action bar (search, filters)
+    // Show/hide jobs action bar (search, filters) — only on Jobs tab
     const actionBar = document.getElementById('jobs-action-bar');
     if (actionBar) actionBar.style.display = tab === 'list' ? '' : 'none';
 
@@ -76,8 +69,23 @@ async function renderJobsStagesTab() {
             jobsByGroup[g].push(j);
         }
 
-        // Use the group filter dropdown value, or show all
-        const selected = groupFilter;
+        // Use the stages group select, or show all
+        const stagesSelect = document.getElementById('stages-group-select');
+        const selected = stagesSelect ? stagesSelect.value : '';
+
+        // Populate the stages dropdown
+        if (stagesSelect) {
+            const currentSel = stagesSelect.value;
+            stagesSelect.innerHTML = '<option value="">All Groups</option>';
+            const allGroupsSorted = [...new Set([...groups, ...Object.keys(jobsByGroup)])].sort((a, b) => {
+                if (a === 'Default') return -1;
+                if (b === 'Default') return 1;
+                return a.localeCompare(b);
+            });
+            for (const g of allGroupsSorted) {
+                stagesSelect.innerHTML += '<option value="' + esc(g) + '"' + (g === currentSel ? ' selected' : '') + '>' + esc(g) + '</option>';
+            }
+        }
         const content = document.getElementById('stages-content');
         if (!content) return;
 
