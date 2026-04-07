@@ -1,14 +1,14 @@
     <section id="groups-view" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px">
-                <h2 style="margin:0">Groups</h2>
-                <div style="display:flex;gap:2px;background:var(--bg-tertiary);border-radius:6px;padding:2px">
-                    <button class="btn btn-ghost btn-sm groups-view-btn active" id="gv-cards" onclick="setGroupsView('cards')" style="padding:4px 10px;font-size:11px">Cards</button>
-                    <button class="btn btn-ghost btn-sm groups-view-btn" id="gv-pipeline" onclick="setGroupsView('pipeline')" style="padding:4px 10px;font-size:11px">Stages</button>
-                    <button class="btn btn-ghost btn-sm groups-view-btn" id="gv-map" onclick="setGroupsView('map')" style="padding:4px 10px;font-size:11px">Map</button>
-                </div>
+            <div class="groups-tabs">
+                <button class="groups-tab active" id="gv-cards" onclick="setGroupsView('cards')">Groups</button>
+                <button class="groups-tab" id="gv-pipeline" onclick="setGroupsView('pipeline')">Stages</button>
+                <button class="groups-tab" id="gv-map" onclick="setGroupsView('map')">Map</button>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
+                <select id="stages-group-filter" class="group-filter-select" onchange="fetchGroupsPage()" style="display:none">
+                    <option value="">Select a group...</option>
+                </select>
                 <select id="map-group-filter" class="group-filter-select" onchange="renderMap()" style="display:none">
                     <option value="">All Groups</option>
                 </select>

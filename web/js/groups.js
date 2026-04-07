@@ -7,22 +7,30 @@ let groupsViewMode = localStorage.getItem('kf-groupsView') || 'cards';
 function setGroupsView(mode) {
     groupsViewMode = mode;
     localStorage.setItem('kf-groupsView', mode);
-    document.querySelectorAll('.groups-view-btn').forEach(b => {
+    document.querySelectorAll('.groups-tab').forEach(b => {
         b.classList.toggle('active', b.id === 'gv-' + mode);
-        b.style.background = b.id === 'gv-' + mode ? 'var(--bg-primary)' : '';
     });
     const grid = document.getElementById('groups-grid');
     const mapWrap = document.getElementById('groups-map-wrap');
-    const groupFilter = document.getElementById('map-group-filter');
+    const mapFilter = document.getElementById('map-group-filter');
+    const stagesFilter = document.getElementById('stages-group-filter');
     if (mode === 'map') {
         if (grid) grid.style.display = 'none';
         if (mapWrap) mapWrap.style.display = '';
-        if (groupFilter) groupFilter.style.display = '';
+        if (mapFilter) mapFilter.style.display = '';
+        if (stagesFilter) stagesFilter.style.display = 'none';
         renderMap();
+    } else if (mode === 'pipeline') {
+        if (grid) grid.style.display = '';
+        if (mapWrap) mapWrap.style.display = 'none';
+        if (mapFilter) mapFilter.style.display = 'none';
+        if (stagesFilter) stagesFilter.style.display = '';
+        fetchGroupsPage();
     } else {
         if (grid) grid.style.display = '';
         if (mapWrap) mapWrap.style.display = 'none';
-        if (groupFilter) groupFilter.style.display = 'none';
+        if (mapFilter) mapFilter.style.display = 'none';
+        if (stagesFilter) stagesFilter.style.display = 'none';
         fetchGroupsPage();
     }
 }
@@ -71,14 +79,33 @@ async function fetchGroupsPage() {
             return a.localeCompare(b);
         });
 
-        // Restore view toggle state
-        document.querySelectorAll('.groups-view-btn').forEach(b => {
+        // Restore tab state
+        document.querySelectorAll('.groups-tab').forEach(b => {
             b.classList.toggle('active', b.id === 'gv-' + groupsViewMode);
-            b.style.background = b.id === 'gv-' + groupsViewMode ? 'var(--bg-primary)' : '';
         });
 
+        // Populate stages group filter
+        const stagesFilter = document.getElementById('stages-group-filter');
+        if (stagesFilter) {
+            const currentSel = stagesFilter.value;
+            stagesFilter.innerHTML = '<option value="">Select a group...</option>';
+            for (const g of sortedGroups) {
+                stagesFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === currentSel ? ' selected' : '') + '>' + esc(g) + '</option>';
+            }
+            // Auto-select first real group if nothing selected
+            if (!stagesFilter.value && sortedGroups.length > 0) {
+                stagesFilter.value = sortedGroups[0];
+            }
+        }
+
         if (groupsViewMode === 'pipeline') {
-            renderPipelineView(sortedGroups, jobsByGroup);
+            const selectedGroup = stagesFilter ? stagesFilter.value : '';
+            if (selectedGroup) {
+                const filtered = [selectedGroup];
+                renderPipelineView(filtered, jobsByGroup);
+            } else {
+                document.getElementById('groups-grid').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">Select a group above to see its pipeline.</div>';
+            }
         } else {
             renderCardsView(sortedGroups, jobsByGroup);
         }
