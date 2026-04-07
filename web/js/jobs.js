@@ -91,7 +91,8 @@ async function fetchJobs(resetPage) {
         if (timeRanges.jobs) {
             const since = new Date(Date.now() - parseInt(timeRanges.jobs) * 60000);
             allJobs = allJobs.filter(j => {
-                if (!j.last_execution || !j.last_execution.finished_at) return false;
+                // Always show jobs that have never run
+                if (!j.last_execution || !j.last_execution.finished_at) return true;
                 return new Date(j.last_execution.finished_at) >= since;
             });
         }
