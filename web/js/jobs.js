@@ -21,7 +21,12 @@ function setJobsTab(tab) {
     if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
     if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
 
-    // Always show the action bar — less jarring when switching tabs
+    // Keep action bar visible for layout consistency but dim controls on non-Jobs tabs
+    const actionBar = document.getElementById('jobs-action-bar');
+    if (actionBar) {
+        actionBar.style.opacity = tab === 'list' ? '1' : '0.3';
+        actionBar.style.pointerEvents = tab === 'list' ? '' : 'none';
+    }
 
     if (tab === 'list') {
         fetchJobs();
