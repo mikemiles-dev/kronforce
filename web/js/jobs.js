@@ -21,9 +21,7 @@ function setJobsTab(tab) {
     if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
     if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
 
-    // Show/hide jobs action bar (search, filters) — only on Jobs tab
-    const actionBar = document.getElementById('jobs-action-bar');
-    if (actionBar) actionBar.style.display = tab === 'list' ? '' : 'none';
+    // Always show the action bar — less jarring when switching tabs
 
     if (tab === 'list') {
         fetchJobs();
