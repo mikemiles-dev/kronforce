@@ -42,11 +42,13 @@ fi
 
 echo ""
 
-# Create groups
+# Cleanup stale groups from previous buggy seed runs
+curl -sf -X PUT "$URL/api/jobs/rename-group" -H "$AUTH" -H "$CT" -d '{"old_name":"0","new_name":"Default"}' > /dev/null 2>&1 || true
+
+# Create groups (hardcoded to avoid shell parsing issues)
 echo "Creating groups..."
-GROUPS=$(python3 -c "import json; d=json.load(open('$SEED_FILE')); [print(g) for g in d['groups']]" 2>/dev/null || jq -r '.groups[]' "$SEED_FILE")
-for group in $GROUPS; do
-    resp=$(curl -sf -X POST "$URL/api/jobs/groups" -H "$AUTH" -H "$CT" -d "{\"name\": \"$group\"}" 2>&1) && echo "  ✓ Group: $group" || echo "  ⚠ Group: $group (may already exist)"
+for group in ETL Monitoring Deploys Maintenance; do
+    curl -sf -X POST "$URL/api/jobs/groups" -H "$AUTH" -H "$CT" -d "{\"name\": \"$group\"}" > /dev/null 2>&1 && echo "  ✓ Group: $group" || echo "  ⚠ Group: $group (may already exist)"
 done
 
 echo ""

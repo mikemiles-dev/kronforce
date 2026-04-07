@@ -20,7 +20,7 @@
     {
       "name": "uptime-check",
       "description": "Report system uptime",
-      "task": {"type": "shell", "command": "uptime"},
+      "task": {"type": "shell", "command": "cat /proc/uptime 2>/dev/null || echo 'uptime not available'"},
       "schedule": {"type": "cron", "value": "0 0 * * * *"},
       "group": "Monitoring"
     },
