@@ -3,6 +3,9 @@
             <div class="jobs-toolbar-left">
                 <button class="btn btn-primary" onclick="openCreateModal()">+ Create Job</button>
                 <button class="btn btn-ghost" onclick="showTemplatesPicker()">From Template</button>
+                <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:13px;padding:6px 10px">
+                    <option value="">All Groups</option>
+                </select>
                 <button class="btn btn-primary" id="bulk-run-btn" onclick="bulkTrigger()" disabled>&#9654; Schedule Now</button>
                 <button class="btn btn-ghost" id="bulk-group-btn" onclick="bulkSetGroup()" disabled>Set Group</button>
                 <button class="btn btn-danger" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
