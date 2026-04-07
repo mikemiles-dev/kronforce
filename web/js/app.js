@@ -10,7 +10,7 @@ let pollTimer = null;
 let jobsPage = 1;
 
 // View registry for page management
-const ALL_VIEWS = ['dashboard','jobs','groups','detail','map','agents','executions','scripts','events','variables','settings','docs','guide'];
+const ALL_VIEWS = ['dashboard','jobs','detail','map','agents','executions','scripts','events','variables','settings','docs','guide'];
 const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
 // Time range state — persisted in localStorage
@@ -607,14 +607,15 @@ function showPage(page) {
     } else if (page === 'agents') {
         fetchAgents();
     } else if (page === 'groups') {
-        renderMap();
+        // Old URL — redirect to map
+        showPage('map');
+        return;
     } else if (page === 'jobs') {
         currentJobId = null;
         fetchGroups();
         setJobsTab(jobsTab);
     } else if (page === 'map') {
-        showPage('groups');
-        return;
+        renderMap();
     } else if (page === 'executions') {
         fetchAllExecutions();
     } else if (page === 'scripts') {
