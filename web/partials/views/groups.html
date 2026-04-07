@@ -12,10 +12,10 @@
                 <select id="map-group-filter" class="group-filter-select" onchange="renderMap()" style="display:none;font-size:14px;padding:6px 12px;min-width:180px">
                     <option value="">All Groups</option>
                 </select>
+                <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ New Group</button>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
                 <button class="share-btn" onclick="shareCurrentPage()" title="Copy link to clipboard">&#128279; Share</button>
-                <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ New Group</button>
             </div>
         </div>
         <div id="groups-grid" class="groups-grid"></div>
