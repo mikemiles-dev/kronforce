@@ -124,7 +124,7 @@ async function showExecDetail(id) {
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
             renderExtractedValues(e.extracted) +
-            (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + esc(JSON.stringify(sanitizeTaskSnapshot(e.task_snapshot), null, 2)) + '</pre></div>' : '') +
+            (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + syntaxHighlightJson(esc(JSON.stringify(sanitizeTaskSnapshot(e.task_snapshot), null, 2))) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated) +
             '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
@@ -275,6 +275,16 @@ function detectOutputType(raw) {
     return 'text';
 }
 
+function syntaxHighlightJson(json) {
+    // Expects already-escaped HTML of pretty-printed JSON
+    return json
+        .replace(/("(?:\\.|[^"\\])*")\s*:/g, '<span style="color:#3e8bff">$1</span>:')  // keys
+        .replace(/:\s*("(?:\\.|[^"\\])*")/g, ': <span style="color:#2ecc71">$1</span>')  // string values
+        .replace(/:\s*(\d+\.?\d*)/g, ': <span style="color:#e6a817">$1</span>')           // numbers
+        .replace(/:\s*(true|false)/g, ': <span style="color:#e67e22">$1</span>')           // booleans
+        .replace(/:\s*(null)/g, ': <span style="color:#7c8298">$1</span>');                // null
+}
+
 function renderOutputSection(label, content, truncated) {
     const id = 'output-' + (outputIdCounter++);
     const truncBadge = truncated ? ' <span class="badge badge-paused">truncated</span>' : '';
@@ -294,7 +304,7 @@ function renderOutputSection(label, content, truncated) {
     if (detected === 'json') {
         let formatted;
         try { formatted = JSON.stringify(JSON.parse(raw.trim()), null, 2); } catch(e) { formatted = raw; }
-        html += '<div id="' + id + '-wrap"><pre class="output-pre">' + esc(formatted) + '</pre></div>';
+        html += '<div id="' + id + '-wrap"><pre class="output-pre">' + syntaxHighlightJson(esc(formatted)) + '</pre></div>';
     } else if (detected === 'html') {
         html += '<div id="' + id + '-wrap"><iframe class="output-iframe" sandbox="allow-same-origin" srcdoc="' + esc(raw).replace(/"/g, '&quot;') + '"></iframe></div>';
     } else {
@@ -322,7 +332,7 @@ function switchOutputView(id, mode, btn) {
         } catch(e) {
             formatted = '(not valid JSON)\n\n' + raw;
         }
-        wrap.innerHTML = '<pre class="output-pre">' + esc(formatted) + '</pre>';
+        wrap.innerHTML = '<pre class="output-pre">' + syntaxHighlightJson(esc(formatted)) + '</pre>';
     } else if (mode === 'html') {
         wrap.innerHTML = '<iframe class="output-iframe" sandbox="allow-same-origin" srcdoc="' + esc(raw).replace(/"/g, '&quot;') + '"></iframe>';
     }
