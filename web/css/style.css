@@ -2661,7 +2661,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .jobs-tab {
-    padding: 12px 18px;
+    padding: 10px 16px;
     font-size: 13px;
     font-weight: 600;
     border: none;
@@ -2670,6 +2670,13 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     color: var(--text-muted);
     border-bottom: 3px solid transparent;
     transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.jobs-tab-icon {
+    font-size: 14px;
 }
 
 .jobs-tab:hover {
@@ -2677,10 +2684,15 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     background: var(--bg-tertiary);
 }
 
-.jobs-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-}
+/* Each tab gets its own color */
+#jt-list.active { color: #3e8bff; border-bottom-color: #3e8bff; }
+#jt-list.active .jobs-tab-icon { color: #3e8bff; }
+#jt-groups.active { color: #2ecc71; border-bottom-color: #2ecc71; }
+#jt-groups.active .jobs-tab-icon { color: #2ecc71; }
+#jt-stages.active { color: #e6a817; border-bottom-color: #e6a817; }
+#jt-stages.active .jobs-tab-icon { color: #e6a817; }
+#jt-map.active { color: #9b59b6; border-bottom-color: #9b59b6; }
+#jt-map.active .jobs-tab-icon { color: #9b59b6; }
 
 .jobs-sub-toolbar {
     display: flex;
