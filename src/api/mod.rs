@@ -262,8 +262,11 @@ async fn add_security_headers(
     resp
 }
 
-async fn dashboard() -> Html<&'static str> {
-    Html(DASHBOARD_HTML)
+async fn dashboard() -> impl axum::response::IntoResponse {
+    (
+        [(axum::http::header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")],
+        Html(DASHBOARD_HTML),
+    )
 }
 
 async fn public_config(State(state): State<AppState>) -> Json<serde_json::Value> {
