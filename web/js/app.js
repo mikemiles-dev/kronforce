@@ -973,6 +973,11 @@ function renderRichEmptyState(config) {
 }
 
 // --- Init ---
+// Fill guide controller URL
+(function() {
+    const el = document.getElementById('guide-controller-url');
+    if (el) el.textContent = getControllerUrl();
+})();
 fetchHealth();
 (async () => {
     // Check demo mode — skip login if enabled

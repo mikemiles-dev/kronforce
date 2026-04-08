@@ -16,15 +16,16 @@ async function fetchAgents() {
 function renderAgents() {
     const wrap = document.getElementById('agents-table-wrap');
 
-    let html = '';
+    let html = '<div id="pair-command-box"></div>';
 
     if (allAgents.length === 0) {
         wrap.innerHTML = html + renderRichEmptyState({
             icon: '&#128421;',
-            title: 'No agents registered',
-            description: 'Agents run jobs on remote machines. Start a standard agent with the command above, or build a custom agent in any language.',
+            title: 'No agents registered yet',
+            description: 'Use the connection command above to pair your first agent. Agents execute jobs on remote machines.',
             actions: [
-                { label: 'View Docs', onclick: "showPage('docs')", primary: true },
+                { label: 'Create Agent Key', onclick: "showPage('settings')" },
+                { label: 'View Docs', onclick: "showPage('docs')" },
             ],
             hint: 'Custom agents poll for work \u2014 build in Python, Go, Node, or any language with an HTTP client.',
         });

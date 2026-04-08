@@ -112,11 +112,11 @@
                             <h3 style="margin:0;font-size:16px">Run Jobs on Remote Machines</h3>
                         </div>
                         <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Distribute work across your infrastructure with agents. Start a standard agent:</p>
-<pre style="background:var(--bg-tertiary);padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;margin:0 0 12px;border:1px solid var(--border)">KRONFORCE_CONTROLLER_URL=http://this-server:8080 \
-KRONFORCE_AGENT_KEY=kf_your_agent_key \
+<pre id="guide-agent-cmd" style="background:var(--bg-tertiary);padding:12px;border-radius:6px;font-size:11px;overflow-x:auto;margin:0 0 12px;border:1px solid var(--border);white-space:pre-wrap;word-break:break-all">KRONFORCE_AGENT_KEY=&lt;your_agent_key&gt; \
+KRONFORCE_CONTROLLER_URL=<span id="guide-controller-url"></span> \
 KRONFORCE_AGENT_NAME=my-agent \
-cargo run --bin kronforce-agent</pre>
-                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Or write a custom agent in <strong>Python</strong>, <strong>Go</strong>, or <strong>Node</strong> &mdash; see examples in the repo.</p>
+  ./kronforce-agent</pre>
+                        <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Or write a custom agent in <strong>Python</strong>, <strong>Go</strong>, or <strong>Node</strong> &mdash; see examples in the repo. See the <strong>Agents</strong> page for Docker and custom agent commands with copy button.</p>
                         <button class="btn btn-ghost btn-sm" onclick="showPage('agents')">View Agents</button>
                     </div>
                 </div>

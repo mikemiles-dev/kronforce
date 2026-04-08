@@ -1586,24 +1586,19 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .share-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 .pair-command {
-    padding: 10px 14px;
+    padding: 14px 16px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     font-size: 12px;
     color: var(--text-secondary);
 }
 
-.pair-command code {
-    display: inline-block;
-    background: var(--bg-tertiary);
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    user-select: all;
-    margin-left: 4px;
+.pair-tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
 }
 
 .pair-label {

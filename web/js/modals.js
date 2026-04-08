@@ -1827,23 +1827,49 @@ function getControllerUrl() {
 }
 
 async function updatePairCommand() {
-    const el = document.getElementById('pair-cmd-text');
-    if (!el) return;
+    const wrap = document.getElementById('pair-command-box');
+    if (!wrap) return;
     const host = getControllerUrl();
+    let agentKey = null;
     try {
         const keys = await api('GET', '/api/keys');
-        const agentKey = keys.find(k => k.role === 'agent' && k.active);
-        if (agentKey) {
-            const cmd = 'KRONFORCE_AGENT_KEY=<agent_key> KRONFORCE_CONTROLLER_URL=' + host + ' cargo run --bin kronforce-agent';
-            el.textContent = cmd;
-            el.dataset.fullCmd = cmd;
-            el.insertAdjacentHTML('afterend', '<div class="form-hint" style="margin-top:4px">Agent key (' + esc(agentKey.key_prefix) + '...) was shown once at startup or when created. Check the controller logs or create a new one in Settings.</div>');
-        } else {
-            el.innerHTML = 'No agent key found. <a href="#" onclick="showPage(\'settings\');return false" style="color:var(--accent)">Create one in Settings</a> with role "agent".';
-        }
-    } catch (e) {
-        el.textContent = 'KRONFORCE_AGENT_KEY=<agent_key> KRONFORCE_CONTROLLER_URL=' + host + ' cargo run --bin kronforce-agent';
-    }
+        agentKey = keys.find(k => k.role === 'agent' && k.active);
+    } catch (e) { /* ignore */ }
+
+    const keyPlaceholder = '<your_agent_key>';
+    const keyHint = agentKey
+        ? 'Agent key <code>' + esc(agentKey.key_prefix) + '...</code> exists — the full key was shown at creation. Check controller logs or <a href="#" onclick="showPage(\'settings\');return false" style="color:var(--accent)">create a new one</a>.'
+        : 'No agent key found. <a href="#" onclick="showPage(\'settings\');return false" style="color:var(--accent)">Create one in Settings</a> with role "agent".';
+
+    const binaryCmd = 'KRONFORCE_AGENT_KEY=' + keyPlaceholder + ' \\\nKRONFORCE_CONTROLLER_URL=' + host + ' \\\nKRONFORCE_AGENT_NAME=my-agent \\\nKRONFORCE_AGENT_TAGS=linux \\\n  ./kronforce-agent';
+    const dockerCmd = 'docker run -d \\\n  -e KRONFORCE_AGENT_KEY=' + keyPlaceholder + ' \\\n  -e KRONFORCE_CONTROLLER_URL=' + host + ' \\\n  -e KRONFORCE_AGENT_NAME=my-agent \\\n  -e KRONFORCE_AGENT_TAGS=linux \\\n  ghcr.io/mikemiles-dev/kronforce:latest \\\n  kronforce-agent';
+
+    let html = '<div class="pair-command">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+    html += '<span class="pair-label">Connect an Agent</span>';
+    html += '<div style="display:flex;gap:4px">';
+    html += '<button class="btn btn-ghost btn-sm pair-tab-btn active" id="pair-tab-binary" onclick="switchPairTab(\'binary\')" style="font-size:11px;padding:3px 8px">Binary</button>';
+    html += '<button class="btn btn-ghost btn-sm pair-tab-btn" id="pair-tab-docker" onclick="switchPairTab(\'docker\')" style="font-size:11px;padding:3px 8px">Docker</button>';
+    html += '</div>';
+    html += '</div>';
+    html += '<pre class="pair-cmd-pre" id="pair-cmd-binary" style="margin:0 0 8px;background:var(--bg-tertiary);padding:10px 12px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border)">' + esc(binaryCmd) + '</pre>';
+    html += '<pre class="pair-cmd-pre" id="pair-cmd-docker" style="display:none;margin:0 0 8px;background:var(--bg-tertiary);padding:10px 12px;border-radius:6px;font-size:11px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border:1px solid var(--border)">' + esc(dockerCmd) + '</pre>';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between">';
+    html += '<div style="font-size:11px;color:var(--text-muted)">' + keyHint + '</div>';
+    html += '<button class="btn btn-ghost btn-sm" onclick="copyPairCommand()" style="flex-shrink:0">Copy</button>';
+    html += '</div>';
+    html += '</div>';
+
+    wrap.innerHTML = html;
+}
+
+function switchPairTab(tab) {
+    document.querySelectorAll('.pair-cmd-pre').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.pair-tab-btn').forEach(el => el.classList.remove('active'));
+    const pre = document.getElementById('pair-cmd-' + tab);
+    const btn = document.getElementById('pair-tab-' + tab);
+    if (pre) pre.style.display = '';
+    if (btn) btn.classList.add('active');
 }
 
 function copyToClipboard(text, successMsg) {
@@ -1864,10 +1890,9 @@ function copyToClipboard(text, successMsg) {
 }
 
 function copyPairCommand() {
-    const el = document.getElementById('pair-cmd-text');
-    if (el) {
-        const text = el.dataset.fullCmd || el.textContent;
-        copyToClipboard(text, 'Command copied — replace <paste_agent_key> with your full agent key');
+    const visible = document.querySelector('.pair-cmd-pre:not([style*="display: none"])') || document.querySelector('.pair-cmd-pre');
+    if (visible) {
+        copyToClipboard(visible.textContent, 'Command copied — replace <your_agent_key> with your full agent key');
     }
 }
 
@@ -1965,20 +1990,24 @@ function renderWizardStep() {
         footer.innerHTML = backBtn + '<button class="btn btn-ghost btn-sm" onclick="wizardSkip()">Skip</button>';
     } else if (wizardStep === 2) {
         title.textContent = 'Connect an Agent';
+        const wizHost = getControllerUrl();
         body.innerHTML =
             '<p style="color:var(--text-secondary);margin-bottom:12px">Agents run jobs on remote machines. You can skip this if running everything locally.</p>' +
             '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">' +
-            '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Standard agent (Rust binary):</p>' +
-            '<code style="font-size:11px;word-break:break-all">KRONFORCE_AGENT_KEY=&lt;key&gt; KRONFORCE_CONTROLLER_URL=http://localhost:8080 cargo run --bin kronforce-agent</code>' +
+            '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Standard agent (binary):</p>' +
+            '<pre style="font-size:11px;margin:0;white-space:pre-wrap;word-break:break-all">KRONFORCE_AGENT_KEY=&lt;your_agent_key&gt; \\\nKRONFORCE_CONTROLLER_URL=' + esc(wizHost) + ' \\\nKRONFORCE_AGENT_NAME=my-agent \\\n  ./kronforce-agent</pre>' +
+            '</div>' +
+            '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">' +
+            '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Docker:</p>' +
+            '<pre style="font-size:11px;margin:0;white-space:pre-wrap;word-break:break-all">docker run -d \\\n  -e KRONFORCE_AGENT_KEY=&lt;your_agent_key&gt; \\\n  -e KRONFORCE_CONTROLLER_URL=' + esc(wizHost) + ' \\\n  -e KRONFORCE_AGENT_NAME=my-agent \\\n  ghcr.io/mikemiles-dev/kronforce:latest \\\n  kronforce-agent</pre>' +
             '</div>' +
             '<div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px">' +
             '<p style="font-size:11px;color:var(--text-muted);margin:0 0 6px">Custom agent (Python example):</p>' +
-            '<code style="font-size:11px">KRONFORCE_AGENT_KEY=&lt;key&gt; python3 examples/custom_agent.py</code>' +
+            '<pre style="font-size:11px;margin:0;white-space:pre-wrap;word-break:break-all">KRONFORCE_AGENT_KEY=&lt;your_agent_key&gt; \\\n  python3 examples/custom_agent.py</pre>' +
             '</div>' +
             '<div style="background:rgba(62,139,255,0.08);border:1px solid var(--accent);border-radius:var(--radius);padding:10px;font-size:11px;color:var(--text-secondary)">' +
-            '<strong>Agent Key Required:</strong> Find your agent key in Settings &rarr; Agent Authentication. All agents must include this key to connect.' +
-            '</div>' +
-            '<p style="font-size:12px;color:var(--text-muted);margin-top:12px">See the <a href="#" onclick="closeWizard();showPage(\'docs\');return false" style="color:var(--accent)">Docs</a> page for the full agent protocol.</p>';
+            '<strong>Agent Key Required:</strong> Your agent key was printed to the console on first startup. You can also create new keys in <a href="#" onclick="closeWizard();showPage(\'settings\');return false" style="color:var(--accent)">Settings</a>.' +
+            '</div>';
         footer.innerHTML = backBtn + '<button class="btn btn-ghost btn-sm" onclick="wizardSkip()">Skip</button>';
     } else if (wizardStep === 3) {
         title.textContent = 'Set Up Notifications';
