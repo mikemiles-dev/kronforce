@@ -2658,7 +2658,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     .jobs-tab-right {
         padding: 6px 8px;
         border-top: 1px solid var(--border);
-        justify-content: flex-end;
+        justify-content: flex-start;
         gap: 4px;
     }
     .jobs-tab-right .btn { font-size: 10px; padding: 4px 8px; }
