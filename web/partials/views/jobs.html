@@ -51,21 +51,32 @@
     <section id="detail-view" style="display:none">
         <div class="back-link" onclick="showJobsList()">&larr; Back to Jobs</div>
         <div id="detail-card"></div>
-        <div class="card" id="job-timeline-card">
-            <div class="card-header"><h3>Timeline (1 hour)</h3></div>
-            <div id="job-timeline"></div>
+        <div class="groups-tabs" style="margin-top:12px">
+            <button class="groups-tab active" id="dt-overview" onclick="setDetailTab('overview')">Overview</button>
+            <button class="groups-tab" id="dt-history" onclick="setDetailTab('history')">History</button>
+            <button class="groups-tab" id="dt-map" onclick="setDetailTab('map')">Map</button>
         </div>
-        <div class="card">
-            <div class="card-header">
-                <h3>Execution History</h3>
+        <div id="detail-overview-panel">
+            <div class="card" id="job-timeline-card">
+                <div class="card-header"><h3>Timeline (1 hour)</h3></div>
+                <div id="job-timeline"></div>
             </div>
-            <div id="exec-table-wrap"></div>
-            <div id="exec-pagination" class="pagination"></div>
         </div>
-        <div class="card" id="mini-map-card" style="display:none">
-            <div class="card-header">
-                <h3>Dependencies</h3>
+        <div id="detail-history-panel" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Execution History</h3>
+                </div>
+                <div id="exec-table-wrap"></div>
+                <div id="exec-pagination" class="pagination"></div>
             </div>
-            <div id="mini-map-svg" style="height:200px;width:100%"></div>
+        </div>
+        <div id="detail-map-panel" style="display:none">
+            <div class="card" id="mini-map-card">
+                <div class="card-header">
+                    <h3>Dependencies &amp; Connections</h3>
+                </div>
+                <div id="mini-map-svg" style="height:300px;width:100%"></div>
+            </div>
         </div>
     </section>

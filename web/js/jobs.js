@@ -331,10 +331,27 @@ function renderJobsTable() {
 // --- Job Detail ---
 let detailReturnTo = 'jobs';
 
+function setDetailTab(tab) {
+    document.querySelectorAll('#detail-view .groups-tab').forEach(b => {
+        b.classList.toggle('active', b.id === 'dt-' + tab);
+    });
+    const panels = { overview: 'detail-overview-panel', history: 'detail-history-panel', map: 'detail-map-panel' };
+    for (const [key, id] of Object.entries(panels)) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = key === tab ? '' : 'none';
+    }
+    // Re-render mini map when switching to map tab (Cytoscape needs visible container)
+    if (tab === 'map' && currentJobId) {
+        const job = allJobs.find(j => j.id === currentJobId);
+        if (job) renderMiniMap(job);
+    }
+}
+
 async function showJobDetail(id) {
     detailReturnTo = currentPage;
     currentJobId = id;
     execsPage = 1;
+    setDetailTab('overview');
     for (const v of ALL_VIEWS) {
         document.getElementById(v + '-view').style.display = v === 'detail' ? '' : 'none';
     }

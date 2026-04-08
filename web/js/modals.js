@@ -1583,11 +1583,9 @@ function renderMiniMap(job) {
     }
 
     if (relatedIds.size <= 1) {
-        card.style.display = 'none';
+        container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">No dependencies or event connections</div>';
         return;
     }
-
-    card.style.display = '';
 
     const jobMap = {};
     for (const j of allJobs) jobMap[j.id] = j;
