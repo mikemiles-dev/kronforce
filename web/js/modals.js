@@ -1563,163 +1563,181 @@ function clearMapPositions() {
 
 // --- Mini Dependency Map ---
 
+let miniCyInstance = null;
+
 function renderMiniMap(job) {
     const card = document.getElementById('mini-map-card');
-    const svg = document.getElementById('mini-map-svg');
+    const container = document.getElementById('mini-map-svg');
 
-    // Collect related jobs: this job + its dependencies + jobs that depend on it
+    // Collect related jobs
     const relatedIds = new Set();
     relatedIds.add(job.id);
-    for (const dep of job.depends_on) {
-        relatedIds.add(dep.job_id);
-    }
-    // Find jobs that depend on this job
+    for (const dep of job.depends_on) relatedIds.add(dep.job_id);
     for (const j of allJobs) {
         for (const dep of j.depends_on) {
-            if (dep.job_id === job.id) {
-                relatedIds.add(j.id);
+            if (dep.job_id === job.id) relatedIds.add(j.id);
+        }
+        // Event trigger connections
+        if (j.schedule && j.schedule.type === 'event' && j.schedule.value && j.schedule.value.job_name_filter) {
+            const filter = j.schedule.value.job_name_filter.toLowerCase();
+            if (job.name.toLowerCase().includes(filter)) relatedIds.add(j.id);
+            if (relatedIds.has(j.id) && allJobs.some(s => s.name.toLowerCase().includes(filter) && s.id !== j.id)) {
+                allJobs.filter(s => s.name.toLowerCase().includes(filter) && s.id !== j.id).forEach(s => relatedIds.add(s.id));
             }
+        }
+        if (job.schedule && job.schedule.type === 'event' && job.schedule.value && job.schedule.value.job_name_filter) {
+            const filter = job.schedule.value.job_name_filter.toLowerCase();
+            if (j.name.toLowerCase().includes(filter)) relatedIds.add(j.id);
         }
     }
 
-    if (relatedIds.size <= 1 && job.depends_on.length === 0) {
-        // No dependencies at all
+    if (relatedIds.size <= 1) {
         card.style.display = 'none';
         return;
     }
 
     card.style.display = '';
 
-    // Build job lookup from allJobs + current job
     const jobMap = {};
     for (const j of allJobs) jobMap[j.id] = j;
     jobMap[job.id] = job;
 
-    const related = Array.from(relatedIds).map(id => jobMap[id]).filter(Boolean);
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#e0e2eb' : '#1a1d2e';
 
-    // Build adjacency for layout
-    const children = {};
-    const parents = {};
-    for (const j of related) {
-        children[j.id] = children[j.id] || [];
-        parents[j.id] = parents[j.id] || [];
+    function statusColor(s) {
+        if (s === 'succeeded') return '#2ecc71';
+        if (s === 'failed' || s === 'timed_out') return '#e05252';
+        if (s === 'running') return '#3e8bff';
+        return '#7c8298';
+    }
+
+    // Build elements
+    const elements = [];
+    const edgeSet = new Set();
+
+    for (const id of relatedIds) {
+        const j = jobMap[id];
+        if (!j) continue;
+        const lastStatus = j.last_execution ? j.last_execution.status : 'none';
+        elements.push({
+            data: {
+                id: j.id,
+                label: j.name,
+                lastStatus: lastStatus,
+                isCurrent: j.id === job.id,
+            }
+        });
+    }
+
+    // Dependency edges
+    for (const id of relatedIds) {
+        const j = jobMap[id];
+        if (!j) continue;
         for (const dep of j.depends_on) {
-            if (relatedIds.has(dep.job_id)) {
-                children[dep.job_id] = children[dep.job_id] || [];
-                children[dep.job_id].push(j.id);
-                parents[j.id].push(dep.job_id);
+            if (!relatedIds.has(dep.job_id)) continue;
+            const eid = dep.job_id + '->' + j.id;
+            if (!edgeSet.has(eid)) {
+                edgeSet.add(eid);
+                const label = dep.within_secs ? fmtSeconds(dep.within_secs) : '';
+                elements.push({ data: { id: eid, source: dep.job_id, target: j.id, label: label, edgeType: 'dep' } });
             }
         }
     }
 
-    // Layer assignment
-    const layers = {};
-    const roots = related.filter(j => (parents[j.id] || []).length === 0).map(j => j.id);
-    const visited = new Set();
-    const queue = roots.map(id => ({ id, layer: 0 }));
-
-    while (queue.length > 0) {
-        const { id, layer } = queue.shift();
-        if (visited.has(id)) {
-            layers[id] = Math.max(layers[id] || 0, layer);
-            continue;
-        }
-        visited.add(id);
-        layers[id] = layer;
-        for (const cid of (children[id] || [])) {
-            queue.push({ id: cid, layer: layer + 1 });
-        }
-    }
-    for (const j of related) {
-        if (!visited.has(j.id)) layers[j.id] = 0;
-    }
-
-    // Layout
-    const nodeW = 150;
-    const nodeH = 44;
-    const layerGap = 80;
-    const nodeGap = 16;
-    const padX = 20;
-    const padY = 20;
-
-    const layerGroups = {};
-    let maxLayer = 0;
-    for (const [id, layer] of Object.entries(layers)) {
-        layerGroups[layer] = layerGroups[layer] || [];
-        layerGroups[layer].push(id);
-        maxLayer = Math.max(maxLayer, layer);
-    }
-
-    const positions = {};
-    let totalW = 0;
-    let totalH = 0;
-    for (let l = 0; l <= maxLayer; l++) {
-        const group = layerGroups[l] || [];
-        const colX = padX + l * (nodeW + layerGap);
-        for (let i = 0; i < group.length; i++) {
-            const y = padY + i * (nodeH + nodeGap);
-            positions[group[i]] = { x: colX, y };
-            totalW = Math.max(totalW, colX + nodeW + padX);
-            totalH = Math.max(totalH, y + nodeH + padY);
-        }
-    }
-
-    svg.setAttribute('width', totalW);
-    svg.setAttribute('height', totalH);
-    svg.setAttribute('viewBox', '0 0 ' + totalW + ' ' + totalH);
-
-    let svgHtml = '<defs><marker id="mini-arrow" viewBox="0 0 10 6" refX="10" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 3 L 0 6 z" class="map-arrowhead"/></marker></defs>';
-
-    // Edges
-    for (const j of related) {
-        for (const dep of j.depends_on) {
-            const from = positions[dep.job_id];
-            const to = positions[j.id];
-            if (!from || !to) continue;
-            const x1 = from.x + nodeW;
-            const y1 = from.y + nodeH / 2;
-            const x2 = to.x;
-            const y2 = to.y + nodeH / 2;
-            const cx1 = x1 + (x2 - x1) * 0.4;
-            const cx2 = x2 - (x2 - x1) * 0.4;
-
-            let label = '';
-            if (dep.within_secs) {
-                const mx = (x1 + x2) / 2;
-                const my = (y1 + y2) / 2 - 8;
-                label = '<text x="' + mx + '" y="' + my + '" text-anchor="middle" font-size="9" fill="var(--text-muted)">within ' + fmtSeconds(dep.within_secs) + '</text>';
+    // Event trigger edges
+    for (const id of relatedIds) {
+        const j = jobMap[id];
+        if (!j || j.schedule.type !== 'event' || !j.schedule.value || !j.schedule.value.job_name_filter) continue;
+        const filter = j.schedule.value.job_name_filter.toLowerCase();
+        for (const sid of relatedIds) {
+            if (sid === id) continue;
+            const s = jobMap[sid];
+            if (s && s.name.toLowerCase().includes(filter)) {
+                const eid = sid + '=>' + id;
+                if (!edgeSet.has(eid)) {
+                    edgeSet.add(eid);
+                    elements.push({ data: { id: eid, source: sid, target: id, label: j.schedule.value.kind_pattern || '*', edgeType: 'event' } });
+                }
             }
-            svgHtml += '<path d="M ' + x1 + ' ' + y1 + ' C ' + cx1 + ' ' + y1 + ', ' + cx2 + ' ' + y2 + ', ' + x2 + ' ' + y2 + '" class="map-edge" stroke="var(--text-muted)" marker-end="url(#mini-arrow)"/>' + label;
         }
     }
 
-    // Nodes
-    for (const j of related) {
-        const pos = positions[j.id];
-        if (!pos) continue;
+    // Render
+    if (miniCyInstance) { miniCyInstance.destroy(); miniCyInstance = null; }
+    container.innerHTML = '';
+    container.style.height = '200px';
+    container.style.width = '100%';
 
-        const isCurrent = j.id === job.id;
-        let fill, stroke;
-        const lastStatus = j.last_execution ? j.last_execution.status : null;
-        if (lastStatus === 'succeeded') { fill = 'rgba(46,204,113,0.15)'; stroke = 'var(--success)'; }
-        else if (lastStatus === 'failed' || lastStatus === 'timed_out') { fill = 'rgba(224,82,82,0.15)'; stroke = 'var(--danger)'; }
-        else if (lastStatus === 'running') { fill = 'rgba(62,139,255,0.15)'; stroke = 'var(--info)'; }
-        else { fill = 'var(--bg-tertiary)'; stroke = 'var(--border)'; }
+    miniCyInstance = cytoscape({
+        container: container,
+        elements: elements,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'font-size': 10,
+                    'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
+                    'color': textColor,
+                    'background-color': function(ele) {
+                        const s = ele.data('lastStatus');
+                        if (s === 'succeeded') return isDark ? 'rgba(46,204,113,0.15)' : 'rgba(46,204,113,0.1)';
+                        if (s === 'failed' || s === 'timed_out') return isDark ? 'rgba(224,82,82,0.15)' : 'rgba(224,82,82,0.1)';
+                        return isDark ? '#252840' : '#f0f1f5';
+                    },
+                    'border-width': function(ele) { return ele.data('isCurrent') ? 3 : 2; },
+                    'border-color': function(ele) {
+                        if (ele.data('isCurrent')) return '#3e8bff';
+                        return statusColor(ele.data('lastStatus'));
+                    },
+                    'shape': 'round-rectangle',
+                    'width': function(ele) { return Math.max(100, ele.data('label').length * 8 + 20); },
+                    'height': 32,
+                    'text-wrap': 'ellipsis',
+                    'text-max-width': function(ele) { return Math.max(80, ele.data('label').length * 8); },
+                }
+            },
+            {
+                selector: 'node[?isCurrent]',
+                style: { 'underlay-color': '#3e8bff', 'underlay-opacity': 0.15, 'underlay-padding': 4, 'underlay-shape': 'round-rectangle' }
+            },
+            {
+                selector: 'edge[edgeType="dep"]',
+                style: {
+                    'width': 2, 'line-color': isDark ? '#4a5070' : '#a0a8c0',
+                    'target-arrow-color': isDark ? '#6a7090' : '#8890a8',
+                    'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
+                    'label': 'data(label)', 'font-size': 8, 'color': '#7c8298',
+                    'text-rotation': 'autorotate', 'text-margin-y': -8,
+                    'text-background-color': isDark ? '#1a1b2e' : '#fff',
+                    'text-background-opacity': 0.9, 'text-background-padding': '2px',
+                }
+            },
+            {
+                selector: 'edge[edgeType="event"]',
+                style: {
+                    'width': 2, 'line-color': '#e6a817', 'line-style': 'dashed',
+                    'target-arrow-color': '#e6a817', 'target-arrow-shape': 'triangle',
+                    'curve-style': 'bezier',
+                    'label': function(ele) { return '\u26A1 ' + ele.data('label'); },
+                    'font-size': 8, 'color': '#e6a817',
+                    'text-rotation': 'autorotate', 'text-margin-y': -8,
+                }
+            },
+        ],
+        layout: { name: 'breadthfirst', directed: true, spacingFactor: 1.2, padding: 15 },
+        minZoom: 0.3, maxZoom: 2,
+        userPanningEnabled: false, userZoomingEnabled: false, boxSelectionEnabled: false,
+    });
 
-        if (isCurrent) stroke = 'var(--accent)';
+    miniCyInstance.on('tap', 'node', function(evt) {
+        if (!evt.target.data('isCurrent')) showJobDetail(evt.target.id());
+    });
 
-        const cls = isCurrent ? 'map-node mini-map-current' : 'map-node';
-        const onclick = isCurrent ? '' : ' onclick="showJobDetail(\'' + j.id + '\')"';
-
-        svgHtml += '<g class="' + cls + '"' + onclick + '>';
-        svgHtml += '<rect x="' + pos.x + '" y="' + pos.y + '" width="' + nodeW + '" height="' + nodeH + '" fill="' + fill + '" stroke="' + stroke + '"/>';
-        svgHtml += '<circle cx="' + (pos.x + 12) + '" cy="' + (pos.y + 16) + '" r="3" fill="' + (isCurrent ? 'var(--accent)' : 'var(--text-muted)') + '"/>';
-        svgHtml += '<text class="node-name" x="' + (pos.x + 20) + '" y="' + (pos.y + 18) + '">' + (isCurrent ? '\u25C9 ' : '') + esc(j.name) + '</text>';
-        svgHtml += '<text class="node-status" x="' + (pos.x + 20) + '" y="' + (pos.y + 32) + '">' + j.status + (lastStatus ? ' \u2022 ' + lastStatus : '') + '</text>';
-        svgHtml += '</g>';
-    }
-
-    svg.innerHTML = svgHtml;
+    miniCyInstance.fit(undefined, 15);
 }
 
 function collectJobNotifications() {

@@ -264,7 +264,10 @@ async fn add_security_headers(
 
 async fn dashboard() -> impl axum::response::IntoResponse {
     (
-        [(axum::http::header::CACHE_CONTROL, "no-cache, no-store, must-revalidate")],
+        [(
+            axum::http::header::CACHE_CONTROL,
+            "no-cache, no-store, must-revalidate",
+        )],
         Html(DASHBOARD_HTML),
     )
 }
