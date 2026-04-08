@@ -534,7 +534,7 @@ async fn tool_trigger_job(args: &Value, state: &AppState) -> Result<String, Stri
 
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(job.id))
+        .send(SchedulerCommand::TriggerNow(job.id, false))
         .await
         .map_err(|_| "scheduler unavailable".to_string())?;
 

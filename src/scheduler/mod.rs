@@ -25,7 +25,8 @@ pub enum SchedulerCommand {
     /// Invalidate the job cache and reload from the database.
     Reload,
     /// Immediately fire the job with the given ID.
-    TriggerNow(Uuid),
+    /// The bool flag indicates whether to skip dependency checks.
+    TriggerNow(Uuid, bool),
     /// Cancel the execution with the given ID.
     CancelExecution(Uuid),
     /// Notify the scheduler of a new event for event-triggered jobs.
@@ -116,7 +117,7 @@ impl Scheduler {
                 }
                 ScheduleKind::OneShot(fire_at) => {
                     if now >= *fire_at {
-                        self.fire_job(job, TriggerSource::Scheduler).await;
+                        self.fire_job(job, TriggerSource::Scheduler, false).await;
                         let mut updated = job.clone();
                         updated.status = JobStatus::Unscheduled;
                         updated.updated_at = Utc::now();
@@ -166,7 +167,7 @@ impl Scheduler {
             }
 
             self.last_fired.insert(job.id, fire_time);
-            self.fire_job(job, TriggerSource::Scheduler).await;
+            self.fire_job(job, TriggerSource::Scheduler, false).await;
 
             let Ok(schedule) = CronSchedule::parse(cron_expr) else {
                 return;
@@ -177,8 +178,8 @@ impl Scheduler {
         }
     }
 
-    async fn fire_job(&self, job: &Job, trigger: TriggerSource) {
-        if !job.depends_on.is_empty() {
+    async fn fire_job(&self, job: &Job, trigger: TriggerSource, skip_deps: bool) {
+        if !skip_deps && !job.depends_on.is_empty() {
             let dag = self.dag.clone();
             let deps = job.depends_on.clone();
             let satisfied = tokio::task::spawn_blocking(move || dag.deps_satisfied(&deps))
@@ -224,14 +225,14 @@ impl Scheduler {
                 debug!("reloading jobs");
                 self.invalidate_cache();
             }
-            SchedulerCommand::TriggerNow(job_id) => {
+            SchedulerCommand::TriggerNow(job_id, skip_deps) => {
                 let db = self.db.clone();
                 let job = tokio::task::spawn_blocking(move || db.get_job(job_id))
                     .await
                     .unwrap_or(Ok(None));
                 match job {
                     Ok(Some(job)) => {
-                        self.fire_job(&job, TriggerSource::Api).await;
+                        self.fire_job(&job, TriggerSource::Api, skip_deps).await;
                     }
                     Ok(None) => {
                         warn!("trigger: job {} not found", job_id);
@@ -359,7 +360,7 @@ impl Scheduler {
                 // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
                 // (events from TriggerSource::Event executions)
                 info!("event '{}' matched job '{}', firing", event.kind, job.name);
-                self.fire_job(job, TriggerSource::Event { event_id: event.id })
+                self.fire_job(job, TriggerSource::Event { event_id: event.id }, false)
                     .await;
             }
         }

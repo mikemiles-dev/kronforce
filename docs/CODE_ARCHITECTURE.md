@@ -183,7 +183,7 @@ Each task type has a dedicated async function in `src/executor/tasks/` that retu
 ### Scheduler Commands
 The scheduler runs in its own tokio task and receives commands via an `mpsc` channel:
 - `Reload` — invalidate job cache
-- `TriggerNow(job_id)` — fire a job immediately
+- `TriggerNow(job_id, skip_deps)` — fire a job immediately; when `skip_deps` is true, dependency checks are bypassed for this single run
 - `CancelExecution(exec_id)` — cancel a running execution
 - `EventOccurred(event)` — check event-triggered jobs
 - `RetryExecution { job_id, original_id, attempt }` — retry a failed job

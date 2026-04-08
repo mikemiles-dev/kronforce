@@ -51,6 +51,7 @@ That's it. You have a running scheduler with a web dashboard.
 - **Job templates** — save any job as a reusable template, create new jobs from the template library
 - **Execution retry** — automatic retry on failure/timeout with configurable backoff
 - **Approval workflows** — require sign-off before critical jobs run
+- **Dependency chains** — jobs wait for upstream jobs to succeed, with optional time windows; force-trigger blocked jobs with "Run Anyway"
 - **SLA deadlines** — set completion deadlines with early warning alerts
 - **Job version history** — full snapshot on every change for audit trail
 
@@ -216,6 +217,7 @@ See [Migration Guide](docs/MIGRATION.md) for migrating from Rundeck and Airflow 
 
 ## Documentation
 
+- [Tutorial](docs/TUTORIAL.md) — end-to-end walkthrough: controller, agent, pipeline, notifications
 - [Deployment](docs/DEPLOYMENT.md) — Docker Compose, HA with Litestream, configuration, scaling
 - [Architecture](docs/ARCHITECTURE.md) — system design, components, execution flow, database schema
 - [Code Architecture](docs/CODE_ARCHITECTURE.md) — source tree, data flows, design patterns

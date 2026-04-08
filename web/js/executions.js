@@ -378,6 +378,16 @@ async function showWaitingDetail(jobId) {
             content.innerHTML = html;
         }
 
+        // Show "Run Anyway" button if deps are not all satisfied
+        const runAnywayBtn = document.getElementById('waiting-run-anyway-btn');
+        if (runAnywayBtn) {
+            runAnywayBtn.style.display = job.deps_satisfied ? 'none' : '';
+            runAnywayBtn.onclick = function() {
+                closeWaitingModal();
+                triggerJob(jobId, true);
+            };
+        }
+
         openModal('waiting-modal');
     } catch (e) {
         toast(e.message, 'error');

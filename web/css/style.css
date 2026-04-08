@@ -1102,6 +1102,10 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     max-width: 720px;
 }
 
+.exec-modal-card .modal-body {
+    padding: 20px 24px;
+}
+
 .exec-info {
     display: flex;
     gap: 16px;

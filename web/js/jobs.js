@@ -486,11 +486,12 @@ function field(label, value) {
 }
 
 // --- Actions ---
-async function triggerJob(id) {
+async function triggerJob(id, skipDeps) {
     const btn = document.getElementById('trigger-' + id);
     if (btn) btn.classList.add('trigger-pending');
     try {
-        await api('POST', '/api/jobs/' + id + '/trigger');
+        const qs = skipDeps ? '?skip_deps=true' : '';
+        await api('POST', '/api/jobs/' + id + '/trigger' + qs);
         toast('Job triggered, waiting for result...', 'info');
         // Poll rapidly for execution result
         pollForResult(id);

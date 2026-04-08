@@ -597,11 +597,19 @@ pub(crate) async fn delete_job(
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
+/// Query parameters for the trigger endpoint.
+#[derive(Deserialize)]
+pub(crate) struct TriggerQuery {
+    /// When true, skip dependency checks for this single execution.
+    skip_deps: Option<bool>,
+}
+
 /// Manually triggers a job execution outside of its schedule.
 /// If the job has `approval_required`, creates a pending_approval execution instead.
 pub(crate) async fn trigger_job(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(trigger_query): Query<TriggerQuery>,
     auth: AuthUser,
 ) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
     if let Some(ref key) = auth.0
@@ -666,16 +674,28 @@ pub(crate) async fn trigger_job(
 
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(id))
+        .send(SchedulerCommand::TriggerNow(
+            id,
+            trigger_query.skip_deps.unwrap_or(false),
+        ))
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 
+    let skip_deps = trigger_query.skip_deps.unwrap_or(false);
     log_and_notify(
         &state.db,
         &state.scheduler_tx,
         "job.triggered",
         EventSeverity::Info,
-        &format!("Job manually triggered ({})", id),
+        &format!(
+            "Job manually triggered ({}){}",
+            id,
+            if skip_deps {
+                " (dependencies skipped)"
+            } else {
+                ""
+            }
+        ),
         Some(id),
         None,
         &auth,
@@ -929,7 +949,7 @@ pub(crate) async fn approve_execution(
     // Trigger the job through the scheduler
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(exec.job_id))
+        .send(SchedulerCommand::TriggerNow(exec.job_id, false))
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 

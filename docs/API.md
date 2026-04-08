@@ -230,13 +230,27 @@ curl -X POST http://localhost:8080/api/jobs \
 ## Executions
 
 ```bash
-curl -X POST http://localhost:8080/api/jobs/{id}/trigger        # Trigger now
-curl "http://localhost:8080/api/jobs/{id}/executions?page=1"     # History
-curl http://localhost:8080/api/executions/{id}                   # Details
-curl -X POST http://localhost:8080/api/executions/{id}/cancel    # Cancel
-curl -X POST http://localhost:8080/api/executions/{id}/approve   # Approve (for approval-gated jobs)
-curl http://localhost:8080/api/jobs/{id}/versions                # Job version history
+curl -X POST http://localhost:8080/api/jobs/{id}/trigger              # Trigger now
+curl -X POST "http://localhost:8080/api/jobs/{id}/trigger?skip_deps=true"  # Trigger, skip dependency checks
+curl "http://localhost:8080/api/jobs/{id}/executions?page=1"          # History
+curl http://localhost:8080/api/executions/{id}                        # Details
+curl -X POST http://localhost:8080/api/executions/{id}/cancel         # Cancel
+curl -X POST http://localhost:8080/api/executions/{id}/approve        # Approve (for approval-gated jobs)
+curl http://localhost:8080/api/jobs/{id}/versions                     # Job version history
 ```
+
+### Skip Dependencies
+
+Jobs with `depends_on` normally skip execution when dependencies aren't satisfied. To force a single run regardless of dependency status, pass `?skip_deps=true`:
+
+```bash
+curl -X POST "http://localhost:8080/api/jobs/{id}/trigger?skip_deps=true" \
+  -H "Authorization: Bearer kf_admin_key"
+```
+
+This is a one-time override — the job's dependency configuration is unchanged and future scheduled runs still check dependencies normally. The event log records that dependencies were skipped.
+
+In the UI, click the "waiting" badge on a blocked job to see dependency status, then click **Run Anyway** to trigger with dependencies skipped.
 
 ### Approval Workflows
 

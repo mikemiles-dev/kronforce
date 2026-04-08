@@ -239,6 +239,14 @@ curl -X POST http://localhost:8080/api/jobs -d '{
 
 If extract fails at 2am, transform skips at 3am (dependency not satisfied), and load skips at 4am. The dependency map page visualizes this chain.
 
+To force a blocked job to run once without waiting for dependencies, trigger it with `?skip_deps=true`:
+
+```bash
+curl -X POST "http://localhost:8080/api/jobs/<transform-id>/trigger?skip_deps=true"
+```
+
+Or click the "waiting" badge in the UI and use **Run Anyway**. This is a one-time override — future scheduled runs still check dependencies normally.
+
 ### Pattern 4: Fan-Out to Agents
 
 Deploy to all production servers simultaneously:
