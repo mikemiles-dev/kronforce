@@ -1256,18 +1256,9 @@ async function renderMap() {
 
     const container = document.getElementById('map-container');
 
-    // Populate group filter dropdown
-    const mapGroupFilter = document.getElementById('map-group-filter');
-    if (mapGroupFilter) {
-        const selectedGroup = mapGroupFilter.value;
-        const groups = [...new Set(jobs.map(j => j.group || 'Default'))].sort();
-        mapGroupFilter.innerHTML = '<option value="">All Groups</option>';
-        for (const g of groups) {
-            mapGroupFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === selectedGroup ? ' selected' : '') + '>' + esc(g) + '</option>';
-        }
-        if (selectedGroup) {
-            jobs = jobs.filter(j => (j.group || 'Default') === selectedGroup);
-        }
+    // Filter by shared group filter
+    if (typeof groupFilter !== 'undefined' && groupFilter) {
+        jobs = jobs.filter(j => (j.group || 'Default') === groupFilter);
     }
 
     if (jobs.length === 0) {

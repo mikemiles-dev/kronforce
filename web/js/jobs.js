@@ -31,6 +31,10 @@ function setJobsTab(tab) {
         });
     }
 
+    // Sync group filter dropdown value
+    const gf = document.getElementById('group-filter');
+    if (gf) gf.value = groupFilter;
+
     if (tab === 'list') {
         fetchJobs();
     } else if (tab === 'groups') {
@@ -83,23 +87,7 @@ async function renderJobsStagesTab() {
             jobsByGroup[g].push(j);
         }
 
-        // Use the stages group select, or show all
-        const stagesSelect = document.getElementById('stages-group-select');
-        const selected = stagesSelect ? stagesSelect.value : '';
-
-        // Populate the stages dropdown
-        if (stagesSelect) {
-            const currentSel = stagesSelect.value;
-            stagesSelect.innerHTML = '<option value="">All Groups</option>';
-            const allGroupsSorted = [...new Set([...groups, ...Object.keys(jobsByGroup)])].sort((a, b) => {
-                if (a === 'Default') return -1;
-                if (b === 'Default') return 1;
-                return a.localeCompare(b);
-            });
-            for (const g of allGroupsSorted) {
-                stagesSelect.innerHTML += '<option value="' + esc(g) + '"' + (g === currentSel ? ' selected' : '') + '>' + esc(g) + '</option>';
-            }
-        }
+        const selected = groupFilter;
         const content = document.getElementById('stages-content');
         if (!content) return;
 
@@ -156,7 +144,13 @@ async function fetchGroups() {
 
 function setGroupFilter(value) {
     groupFilter = value;
-    fetchJobs(true);
+    // Sync all group dropdowns
+    const gf = document.getElementById('group-filter');
+    const sgf = document.getElementById('stages-group-select');
+    if (gf) gf.value = value;
+    if (sgf) sgf.value = value;
+    // Re-render current tab
+    setJobsTab(jobsTab);
 }
 
 async function bulkSetGroup() {
