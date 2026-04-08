@@ -7,6 +7,10 @@
                 <button class="jobs-tab" id="jt-map" onclick="setJobsTab('map')"><span class="jobs-tab-icon">&#9741;</span> Map</button>
             </div>
             <div class="jobs-tab-right">
+                <label style="font-size:11px;font-weight:600;color:var(--accent)">Group:</label>
+                <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:12px;padding:5px 10px">
+                    <option value="">All</option>
+                </select>
                 <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ Create</button>
                 <button class="btn btn-ghost btn-sm" id="jobs-template-btn" onclick="showTemplatesPicker()">Template</button>
                 <button class="btn btn-ghost btn-sm" id="jobs-newgroup-btn" onclick="createNewGroup()" style="display:none">+ Group</button>
@@ -19,12 +23,6 @@
                 <button class="btn btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
                 <button class="btn btn-ghost btn-sm" id="bulk-clear-btn" onclick="clearSelection()" disabled>Clear</button>
                 <span id="bulk-count-text" class="bulk-count-text"></span>
-                <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-                    <label style="font-size:11px;font-weight:600;color:var(--accent)">Group:</label>
-                    <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:12px;padding:5px 10px">
-                        <option value="">All</option>
-                    </select>
-                </div>
             </div>
             <div id="jobs-table-wrap"></div>
             <div id="jobs-pagination" class="pagination"></div>
