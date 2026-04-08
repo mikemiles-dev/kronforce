@@ -36,6 +36,8 @@ pub(crate) struct CreateJobRequest {
     sla_deadline: Option<String>,
     #[serde(default)]
     sla_warning_mins: u32,
+    starts_at: Option<chrono::DateTime<Utc>>,
+    expires_at: Option<chrono::DateTime<Utc>>,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -60,6 +62,8 @@ pub(crate) struct UpdateJobRequest {
     priority: Option<i32>,
     sla_deadline: Option<String>,
     sla_warning_mins: Option<u32>,
+    starts_at: Option<chrono::DateTime<Utc>>,
+    expires_at: Option<chrono::DateTime<Utc>>,
 }
 
 /// Summary of a job's most recent execution.
@@ -307,6 +311,8 @@ pub(crate) async fn create_job(
         priority: req.priority,
         sla_deadline: req.sla_deadline,
         sla_warning_mins: req.sla_warning_mins,
+        starts_at: req.starts_at,
+        expires_at: req.expires_at,
     };
 
     let job_clone = job.clone();
@@ -471,6 +477,12 @@ pub(crate) async fn update_job(
     }
     if let Some(w) = req.sla_warning_mins {
         job.sla_warning_mins = w;
+    }
+    if req.starts_at.is_some() {
+        job.starts_at = req.starts_at;
+    }
+    if req.expires_at.is_some() {
+        job.expires_at = req.expires_at;
     }
 
     job.updated_at = Utc::now();
@@ -760,19 +772,40 @@ impl JobResponse {
     }
 
     fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
-        match &job.schedule {
+        let now = Utc::now();
+
+        // If the job has expired, no next fire
+        if let Some(expires_at) = job.expires_at {
+            if now > expires_at {
+                return None;
+            }
+        }
+
+        let next = match &job.schedule {
             ScheduleKind::Cron(expr) => {
                 let schedule = CronSchedule::parse(&expr.0).ok()?;
-                schedule.next_after(Utc::now())
+                schedule.next_after(now)
             }
             ScheduleKind::OneShot(t) => {
-                if *t > Utc::now() {
+                if *t > now {
                     Some(*t)
                 } else {
                     None
                 }
             }
             ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
+        };
+
+        // Clamp to starts_at if the next fire is before the window opens
+        let next = match (next, job.starts_at) {
+            (Some(t), Some(starts_at)) if t < starts_at => Some(starts_at),
+            _ => next,
+        };
+
+        // Return None if next fire is after expiry
+        match (next, job.expires_at) {
+            (Some(t), Some(expires_at)) if t > expires_at => None,
+            _ => next,
         }
     }
 

@@ -38,6 +38,8 @@ function openCreateModal() {
     document.getElementById('f-approval-required').checked = false;
     document.getElementById('f-sla-deadline').value = '';
     document.getElementById('f-sla-warning').value = '0';
+    document.getElementById('f-starts-at').value = '';
+    document.getElementById('f-expires-at').value = '';
     setEventJobFilter('');
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
@@ -99,6 +101,8 @@ async function copyJob(id) {
         document.getElementById('f-approval-required').checked = job.approval_required || false;
         document.getElementById('f-sla-deadline').value = job.sla_deadline || '';
         document.getElementById('f-sla-warning').value = job.sla_warning_mins || 0;
+        document.getElementById('f-starts-at').value = job.starts_at ? toLocalDatetimeString(new Date(job.starts_at)) : '';
+        document.getElementById('f-expires-at').value = job.expires_at ? toLocalDatetimeString(new Date(job.expires_at)) : '';
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -217,6 +221,10 @@ async function openEditModal(id) {
             await populateAgentSelect();
             document.getElementById('f-agent').value = target.agent_id;
         }
+
+        // Schedule window
+        document.getElementById('f-starts-at').value = job.starts_at ? toLocalDatetimeString(new Date(job.starts_at)) : '';
+        document.getElementById('f-expires-at').value = job.expires_at ? toLocalDatetimeString(new Date(job.expires_at)) : '';
 
         populateDeps(id, job.depends_on);
         populateOutputRules(job.output_rules);
@@ -1218,6 +1226,10 @@ async function submitJobForm() {
         const slaWarning = parseInt(document.getElementById('f-sla-warning').value) || 0;
         if (slaWarning > 0) body.sla_warning_mins = slaWarning;
     }
+    const startsAt = document.getElementById('f-starts-at').value;
+    if (startsAt) body.starts_at = new Date(startsAt).toISOString();
+    const expiresAt = document.getElementById('f-expires-at').value;
+    if (expiresAt) body.expires_at = new Date(expiresAt).toISOString();
 
     try {
         if (editingJobId) {

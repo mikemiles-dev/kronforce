@@ -500,6 +500,8 @@ async fn tool_create_job(args: &Value, state: &AppState) -> Result<String, Strin
         priority: 0,
         sla_deadline: None,
         sla_warning_mins: 0,
+        starts_at: None,
+        expires_at: None,
     };
 
     let job_clone = job.clone();

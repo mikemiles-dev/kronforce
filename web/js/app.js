@@ -545,7 +545,7 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
         el.innerHTML = total > 0 ? '<span class="pagination-info">' + total + ' total</span>' : '';
         return;
     }
-    const fnName = '_pag_' + containerId.replace('-', '_');
+    const fnName = '_pag_' + containerId.replace(/-/g, '_');
     window[fnName] = goToFn;
     let html = '<span class="pagination-info">Page ' + currentPage + ' of ' + totalPages + ' (' + total + ' total)</span>';
     html += '<div class="pagination-controls">';

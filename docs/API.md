@@ -294,6 +294,23 @@ curl -X PUT http://localhost:8080/api/jobs/{id} \
 
 When the job is still running at 05:45 UTC, a `sla.warning` event fires. At 06:00 UTC, a `sla.breach` event fires. Both trigger configured notifications (Slack, email, PagerDuty).
 
+### Schedule Window
+
+Constrain when a job's schedule is active with `starts_at` and `expires_at` (ISO 8601 datetimes). These work with any schedule type (cron, one-shot, on-demand, event):
+
+```bash
+# Run every hour, but only for the next 3 weeks
+curl -X PUT http://localhost:8080/api/jobs/{id} \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"starts_at": "2026-04-07T00:00:00Z", "expires_at": "2026-04-28T00:00:00Z"}'
+```
+
+- **`starts_at`** — the scheduler won't fire the job before this time
+- **`expires_at`** — the scheduler stops firing after this time and marks the job as unscheduled
+
+Both fields are optional and independent. Set `starts_at` to delay activation ("start next Monday"), or `expires_at` for temporary jobs ("run for 3 weeks then stop"), or both for a fixed window. Manual triggers via `?skip_deps=true` are not affected by the schedule window.
+
 ### Job Templates
 
 Save reusable job definitions and create new jobs from them:

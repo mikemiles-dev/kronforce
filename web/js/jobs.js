@@ -456,6 +456,13 @@ function renderJobDetail(job) {
     if (job.priority) extras.push(field('Priority', String(job.priority)));
     if (job.approval_required) extras.push(field('Approval', '<span class="badge badge-pending_approval">required</span>'));
     if (job.sla_deadline) extras.push(field('SLA', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + 'm)' : '')));
+    if (job.starts_at || job.expires_at) {
+        let windowHtml = '';
+        if (job.starts_at) windowHtml += 'from ' + fmtDateUTC(job.starts_at);
+        if (job.starts_at && job.expires_at) windowHtml += ' ';
+        if (job.expires_at) windowHtml += 'until ' + fmtDateUTC(job.expires_at);
+        extras.push(field('Window', windowHtml));
+    }
     if (notifHtml.indexOf('off') === -1) extras.push(field('Alerts', notifHtml));
     if (rulesHtml.indexOf('none') === -1) extras.push(field('Output', rulesHtml));
 

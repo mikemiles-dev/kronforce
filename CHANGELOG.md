@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-03
 
 ### Added
+- **Schedule window** — optional `starts_at` and `expires_at` fields on jobs to constrain when a schedule is active. "Run for 3 weeks then stop", "start next Monday", or any fixed window. Expired jobs auto-unschedule.
 - **Skip dependencies on trigger** — manually trigger a blocked job with `?skip_deps=true` to bypass dependency checks for a single run. UI adds a "Run Anyway" button in the waiting-on-dependencies modal.
 - **End-to-end tutorial** — new `docs/TUTORIAL.md` walks through controller setup, agent deployment, building a pipeline, and notifications
 - **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.

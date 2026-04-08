@@ -38,8 +38,8 @@ impl Db {
         let task_json = serde_json::to_string(&job.task)
             .map_err(|e| AppError::Internal(format!("serialize task: {e}")))?;
         conn.execute(
-            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+            "INSERT INTO jobs (id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins, starts_at, expires_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
             params![
                 job.id.to_string(),
                 job.name,
@@ -64,6 +64,8 @@ impl Db {
                 job.priority,
                 job.sla_deadline,
                 job.sla_warning_mins as i32,
+                job.starts_at.map(|dt| dt.to_rfc3339()),
+                job.expires_at.map(|dt| dt.to_rfc3339()),
             ],
         ).map_err(|e| {
             if let rusqlite::Error::SqliteFailure(ref err, _) = e
@@ -86,7 +88,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins FROM jobs WHERE id = ?1")
+            .prepare("SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins, starts_at, expires_at FROM jobs WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], Job::from_row)
@@ -156,7 +158,7 @@ impl Db {
         let mut f = Self::build_job_filters(status_filter, search, group_filter);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
-            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
+            "SELECT id, name, description, task_json, run_as, schedule_json, status, timeout_secs, depends_on_json, target_json, created_by, created_at, updated_at, output_rules_json, notifications_json, group_name, retry_max, retry_delay_secs, retry_backoff, approval_required, priority, sla_deadline, sla_warning_mins, starts_at, expires_at FROM jobs{} ORDER BY name LIMIT ?{} OFFSET ?{}",
             f.where_sql(),
             li,
             oi
@@ -204,7 +206,7 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("serialize notifications: {e}")))?;
         let changed = conn
             .execute(
-                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12, group_name=?13, retry_max=?14, retry_delay_secs=?15, retry_backoff=?16, approval_required=?17, priority=?18, sla_deadline=?19, sla_warning_mins=?20 WHERE id=?21",
+                "UPDATE jobs SET name=?1, description=?2, task_json=?3, run_as=?4, schedule_json=?5, status=?6, timeout_secs=?7, depends_on_json=?8, target_json=?9, updated_at=?10, output_rules_json=?11, notifications_json=?12, group_name=?13, retry_max=?14, retry_delay_secs=?15, retry_backoff=?16, approval_required=?17, priority=?18, sla_deadline=?19, sla_warning_mins=?20, starts_at=?21, expires_at=?22 WHERE id=?23",
                 params![
                     job.name,
                     job.description,
@@ -226,6 +228,8 @@ impl Db {
                     job.priority,
                     job.sla_deadline,
                     job.sla_warning_mins as i32,
+                    job.starts_at.map(|dt| dt.to_rfc3339()),
+                    job.expires_at.map(|dt| dt.to_rfc3339()),
                     job.id.to_string(),
                 ],
             )

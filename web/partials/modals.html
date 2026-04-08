@@ -445,6 +445,21 @@
                 </div>
             </div>
         </div>
+        <details class="schedule-window-details" style="margin-top:12px">
+            <summary style="cursor:pointer;font-size:12px;font-weight:500;color:var(--accent);user-select:none">Schedule Window (optional)</summary>
+            <div style="display:flex;gap:12px;margin-top:8px">
+                <div class="form-group" style="flex:1">
+                    <label>Not Before</label>
+                    <input id="f-starts-at" type="datetime-local">
+                    <div class="form-hint">Job won't fire before this time</div>
+                </div>
+                <div class="form-group" style="flex:1">
+                    <label>Expires At</label>
+                    <input id="f-expires-at" type="datetime-local">
+                    <div class="form-hint">Job stops firing after this time</div>
+                </div>
+            </div>
+        </details>
         </div><!-- end job-tab-schedule -->
         <div class="modal-tab-content" id="job-tab-target">
         <div id="standard-target-section">

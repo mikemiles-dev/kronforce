@@ -193,6 +193,12 @@ pub struct Job {
     /// Minutes before the SLA deadline to fire a warning event.
     #[serde(default)]
     pub sla_warning_mins: u32,
+    /// Earliest time the job's schedule should fire (optional).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starts_at: Option<DateTime<Utc>>,
+    /// After this time the job's schedule stops firing (optional).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 fn default_retry_backoff() -> f64 {
@@ -252,6 +258,16 @@ impl Job {
             priority: row.get::<_, Option<i32>>(20).unwrap_or(None).unwrap_or(0),
             sla_deadline: row.get::<_, Option<String>>(21).unwrap_or(None),
             sla_warning_mins: row.get::<_, Option<i32>>(22).unwrap_or(None).unwrap_or(0) as u32,
+            starts_at: row
+                .get::<_, Option<String>>(23)
+                .unwrap_or(None)
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc)),
+            expires_at: row
+                .get::<_, Option<String>>(24)
+                .unwrap_or(None)
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc)),
         })
     }
 }
