@@ -523,6 +523,114 @@ Or target all agents:
 {"target": {"type": "all"}}
 ```
 
+## Cloud Deployment
+
+Kronforce runs anywhere Docker runs. The same image works on every cloud provider.
+
+### AWS
+
+**EC2:**
+```bash
+# SSH into your EC2 instance
+sudo yum install -y docker && sudo systemctl start docker   # Amazon Linux
+# or: sudo apt install -y docker.io                          # Ubuntu
+
+docker run -d --name kronforce \
+  -p 8080:8080 \
+  -v kronforce-data:/data \
+  ghcr.io/mikemiles-dev/kronforce:latest
+```
+
+**ECS (Fargate):** Create a task definition with image `ghcr.io/mikemiles-dev/kronforce:latest`, port mapping 8080, and an EFS volume mounted at `/data` for persistence.
+
+**ECS (EC2):** Same as Fargate but with an EC2 launch type. Mount an EBS volume at `/data`.
+
+### Azure
+
+**VM:**
+```bash
+# SSH into your Azure VM
+sudo apt install -y docker.io
+
+docker run -d --name kronforce \
+  -p 8080:8080 \
+  -v kronforce-data:/data \
+  ghcr.io/mikemiles-dev/kronforce:latest
+```
+
+**Container Instances (ACI):**
+```bash
+az container create \
+  --resource-group mygroup \
+  --name kronforce \
+  --image ghcr.io/mikemiles-dev/kronforce:latest \
+  --ports 8080 \
+  --cpu 1 --memory 1
+```
+
+**App Service:** Create a Web App for Containers, set the image to `ghcr.io/mikemiles-dev/kronforce:latest`, and configure port 8080.
+
+### Google Cloud
+
+**Compute Engine:**
+```bash
+# SSH into your GCE instance
+sudo apt install -y docker.io
+
+docker run -d --name kronforce \
+  -p 8080:8080 \
+  -v kronforce-data:/data \
+  ghcr.io/mikemiles-dev/kronforce:latest
+```
+
+**Cloud Run:**
+```bash
+gcloud run deploy kronforce \
+  --image ghcr.io/mikemiles-dev/kronforce:latest \
+  --port 8080 \
+  --allow-unauthenticated
+```
+
+Note: Cloud Run is stateless — the SQLite database resets on each deployment. Use Litestream replication to S3/GCS for persistence, or use a VM with a persistent disk instead.
+
+### DigitalOcean
+
+**Droplet:**
+```bash
+# SSH into your droplet
+curl -fsSL https://get.docker.com | sh
+
+docker run -d --name kronforce \
+  -p 8080:8080 \
+  -v kronforce-data:/data \
+  ghcr.io/mikemiles-dev/kronforce:latest
+```
+
+**App Platform:** Create a new app, select "Docker Hub / GHCR", enter `ghcr.io/mikemiles-dev/kronforce:latest`, set HTTP port to 8080.
+
+### Agents on Cloud
+
+Deploy agents on any cloud VM the same way:
+
+```bash
+docker run -d --name kronforce-agent \
+  -e KRONFORCE_CONTROLLER_URL=https://your-controller:8080 \
+  -e KRONFORCE_AGENT_KEY=kf_your_agent_key \
+  -e KRONFORCE_AGENT_NAME=cloud-agent-1 \
+  -e KRONFORCE_AGENT_TAGS=aws,prod \
+  ghcr.io/mikemiles-dev/kronforce:latest \
+  kronforce-agent
+```
+
+Agents connect outbound to the controller — no inbound ports needed except for standard agents (which need port 8081 open for the controller to push jobs).
+
+### Persistence Note
+
+SQLite stores all data in a single file at `/data/kronforce.db`. On cloud platforms:
+- **VMs**: Use a persistent disk/volume mounted at `/data`
+- **Containers (ECS, Cloud Run, ACI)**: Mount a network volume (EFS, Filestore, Azure Files) at `/data`
+- **Serverless**: Use Litestream to replicate to S3/GCS — see the [High Availability](#high-availability) section
+
 ## Troubleshooting
 
 ### Agent can't connect
