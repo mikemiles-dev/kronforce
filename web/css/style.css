@@ -2649,23 +2649,30 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     }
     .jobs-tab-left::-webkit-scrollbar { display: none; }
     .jobs-tab {
-        padding: 8px 12px;
-        font-size: 12px;
+        padding: 8px 10px;
+        font-size: 11px;
         white-space: nowrap;
         flex-shrink: 0;
     }
-    .jobs-tab-icon { font-size: 12px; }
+    .jobs-tab-icon { font-size: 11px; }
     .jobs-tab-right {
         padding: 6px 8px;
         border-top: 1px solid var(--border);
         justify-content: flex-end;
-        flex-wrap: wrap;
+        gap: 4px;
     }
+    .jobs-tab-right .btn { font-size: 10px; padding: 4px 8px; }
     .jobs-sub-toolbar {
         padding: 6px 8px;
         font-size: 11px;
     }
-    .jobs-sub-toolbar .btn { font-size: 11px; padding: 4px 8px; }
+    .jobs-sub-toolbar .btn { font-size: 10px; padding: 4px 6px; }
+}
+
+@media (max-width: 480px) {
+    .jobs-tab-right .btn { font-size: 10px; padding: 3px 6px; }
+    .jobs-tab-right #jobs-template-btn,
+    .jobs-tab-right #jobs-newgroup-btn { display: none !important; }
 }
 
 /* Jobs page tab bar */
