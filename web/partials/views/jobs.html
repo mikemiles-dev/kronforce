@@ -11,13 +11,12 @@
                 <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:12px;padding:5px 10px">
                     <option value="">All</option>
                 </select>
-                <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ Create</button>
-                <button class="btn btn-ghost btn-sm" id="jobs-template-btn" onclick="showTemplatesPicker()">Template</button>
-                <button class="btn btn-ghost btn-sm" id="jobs-newgroup-btn" onclick="createNewGroup()" style="display:none">+ Group</button>
             </div>
         </div>
         <div id="jobs-list-panel">
             <div class="jobs-sub-toolbar" id="jobs-bulk-bar">
+                <button class="btn btn-primary btn-sm" onclick="openCreateModal()">+ Create</button>
+                <button class="btn btn-ghost btn-sm" onclick="showTemplatesPicker()">Template</button>
                 <button class="btn btn-primary btn-sm" id="bulk-run-btn" onclick="bulkTrigger()" disabled>&#9654; Run</button>
                 <button class="btn btn-ghost btn-sm" id="bulk-group-btn" onclick="bulkSetGroup()" disabled>Set Group</button>
                 <button class="btn btn-danger btn-sm" id="bulk-delete-btn" onclick="bulkDelete()" disabled>Delete</button>
@@ -28,6 +27,10 @@
             <div id="jobs-pagination" class="pagination"></div>
         </div>
         <div id="jobs-groups-panel" style="display:none;margin-top:16px">
+            <div class="jobs-sub-toolbar">
+                <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ Group</button>
+                <button class="btn btn-ghost btn-sm" onclick="openCreateModal()">+ Create Job</button>
+            </div>
             <div id="groups-grid" class="groups-grid"></div>
         </div>
         <div id="jobs-stages-panel" style="display:none;margin-top:16px">

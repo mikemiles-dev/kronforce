@@ -15,12 +15,6 @@ function setJobsTab(tab) {
         if (el) el.style.display = key === tab ? '' : 'none';
     }
 
-    // Show/hide contextual buttons
-    const templateBtn = document.getElementById('jobs-template-btn');
-    const newGroupBtn = document.getElementById('jobs-newgroup-btn');
-    if (templateBtn) templateBtn.style.display = tab === 'list' ? '' : 'none';
-    if (newGroupBtn) newGroupBtn.style.display = (tab === 'groups' || tab === 'stages') ? '' : 'none';
-
     // Keep the action bar visible but hide search/filter controls on non-Jobs tabs
     // Keep the share button always visible
     const actionBar = document.getElementById('jobs-action-bar');
