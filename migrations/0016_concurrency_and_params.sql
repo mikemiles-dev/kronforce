@@ -3,6 +3,6 @@
 
 ALTER TABLE jobs ADD COLUMN max_concurrent INTEGER DEFAULT 0;
 ALTER TABLE jobs ADD COLUMN parameters_json TEXT;
-ALTER TABLE jobs ADD COLUMN webhook_token TEXT UNIQUE;
+ALTER TABLE jobs ADD COLUMN webhook_token TEXT;
 ALTER TABLE executions ADD COLUMN params_json TEXT;
-CREATE INDEX IF NOT EXISTS idx_jobs_webhook_token ON jobs(webhook_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_jobs_webhook_token ON jobs(webhook_token);
