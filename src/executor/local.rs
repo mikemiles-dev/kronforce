@@ -616,10 +616,8 @@ async fn run_command_inner(
         use tokio::io::{AsyncBufReadExt, BufReader};
 
         let tx = live_tx.unwrap();
-        let mut stdout_lines = child_stdout
-            .map(|s| BufReader::new(s).lines());
-        let mut stderr_lines = child_stderr
-            .map(|s| BufReader::new(s).lines());
+        let mut stdout_lines = child_stdout.map(|s| BufReader::new(s).lines());
+        let mut stderr_lines = child_stderr.map(|s| BufReader::new(s).lines());
         let mut stdout_buf = Vec::new();
         let mut stderr_buf = Vec::new();
         let mut stdout_done = stdout_lines.is_none();
@@ -679,7 +677,11 @@ async fn run_command_inner(
         let exit_status = child.wait().await;
         match exit_status {
             Ok(es) => {
-                let status = if es.success() { ExecutionStatus::Succeeded } else { ExecutionStatus::Failed };
+                let status = if es.success() {
+                    ExecutionStatus::Succeeded
+                } else {
+                    ExecutionStatus::Failed
+                };
                 CommandResult {
                     status,
                     exit_code: es.code(),
@@ -691,65 +693,68 @@ async fn run_command_inner(
                 status: ExecutionStatus::Failed,
                 exit_code: None,
                 stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
-                stderr: CapturedOutput { text: format!("process error: {e}"), truncated: false },
+                stderr: CapturedOutput {
+                    text: format!("process error: {e}"),
+                    truncated: false,
+                },
             },
         }
     } else {
-    // Non-streaming path (original behavior)
-    let mut child_stdout = child_stdout;
-    let mut child_stderr = child_stderr;
+        // Non-streaming path (original behavior)
+        let mut child_stdout = child_stdout;
+        let mut child_stderr = child_stderr;
 
-    tokio::select! {
-        result = child.wait() => {
-            let stdout = read_pipe_stdout(&mut child_stdout).await;
-            let stderr = read_pipe_stderr(&mut child_stderr).await;
-            match result {
-                Ok(exit_status) => {
-                    let code = exit_status.code();
-                    let status = if exit_status.success() {
-                        ExecutionStatus::Succeeded
-                    } else {
-                        ExecutionStatus::Failed
-                    };
-                    CommandResult {
-                        status,
-                        exit_code: code,
-                        stdout,
-                        stderr,
+        tokio::select! {
+            result = child.wait() => {
+                let stdout = read_pipe_stdout(&mut child_stdout).await;
+                let stderr = read_pipe_stderr(&mut child_stderr).await;
+                match result {
+                    Ok(exit_status) => {
+                        let code = exit_status.code();
+                        let status = if exit_status.success() {
+                            ExecutionStatus::Succeeded
+                        } else {
+                            ExecutionStatus::Failed
+                        };
+                        CommandResult {
+                            status,
+                            exit_code: code,
+                            stdout,
+                            stderr,
+                        }
                     }
+                    Err(e) => CommandResult {
+                        status: ExecutionStatus::Failed,
+                        exit_code: None,
+                        stdout,
+                        stderr: CapturedOutput { text: format!("process error: {e}"), truncated: false },
+                    },
                 }
-                Err(e) => CommandResult {
-                    status: ExecutionStatus::Failed,
+            }
+            _ = async {
+                match timeout_duration {
+                    Some(d) => tokio::time::sleep(d).await,
+                    None => std::future::pending().await,
+                }
+            } => {
+                let _ = child.kill().await;
+                CommandResult {
+                    status: ExecutionStatus::TimedOut,
                     exit_code: None,
-                    stdout,
-                    stderr: CapturedOutput { text: format!("process error: {e}"), truncated: false },
-                },
+                    stdout: CapturedOutput { text: String::new(), truncated: false },
+                    stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
+                }
+            }
+            _ = cancel_rx => {
+                let _ = child.kill().await;
+                CommandResult {
+                    status: ExecutionStatus::Cancelled,
+                    exit_code: None,
+                    stdout: CapturedOutput { text: String::new(), truncated: false },
+                    stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
+                }
             }
         }
-        _ = async {
-            match timeout_duration {
-                Some(d) => tokio::time::sleep(d).await,
-                None => std::future::pending().await,
-            }
-        } => {
-            let _ = child.kill().await;
-            CommandResult {
-                status: ExecutionStatus::TimedOut,
-                exit_code: None,
-                stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
-            }
-        }
-        _ = cancel_rx => {
-            let _ = child.kill().await;
-            CommandResult {
-                status: ExecutionStatus::Cancelled,
-                exit_code: None,
-                stdout: CapturedOutput { text: String::new(), truncated: false },
-                stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
-            }
-        }
-    }
     } // end else (non-streaming path)
 }
 

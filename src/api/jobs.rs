@@ -1082,9 +1082,11 @@ pub(crate) async fn webhook_trigger(
     body: Option<Json<TriggerBody>>,
 ) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
     let token_clone = token.clone();
-    let job = db_call(&state.db, move |db| db.get_job_by_webhook_token(&token_clone))
-        .await?
-        .ok_or_else(|| AppError::NotFound("invalid webhook token".into()))?;
+    let job = db_call(&state.db, move |db| {
+        db.get_job_by_webhook_token(&token_clone)
+    })
+    .await?
+    .ok_or_else(|| AppError::NotFound("invalid webhook token".into()))?;
 
     let params = body.and_then(|b| b.0.params);
 
@@ -1109,7 +1111,10 @@ pub(crate) async fn webhook_trigger(
         &state.scheduler_tx,
         "job.triggered",
         EventSeverity::Info,
-        &format!("Job '{}' triggered via webhook ({}...)", job.name, token_prefix),
+        &format!(
+            "Job '{}' triggered via webhook ({}...)",
+            job.name, token_prefix
+        ),
         Some(job.id),
         None,
         &super::auth::AuthUser(None),

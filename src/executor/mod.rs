@@ -49,8 +49,7 @@ pub struct Executor {
     scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
     script_store: ScriptStore,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
-    pub(crate) live_output:
-        Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
+    pub(crate) live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
 }
 
 impl Executor {
@@ -87,7 +86,11 @@ impl Executor {
         let params_clone = params.clone();
         let substituted = tokio::task::spawn_blocking(move || {
             let vars = db.get_all_variables_map()?;
-            Ok::<_, AppError>(substitute_variables(&task_clone, &vars, params_clone.as_ref()))
+            Ok::<_, AppError>(substitute_variables(
+                &task_clone,
+                &vars,
+                params_clone.as_ref(),
+            ))
         })
         .await
         .map_err(|e| AppError::Internal(e.to_string()))??;
@@ -96,9 +99,7 @@ impl Executor {
         }
 
         match &job.target {
-            None | Some(AgentTarget::Local) => {
-                self.execute_local(&job, trigger, params).await
-            }
+            None | Some(AgentTarget::Local) => self.execute_local(&job, trigger, params).await,
             Some(AgentTarget::Agent { agent_id }) => {
                 self.dispatch_to_agent(*agent_id, &job, trigger, callback_base_url)
                     .await

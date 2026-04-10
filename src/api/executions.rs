@@ -145,11 +145,13 @@ pub(crate) async fn stream_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<
-    axum::response::sse::Sse<impl futures_core::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>,
+    axum::response::sse::Sse<
+        impl futures_core::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,
+    >,
     AppError,
 > {
-    use tokio_stream::wrappers::BroadcastStream;
     use tokio_stream::StreamExt;
+    use tokio_stream::wrappers::BroadcastStream;
 
     let tx = state
         .live_output

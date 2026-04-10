@@ -130,8 +130,7 @@ impl Scheduler {
                     updated.status = JobStatus::Unscheduled;
                     updated.updated_at = Utc::now();
                     let db = self.db.clone();
-                    let _ =
-                        tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
+                    let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
                     self.invalidate_cache();
                     continue;
                 }
@@ -143,7 +142,8 @@ impl Scheduler {
                 }
                 ScheduleKind::OneShot(fire_at) => {
                     if now >= *fire_at {
-                        self.fire_job(job, TriggerSource::Scheduler, false, None).await;
+                        self.fire_job(job, TriggerSource::Scheduler, false, None)
+                            .await;
                         let mut updated = job.clone();
                         updated.status = JobStatus::Unscheduled;
                         updated.updated_at = Utc::now();
@@ -193,7 +193,8 @@ impl Scheduler {
             }
 
             self.last_fired.insert(job.id, fire_time);
-            self.fire_job(job, TriggerSource::Scheduler, false, None).await;
+            self.fire_job(job, TriggerSource::Scheduler, false, None)
+                .await;
 
             let Ok(schedule) = CronSchedule::parse(cron_expr) else {
                 return;
@@ -238,11 +239,10 @@ impl Scheduler {
         if job.max_concurrent > 0 {
             let db = self.db.clone();
             let job_id = job.id;
-            let count = tokio::task::spawn_blocking(move || {
-                db.count_running_executions_for_job(job_id)
-            })
-            .await
-            .unwrap_or(Ok(0));
+            let count =
+                tokio::task::spawn_blocking(move || db.count_running_executions_for_job(job_id))
+                    .await
+                    .unwrap_or(Ok(0));
             match count {
                 Ok(c) if c >= job.max_concurrent => {
                     debug!(
@@ -422,8 +422,13 @@ impl Scheduler {
                 // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
                 // (events from TriggerSource::Event executions)
                 info!("event '{}' matched job '{}', firing", event.kind, job.name);
-                self.fire_job(job, TriggerSource::Event { event_id: event.id }, false, None)
-                    .await;
+                self.fire_job(
+                    job,
+                    TriggerSource::Event { event_id: event.id },
+                    false,
+                    None,
+                )
+                .await;
             }
         }
     }
