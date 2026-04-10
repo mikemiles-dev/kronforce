@@ -125,6 +125,23 @@ pub struct OutputRules {
     pub assertions: Vec<OutputAssertion>,
 }
 
+/// Defines a parameter that can be passed at trigger time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobParameter {
+    pub name: String,
+    /// One of: text, number, select, boolean
+    pub param_type: String,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    /// Allowed values for "select" type
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
 /// Per-job notification preferences (on failure, success, or assertion failure).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct JobNotificationConfig {
@@ -199,6 +216,15 @@ pub struct Job {
     /// After this time the job's schedule stops firing (optional).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<DateTime<Utc>>,
+    /// Maximum concurrent running executions (0 = unlimited).
+    #[serde(default)]
+    pub max_concurrent: u32,
+    /// Parameter definitions for parameterized runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<Vec<JobParameter>>,
+    /// Webhook trigger token (unique, nullable).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub webhook_token: Option<String>,
 }
 
 fn default_retry_backoff() -> f64 {
@@ -268,6 +294,12 @@ impl Job {
                 .unwrap_or(None)
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc)),
+            max_concurrent: row.get::<_, Option<i32>>(25).unwrap_or(None).unwrap_or(0) as u32,
+            parameters: {
+                let p_json: Option<String> = row.get(26).unwrap_or(None);
+                p_json.and_then(|s| serde_json::from_str(&s).ok())
+            },
+            webhook_token: row.get::<_, Option<String>>(27).unwrap_or(None),
         })
     }
 }

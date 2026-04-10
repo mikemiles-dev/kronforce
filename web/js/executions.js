@@ -123,15 +123,26 @@ async function showExecDetail(id) {
             infoField('Agent', e.agent_id ? fmtAgentLink(e.agent_id) : 'controller', 'exec-info-item') +
             infoField('Trigger', fmtTrigger(e.triggered_by), 'exec-info-item') +
             '</div>' +
+            (e.params ? '<div class="output-section"><h4>Parameters</h4><pre class="output-pre">' + syntaxHighlightJson(esc(JSON.stringify(e.params, null, 2))) + '</pre></div>' : '') +
             renderExtractedValues(e.extracted) +
             (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + syntaxHighlightJson(esc(JSON.stringify(sanitizeTaskSnapshot(e.task_snapshot), null, 2))) + '</pre></div>' : '') +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated) +
             '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
         window._currentExecStdout = e.stdout || '';
+
+        // Live output streaming for running executions
+        if (e.status === 'running' && !e.agent_id) {
+            content.innerHTML += '<div class="output-section" id="live-output-section"><h4>Live Output</h4><pre class="output-pre" id="live-output" style="max-height:400px;overflow-y:auto;font-size:11px"></pre></div>';
+        }
+
         document.getElementById('exec-cancel-btn').style.display = e.status === 'running' ? '' : 'none';
         document.getElementById('exec-approve-btn').style.display = e.status === 'pending_approval' ? '' : 'none';
         openModal('exec-modal');
+
+        if (e.status === 'running' && !e.agent_id) {
+            startLiveStream(id);
+        }
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -342,7 +353,37 @@ function infoField(label, value, className) {
     return '<div class="' + className + '"><label>' + label + '</label><div class="value">' + value + '</div></div>';
 }
 
+let liveEventSource = null;
+
+function startLiveStream(execId) {
+    stopLiveStream();
+    const pre = document.getElementById('live-output');
+    if (!pre) return;
+
+    liveEventSource = new EventSource('/api/executions/' + execId + '/stream');
+    liveEventSource.onmessage = function(event) {
+        pre.textContent += event.data + '\n';
+        pre.scrollTop = pre.scrollHeight;
+    };
+    liveEventSource.addEventListener('done', function() {
+        stopLiveStream();
+        // Refresh to show final static output
+        showExecDetail(execId);
+    });
+    liveEventSource.onerror = function() {
+        stopLiveStream();
+    };
+}
+
+function stopLiveStream() {
+    if (liveEventSource) {
+        liveEventSource.close();
+        liveEventSource = null;
+    }
+}
+
 function closeExecModal() {
+    stopLiveStream();
     closeModal('exec-modal');
     currentExecId = null;
     if (typeof updateHash === 'function') updateHash();

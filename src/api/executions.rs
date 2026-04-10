@@ -139,3 +139,41 @@ pub(crate) async fn cancel_execution(
         serde_json::json!({"message": "cancel request sent", "execution_id": id}),
     ))
 }
+
+/// SSE endpoint for live output streaming during execution.
+pub(crate) async fn stream_execution(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<
+    axum::response::sse::Sse<impl futures_core::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>>,
+    AppError,
+> {
+    use tokio_stream::wrappers::BroadcastStream;
+    use tokio_stream::StreamExt;
+
+    let tx = state
+        .live_output
+        .get(&id)
+        .ok_or_else(|| AppError::NotFound("no live stream for this execution".into()))?;
+    let rx = tx.subscribe();
+    drop(tx);
+
+    let stream = BroadcastStream::new(rx).filter_map(|result| match result {
+        Ok(line) => {
+            if line == "[done]" {
+                Some(Ok(axum::response::sse::Event::default()
+                    .event("done")
+                    .data("")))
+            } else {
+                Some(Ok(axum::response::sse::Event::default().data(line)))
+            }
+        }
+        Err(_) => None,
+    });
+
+    Ok(axum::response::sse::Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(15))
+            .text("ping"),
+    ))
+}

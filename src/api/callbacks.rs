@@ -47,6 +47,7 @@ pub(crate) async fn execution_result_callback(
         extracted: None,
         retry_of,
         attempt_number,
+        params: None,
     };
 
     let stdout_for_rules = rec.stdout.clone();

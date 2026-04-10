@@ -52,6 +52,7 @@ pub struct AppState {
     pub script_store: ScriptStore,
     pub oidc: Option<Arc<oidc::OidcState>>,
     pub demo_mode: bool,
+    pub live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
@@ -99,6 +100,10 @@ pub fn router(
         .route("/api/jobs/{id}/trigger", post(jobs::trigger_job))
         .route("/api/jobs/{id}/versions", get(jobs::list_job_versions))
         .route(
+            "/api/jobs/{id}/webhook",
+            post(jobs::generate_webhook).delete(jobs::delete_webhook),
+        )
+        .route(
             "/api/jobs/groups",
             get(jobs::list_groups).post(jobs::create_group),
         )
@@ -110,6 +115,10 @@ pub fn router(
         )
         .route("/api/executions", get(executions::list_all_executions))
         .route("/api/executions/{id}", get(executions::get_execution))
+        .route(
+            "/api/executions/{id}/stream",
+            get(executions::stream_execution),
+        )
         .route(
             "/api/executions/{id}/cancel",
             post(executions::cancel_execution),
@@ -217,6 +226,7 @@ pub fn router(
         .route("/api/auth/oidc/login", get(oidc::oidc_login))
         .route("/api/auth/oidc/callback", get(oidc::oidc_callback))
         .route("/api/auth/logout", post(auth::logout))
+        .route("/api/webhooks/{token}", post(jobs::webhook_trigger))
         .route_layer(middleware::from_fn(
             rate_limit::rate_limit_public_middleware,
         ))

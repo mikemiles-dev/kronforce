@@ -38,6 +38,8 @@ pub(crate) struct CreateJobRequest {
     sla_warning_mins: u32,
     starts_at: Option<chrono::DateTime<Utc>>,
     expires_at: Option<chrono::DateTime<Utc>>,
+    max_concurrent: Option<u32>,
+    parameters: Option<Vec<JobParameter>>,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -64,6 +66,8 @@ pub(crate) struct UpdateJobRequest {
     sla_warning_mins: Option<u32>,
     starts_at: Option<chrono::DateTime<Utc>>,
     expires_at: Option<chrono::DateTime<Utc>>,
+    max_concurrent: Option<u32>,
+    parameters: Option<Vec<JobParameter>>,
 }
 
 /// Summary of a job's most recent execution.
@@ -100,6 +104,8 @@ pub(crate) struct JobResponse {
     execution_counts: ExecutionCounts,
     deps_satisfied: bool,
     deps_status: Vec<DepStatus>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    webhook_url: Option<String>,
 }
 
 /// Query parameters for paginated job listing.
@@ -313,6 +319,9 @@ pub(crate) async fn create_job(
         sla_warning_mins: req.sla_warning_mins,
         starts_at: req.starts_at,
         expires_at: req.expires_at,
+        max_concurrent: req.max_concurrent.unwrap_or(0),
+        parameters: req.parameters,
+        webhook_token: None,
     };
 
     let job_clone = job.clone();
@@ -484,6 +493,12 @@ pub(crate) async fn update_job(
     if req.expires_at.is_some() {
         job.expires_at = req.expires_at;
     }
+    if let Some(mc) = req.max_concurrent {
+        job.max_concurrent = mc;
+    }
+    if req.parameters.is_some() {
+        job.parameters = req.parameters;
+    }
 
     job.updated_at = Utc::now();
 
@@ -616,6 +631,13 @@ pub(crate) struct TriggerQuery {
     skip_deps: Option<bool>,
 }
 
+/// Optional JSON body for trigger requests (params, etc.).
+#[derive(Deserialize, Default)]
+pub(crate) struct TriggerBody {
+    #[serde(default)]
+    pub params: Option<serde_json::Value>,
+}
+
 /// Manually triggers a job execution outside of its schedule.
 /// If the job has `approval_required`, creates a pending_approval execution instead.
 pub(crate) async fn trigger_job(
@@ -623,6 +645,7 @@ pub(crate) async fn trigger_job(
     Path(id): Path<Uuid>,
     Query(trigger_query): Query<TriggerQuery>,
     auth: AuthUser,
+    body: Option<Json<TriggerBody>>,
 ) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
     if let Some(ref key) = auth.0
         && !key.role.can_write()
@@ -655,6 +678,7 @@ pub(crate) async fn trigger_job(
             extracted: None,
             retry_of: None,
             attempt_number: 1,
+            params: None,
         };
         let rec_clone = rec.clone();
         db_call(&state.db, move |db| db.insert_execution(&rec_clone)).await?;
@@ -684,16 +708,18 @@ pub(crate) async fn trigger_job(
         ));
     }
 
+    let skip_deps = trigger_query.skip_deps.unwrap_or(false);
+    let trigger_params = body.and_then(|b| b.0.params);
+
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(
-            id,
-            trigger_query.skip_deps.unwrap_or(false),
-        ))
+        .send(SchedulerCommand::TriggerNow {
+            job_id: id,
+            skip_deps,
+            params: trigger_params,
+        })
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
-
-    let skip_deps = trigger_query.skip_deps.unwrap_or(false);
     log_and_notify(
         &state.db,
         &state.scheduler_tx,
@@ -757,6 +783,11 @@ impl JobResponse {
         let (total, succeeded, failed) = db.get_execution_counts(job.id).unwrap_or((0, 0, 0));
         let (deps_satisfied, deps_status) = Self::evaluate_deps(db, &job.depends_on);
 
+        let webhook_url = job
+            .webhook_token
+            .as_ref()
+            .map(|t| format!("/api/webhooks/{}", t));
+
         JobResponse {
             job,
             next_fire_time: next,
@@ -768,6 +799,7 @@ impl JobResponse {
             },
             deps_satisfied,
             deps_status,
+            webhook_url,
         }
     }
 
@@ -982,7 +1014,11 @@ pub(crate) async fn approve_execution(
     // Trigger the job through the scheduler
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(exec.job_id, false))
+        .send(SchedulerCommand::TriggerNow {
+            job_id: exec.job_id,
+            skip_deps: false,
+            params: None,
+        })
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
 
@@ -1035,4 +1071,107 @@ pub(crate) async fn list_job_versions(
 ) -> Result<Json<Vec<serde_json::Value>>, AppError> {
     let versions = db_call(&state.db, move |db| db.list_job_versions(id)).await?;
     Ok(Json(versions))
+}
+
+// --- Webhook Triggers ---
+
+/// Triggers a job via its webhook token (no auth required).
+pub(crate) async fn webhook_trigger(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    body: Option<Json<TriggerBody>>,
+) -> Result<(axum::http::StatusCode, Json<TriggerResponse>), AppError> {
+    let token_clone = token.clone();
+    let job = db_call(&state.db, move |db| db.get_job_by_webhook_token(&token_clone))
+        .await?
+        .ok_or_else(|| AppError::NotFound("invalid webhook token".into()))?;
+
+    let params = body.and_then(|b| b.0.params);
+
+    state
+        .scheduler_tx
+        .send(SchedulerCommand::TriggerNow {
+            job_id: job.id,
+            skip_deps: false,
+            params,
+        })
+        .await
+        .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;
+
+    let token_prefix = if token.len() >= 8 {
+        token[..8].to_string()
+    } else {
+        token.clone()
+    };
+
+    log_and_notify(
+        &state.db,
+        &state.scheduler_tx,
+        "job.triggered",
+        EventSeverity::Info,
+        &format!("Job '{}' triggered via webhook ({}...)", job.name, token_prefix),
+        Some(job.id),
+        None,
+        &super::auth::AuthUser(None),
+        None,
+    )
+    .await;
+
+    Ok((
+        axum::http::StatusCode::ACCEPTED,
+        Json(TriggerResponse {
+            message: "webhook triggered".to_string(),
+            job_id: job.id,
+        }),
+    ))
+}
+
+/// Generates a webhook token for a job.
+pub(crate) async fn generate_webhook(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    auth: AuthUser,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    // Verify job exists
+    let job_id = id;
+    db_call(&state.db, move |db| db.get_job(job_id))
+        .await?
+        .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
+
+    let bytes: [u8; 16] = rand::random();
+    let token: String = bytes.iter().map(|b| format!("{:02x}", b)).collect();
+    let token_clone = token.clone();
+    db_call(&state.db, move |db| {
+        db.set_webhook_token(job_id, Some(&token_clone))
+    })
+    .await?;
+
+    Ok(Json(serde_json::json!({
+        "token": token,
+        "webhook_url": format!("/api/webhooks/{}", token),
+    })))
+}
+
+/// Removes the webhook token from a job.
+pub(crate) async fn delete_webhook(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    auth: AuthUser,
+) -> Result<axum::http::StatusCode, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    db_call(&state.db, move |db| db.set_webhook_token(id, None)).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

@@ -50,6 +50,10 @@ That's it. You have a running scheduler with a web dashboard.
 - **Priority scheduling** — higher priority jobs fire first when multiple are due
 - **Job templates** — save any job as a reusable template, create new jobs from the template library
 - **Execution retry** — automatic retry on failure/timeout with configurable backoff
+- **Concurrency controls** — limit max concurrent runs per job to prevent overlapping cron executions
+- **Parameterized runs** — define parameter schemas on jobs, pass runtime values at trigger time with `{{params.NAME}}` substitution
+- **Webhook triggers** — unique token URLs per job for external integrations (CI/CD, GitHub, Stripe) — no API key needed
+- **Live output streaming** — SSE endpoint streams stdout/stderr in real-time during execution with auto-scrolling in the UI
 - **Approval workflows** — require sign-off before critical jobs run
 - **Dependency chains** — jobs wait for upstream jobs to succeed, with optional time windows; force-trigger blocked jobs with "Run Anyway"
 - **SLA deadlines** — set completion deadlines with early warning alerts

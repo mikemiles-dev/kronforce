@@ -17,8 +17,8 @@ impl Db {
         let triggered_by_json = serde_json::to_string(&rec.triggered_by)
             .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
         conn.execute(
-            "INSERT INTO executions (id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, retry_of, attempt_number)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            "INSERT INTO executions (id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, retry_of, attempt_number, params_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 rec.id.to_string(),
                 rec.job_id.to_string(),
@@ -35,6 +35,7 @@ impl Db {
                 triggered_by_json,
                 rec.retry_of.map(|id| id.to_string()),
                 rec.attempt_number as i32,
+                rec.params.as_ref().map(serde_json::to_string).transpose().map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
             ],
         )
         .map_err(AppError::Db)?;
@@ -140,7 +141,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json, retry_of, attempt_number FROM executions WHERE id = ?1")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json, retry_of, attempt_number, params_json FROM executions WHERE id = ?1")
             .map_err(AppError::Db)?;
         let mut rows = stmt
             .query_map(params![id.to_string()], ExecutionRecord::from_row)
@@ -164,7 +165,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json, retry_of, attempt_number FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
+            .prepare("SELECT id, job_id, agent_id, task_snapshot_json, status, exit_code, stdout, stderr, stdout_truncated, stderr_truncated, started_at, finished_at, triggered_by_json, extracted_json, retry_of, attempt_number, params_json FROM executions WHERE job_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3")
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string(), limit, offset], |row| {
@@ -226,7 +227,7 @@ impl Db {
         let mut f = Self::build_exec_filters(status_filter, search, since);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
-            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json, e.retry_of, e.attempt_number FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
+            "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json, e.retry_of, e.attempt_number, e.params_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
             f.where_sql(),
             li,
             oi
@@ -396,6 +397,20 @@ impl Db {
     ) -> Result<Option<ExecutionRecord>, AppError> {
         let recs = self.list_executions_for_job(job_id, 1, 0)?;
         Ok(recs.into_iter().next())
+    }
+
+    /// Counts running/pending executions for a job (for concurrency control).
+    pub fn count_running_executions_for_job(&self, job_id: Uuid) -> Result<u32, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.query_row(
+            "SELECT COUNT(*) FROM executions WHERE job_id = ?1 AND status IN ('running', 'pending')",
+            params![job_id.to_string()],
+            |row| row.get(0),
+        )
+        .map_err(AppError::Db)
     }
 
     /// Returns execution counts grouped by status for chart display.

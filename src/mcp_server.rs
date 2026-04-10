@@ -502,6 +502,9 @@ async fn tool_create_job(args: &Value, state: &AppState) -> Result<String, Strin
         sla_warning_mins: 0,
         starts_at: None,
         expires_at: None,
+        max_concurrent: 0,
+        parameters: None,
+        webhook_token: None,
     };
 
     let job_clone = job.clone();
@@ -536,7 +539,11 @@ async fn tool_trigger_job(args: &Value, state: &AppState) -> Result<String, Stri
 
     state
         .scheduler_tx
-        .send(SchedulerCommand::TriggerNow(job.id, false))
+        .send(SchedulerCommand::TriggerNow {
+            job_id: job.id,
+            skip_deps: false,
+            params: None,
+        })
         .await
         .map_err(|_| "scheduler unavailable".to_string())?;
 

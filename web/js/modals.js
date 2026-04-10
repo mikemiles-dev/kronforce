@@ -40,6 +40,8 @@ function openCreateModal() {
     document.getElementById('f-sla-warning').value = '0';
     document.getElementById('f-starts-at').value = '';
     document.getElementById('f-expires-at').value = '';
+    document.getElementById('f-max-concurrent').value = '0';
+    populateJobParams(null);
     setEventJobFilter('');
     document.getElementById('f-cron').value = '';
     document.getElementById('f-oneshot').value = '';
@@ -103,6 +105,8 @@ async function copyJob(id) {
         document.getElementById('f-sla-warning').value = job.sla_warning_mins || 0;
         document.getElementById('f-starts-at').value = job.starts_at ? toLocalDatetimeString(new Date(job.starts_at)) : '';
         document.getElementById('f-expires-at').value = job.expires_at ? toLocalDatetimeString(new Date(job.expires_at)) : '';
+        document.getElementById('f-max-concurrent').value = job.max_concurrent || 0;
+        populateJobParams(job.parameters);
         document.getElementById('f-run-as').value = job.run_as || '';
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -185,6 +189,8 @@ async function openEditModal(id) {
         document.getElementById('f-retry-delay').value = job.retry_delay_secs || 0;
         document.getElementById('f-retry-backoff').value = job.retry_backoff || 1.0;
         document.getElementById('f-priority').value = job.priority || 0;
+        document.getElementById('f-max-concurrent').value = job.max_concurrent || 0;
+        populateJobParams(job.parameters);
         document.getElementById('f-approval-required').checked = job.approval_required || false;
         document.getElementById('f-timeout').value = job.timeout_secs || '';
 
@@ -1219,6 +1225,10 @@ async function submitJobForm() {
     if (retryBackoff !== 1.0) body.retry_backoff = retryBackoff;
     const priority = parseInt(document.getElementById('f-priority').value) || 0;
     if (priority !== 0) body.priority = priority;
+    const maxConcurrent = parseInt(document.getElementById('f-max-concurrent').value) || 0;
+    if (maxConcurrent > 0) body.max_concurrent = maxConcurrent;
+    const jobParams = collectJobParams();
+    if (jobParams) body.parameters = jobParams;
     if (document.getElementById('f-approval-required').checked) body.approval_required = true;
     const slaDeadline = document.getElementById('f-sla-deadline').value.trim();
     if (slaDeadline) {
@@ -1249,6 +1259,110 @@ async function submitJobForm() {
         }
     } catch (e) {
         toast(e.message, 'error');
+    }
+}
+
+// --- Job Parameters ---
+let jobParamsDef = [];
+
+function addJobParam() {
+    jobParamsDef.push({ name: '', param_type: 'text', required: false, default: '', description: '' });
+    renderJobParams();
+}
+
+function removeJobParam(idx) {
+    jobParamsDef.splice(idx, 1);
+    renderJobParams();
+}
+
+function renderJobParams() {
+    const list = document.getElementById('job-params-list');
+    if (!list) return;
+    if (jobParamsDef.length === 0) { list.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 0; i < jobParamsDef.length; i++) {
+        const p = jobParamsDef[i];
+        html += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;padding:8px;background:var(--bg-tertiary);border-radius:var(--radius);border:1px solid var(--border)">';
+        html += '<input type="text" value="' + esc(p.name) + '" placeholder="name" style="width:80px;font-size:11px" onchange="jobParamsDef[' + i + '].name=this.value">';
+        html += '<select style="width:80px;font-size:11px" onchange="jobParamsDef[' + i + '].param_type=this.value">';
+        for (const t of ['text','number','select','boolean']) {
+            html += '<option value="' + t + '"' + (p.param_type === t ? ' selected' : '') + '>' + t + '</option>';
+        }
+        html += '</select>';
+        html += '<input type="text" value="' + esc(p.default || '') + '" placeholder="default" style="width:80px;font-size:11px" onchange="jobParamsDef[' + i + '].default=this.value">';
+        html += '<label style="font-size:11px;display:flex;align-items:center;gap:3px;white-space:nowrap"><input type="checkbox"' + (p.required ? ' checked' : '') + ' onchange="jobParamsDef[' + i + '].required=this.checked"> Req</label>';
+        html += '<input type="text" value="' + esc(p.description || '') + '" placeholder="description" style="flex:1;font-size:11px" onchange="jobParamsDef[' + i + '].description=this.value">';
+        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:2px 6px;font-size:14px" onclick="removeJobParam(' + i + ')">&times;</button>';
+        html += '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function collectJobParams() {
+    const valid = jobParamsDef.filter(p => p.name.trim());
+    return valid.length > 0 ? valid : null;
+}
+
+function populateJobParams(params) {
+    jobParamsDef = params ? JSON.parse(JSON.stringify(params)) : [];
+    renderJobParams();
+}
+
+// --- Trigger with Params ---
+let triggerParamsJobId = null;
+
+function showTriggerParamsModal(jobId, params) {
+    triggerParamsJobId = jobId;
+    const content = document.getElementById('trigger-params-content');
+    let html = '';
+    for (const p of params) {
+        html += '<div class="form-group" style="margin-bottom:10px">';
+        html += '<label>' + esc(p.name) + (p.required ? ' <span style="color:var(--danger)">*</span>' : '') + '</label>';
+        if (p.description) html += '<div class="form-hint">' + esc(p.description) + '</div>';
+        if (p.param_type === 'boolean') {
+            html += '<label style="font-size:12px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="tp-' + esc(p.name) + '"' + (p.default === 'true' ? ' checked' : '') + '> Enabled</label>';
+        } else if (p.param_type === 'select' && p.options && p.options.length) {
+            html += '<select id="tp-' + esc(p.name) + '">';
+            for (const opt of p.options) {
+                html += '<option value="' + esc(opt) + '"' + (p.default === opt ? ' selected' : '') + '>' + esc(opt) + '</option>';
+            }
+            html += '</select>';
+        } else if (p.param_type === 'number') {
+            html += '<input type="number" id="tp-' + esc(p.name) + '" value="' + esc(p.default || '') + '">';
+        } else {
+            html += '<input type="text" id="tp-' + esc(p.name) + '" value="' + esc(p.default || '') + '" placeholder="' + esc(p.name) + '">';
+        }
+        html += '</div>';
+    }
+    content.innerHTML = html;
+    openModal('trigger-params-modal');
+}
+
+async function submitTriggerWithParams() {
+    if (!triggerParamsJobId) return;
+    const job = allJobs.find(j => j.id === triggerParamsJobId);
+    const params = {};
+    if (job && job.parameters) {
+        for (const p of job.parameters) {
+            const el = document.getElementById('tp-' + p.name);
+            if (!el) continue;
+            if (p.param_type === 'boolean') {
+                params[p.name] = el.checked ? 'true' : 'false';
+            } else {
+                params[p.name] = el.value;
+            }
+        }
+    }
+    closeModal('trigger-params-modal');
+    const btn = document.getElementById('trigger-' + triggerParamsJobId);
+    if (btn) btn.classList.add('trigger-pending');
+    try {
+        await api('POST', '/api/jobs/' + triggerParamsJobId + '/trigger', { params });
+        toast('Job triggered with parameters', 'info');
+        pollForResult(triggerParamsJobId);
+    } catch (e) {
+        toast(e.message, 'error');
+        if (btn) btn.classList.remove('trigger-pending');
     }
 }
 

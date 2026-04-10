@@ -25,8 +25,11 @@ pub enum SchedulerCommand {
     /// Invalidate the job cache and reload from the database.
     Reload,
     /// Immediately fire the job with the given ID.
-    /// The bool flag indicates whether to skip dependency checks.
-    TriggerNow(Uuid, bool),
+    TriggerNow {
+        job_id: Uuid,
+        skip_deps: bool,
+        params: Option<serde_json::Value>,
+    },
     /// Cancel the execution with the given ID.
     CancelExecution(Uuid),
     /// Notify the scheduler of a new event for event-triggered jobs.
@@ -140,7 +143,7 @@ impl Scheduler {
                 }
                 ScheduleKind::OneShot(fire_at) => {
                     if now >= *fire_at {
-                        self.fire_job(job, TriggerSource::Scheduler, false).await;
+                        self.fire_job(job, TriggerSource::Scheduler, false, None).await;
                         let mut updated = job.clone();
                         updated.status = JobStatus::Unscheduled;
                         updated.updated_at = Utc::now();
@@ -190,7 +193,7 @@ impl Scheduler {
             }
 
             self.last_fired.insert(job.id, fire_time);
-            self.fire_job(job, TriggerSource::Scheduler, false).await;
+            self.fire_job(job, TriggerSource::Scheduler, false, None).await;
 
             let Ok(schedule) = CronSchedule::parse(cron_expr) else {
                 return;
@@ -201,7 +204,13 @@ impl Scheduler {
         }
     }
 
-    async fn fire_job(&self, job: &Job, trigger: TriggerSource, skip_deps: bool) {
+    async fn fire_job(
+        &self,
+        job: &Job,
+        trigger: TriggerSource,
+        skip_deps: bool,
+        params: Option<serde_json::Value>,
+    ) {
         if !skip_deps && !job.depends_on.is_empty() {
             let dag = self.dag.clone();
             let deps = job.depends_on.clone();
@@ -225,9 +234,34 @@ impl Scheduler {
             }
         }
 
+        // Concurrency control: skip if at limit
+        if job.max_concurrent > 0 {
+            let db = self.db.clone();
+            let job_id = job.id;
+            let count = tokio::task::spawn_blocking(move || {
+                db.count_running_executions_for_job(job_id)
+            })
+            .await
+            .unwrap_or(Ok(0));
+            match count {
+                Ok(c) if c >= job.max_concurrent => {
+                    debug!(
+                        "skipping job {} ({}): at concurrency limit ({}/{})",
+                        job.name, job.id, c, job.max_concurrent
+                    );
+                    return;
+                }
+                Err(e) => {
+                    error!("error checking concurrency for job {}: {e}", job.name);
+                    return;
+                }
+                _ => {}
+            }
+        }
+
         match self
             .executor
-            .execute(job, trigger, &self.callback_base_url)
+            .execute(job, trigger, &self.callback_base_url, params)
             .await
         {
             Ok(exec_id) => {
@@ -248,14 +282,19 @@ impl Scheduler {
                 debug!("reloading jobs");
                 self.invalidate_cache();
             }
-            SchedulerCommand::TriggerNow(job_id, skip_deps) => {
+            SchedulerCommand::TriggerNow {
+                job_id,
+                skip_deps,
+                params,
+            } => {
                 let db = self.db.clone();
                 let job = tokio::task::spawn_blocking(move || db.get_job(job_id))
                     .await
                     .unwrap_or(Ok(None));
                 match job {
                     Ok(Some(job)) => {
-                        self.fire_job(&job, TriggerSource::Api, skip_deps).await;
+                        self.fire_job(&job, TriggerSource::Api, skip_deps, params)
+                            .await;
                     }
                     Ok(None) => {
                         warn!("trigger: job {} not found", job_id);
@@ -295,7 +334,7 @@ impl Scheduler {
                         );
                         match self
                             .executor
-                            .execute(&job, trigger, &self.callback_base_url)
+                            .execute(&job, trigger, &self.callback_base_url, None)
                             .await
                         {
                             Ok(exec_id) => {
@@ -383,7 +422,7 @@ impl Scheduler {
                 // Avoid infinite loops: don't trigger from events caused by event-triggered jobs
                 // (events from TriggerSource::Event executions)
                 info!("event '{}' matched job '{}', firing", event.kind, job.name);
-                self.fire_job(job, TriggerSource::Event { event_id: event.id }, false)
+                self.fire_job(job, TriggerSource::Event { event_id: event.id }, false, None)
                     .await;
             }
         }

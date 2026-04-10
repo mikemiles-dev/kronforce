@@ -497,6 +497,13 @@ function renderJobDetail(job) {
     if (job.timeout_secs) extras.push(field('Timeout', job.timeout_secs + 's'));
     if (job.run_as) extras.push(field('Run As', '<code>' + esc(job.run_as) + '</code>'));
     if (job.priority) extras.push(field('Priority', String(job.priority)));
+    if (job.max_concurrent > 0) extras.push(field('Concurrency', 'max ' + job.max_concurrent));
+    if (job.parameters && job.parameters.length > 0) extras.push(field('Parameters', job.parameters.map(p => '<code>' + esc(p.name) + '</code>' + (p.required ? ' <span style="color:var(--danger)">*</span>' : '')).join(', ')));
+    if (job.webhook_url) {
+        extras.push(field('Webhook', '<code style="font-size:11px;word-break:break-all">' + esc(location.origin + job.webhook_url) + '</code> <button class="btn btn-ghost btn-sm" onclick="copyToClipboard(\'' + esc(location.origin + job.webhook_url) + '\',\'Webhook URL copied\')">Copy</button> <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteWebhook(\'' + job.id + '\')">Disable</button>'));
+    } else {
+        extras.push(field('Webhook', '<button class="btn btn-ghost btn-sm" onclick="enableWebhook(\'' + job.id + '\')">Enable Webhook</button>'));
+    }
     if (job.approval_required) extras.push(field('Approval', '<span class="badge badge-pending_approval">required</span>'));
     if (job.sla_deadline) extras.push(field('SLA', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + 'm)' : '')));
     if (job.starts_at || job.expires_at) {
@@ -531,12 +538,35 @@ function renderJobDetail(job) {
         '</div></div>';
 }
 
+async function enableWebhook(jobId) {
+    try {
+        const res = await api('POST', '/api/jobs/' + jobId + '/webhook');
+        toast('Webhook enabled');
+        showJobDetail(jobId);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteWebhook(jobId) {
+    if (!confirm('Disable webhook for this job?')) return;
+    try {
+        await api('DELETE', '/api/jobs/' + jobId + '/webhook');
+        toast('Webhook disabled');
+        showJobDetail(jobId);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
 function field(label, value) {
     return '<div class="detail-field"><label>' + label + '</label><div class="value">' + value + '</div></div>';
 }
 
 // --- Actions ---
 async function triggerJob(id, skipDeps) {
+    // Check if job has parameters — show params modal if so
+    const job = allJobs.find(j => j.id === id);
+    if (!skipDeps && job && job.parameters && job.parameters.length > 0) {
+        showTriggerParamsModal(id, job.parameters);
+        return;
+    }
     const btn = document.getElementById('trigger-' + id);
     if (btn) btn.classList.add('trigger-pending');
     try {

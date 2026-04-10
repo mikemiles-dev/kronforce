@@ -231,13 +231,93 @@ curl -X POST http://localhost:8080/api/jobs \
 
 ```bash
 curl -X POST http://localhost:8080/api/jobs/{id}/trigger              # Trigger now
-curl -X POST "http://localhost:8080/api/jobs/{id}/trigger?skip_deps=true"  # Trigger, skip dependency checks
+curl -X POST http://localhost:8080/api/jobs/{id}/trigger \
+  -d '{"params": {"version": "1.2.3"}}'                              # Trigger with params
+curl -X POST "http://localhost:8080/api/jobs/{id}/trigger?skip_deps=true"  # Skip dependency checks
 curl "http://localhost:8080/api/jobs/{id}/executions?page=1"          # History
 curl http://localhost:8080/api/executions/{id}                        # Details
+curl http://localhost:8080/api/executions/{id}/stream                 # Live output (SSE)
 curl -X POST http://localhost:8080/api/executions/{id}/cancel         # Cancel
 curl -X POST http://localhost:8080/api/executions/{id}/approve        # Approve (for approval-gated jobs)
 curl http://localhost:8080/api/jobs/{id}/versions                     # Job version history
+curl -X POST http://localhost:8080/api/jobs/{id}/webhook              # Generate webhook token
+curl -X DELETE http://localhost:8080/api/jobs/{id}/webhook             # Remove webhook token
+curl -X POST http://localhost:8080/api/webhooks/{token}               # Trigger via webhook (no auth)
 ```
+
+### Parameterized Runs
+
+Define parameters on a job and pass values at trigger time:
+
+```bash
+# Create a job with parameters
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "deploy",
+    "task": {"type": "shell", "command": "deploy.sh {{params.version}} {{params.env}}"},
+    "schedule": {"type": "on_demand"},
+    "parameters": [
+      {"name": "version", "param_type": "text", "required": true},
+      {"name": "env", "param_type": "select", "options": ["staging", "production"], "default": "staging"}
+    ]
+  }'
+
+# Trigger with parameters
+curl -X POST http://localhost:8080/api/jobs/{id}/trigger \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"version": "1.2.3", "env": "production"}}'
+```
+
+Parameters are substituted into task fields via `{{params.NAME}}` (alongside `{{VARIABLE}}` for global variables). The execution record stores which params were used.
+
+### Webhook Triggers
+
+Generate a unique URL that triggers a job without API key authentication:
+
+```bash
+# Enable webhook for a job
+curl -X POST http://localhost:8080/api/jobs/{id}/webhook \
+  -H "Authorization: Bearer kf_admin_key"
+# Returns: {"token": "abc123...", "webhook_url": "/api/webhooks/abc123..."}
+
+# Trigger via webhook (no auth required)
+curl -X POST http://localhost:8080/api/webhooks/abc123...
+# With parameters:
+curl -X POST http://localhost:8080/api/webhooks/abc123... \
+  -H "Content-Type: application/json" \
+  -d '{"params": {"version": "1.2.3"}}'
+
+# Disable webhook
+curl -X DELETE http://localhost:8080/api/jobs/{id}/webhook \
+  -H "Authorization: Bearer kf_admin_key"
+```
+
+### Concurrency Controls
+
+Limit how many instances of a job can run simultaneously:
+
+```bash
+curl -X PUT http://localhost:8080/api/jobs/{id} \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"max_concurrent": 1}'
+```
+
+When `max_concurrent` is set and the job already has that many running/pending executions, the scheduler skips the fire. Default is 0 (unlimited).
+
+### Live Output Streaming
+
+Connect to the SSE endpoint to watch execution output in real-time:
+
+```bash
+curl -N http://localhost:8080/api/executions/{id}/stream \
+  -H "Authorization: Bearer kf_admin_key"
+```
+
+Each line of stdout is sent as an SSE `message` event. Stderr lines are prefixed with `[stderr]`. A `done` event is sent when the execution completes. Only available for locally-executed jobs while they are running.
 
 ### Skip Dependencies
 

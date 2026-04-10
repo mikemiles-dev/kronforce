@@ -20,6 +20,7 @@ impl super::Executor {
         &self,
         job: &Job,
         trigger: TriggerSource,
+        params: Option<serde_json::Value>,
     ) -> Result<Uuid, AppError> {
         let exec_id = Uuid::new_v4();
         let now = Utc::now();
@@ -28,6 +29,7 @@ impl super::Executor {
             .with_status(ExecutionStatus::Running)
             .with_task_snapshot(job.task.clone())
             .with_started_at(now);
+        rec.params = params;
 
         // Set retry tracking fields from trigger source
         if let TriggerSource::Retry {
@@ -59,16 +61,26 @@ impl super::Executor {
         let sched_tx = self.scheduler_tx.clone();
         let script_store = self.script_store.clone();
         let job_clone = job.clone();
+        let live_output = self.live_output.clone();
 
         tokio::spawn(async move {
-            let result = run_task(
+            // Set up live output broadcast channel
+            let (tx, _) = tokio::sync::broadcast::channel::<String>(1024);
+            live_output.insert(exec_id, tx.clone());
+
+            let result = run_task_streaming(
                 &task,
                 run_as.as_deref(),
                 timeout_secs,
                 Some(&script_store),
                 cancel_rx,
+                Some(&tx),
             )
             .await;
+
+            // Signal completion and remove channel
+            let _ = tx.send("[done]".to_string());
+            live_output.remove(&exec_id);
             let finished_at = Utc::now();
             let updated = ExecutionRecord {
                 id: exec_id,
@@ -87,6 +99,7 @@ impl super::Executor {
                 extracted: None,
                 retry_of: rec.retry_of,
                 attempt_number: rec.attempt_number,
+                params: rec.params.clone(),
             };
 
             Self::handle_execution_complete(exec_id, &updated, &db, &sched_tx).await;
@@ -427,6 +440,35 @@ pub async fn run_task(
     }
 }
 
+/// Like `run_task` but broadcasts stdout/stderr lines via `live_tx` for SSE streaming.
+/// Only shell tasks get true line-by-line streaming; other task types broadcast output at the end.
+pub async fn run_task_streaming(
+    task: &TaskType,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    script_store: Option<&ScriptStore>,
+    cancel_rx: oneshot::Receiver<()>,
+    live_tx: Option<&tokio::sync::broadcast::Sender<String>>,
+) -> CommandResult {
+    if let TaskType::Shell { command } = task {
+        if let Some(tx) = live_tx {
+            return run_command_streaming(command, run_as, timeout_secs, cancel_rx, tx).await;
+        }
+    }
+    // For non-shell tasks or when no live_tx, use standard run_task
+    // and broadcast the final output
+    let result = run_task(task, run_as, timeout_secs, script_store, cancel_rx).await;
+    if let Some(tx) = live_tx {
+        for line in result.stdout.text.lines() {
+            let _ = tx.send(line.to_string());
+        }
+        for line in result.stderr.text.lines() {
+            let _ = tx.send(format!("[stderr] {}", line));
+        }
+    }
+    result
+}
+
 pub(crate) fn shell_escape(s: &str) -> String {
     if cfg!(windows) {
         // Windows cmd.exe: wrap in double quotes, escape internal double quotes
@@ -474,6 +516,26 @@ pub async fn run_command(
     run_as: Option<&str>,
     timeout_secs: Option<u64>,
     cancel_rx: oneshot::Receiver<()>,
+) -> CommandResult {
+    run_command_inner(command, run_as, timeout_secs, cancel_rx, None).await
+}
+
+pub async fn run_command_streaming(
+    command: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    cancel_rx: oneshot::Receiver<()>,
+    live_tx: &tokio::sync::broadcast::Sender<String>,
+) -> CommandResult {
+    run_command_inner(command, run_as, timeout_secs, cancel_rx, Some(live_tx)).await
+}
+
+async fn run_command_inner(
+    command: &str,
+    run_as: Option<&str>,
+    timeout_secs: Option<u64>,
+    mut cancel_rx: oneshot::Receiver<()>,
+    live_tx: Option<&tokio::sync::broadcast::Sender<String>>,
 ) -> CommandResult {
     let mut cmd = if let Some(user) = run_as {
         // run_as requires sudo (Unix only)
@@ -546,8 +608,96 @@ pub async fn run_command(
     let timeout_duration = timeout_secs.map(Duration::from_secs);
 
     // Take stdout/stderr handles before waiting, so we can read them on timeout/cancel too
-    let mut child_stdout = child.stdout.take();
-    let mut child_stderr = child.stderr.take();
+    let child_stdout = child.stdout.take();
+    let child_stderr = child.stderr.take();
+
+    // If streaming, read lines and broadcast; otherwise read all at once
+    if live_tx.is_some() {
+        use tokio::io::{AsyncBufReadExt, BufReader};
+
+        let tx = live_tx.unwrap();
+        let mut stdout_lines = child_stdout
+            .map(|s| BufReader::new(s).lines());
+        let mut stderr_lines = child_stderr
+            .map(|s| BufReader::new(s).lines());
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+        let mut stdout_done = stdout_lines.is_none();
+        let mut stderr_done = stderr_lines.is_none();
+
+        loop {
+            tokio::select! {
+                line = async {
+                    match stdout_lines.as_mut() {
+                        Some(r) => r.next_line().await,
+                        None => std::future::pending().await,
+                    }
+                }, if !stdout_done => {
+                    match line {
+                        Ok(Some(l)) => { let _ = tx.send(l.clone()); stdout_buf.push(l); }
+                        _ => { stdout_done = true; }
+                    }
+                }
+                line = async {
+                    match stderr_lines.as_mut() {
+                        Some(r) => r.next_line().await,
+                        None => std::future::pending().await,
+                    }
+                }, if !stderr_done => {
+                    match line {
+                        Ok(Some(l)) => { let _ = tx.send(format!("[stderr] {}", l)); stderr_buf.push(l); }
+                        _ => { stderr_done = true; }
+                    }
+                }
+                _ = async {
+                    match timeout_duration {
+                        Some(d) => tokio::time::sleep(d).await,
+                        None => std::future::pending().await,
+                    }
+                } => {
+                    let _ = child.kill().await;
+                    return CommandResult {
+                        status: ExecutionStatus::TimedOut,
+                        exit_code: None,
+                        stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
+                        stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
+                    };
+                }
+                _ = &mut cancel_rx => {
+                    let _ = child.kill().await;
+                    return CommandResult {
+                        status: ExecutionStatus::Cancelled,
+                        exit_code: None,
+                        stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
+                        stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
+                    };
+                }
+                else => break,
+            }
+        }
+
+        let exit_status = child.wait().await;
+        match exit_status {
+            Ok(es) => {
+                let status = if es.success() { ExecutionStatus::Succeeded } else { ExecutionStatus::Failed };
+                CommandResult {
+                    status,
+                    exit_code: es.code(),
+                    stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
+                    stderr: truncate_output(stderr_buf.join("\n").into_bytes()),
+                }
+            }
+            Err(e) => CommandResult {
+                status: ExecutionStatus::Failed,
+                exit_code: None,
+                stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
+                stderr: CapturedOutput { text: format!("process error: {e}"), truncated: false },
+            },
+        }
+    } else {
+    // Non-streaming path (original behavior)
+    let mut child_stdout = child_stdout;
+    let mut child_stderr = child_stderr;
 
     tokio::select! {
         result = child.wait() => {
@@ -600,6 +750,7 @@ pub async fn run_command(
             }
         }
     }
+    } // end else (non-streaming path)
 }
 
 fn truncate_output(bytes: Vec<u8>) -> CapturedOutput {

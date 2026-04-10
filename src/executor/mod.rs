@@ -49,6 +49,8 @@ pub struct Executor {
     scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
     script_store: ScriptStore,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
+    pub(crate) live_output:
+        Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
 }
 
 impl Executor {
@@ -58,6 +60,7 @@ impl Executor {
         agent_client: AgentClient,
         scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
         script_store: ScriptStore,
+        live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
     ) -> Self {
         Self {
             db,
@@ -65,6 +68,7 @@ impl Executor {
             scheduler_tx,
             script_store,
             running: Arc::new(Mutex::new(HashMap::new())),
+            live_output,
         }
     }
 
@@ -74,14 +78,16 @@ impl Executor {
         job: &Job,
         trigger: TriggerSource,
         callback_base_url: &str,
+        params: Option<serde_json::Value>,
     ) -> Result<Uuid, AppError> {
-        // Substitute global variables in task fields
+        // Substitute global variables and params in task fields
         let mut job = job.clone();
         let db = self.db.clone();
         let task_clone = job.task.clone();
+        let params_clone = params.clone();
         let substituted = tokio::task::spawn_blocking(move || {
             let vars = db.get_all_variables_map()?;
-            Ok::<_, AppError>(substitute_variables(&task_clone, &vars))
+            Ok::<_, AppError>(substitute_variables(&task_clone, &vars, params_clone.as_ref()))
         })
         .await
         .map_err(|e| AppError::Internal(e.to_string()))??;
@@ -90,7 +96,9 @@ impl Executor {
         }
 
         match &job.target {
-            None | Some(AgentTarget::Local) => self.execute_local(&job, trigger).await,
+            None | Some(AgentTarget::Local) => {
+                self.execute_local(&job, trigger, params).await
+            }
             Some(AgentTarget::Agent { agent_id }) => {
                 self.dispatch_to_agent(*agent_id, &job, trigger, callback_base_url)
                     .await
@@ -116,38 +124,68 @@ impl Executor {
     }
 }
 
-/// Substitute `{{VAR_NAME}}` placeholders in task fields with variable values.
+/// Substitute `{{VAR_NAME}}` and `{{params.NAME}}` placeholders in task fields.
 /// Returns None if no substitutions were needed, or Some(new_task) with resolved values.
-pub fn substitute_variables(task: &TaskType, vars: &HashMap<String, String>) -> Option<TaskType> {
-    if vars.is_empty() {
-        return None;
-    }
+pub fn substitute_variables(
+    task: &TaskType,
+    vars: &HashMap<String, String>,
+    params: Option<&serde_json::Value>,
+) -> Option<TaskType> {
     let json_str = serde_json::to_string(task).ok()?;
     if !json_str.contains("{{") {
         return None;
     }
 
-    let re = match Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}") {
-        Ok(re) => re,
-        Err(_) => return None,
-    };
-    let mut had_substitution = false;
-    let result = re.replace_all(&json_str, |caps: &regex::Captures| {
-        let var_name = &caps[1];
-        if let Some(value) = vars.get(var_name) {
-            had_substitution = true;
-            // JSON-escape the value for safe embedding in a JSON string
-            let escaped = match serde_json::to_string(value) {
-                Ok(s) => s,
-                Err(_) => return caps[0].to_string(),
-            };
-            // Strip the surrounding quotes since we're inside an existing JSON string
-            escaped[1..escaped.len() - 1].to_string()
-        } else {
-            warn!("unresolved variable reference: {{{{{}}}}}", var_name);
-            caps[0].to_string()
+    fn json_escape(value: &str) -> String {
+        match serde_json::to_string(value) {
+            Ok(s) => s[1..s.len() - 1].to_string(),
+            Err(_) => value.to_string(),
         }
-    });
+    }
+
+    let mut had_substitution = false;
+    let mut result = json_str;
+
+    // Pass 1: {{params.NAME}} — from runtime trigger params
+    if let Some(params) = params {
+        if let Some(obj) = params.as_object() {
+            let re = Regex::new(r"\{\{params\.([A-Za-z0-9_]+)\}\}").ok()?;
+            let src = result.clone();
+            result = re
+                .replace_all(&src, |caps: &regex::Captures| {
+                    let param_name = &caps[1];
+                    if let Some(val) = obj.get(param_name) {
+                        had_substitution = true;
+                        let s = match val {
+                            serde_json::Value::String(s) => s.clone(),
+                            other => other.to_string(),
+                        };
+                        json_escape(&s)
+                    } else {
+                        caps[0].to_string()
+                    }
+                })
+                .to_string();
+        }
+    }
+
+    // Pass 2: {{VAR_NAME}} — from global variables
+    if !vars.is_empty() {
+        let re = Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}").ok()?;
+        let src = result.clone();
+        result = re
+            .replace_all(&src, |caps: &regex::Captures| {
+                let var_name = &caps[1];
+                if let Some(value) = vars.get(var_name) {
+                    had_substitution = true;
+                    json_escape(value)
+                } else {
+                    warn!("unresolved variable reference: {{{{{}}}}}", var_name);
+                    caps[0].to_string()
+                }
+            })
+            .to_string();
+    }
 
     if !had_substitution {
         return None;

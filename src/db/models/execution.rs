@@ -66,6 +66,9 @@ pub enum TriggerSource {
         original_execution_id: Uuid,
         attempt: u32,
     },
+    Webhook {
+        token_prefix: String,
+    },
 }
 
 /// Recorded result of a single job execution.
@@ -90,6 +93,9 @@ pub struct ExecutionRecord {
     pub retry_of: Option<Uuid>,
     #[serde(default = "default_attempt")]
     pub attempt_number: u32,
+    /// Runtime parameters passed at trigger time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub params: Option<serde_json::Value>,
 }
 
 fn default_attempt() -> u32 {
@@ -116,6 +122,7 @@ impl ExecutionRecord {
             extracted: None,
             retry_of: None,
             attempt_number: 1,
+            params: None,
         }
     }
 
@@ -146,7 +153,7 @@ impl ExecutionRecord {
     /// Constructs an ExecutionRecord from a rusqlite row.
     ///
     /// Columns: id(0), job_id(1), agent_id(2), task_snapshot_json(3), status(4), exit_code(5),
-    ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13), retry_of(14), attempt_number(15)
+    ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13), retry_of(14), attempt_number(15), params_json(16)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
         use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
 
@@ -184,6 +191,10 @@ impl ExecutionRecord {
                 r.and_then(|s| Uuid::parse_str(&s).ok())
             },
             attempt_number: row.get::<_, Option<i32>>(15).unwrap_or(None).unwrap_or(1) as u32,
+            params: {
+                let p_json: Option<String> = row.get(16).unwrap_or(None);
+                p_json.and_then(|s| serde_json::from_str(&s).ok())
+            },
         })
     }
 }
