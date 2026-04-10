@@ -9,7 +9,7 @@ function setJobsTab(tab) {
     document.querySelectorAll('.jobs-tab').forEach(b => {
         b.classList.toggle('active', b.id === 'jt-' + tab);
     });
-    const panels = { list: 'jobs-list-panel', groups: 'jobs-groups-panel', stages: 'jobs-stages-panel', map: 'jobs-map-panel' };
+    const panels = { list: 'jobs-list-panel', stages: 'jobs-stages-panel', map: 'jobs-map-panel' };
     for (const [key, id] of Object.entries(panels)) {
         const el = document.getElementById(id);
         if (el) el.style.display = key === tab ? '' : 'none';
@@ -25,45 +25,12 @@ function setJobsTab(tab) {
         });
     }
 
-    // Sync group filter dropdown value
-    const gf = document.getElementById('group-filter');
-    if (gf) gf.value = groupFilter;
-
     if (tab === 'list') {
         fetchJobs();
-    } else if (tab === 'groups') {
-        renderJobsGroupsTab();
     } else if (tab === 'stages') {
         renderJobsStagesTab();
     } else if (tab === 'map') {
         renderMap();
-    }
-}
-
-async function renderJobsGroupsTab() {
-    try {
-        const [groups, jobsRes] = await Promise.all([
-            api('GET', '/api/jobs/groups'),
-            api('GET', '/api/jobs?per_page=1000'),
-        ]);
-        const jobs = jobsRes.data;
-        const jobsByGroup = {};
-        for (const j of jobs) {
-            const g = j.group || 'Default';
-            if (!jobsByGroup[g]) jobsByGroup[g] = [];
-            jobsByGroup[g].push(j);
-        }
-        const allGroups = new Set(groups);
-        for (const g of Object.keys(jobsByGroup)) allGroups.add(g);
-        const sortedGroups = [...allGroups].sort((a, b) => {
-            if (a === 'Default') return -1;
-            if (b === 'Default') return 1;
-            return a.localeCompare(b);
-        });
-        const grid = document.getElementById('groups-grid');
-        if (grid) renderCardsView(sortedGroups, jobsByGroup);
-    } catch (e) {
-        console.error('renderJobsGroupsTab:', e);
     }
 }
 
@@ -95,15 +62,10 @@ async function renderJobsStagesTab() {
 
         const groupsToShow = selected ? [selected] : sortedGroups;
 
-        // Reuse the pipeline renderer but target stages-content
-        const origGrid = document.getElementById('groups-grid');
-        const tempId = 'stages-content';
-        // Temporarily swap the ID so renderPipelineView writes to stages-content
-        if (origGrid) origGrid.id = '_groups-grid-tmp';
+        // Temporarily set ID so renderPipelineView writes to stages-content
         content.id = 'groups-grid';
         renderPipelineView(groupsToShow.filter(g => jobsByGroup[g] && jobsByGroup[g].length > 0), jobsByGroup);
-        content.id = tempId;
-        if (origGrid) origGrid.id = 'groups-grid';
+        content.id = 'stages-content';
     } catch (e) {
         console.error('renderJobsStagesTab:', e);
     }
@@ -125,27 +87,108 @@ function groupBadge(group) {
 async function fetchGroups() {
     try {
         cachedGroups = await api('GET', '/api/jobs/groups');
-        const sel = document.getElementById('group-filter');
-        if (!sel) return;
-        sel.innerHTML = '<option value="">All Groups</option>';
-        for (const g of cachedGroups) {
-            sel.innerHTML += '<option value="' + esc(g) + '"' + (groupFilter === g ? ' selected' : '') + '>' + esc(g) + '</option>';
-        }
+        renderGroupPickerList();
     } catch (e) {
         console.error('fetchGroups:', e);
     }
 }
 
+function renderGroupPickerList(filter) {
+    const list = document.getElementById('group-picker-list');
+    if (!list) return;
+    const term = (filter || '').toLowerCase();
+    let groups = cachedGroups.filter(g => !term || g.toLowerCase().includes(term));
+    let html = '<div class="group-picker-item group-picker-create" onclick="createNewGroupFromPicker()">+ New Group</div>';
+    html += '<div class="group-picker-item' + (!groupFilter ? ' active' : '') + '" onclick="setGroupFilter(\'\')">All Groups</div>';
+    for (const g of groups) {
+        const color = groupColor(g);
+        const isActive = groupFilter === g;
+        const canDelete = g !== 'Default';
+        html += '<div class="group-picker-item' + (isActive ? ' active' : '') + '" onclick="setGroupFilter(\'' + esc(g).replace(/'/g, "\\'") + '\')">';
+        html += '<span class="group-picker-dot" style="background:' + color + '"></span>';
+        html += '<span style="flex:1">' + esc(g) + '</span>';
+        if (canDelete) {
+            html += '<button class="group-picker-delete" onclick="event.stopPropagation();deleteGroupFromPicker(\'' + esc(g).replace(/'/g, "\\'") + '\')" title="Delete group">&times;</button>';
+        }
+        html += '</div>';
+    }
+    if (groups.length === 0 && term) {
+        html += '<div class="group-picker-empty">No groups match</div>';
+    }
+    list.innerHTML = html;
+}
+
+async function createNewGroupFromPicker() {
+    const name = prompt('Enter new group name:');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (cachedGroups.includes(trimmed)) {
+        toast('Group "' + trimmed + '" already exists', 'error');
+        return;
+    }
+    try {
+        await api('POST', '/api/jobs/groups', { name: trimmed });
+        toast('Group "' + trimmed + '" created');
+        await fetchGroups();
+        renderGroupPickerList();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function deleteGroupFromPicker(name) {
+    if (!confirm('Delete group "' + name + '"? Jobs will move to Default.')) return;
+    try {
+        await api('PUT', '/api/jobs/rename-group', { old_name: name, new_name: 'Default' });
+        toast('Group "' + name + '" deleted');
+        if (groupFilter === name) setGroupFilter('');
+        await fetchGroups();
+        renderGroupPickerList();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+function toggleGroupPicker() {
+    const pop = document.getElementById('group-picker-popover');
+    if (!pop) return;
+    const showing = pop.style.display !== 'none';
+    pop.style.display = showing ? 'none' : '';
+    if (!showing) {
+        const search = document.getElementById('group-picker-search');
+        if (search) { search.value = ''; search.focus(); }
+        renderGroupPickerList();
+    }
+}
+
+function filterGroupPicker() {
+    const search = document.getElementById('group-picker-search');
+    renderGroupPickerList(search ? search.value : '');
+}
+
 function setGroupFilter(value) {
     groupFilter = value;
-    // Sync all group dropdowns
-    const gf = document.getElementById('group-filter');
-    const sgf = document.getElementById('stages-group-select');
-    if (gf) gf.value = value;
-    if (sgf) sgf.value = value;
+    // Update button label
+    const label = document.getElementById('group-picker-label');
+    if (label) label.textContent = value || 'All Groups';
+    // Highlight active state on button
+    const btn = document.getElementById('group-picker-btn');
+    if (btn) btn.classList.toggle('group-picker-active', !!value);
+    // Close picker
+    const pop = document.getElementById('group-picker-popover');
+    if (pop) pop.style.display = 'none';
     // Re-render current tab
     setJobsTab(jobsTab);
 }
+
+// Close group picker when clicking outside
+document.addEventListener('mousedown', function(e) {
+    const wrap = document.getElementById('group-picker-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+        const pop = document.getElementById('group-picker-popover');
+        if (pop) pop.style.display = 'none';
+    }
+});
 
 async function bulkSetGroup() {
     if (selectedJobs.size === 0) return;

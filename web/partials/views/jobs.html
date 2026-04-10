@@ -2,15 +2,19 @@
         <div class="jobs-tab-bar">
             <div class="jobs-tab-left">
                 <button class="jobs-tab active" id="jt-list" onclick="setJobsTab('list')"><span class="jobs-tab-icon">&#9889;</span> Jobs</button>
-                <button class="jobs-tab" id="jt-groups" onclick="setJobsTab('groups')"><span class="jobs-tab-icon">&#128193;</span> Groups</button>
                 <button class="jobs-tab" id="jt-stages" onclick="setJobsTab('stages')"><span class="jobs-tab-icon">&#9654;</span> Stages</button>
                 <button class="jobs-tab" id="jt-map" onclick="setJobsTab('map')"><span class="jobs-tab-icon">&#9741;</span> Map</button>
             </div>
             <div class="jobs-tab-right">
-                <label style="font-size:11px;font-weight:600;color:var(--accent)">Group:</label>
-                <select id="group-filter" class="group-filter-select" onchange="setGroupFilter(this.value)" style="font-size:12px;padding:5px 10px">
-                    <option value="">All</option>
-                </select>
+                <div class="group-picker-wrap" id="group-picker-wrap">
+                    <button class="btn btn-ghost btn-sm group-picker-btn" id="group-picker-btn" onclick="toggleGroupPicker()">
+                        <span class="jobs-tab-icon">&#128193;</span> <span id="group-picker-label">All Groups</span>
+                    </button>
+                    <div class="group-picker-popover" id="group-picker-popover" style="display:none">
+                        <input type="text" class="group-picker-search" id="group-picker-search" placeholder="Search groups..." autocomplete="off" oninput="filterGroupPicker()">
+                        <div class="group-picker-list" id="group-picker-list"></div>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="jobs-list-panel">
@@ -25,13 +29,6 @@
             </div>
             <div id="jobs-table-wrap"></div>
             <div id="jobs-pagination" class="pagination"></div>
-        </div>
-        <div id="jobs-groups-panel" style="display:none;margin-top:16px">
-            <div class="jobs-sub-toolbar">
-                <button class="btn btn-primary btn-sm" onclick="createNewGroup()">+ Group</button>
-                <button class="btn btn-ghost btn-sm" onclick="openCreateModal()">+ Create Job</button>
-            </div>
-            <div id="groups-grid" class="groups-grid"></div>
         </div>
         <div id="jobs-stages-panel" style="display:none;margin-top:16px">
             <div id="stages-content"></div>

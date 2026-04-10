@@ -255,9 +255,7 @@ async function createNewGroup() {
 }
 
 function navToGroupJobs(group) {
-    groupFilter = group;
-    const sel = document.getElementById('group-filter');
-    if (sel) sel.value = group;
+    setGroupFilter(group);
     setJobsTab('list');
     fetchJobs(true);
 }
