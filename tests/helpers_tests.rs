@@ -36,6 +36,11 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         priority: 0,
         sla_deadline: None,
         sla_warning_mins: 0,
+        starts_at: None,
+        expires_at: None,
+        max_concurrent: 0,
+        parameters: None,
+        webhook_token: None,
     }
 }
 

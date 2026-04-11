@@ -36,6 +36,11 @@ fn make_job(name: &str) -> Job {
         priority: 0,
         sla_deadline: None,
         sla_warning_mins: 0,
+        starts_at: None,
+        expires_at: None,
+        max_concurrent: 0,
+        parameters: None,
+        webhook_token: None,
     }
 }
 
@@ -214,6 +219,7 @@ fn test_insert_and_get_execution() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -245,6 +251,7 @@ fn test_update_execution_extracted() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
     db.update_execution_extracted(exec.id, &serde_json::json!({"key": "value"}))
@@ -282,6 +289,7 @@ fn test_execution_counts() {
             extracted: None,
             retry_of: None,
             attempt_number: 1,
+            params: None,
         };
         db.insert_execution(&exec).unwrap();
     }
@@ -799,6 +807,7 @@ fn test_delete_job_with_executions() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
 

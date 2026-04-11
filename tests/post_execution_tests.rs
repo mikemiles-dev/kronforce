@@ -37,6 +37,11 @@ fn make_job(name: &str) -> Job {
         priority: 0,
         sla_deadline: None,
         sla_warning_mins: 0,
+        starts_at: None,
+        expires_at: None,
+        max_concurrent: 0,
+        parameters: None,
+        webhook_token: None,
     }
 }
 
@@ -59,6 +64,7 @@ fn insert_execution(db: &Db, job_id: Uuid) -> Uuid {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
     exec_id

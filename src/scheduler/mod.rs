@@ -115,25 +115,25 @@ impl Scheduler {
             }
 
             // Check schedule window constraints
-            if let Some(starts_at) = job.starts_at {
-                if now < starts_at {
-                    continue;
-                }
+            if let Some(starts_at) = job.starts_at
+                && now < starts_at
+            {
+                continue;
             }
-            if let Some(expires_at) = job.expires_at {
-                if now > expires_at {
-                    debug!(
-                        "job {} ({}) has expired, marking as unscheduled",
-                        job.name, job.id
-                    );
-                    let mut updated = job.clone();
-                    updated.status = JobStatus::Unscheduled;
-                    updated.updated_at = Utc::now();
-                    let db = self.db.clone();
-                    let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
-                    self.invalidate_cache();
-                    continue;
-                }
+            if let Some(expires_at) = job.expires_at
+                && now > expires_at
+            {
+                debug!(
+                    "job {} ({}) has expired, marking as unscheduled",
+                    job.name, job.id
+                );
+                let mut updated = job.clone();
+                updated.status = JobStatus::Unscheduled;
+                updated.updated_at = Utc::now();
+                let db = self.db.clone();
+                let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
+                self.invalidate_cache();
+                continue;
             }
 
             match &job.schedule {

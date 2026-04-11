@@ -37,6 +37,11 @@ fn make_job(name: &str) -> Job {
         priority: 0,
         sla_deadline: None,
         sla_warning_mins: 0,
+        starts_at: None,
+        expires_at: None,
+        max_concurrent: 0,
+        parameters: None,
+        webhook_token: None,
     }
 }
 
@@ -144,6 +149,7 @@ fn test_deps_satisfied_with_successful_execution() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -178,6 +184,7 @@ fn test_deps_satisfied_with_failed_execution() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     };
     db.insert_execution(&exec).unwrap();
 
@@ -216,6 +223,7 @@ fn test_deps_satisfied_multiple_deps_all_ok() {
             extracted: None,
             retry_of: None,
             attempt_number: 1,
+            params: None,
         };
         db.insert_execution(&exec).unwrap();
     }
@@ -260,6 +268,7 @@ fn test_deps_satisfied_multiple_deps_one_failed() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     })
     .unwrap();
 
@@ -281,6 +290,7 @@ fn test_deps_satisfied_multiple_deps_one_failed() {
         extracted: None,
         retry_of: None,
         attempt_number: 1,
+        params: None,
     })
     .unwrap();
 

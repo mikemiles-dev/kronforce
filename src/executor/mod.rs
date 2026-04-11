@@ -148,26 +148,26 @@ pub fn substitute_variables(
     let mut result = json_str;
 
     // Pass 1: {{params.NAME}} — from runtime trigger params
-    if let Some(params) = params {
-        if let Some(obj) = params.as_object() {
-            let re = Regex::new(r"\{\{params\.([A-Za-z0-9_]+)\}\}").ok()?;
-            let src = result.clone();
-            result = re
-                .replace_all(&src, |caps: &regex::Captures| {
-                    let param_name = &caps[1];
-                    if let Some(val) = obj.get(param_name) {
-                        had_substitution = true;
-                        let s = match val {
-                            serde_json::Value::String(s) => s.clone(),
-                            other => other.to_string(),
-                        };
-                        json_escape(&s)
-                    } else {
-                        caps[0].to_string()
-                    }
-                })
-                .to_string();
-        }
+    if let Some(params) = params
+        && let Some(obj) = params.as_object()
+    {
+        let re = Regex::new(r"\{\{params\.([A-Za-z0-9_]+)\}\}").ok()?;
+        let src = result.clone();
+        result = re
+            .replace_all(&src, |caps: &regex::Captures| {
+                let param_name = &caps[1];
+                if let Some(val) = obj.get(param_name) {
+                    had_substitution = true;
+                    let s = match val {
+                        serde_json::Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    json_escape(&s)
+                } else {
+                    caps[0].to_string()
+                }
+            })
+            .to_string();
     }
 
     // Pass 2: {{VAR_NAME}} — from global variables

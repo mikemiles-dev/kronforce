@@ -807,10 +807,10 @@ impl JobResponse {
         let now = Utc::now();
 
         // If the job has expired, no next fire
-        if let Some(expires_at) = job.expires_at {
-            if now > expires_at {
-                return None;
-            }
+        if let Some(expires_at) = job.expires_at
+            && now > expires_at
+        {
+            return None;
         }
 
         let next = match &job.schedule {

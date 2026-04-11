@@ -450,10 +450,10 @@ pub async fn run_task_streaming(
     cancel_rx: oneshot::Receiver<()>,
     live_tx: Option<&tokio::sync::broadcast::Sender<String>>,
 ) -> CommandResult {
-    if let TaskType::Shell { command } = task {
-        if let Some(tx) = live_tx {
-            return run_command_streaming(command, run_as, timeout_secs, cancel_rx, tx).await;
-        }
+    if let TaskType::Shell { command } = task
+        && let Some(tx) = live_tx
+    {
+        return run_command_streaming(command, run_as, timeout_secs, cancel_rx, tx).await;
     }
     // For non-shell tasks or when no live_tx, use standard run_task
     // and broadcast the final output
@@ -612,10 +612,8 @@ async fn run_command_inner(
     let child_stderr = child.stderr.take();
 
     // If streaming, read lines and broadcast; otherwise read all at once
-    if live_tx.is_some() {
+    if let Some(tx) = live_tx {
         use tokio::io::{AsyncBufReadExt, BufReader};
-
-        let tx = live_tx.unwrap();
         let mut stdout_lines = child_stdout.map(|s| BufReader::new(s).lines());
         let mut stderr_lines = child_stderr.map(|s| BufReader::new(s).lines());
         let mut stdout_buf = Vec::new();

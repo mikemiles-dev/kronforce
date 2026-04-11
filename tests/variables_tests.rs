@@ -143,7 +143,7 @@ fn test_substitute_single_variable() {
         "https://api.example.com".to_string(),
     );
 
-    let result = substitute_variables(&task, &vars).unwrap();
+    let result = substitute_variables(&task, &vars, None).unwrap();
     if let TaskType::Shell { command } = result {
         assert_eq!(command, "curl https://api.example.com/status");
     } else {
@@ -160,7 +160,7 @@ fn test_substitute_multiple_variables() {
     vars.insert("HOST".to_string(), "localhost".to_string());
     vars.insert("PORT".to_string(), "8080".to_string());
 
-    let result = substitute_variables(&task, &vars).unwrap();
+    let result = substitute_variables(&task, &vars, None).unwrap();
     if let TaskType::Shell { command } = result {
         assert_eq!(command, "curl localhost:8080/api");
     } else {
@@ -175,7 +175,7 @@ fn test_substitute_missing_variable_left_as_is() {
     };
     let vars = HashMap::new();
 
-    let result = substitute_variables(&task, &vars);
+    let result = substitute_variables(&task, &vars, None);
     assert!(result.is_none()); // no vars to substitute
 }
 
@@ -187,7 +187,7 @@ fn test_substitute_no_placeholders() {
     let mut vars = HashMap::new();
     vars.insert("UNUSED".to_string(), "value".to_string());
 
-    let result = substitute_variables(&task, &vars);
+    let result = substitute_variables(&task, &vars, None);
     assert!(result.is_none()); // no {{ in the task
 }
 
@@ -199,7 +199,7 @@ fn test_substitute_special_json_characters() {
     let mut vars = HashMap::new();
     vars.insert("MSG".to_string(), "he said \"hello\"".to_string());
 
-    let result = substitute_variables(&task, &vars).unwrap();
+    let result = substitute_variables(&task, &vars, None).unwrap();
     if let TaskType::Shell { command } = result {
         assert_eq!(command, "echo he said \"hello\"");
     } else {
@@ -213,7 +213,7 @@ fn test_substitute_empty_vars_map() {
         command: "echo {{VAR}}".to_string(),
     };
     let vars = HashMap::new();
-    assert!(substitute_variables(&task, &vars).is_none());
+    assert!(substitute_variables(&task, &vars, None).is_none());
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn test_substitute_http_task() {
         "https://api.example.com".to_string(),
     );
 
-    let result = substitute_variables(&task, &vars).unwrap();
+    let result = substitute_variables(&task, &vars, None).unwrap();
     if let TaskType::Http { url, .. } = result {
         assert_eq!(url, "https://api.example.com/health");
     } else {
