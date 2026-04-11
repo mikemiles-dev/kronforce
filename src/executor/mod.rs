@@ -138,9 +138,19 @@ pub fn substitute_variables(
     }
 
     fn json_escape(value: &str) -> String {
+        // serde_json::to_string wraps in quotes and escapes all special chars
+        // We strip the outer quotes since we're embedding inside an existing JSON string
         match serde_json::to_string(value) {
             Ok(s) => s[1..s.len() - 1].to_string(),
-            Err(_) => value.to_string(),
+            Err(_) => {
+                // Fallback: manually escape dangerous chars
+                value
+                    .replace('\\', "\\\\")
+                    .replace('"', "\\\"")
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+                    .replace('\t', "\\t")
+            }
         }
     }
 

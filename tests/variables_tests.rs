@@ -262,7 +262,10 @@ fn test_substitute_params_and_vars_combined() {
         command: "curl {{BASE_URL}}/deploy?v={{params.version}}".to_string(),
     };
     let mut vars = HashMap::new();
-    vars.insert("BASE_URL".to_string(), "https://api.example.com".to_string());
+    vars.insert(
+        "BASE_URL".to_string(),
+        "https://api.example.com".to_string(),
+    );
     let params = serde_json::json!({"version": "2.0"});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
     if let TaskType::Shell { command } = result {

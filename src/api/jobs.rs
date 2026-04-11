@@ -658,6 +658,15 @@ pub(crate) async fn trigger_job(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
+    let trigger_params = body.and_then(|b| b.0.params);
+
+    // Validate params is an object if provided
+    if let Some(ref p) = trigger_params
+        && !p.is_object()
+    {
+        return Err(AppError::BadRequest("params must be a JSON object".into()));
+    }
+
     if job.approval_required {
         // Create a pending_approval execution instead of running immediately
         let exec_id = Uuid::new_v4();
@@ -678,7 +687,7 @@ pub(crate) async fn trigger_job(
             extracted: None,
             retry_of: None,
             attempt_number: 1,
-            params: None,
+            params: trigger_params.clone(),
         };
         let rec_clone = rec.clone();
         db_call(&state.db, move |db| db.insert_execution(&rec_clone)).await?;
@@ -709,7 +718,6 @@ pub(crate) async fn trigger_job(
     }
 
     let skip_deps = trigger_query.skip_deps.unwrap_or(false);
-    let trigger_params = body.and_then(|b| b.0.params);
 
     state
         .scheduler_tx
@@ -1011,13 +1019,13 @@ pub(crate) async fn approve_execution(
         )));
     }
 
-    // Trigger the job through the scheduler
+    // Trigger the job through the scheduler, preserving original params
     state
         .scheduler_tx
         .send(SchedulerCommand::TriggerNow {
             job_id: exec.job_id,
             skip_deps: false,
-            params: None,
+            params: exec.params.clone(),
         })
         .await
         .map_err(|_| AppError::Internal("scheduler unavailable".into()))?;

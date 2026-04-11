@@ -574,11 +574,15 @@ function field(label, value) {
 
 // --- Actions ---
 async function triggerJob(id, skipDeps) {
-    // Check if job has parameters — show params modal if so
-    const job = allJobs.find(j => j.id === id);
-    if (!skipDeps && job && job.parameters && job.parameters.length > 0) {
-        showTriggerParamsModal(id, job.parameters);
-        return;
+    // Fetch fresh job data to check for parameters (allJobs may be stale)
+    if (!skipDeps) {
+        try {
+            const freshJob = await api('GET', '/api/jobs/' + id);
+            if (freshJob.parameters && freshJob.parameters.length > 0) {
+                showTriggerParamsModal(id, freshJob.parameters);
+                return;
+            }
+        } catch (e) { /* proceed without params check */ }
     }
     const btn = document.getElementById('trigger-' + id);
     if (btn) btn.classList.add('trigger-pending');
