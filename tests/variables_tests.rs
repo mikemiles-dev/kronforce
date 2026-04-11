@@ -238,3 +238,73 @@ fn test_substitute_http_task() {
         panic!("expected Http task type");
     }
 }
+
+// --- Parameter substitution ---
+
+#[test]
+fn test_substitute_params_basic() {
+    let task = TaskType::Shell {
+        command: "deploy {{params.version}} to {{params.env}}".to_string(),
+    };
+    let vars = HashMap::new();
+    let params = serde_json::json!({"version": "1.2.3", "env": "production"});
+    let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
+    if let TaskType::Shell { command } = result {
+        assert_eq!(command, "deploy 1.2.3 to production");
+    } else {
+        panic!("expected Shell task type");
+    }
+}
+
+#[test]
+fn test_substitute_params_and_vars_combined() {
+    let task = TaskType::Shell {
+        command: "curl {{BASE_URL}}/deploy?v={{params.version}}".to_string(),
+    };
+    let mut vars = HashMap::new();
+    vars.insert("BASE_URL".to_string(), "https://api.example.com".to_string());
+    let params = serde_json::json!({"version": "2.0"});
+    let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
+    if let TaskType::Shell { command } = result {
+        assert_eq!(command, "curl https://api.example.com/deploy?v=2.0");
+    } else {
+        panic!("expected Shell task type");
+    }
+}
+
+#[test]
+fn test_substitute_params_missing_left_as_is() {
+    let task = TaskType::Shell {
+        command: "echo {{params.missing}}".to_string(),
+    };
+    let vars = HashMap::new();
+    let params = serde_json::json!({"other": "value"});
+    let result = substitute_variables(&task, &vars, Some(&params));
+    // No substitution happened, returns None
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_substitute_params_none_ignores_param_placeholders() {
+    let task = TaskType::Shell {
+        command: "echo {{params.version}}".to_string(),
+    };
+    let vars = HashMap::new();
+    let result = substitute_variables(&task, &vars, None);
+    assert!(result.is_none());
+}
+
+#[test]
+fn test_substitute_params_numeric_value() {
+    let task = TaskType::Shell {
+        command: "echo {{params.count}}".to_string(),
+    };
+    let vars = HashMap::new();
+    let params = serde_json::json!({"count": 42});
+    let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
+    if let TaskType::Shell { command } = result {
+        assert_eq!(command, "echo 42");
+    } else {
+        panic!("expected Shell task type");
+    }
+}

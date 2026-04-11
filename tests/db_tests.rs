@@ -817,3 +817,200 @@ fn test_delete_job_with_executions() {
     assert!(db.get_job(job.id).unwrap().is_none());
     assert!(db.get_execution(exec.id).unwrap().is_none());
 }
+
+// --- Concurrency Controls ---
+
+#[test]
+fn test_max_concurrent_round_trip() {
+    let db = test_db();
+    let mut job = make_job("concurrent-job");
+    job.max_concurrent = 3;
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.max_concurrent, 3);
+}
+
+#[test]
+fn test_count_running_executions_for_job() {
+    let db = test_db();
+    let job = make_job("count-test");
+    db.insert_job(&job).unwrap();
+
+    // No executions
+    assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 0);
+
+    // Insert a running execution
+    let exec1 = ExecutionRecord {
+        id: Uuid::new_v4(),
+        job_id: job.id,
+        agent_id: None,
+        task_snapshot: None,
+        status: ExecutionStatus::Running,
+        exit_code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        started_at: Some(Utc::now()),
+        finished_at: None,
+        triggered_by: TriggerSource::Api,
+        extracted: None,
+        retry_of: None,
+        attempt_number: 1,
+        params: None,
+    };
+    db.insert_execution(&exec1).unwrap();
+    assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 1);
+
+    // Insert a pending execution
+    let exec2 = ExecutionRecord {
+        id: Uuid::new_v4(),
+        job_id: job.id,
+        agent_id: None,
+        task_snapshot: None,
+        status: ExecutionStatus::Pending,
+        exit_code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        started_at: None,
+        finished_at: None,
+        triggered_by: TriggerSource::Api,
+        extracted: None,
+        retry_of: None,
+        attempt_number: 1,
+        params: None,
+    };
+    db.insert_execution(&exec2).unwrap();
+    assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 2);
+
+    // Insert a succeeded execution — should NOT count
+    let exec3 = ExecutionRecord {
+        id: Uuid::new_v4(),
+        job_id: job.id,
+        agent_id: None,
+        task_snapshot: None,
+        status: ExecutionStatus::Succeeded,
+        exit_code: Some(0),
+        stdout: String::new(),
+        stderr: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        started_at: Some(Utc::now()),
+        finished_at: Some(Utc::now()),
+        triggered_by: TriggerSource::Api,
+        extracted: None,
+        retry_of: None,
+        attempt_number: 1,
+        params: None,
+    };
+    db.insert_execution(&exec3).unwrap();
+    assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 2);
+}
+
+// --- Parameterized Runs ---
+
+#[test]
+fn test_job_parameters_round_trip() {
+    let db = test_db();
+    let mut job = make_job("param-job");
+    job.parameters = Some(vec![
+        JobParameter {
+            name: "version".to_string(),
+            param_type: "text".to_string(),
+            required: true,
+            default: Some("1.0".to_string()),
+            options: None,
+            description: Some("Release version".to_string()),
+        },
+        JobParameter {
+            name: "env".to_string(),
+            param_type: "select".to_string(),
+            required: false,
+            default: Some("staging".to_string()),
+            options: Some(vec!["staging".to_string(), "production".to_string()]),
+            description: None,
+        },
+    ]);
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    let params = fetched.parameters.unwrap();
+    assert_eq!(params.len(), 2);
+    assert_eq!(params[0].name, "version");
+    assert!(params[0].required);
+    assert_eq!(params[1].param_type, "select");
+    assert_eq!(params[1].options.as_ref().unwrap().len(), 2);
+}
+
+#[test]
+fn test_execution_params_round_trip() {
+    let db = test_db();
+    let job = make_job("exec-params");
+    db.insert_job(&job).unwrap();
+
+    let mut exec = ExecutionRecord::new(Uuid::new_v4(), job.id, TriggerSource::Api);
+    exec.params = Some(serde_json::json!({"version": "2.0", "env": "production"}));
+    db.insert_execution(&exec).unwrap();
+
+    let fetched = db.get_execution(exec.id).unwrap().unwrap();
+    let params = fetched.params.unwrap();
+    assert_eq!(params["version"], "2.0");
+    assert_eq!(params["env"], "production");
+}
+
+// --- Webhook Triggers ---
+
+#[test]
+fn test_webhook_token_round_trip() {
+    let db = test_db();
+    let mut job = make_job("webhook-job");
+    job.webhook_token = Some("abc123def456".to_string());
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.webhook_token.as_deref(), Some("abc123def456"));
+}
+
+#[test]
+fn test_get_job_by_webhook_token() {
+    let db = test_db();
+    let mut job = make_job("webhook-lookup");
+    job.webhook_token = Some("token123".to_string());
+    db.insert_job(&job).unwrap();
+
+    let found = db.get_job_by_webhook_token("token123").unwrap().unwrap();
+    assert_eq!(found.id, job.id);
+    assert_eq!(found.name, "webhook-lookup");
+
+    // Non-existent token
+    assert!(db.get_job_by_webhook_token("bogus").unwrap().is_none());
+}
+
+#[test]
+fn test_set_webhook_token() {
+    let db = test_db();
+    let job = make_job("webhook-set");
+    db.insert_job(&job).unwrap();
+
+    // Initially no token
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert!(fetched.webhook_token.is_none());
+
+    // Set token
+    db.set_webhook_token(job.id, Some("newtoken")).unwrap();
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.webhook_token.as_deref(), Some("newtoken"));
+
+    // Lookup by token works
+    let found = db.get_job_by_webhook_token("newtoken").unwrap().unwrap();
+    assert_eq!(found.id, job.id);
+
+    // Clear token
+    db.set_webhook_token(job.id, None).unwrap();
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert!(fetched.webhook_token.is_none());
+    assert!(db.get_job_by_webhook_token("newtoken").unwrap().is_none());
+}

@@ -243,3 +243,36 @@ fn test_execution_status_serde() {
         assert_eq!(back, status);
     }
 }
+
+#[test]
+fn test_trigger_source_webhook_serde() {
+    let trigger = TriggerSource::Webhook {
+        token_prefix: "abc12345".to_string(),
+    };
+    let json = serde_json::to_string(&trigger).unwrap();
+    assert!(json.contains("\"type\":\"webhook\""));
+    assert!(json.contains("\"token_prefix\":\"abc12345\""));
+    let back: TriggerSource = serde_json::from_str(&json).unwrap();
+    if let TriggerSource::Webhook { token_prefix } = back {
+        assert_eq!(token_prefix, "abc12345");
+    } else {
+        panic!("expected Webhook trigger");
+    }
+}
+
+#[test]
+fn test_job_parameter_serde() {
+    let param = JobParameter {
+        name: "version".to_string(),
+        param_type: "text".to_string(),
+        required: true,
+        default: Some("1.0".to_string()),
+        options: None,
+        description: Some("The version".to_string()),
+    };
+    let json = serde_json::to_string(&param).unwrap();
+    let back: JobParameter = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.name, "version");
+    assert!(back.required);
+    assert_eq!(back.default.as_deref(), Some("1.0"));
+}
