@@ -526,7 +526,10 @@ function renderJobDetail(job) {
         '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
         '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Template</button> ' +
-        '<button class="btn btn-primary btn-sm" onclick="triggerJob(\'' + job.id + '\')">Trigger</button></div></div>' +
+        (job.status === 'scheduled' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'scheduled\')">Pause</button> ' : '') +
+        (job.status === 'paused' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'paused\')">Resume</button> ' : '') +
+        '<button class="btn btn-primary btn-sm" id="trigger-' + job.id + '" onclick="triggerJob(\'' + job.id + '\')">Trigger</button> ' +
+        '<button class="btn btn-danger btn-sm" onclick="deleteJob(\'' + job.id + '\',\'' + esc(job.name) + '\')">Delete</button></div></div>' +
         (job.description ? '<div style="padding:0 16px 8px;color:var(--text-secondary);font-size:13px">' + esc(job.description) + '</div>' : '') +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +
@@ -634,7 +637,8 @@ async function togglePause(id, current) {
     try {
         await api('PUT', '/api/jobs/' + id, { status: newStatus });
         toast('Job ' + newStatus);
-        fetchJobs();
+        if (currentJobId === id) showJobDetail(id);
+        else fetchJobs();
     } catch (e) {
         toast(e.message, 'error');
     }
