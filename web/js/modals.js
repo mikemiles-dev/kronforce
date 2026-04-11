@@ -536,104 +536,127 @@ function toggleDow(btn) {
     buildCronFromUI();
 }
 
-function updateCronOptions() {
-    const unit = document.getElementById('cb-unit').value;
-    document.getElementById('cb-at-time-group').style.display = (unit === 'day' || unit === 'week' || unit === 'month') ? '' : 'none';
-    document.getElementById('cb-dow-group').style.display = unit === 'week' ? '' : 'none';
-    document.getElementById('cb-dom-group').style.display = unit === 'month' ? '' : 'none';
+function cronFieldVal(mode, val) {
+    if (mode === 'every') return '*';
+    if (mode === 'step') return '*/' + (val || '1');
+    return val || '*';
 }
 
 function buildCronFromUI() {
-    const unit = document.getElementById('cb-unit').value;
-    const interval = parseInt(document.getElementById('cb-interval').value) || 1;
-    const hour = parseInt(document.getElementById('cb-hour').value) || 0;
-    const minute = parseInt(document.getElementById('cb-minute').value) || 0;
+    const sec = cronFieldVal(
+        document.getElementById('cb-sec-mode').value,
+        document.getElementById('cb-sec-val').value
+    );
+    const min = cronFieldVal(
+        document.getElementById('cb-min-mode').value,
+        document.getElementById('cb-min-val').value
+    );
+    const hr = cronFieldVal(
+        document.getElementById('cb-hr-mode').value,
+        document.getElementById('cb-hr-val').value
+    );
+    const dom = cronFieldVal(
+        document.getElementById('cb-dom-mode').value,
+        document.getElementById('cb-dom-val').value
+    );
+    const mon = cronFieldVal(
+        document.getElementById('cb-mon-mode').value,
+        document.getElementById('cb-mon-val').value
+    );
 
-    let expr = '';
-    let desc = '';
+    const selectedDow = Array.from(document.querySelectorAll('.cron-dow.active')).map(b => b.dataset.dow);
+    const dow = selectedDow.length > 0 ? selectedDow.join(',') : '*';
 
-    if (unit === 'minute') {
-        if (interval === 1) { expr = '0 * * * * *'; desc = 'Every minute'; }
-        else { expr = '0 */' + interval + ' * * * *'; desc = 'Every ' + interval + ' minutes'; }
-    } else if (unit === 'hour') {
-        if (interval === 1) { expr = '0 0 * * * *'; desc = 'Every hour'; }
-        else { expr = '0 0 */' + interval + ' * * *'; desc = 'Every ' + interval + ' hours'; }
-    } else if (unit === 'day') {
-        const pad = n => String(n).padStart(2, '0');
-        if (interval === 1) { expr = '0 ' + minute + ' ' + hour + ' * * *'; desc = 'Daily at ' + pad(hour) + ':' + pad(minute); }
-        else { expr = '0 ' + minute + ' ' + hour + ' */' + interval + ' * *'; desc = 'Every ' + interval + ' days at ' + pad(hour) + ':' + pad(minute); }
-    } else if (unit === 'week') {
-        const pad = n => String(n).padStart(2, '0');
-        const selectedDow = Array.from(document.querySelectorAll('.cron-dow.active')).map(b => b.dataset.dow);
-        const dow = selectedDow.length > 0 ? selectedDow.join(',') : '*';
-        const dayNames = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
-        const dowDesc = selectedDow.length > 0 ? selectedDow.map(d => dayNames[d]).join(', ') : 'every day';
-        expr = '0 ' + minute + ' ' + hour + ' * * ' + dow;
-        desc = 'Weekly on ' + dowDesc + ' at ' + pad(hour) + ':' + pad(minute);
-    } else if (unit === 'month') {
-        const pad = n => String(n).padStart(2, '0');
-        const dom = parseInt(document.getElementById('cb-dom').value) || 1;
-        expr = '0 ' + minute + ' ' + hour + ' ' + dom + ' * *';
-        desc = 'Monthly on day ' + dom + ' at ' + pad(hour) + ':' + pad(minute);
+    const expr = sec + ' ' + min + ' ' + hr + ' ' + dom + ' ' + mon + ' ' + dow;
+
+    // Build description
+    const dayNames = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
+    let parts = [];
+    if (sec !== '0' && sec !== '*') parts.push('sec=' + sec);
+    if (min === '*') parts.push('every minute');
+    else if (min.startsWith('*/')) parts.push('every ' + min.slice(2) + ' min');
+    else parts.push('at :' + String(min).padStart(2, '0'));
+    if (hr !== '*') {
+        if (hr.startsWith('*/')) parts.push('every ' + hr.slice(2) + ' hours');
+        else if (hr.includes('-')) parts.push('hours ' + hr);
+        else parts.push(String(hr).padStart(2, '0') + 'h');
     }
+    if (dom !== '*') parts.push('day ' + dom);
+    if (mon !== '*') parts.push('month ' + mon);
+    if (dow !== '*') parts.push(selectedDow.map(d => dayNames[d]).join(','));
 
     document.getElementById('cb-preview').textContent = expr;
-    document.getElementById('cb-description').textContent = desc;
+    document.getElementById('cb-description').textContent = parts.join(', ');
     document.getElementById('f-cron').value = expr;
 }
 
+function detectCronMode(val) {
+    if (val === '*') return { mode: 'every', val: '*' };
+    if (val.startsWith('*/')) return { mode: 'step', val: val.slice(2) };
+    if (val.includes('-')) return { mode: 'range', val: val };
+    return { mode: 'fixed', val: val };
+}
+
 function parseCronToUI(expr) {
-    if (!expr) { buildCronFromUI(); return; }
+    // Reset dow buttons
+    document.querySelectorAll('.cron-dow').forEach(b => b.classList.remove('active'));
+
+    if (!expr) {
+        // Defaults
+        document.getElementById('cb-sec-mode').value = 'fixed';
+        document.getElementById('cb-sec-val').value = '0';
+        document.getElementById('cb-min-mode').value = 'every';
+        document.getElementById('cb-min-val').value = '*';
+        document.getElementById('cb-hr-mode').value = 'every';
+        document.getElementById('cb-hr-val').value = '*';
+        document.getElementById('cb-dom-mode').value = 'every';
+        document.getElementById('cb-dom-val').value = '*';
+        document.getElementById('cb-mon-mode').value = 'every';
+        document.getElementById('cb-mon-val').value = '*';
+        buildCronFromUI();
+        return;
+    }
     const parts = expr.split(/\s+/);
     if (parts.length !== 6) { buildCronFromUI(); return; }
 
     const [sec, min, hr, dom, mon, dow] = parts;
 
-    // Reset
-    document.querySelectorAll('.cron-dow').forEach(b => b.classList.remove('active'));
+    const s = detectCronMode(sec);
+    document.getElementById('cb-sec-mode').value = s.mode;
+    document.getElementById('cb-sec-val').value = s.val;
 
-    // Try to detect pattern
-    if (min.startsWith('*/')) {
-        document.getElementById('cb-unit').value = 'minute';
-        document.getElementById('cb-interval').value = parseInt(min.slice(2));
-    } else if (hr.startsWith('*/')) {
-        document.getElementById('cb-unit').value = 'hour';
-        document.getElementById('cb-interval').value = parseInt(hr.slice(2));
-    } else if (dow !== '*') {
-        document.getElementById('cb-unit').value = 'week';
-        document.getElementById('cb-interval').value = 1;
-        document.getElementById('cb-hour').value = hr === '*' ? 0 : parseInt(hr);
-        document.getElementById('cb-minute').value = min === '*' ? 0 : parseInt(min);
-        dow.split(',').forEach(d => {
-            const btn = document.querySelector('.cron-dow[data-dow="' + d.trim() + '"]');
+    const m = detectCronMode(min);
+    document.getElementById('cb-min-mode').value = m.mode;
+    document.getElementById('cb-min-val').value = m.val;
+
+    const h = detectCronMode(hr);
+    document.getElementById('cb-hr-mode').value = h.mode;
+    document.getElementById('cb-hr-val').value = h.val;
+
+    const d = detectCronMode(dom);
+    document.getElementById('cb-dom-mode').value = d.mode;
+    document.getElementById('cb-dom-val').value = d.val;
+
+    const mo = detectCronMode(mon);
+    document.getElementById('cb-mon-mode').value = mo.mode;
+    document.getElementById('cb-mon-val').value = mo.val;
+
+    if (dow !== '*') {
+        dow.split(',').forEach(v => {
+            const btn = document.querySelector('.cron-dow[data-dow="' + v.trim() + '"]');
             if (btn) btn.classList.add('active');
         });
-    } else if (dom !== '*' && !dom.startsWith('*/')) {
-        document.getElementById('cb-unit').value = 'month';
-        document.getElementById('cb-interval').value = 1;
-        document.getElementById('cb-dom').value = parseInt(dom);
-        document.getElementById('cb-hour').value = hr === '*' ? 0 : parseInt(hr);
-        document.getElementById('cb-minute').value = min === '*' ? 0 : parseInt(min);
-    } else if (hr !== '*' && min !== '*') {
-        document.getElementById('cb-unit').value = 'day';
-        document.getElementById('cb-interval').value = dom.startsWith('*/') ? parseInt(dom.slice(2)) : 1;
-        document.getElementById('cb-hour').value = parseInt(hr);
-        document.getElementById('cb-minute').value = parseInt(min);
-    } else if (min === '*' && hr === '*') {
-        document.getElementById('cb-unit').value = 'minute';
-        document.getElementById('cb-interval').value = 1;
-    } else {
-        document.getElementById('cb-unit').value = 'minute';
-        document.getElementById('cb-interval').value = 1;
     }
 
-    updateCronOptions();
     buildCronFromUI();
 }
 
 function updateCronPreviewFromRaw() {
     // Just sync the raw input — don't update builder to avoid loops
 }
+
+// Legacy compat — old code called these
+function updateCronOptions() {}
 
 function getCronValue() {
     return document.getElementById('f-cron').value.trim() || document.getElementById('cb-preview').textContent;

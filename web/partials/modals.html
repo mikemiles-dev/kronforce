@@ -327,41 +327,73 @@
             <div id="cron-builder">
                 <div class="cron-builder-grid">
                     <div class="cron-field-group">
-                        <label>Run every</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input id="cb-interval" type="number" min="1" value="1" style="width:60px" onchange="buildCronFromUI()">
-                            <select id="cb-unit" onchange="buildCronFromUI();updateCronOptions()">
-                                <option value="minute">minute(s)</option>
-                                <option value="hour">hour(s)</option>
-                                <option value="day">day(s)</option>
-                                <option value="week">week(s)</option>
-                                <option value="month">month(s)</option>
+                        <label>Second</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <select id="cb-sec-mode" onchange="buildCronFromUI()" style="width:80px;font-size:11px">
+                                <option value="fixed">Fixed</option>
+                                <option value="every">Every</option>
+                                <option value="step">Step</option>
                             </select>
+                            <input id="cb-sec-val" type="text" value="0" style="width:50px;font-size:11px" onchange="buildCronFromUI()">
                         </div>
                     </div>
-                    <div class="cron-field-group" id="cb-at-time-group" style="display:none">
-                        <label>At time</label>
-                        <div style="display:flex;gap:6px;align-items:center">
-                            <input id="cb-hour" type="number" min="0" max="23" value="0" style="width:50px" onchange="buildCronFromUI()">
-                            <span>:</span>
-                            <input id="cb-minute" type="number" min="0" max="59" value="0" style="width:50px" onchange="buildCronFromUI()">
+                    <div class="cron-field-group">
+                        <label>Minute</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <select id="cb-min-mode" onchange="buildCronFromUI()" style="width:80px;font-size:11px">
+                                <option value="every" selected>Every</option>
+                                <option value="fixed">Fixed</option>
+                                <option value="step">Step</option>
+                                <option value="range">Range</option>
+                            </select>
+                            <input id="cb-min-val" type="text" value="*" style="width:70px;font-size:11px" onchange="buildCronFromUI()">
                         </div>
                     </div>
-                    <div class="cron-field-group" id="cb-dow-group" style="display:none">
-                        <label>On days</label>
-                        <div class="cron-dow-buttons">
-                            <button type="button" class="cron-dow" data-dow="1" onclick="toggleDow(this)">Mon</button>
-                            <button type="button" class="cron-dow" data-dow="2" onclick="toggleDow(this)">Tue</button>
-                            <button type="button" class="cron-dow" data-dow="3" onclick="toggleDow(this)">Wed</button>
-                            <button type="button" class="cron-dow" data-dow="4" onclick="toggleDow(this)">Thu</button>
-                            <button type="button" class="cron-dow" data-dow="5" onclick="toggleDow(this)">Fri</button>
-                            <button type="button" class="cron-dow" data-dow="6" onclick="toggleDow(this)">Sat</button>
-                            <button type="button" class="cron-dow" data-dow="0" onclick="toggleDow(this)">Sun</button>
+                    <div class="cron-field-group">
+                        <label>Hour</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <select id="cb-hr-mode" onchange="buildCronFromUI()" style="width:80px;font-size:11px">
+                                <option value="every" selected>Every</option>
+                                <option value="fixed">Fixed</option>
+                                <option value="step">Step</option>
+                                <option value="range">Range</option>
+                            </select>
+                            <input id="cb-hr-val" type="text" value="*" style="width:70px;font-size:11px" onchange="buildCronFromUI()">
                         </div>
                     </div>
-                    <div class="cron-field-group" id="cb-dom-group" style="display:none">
-                        <label>On day of month</label>
-                        <input id="cb-dom" type="number" min="1" max="31" value="1" style="width:60px" onchange="buildCronFromUI()">
+                    <div class="cron-field-group">
+                        <label>Day of Month</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <select id="cb-dom-mode" onchange="buildCronFromUI()" style="width:80px;font-size:11px">
+                                <option value="every" selected>Every</option>
+                                <option value="fixed">Specific</option>
+                                <option value="step">Step</option>
+                                <option value="range">Range</option>
+                            </select>
+                            <input id="cb-dom-val" type="text" value="*" style="width:70px;font-size:11px" onchange="buildCronFromUI()">
+                        </div>
+                    </div>
+                    <div class="cron-field-group">
+                        <label>Month</label>
+                        <div style="display:flex;gap:4px;align-items:center">
+                            <select id="cb-mon-mode" onchange="buildCronFromUI()" style="width:80px;font-size:11px">
+                                <option value="every" selected>Every</option>
+                                <option value="fixed">Specific</option>
+                            </select>
+                            <input id="cb-mon-val" type="text" value="*" style="width:70px;font-size:11px" onchange="buildCronFromUI()">
+                        </div>
+                    </div>
+                    <div class="cron-field-group">
+                        <label>Day of Week</label>
+                        <div class="cron-dow-buttons" style="margin-bottom:4px">
+                            <button type="button" class="cron-dow" data-dow="1" onclick="toggleDow(this)">Mo</button>
+                            <button type="button" class="cron-dow" data-dow="2" onclick="toggleDow(this)">Tu</button>
+                            <button type="button" class="cron-dow" data-dow="3" onclick="toggleDow(this)">We</button>
+                            <button type="button" class="cron-dow" data-dow="4" onclick="toggleDow(this)">Th</button>
+                            <button type="button" class="cron-dow" data-dow="5" onclick="toggleDow(this)">Fr</button>
+                            <button type="button" class="cron-dow" data-dow="6" onclick="toggleDow(this)">Sa</button>
+                            <button type="button" class="cron-dow" data-dow="0" onclick="toggleDow(this)">Su</button>
+                        </div>
                     </div>
                 </div>
                 <div class="cron-preview">
@@ -369,6 +401,7 @@
                     <code id="cb-preview">0 * * * * *</code>
                     <span id="cb-description" class="cron-description"></span>
                 </div>
+                <div class="form-hint" style="margin-top:4px">Fixed: exact value (0, 5, 15). Step: interval (*/5 = every 5). Range: start-end (9-17). Specific: comma-separated (1,15).</div>
             </div>
             <div id="cron-raw" style="display:none">
                 <div class="form-group" style="margin-bottom:0">
