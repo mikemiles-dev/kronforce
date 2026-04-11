@@ -352,7 +352,7 @@ function renderJobsTable() {
         }
         html += '<td>' + fmtTarget(j.target) + '</td>';
         html += '<td>' + fmtLastRun(j.last_execution) + '</td>';
-        html += '<td>' + fmtCounts(j.execution_counts) + '</td>';
+        html += '<td>' + fmtCounts(j.execution_counts, j.id) + '</td>';
         html += '<td><span class="schedule-text">' + fmtSchedule(j.schedule) + '</span></td>';
         html += '<td><span class="time-text">' + (j.next_fire_time ? fmtDate(j.next_fire_time) : '-') + '</span></td>';
         html += '<td><div class="actions">';

@@ -504,7 +504,8 @@ function fmtLastRun(exec) {
     if (s === 'succeeded') { cls = 'success'; }
     else if (s === 'failed' || s === 'timed_out') { cls = 'failure'; }
     else if (s === 'running') { cls = 'running'; }
-    let html = '<div class="last-run"><span class="run-indicator ' + cls + '"><span class="dot"></span>' + label + '</span>';
+    const clickable = exec.id ? ' style="cursor:pointer" onclick="showExecDetail(\'' + exec.id + '\')" title="View execution details"' : '';
+    let html = '<div class="last-run"' + clickable + '><span class="run-indicator ' + cls + '"><span class="dot"></span>' + label + '</span>';
     if (exec.finished_at) {
         html += '<span class="last-run-time">' + fmtDate(exec.finished_at) + '</span>';
     }
@@ -512,12 +513,13 @@ function fmtLastRun(exec) {
     return html;
 }
 
-function fmtCounts(counts) {
+function fmtCounts(counts, jobId) {
     if (!counts || counts.total === 0) return '<span class="time-text">-</span>';
     let html = '<div class="exec-counts">';
     html += '<span class="exec-count success" title="Succeeded">\u2714 ' + counts.succeeded + '</span>';
     if (counts.failed > 0) {
-        html += '<span class="exec-count fail" title="Failed">\u2718 ' + counts.failed + '</span>';
+        const onclick = jobId ? ' style="cursor:pointer" onclick="showJobDetail(\'' + jobId + '\');setTimeout(function(){setDetailTab(\'history\')},100)" title="View failed executions"' : '';
+        html += '<span class="exec-count fail"' + onclick + '>\u2718 ' + counts.failed + '</span>';
     }
     html += '<span class="exec-count total" title="Total runs">\u2211 ' + counts.total + '</span>';
     html += '</div>';
