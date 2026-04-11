@@ -362,7 +362,11 @@ function renderJobsTable() {
         html += '<td><span class="schedule-text">' + fmtSchedule(j.schedule) + '</span></td>';
         html += '<td><span class="time-text">' + (j.next_fire_time ? fmtDate(j.next_fire_time) : '-') + '</span></td>';
         html += '<td><div class="actions">';
+        html += '<button class="btn-icon" title="Edit" onclick="openEditModal(\'' + j.id + '\')">&#9998;</button>';
         html += '<button class="btn-icon trigger" title="Trigger" id="trigger-' + j.id + '" onclick="triggerJob(\'' + j.id + '\')">&#9654;</button>';
+        if (j.last_execution && j.last_execution.status === 'running') {
+            html += '<button class="btn-icon danger" title="Stop" onclick="cancelLatestExecution(\'' + j.id + '\')">&#9632;</button>';
+        }
         if (j.status === 'scheduled') {
             html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'scheduled\')">&#10074;&#10074;</button>';
         } else if (j.status === 'paused') {
@@ -642,6 +646,18 @@ async function togglePause(id, current) {
         toast('Job ' + newStatus);
         if (currentJobId === id) showJobDetail(id);
         else fetchJobs();
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function cancelLatestExecution(jobId) {
+    const job = allJobs.find(j => j.id === jobId);
+    if (!job || !job.last_execution || job.last_execution.status !== 'running') return;
+    try {
+        await api('POST', '/api/executions/' + job.last_execution.id + '/cancel');
+        toast('Cancel request sent');
+        fetchJobs();
     } catch (e) {
         toast(e.message, 'error');
     }
