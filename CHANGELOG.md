@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Schedule window** — optional `starts_at` and `expires_at` fields on jobs to constrain when a schedule is active. "Run for 3 weeks then stop", "start next Monday", or any fixed window. Expired jobs auto-unschedule.
 - **Skip dependencies on trigger** — manually trigger a blocked job with `?skip_deps=true` to bypass dependency checks for a single run. UI adds a "Run Anyway" button in the waiting-on-dependencies modal.
 - **End-to-end tutorial** — new `docs/TUTORIAL.md` walks through controller setup, agent deployment, building a pipeline, and notifications
+- **Cron builder rebuild** — full per-field controls for all 6 cron fields (second, minute, hour, day-of-month, month, day-of-week) with every/fixed/step/range modes
+- **Group picker popover** — replaced group dropdown with searchable popover including inline group creation and deletion
+- **Running/Failed job filters** — new filter buttons on jobs page to quickly find running or failed jobs
+- **Clickable last run status** — click the last run indicator in jobs table to open execution details; click failed count to jump to history
+- **Job detail action buttons** — Pause/Resume, Delete, and Edit buttons now appear on the job detail view alongside Trigger
+- **Edit/Stop buttons in jobs table** — edit button opens job modal, stop button cancels running execution
+- **Agent connection command box** — agents page shows a copy-able connection command with real controller URL, binary/docker tabs
+- **JS test framework** — CI now runs JavaScript unit tests for cron builder and formatting logic
 - **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.
 - **Native TLS** — set `KRONFORCE_TLS_CERT` and `KRONFORCE_TLS_KEY` to serve HTTPS on both controller and agent; agent client auto-detects HTTPS when agents use port 443
 - **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels

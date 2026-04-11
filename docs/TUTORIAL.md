@@ -284,6 +284,10 @@ At this point you have:
 
 ## Next Steps
 
+- **Parameterized jobs** — define parameters on jobs and pass runtime values at trigger time. `deploy.sh {{params.version}} {{params.env}}` with a form in the UI. See [API Reference](API.md#parameterized-runs).
+- **Webhook triggers** — generate unique URLs for external integrations (GitHub, CI/CD, Stripe). No API key needed. See [Triggers & Workflows](TRIGGERS_AND_WORKFLOWS.md#webhook-triggers).
+- **Concurrency controls** — set `max_concurrent: 1` to prevent overlapping cron runs. See [API Reference](API.md#concurrency-controls).
+- **Live output streaming** — watch job output in real-time while it runs. Open a running execution to see live stdout/stderr with auto-scroll.
 - **Add more agents** — scale horizontally by deploying agents on more machines. Use tags to route jobs.
 - **Custom agents** — write a Python/Go/Node agent for specialized task types. See [Custom Agents](CUSTOM_AGENTS.md).
 - **OIDC/SSO** — replace API key login with your identity provider. See the [README](../README.md#configuration).

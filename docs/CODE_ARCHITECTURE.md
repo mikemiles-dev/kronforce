@@ -183,10 +183,19 @@ Each task type has a dedicated async function in `src/executor/tasks/` that retu
 ### Scheduler Commands
 The scheduler runs in its own tokio task and receives commands via an `mpsc` channel:
 - `Reload` — invalidate job cache
-- `TriggerNow(job_id, skip_deps)` — fire a job immediately; when `skip_deps` is true, dependency checks are bypassed for this single run
+- `TriggerNow { job_id, skip_deps, params }` — fire a job immediately with optional runtime parameters; `skip_deps` bypasses dependency checks for this single run
 - `CancelExecution(exec_id)` — cancel a running execution
 - `EventOccurred(event)` — check event-triggered jobs
 - `RetryExecution { job_id, original_id, attempt }` — retry a failed job
+
+### Live Output Streaming
+Local execution uses a broadcast channel system for real-time SSE streaming:
+- `AppState.live_output` and `Executor.live_output` hold an `Arc<DashMap<Uuid, broadcast::Sender<String>>>` mapping execution IDs to broadcast channels
+- When a local shell job starts, a broadcast channel is created and inserted into the map
+- `run_command_streaming` reads stdout/stderr line-by-line via `BufReader::lines()` and broadcasts each line
+- The SSE endpoint (`GET /api/executions/{id}/stream`) subscribes to the broadcast channel
+- On completion, a `[done]` event is sent and the channel is removed from the map
+- Agent executions are not streamed (agents POST full output at end)
 
 ### Build System
 `build.rs` bundles the web frontend at compile time:

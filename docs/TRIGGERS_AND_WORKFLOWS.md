@@ -13,6 +13,44 @@ Kronforce has a powerful event-driven system that lets you chain jobs together, 
 | **Event trigger** | `schedule: { type: "event", value: { kind_pattern: "..." } }` | React to system events — failures, agent changes, output matches |
 | **Dependency chain** | `depends_on: [{ job_id: "...", within_secs: 3600 }]` | ETL pipelines — only run if parent succeeded recently |
 | **Output pattern match** | Output triggers on a parent job emit `output.matched` events | React to specific content in job output |
+| **Webhook** | `POST /api/webhooks/{token}` (no auth) | External integrations — GitHub, CI/CD, Stripe, PagerDuty |
+
+## Parameterized Runs
+
+Jobs can define parameter schemas. When triggered (via API, UI, or webhook), callers pass runtime values that are substituted into the task using `{{params.NAME}}`:
+
+```bash
+# Job created with parameters
+curl -X POST http://localhost:8080/api/jobs \
+  -d '{"name": "deploy", "task": {"type": "shell", "command": "deploy.sh {{params.version}} {{params.env}}"}, "schedule": {"type": "on_demand"}, "parameters": [{"name": "version", "param_type": "text", "required": true}, {"name": "env", "param_type": "select", "options": ["staging","production"], "default": "staging"}]}'
+
+# Triggered with values
+curl -X POST http://localhost:8080/api/jobs/{id}/trigger \
+  -d '{"params": {"version": "1.2.3", "env": "production"}}'
+```
+
+Parameters work alongside global variables (`{{VAR_NAME}}`). Params are resolved first, then global variables. The execution record stores which params were used.
+
+In the UI, triggering a parameterized job opens a form pre-filled with defaults.
+
+## Webhook Triggers
+
+Generate a unique token URL for any job. External systems can trigger it without an API key:
+
+```bash
+# Enable webhook
+curl -X POST http://localhost:8080/api/jobs/{id}/webhook -H "Authorization: Bearer kf_key"
+# Returns: {"token": "abc...", "webhook_url": "/api/webhooks/abc..."}
+
+# External system triggers it (no auth)
+curl -X POST http://localhost:8080/api/webhooks/abc...
+
+# With parameters
+curl -X POST http://localhost:8080/api/webhooks/abc... \
+  -d '{"params": {"version": "1.2.3"}}'
+```
+
+Webhook URLs are shown in the job detail view with copy/disable buttons. Disable with `DELETE /api/jobs/{id}/webhook`.
 
 ## Event-Driven Jobs
 
