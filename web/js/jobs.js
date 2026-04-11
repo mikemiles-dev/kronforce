@@ -225,10 +225,10 @@ async function fetchJobs(resetPage) {
     if (resetPage) jobsPage = 1;
     try {
         const filter = jobSearch.statusFilter;
-        const isClientFilter = filter === 'blocked';
+        const isClientFilter = filter === 'blocked' || filter === 'running' || filter === 'failed';
         const search = jobSearch.searchTerm;
         // "scheduled" filter should include waiting (scheduled) jobs, so send scheduled to API
-        // "blocked" is client-side only, fetch all
+        // "blocked", "running", "failed" are client-side filters on last_execution status
         const apiFilter = filter === 'scheduled' ? 'scheduled' : (isClientFilter ? '' : filter);
         let qs = '?page=' + jobsPage + '&per_page=' + (isClientFilter ? 100 : PER_PAGE);
         if (apiFilter) qs += '&status=' + apiFilter;
@@ -236,9 +236,12 @@ async function fetchJobs(resetPage) {
         if (groupFilter) qs += '&group=' + encodeURIComponent(groupFilter);
         const res = await api('GET', '/api/jobs' + qs);
         allJobs = res.data;
-        if (isClientFilter) {
-            // Waiting = has deps that aren't satisfied
+        if (filter === 'blocked') {
             allJobs = allJobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
+        } else if (filter === 'running') {
+            allJobs = allJobs.filter(j => j.last_execution && j.last_execution.status === 'running');
+        } else if (filter === 'failed') {
+            allJobs = allJobs.filter(j => j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out'));
         } else if (filter === 'unscheduled') {
             allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
         }

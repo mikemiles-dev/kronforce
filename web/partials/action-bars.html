@@ -9,6 +9,8 @@
             <div class="status-filters" id="status-filters">
                 <button class="status-btn active" data-status="" onclick="jobSearch.setStatusFilter(this, '')">All</button>
                 <button class="status-btn s-active" data-status="scheduled" onclick="jobSearch.setStatusFilter(this, 'scheduled')">Scheduled</button>
+                <button class="status-btn s-completed" data-status="running" onclick="jobSearch.setStatusFilter(this, 'running')">Running</button>
+                <button class="status-btn s-danger" data-status="failed" onclick="jobSearch.setStatusFilter(this, 'failed')">Failed</button>
                 <button class="status-btn s-paused" data-status="paused" onclick="jobSearch.setStatusFilter(this, 'paused')">Paused</button>
                 <button class="status-btn s-completed" data-status="unscheduled" onclick="jobSearch.setStatusFilter(this, 'unscheduled')">Unscheduled</button>
                 <button class="status-btn s-paused" data-status="blocked" onclick="jobSearch.setStatusFilter(this, 'blocked')">Waiting</button>
