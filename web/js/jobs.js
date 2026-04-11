@@ -345,8 +345,11 @@ function renderJobsTable() {
         const approvalBadge = j.approval_required ? ' <span class="badge badge-pending_approval" style="font-size:9px;padding:1px 4px" title="Requires approval">approval</span>' : '';
         html += '<td><span class="job-name" onmousedown="this._md=Date.now()" onclick="if(window.getSelection().toString()||Date.now()-this._md>300)return;showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + approvalBadge + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
         const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
+        const execState = j.last_execution && (j.last_execution.status === 'running' || j.last_execution.status === 'pending_approval');
         if (isBlocked) {
             html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';
+        } else if (execState) {
+            html += '<td>' + badge(j.last_execution.status) + '</td>';
         } else {
             html += '<td>' + badge(j.status) + '</td>';
         }
