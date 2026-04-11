@@ -622,6 +622,11 @@ async fn run_command_inner(
         let mut stderr_done = stderr_lines.is_none();
 
         loop {
+            // Break when both pipes are closed (process exited)
+            if stdout_done && stderr_done {
+                break;
+            }
+
             tokio::select! {
                 line = async {
                     match stdout_lines.as_mut() {
@@ -668,7 +673,6 @@ async fn run_command_inner(
                         stderr: CapturedOutput { text: "job cancelled by user".to_string(), truncated: false },
                     };
                 }
-                else => break,
             }
         }
 
