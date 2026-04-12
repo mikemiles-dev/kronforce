@@ -54,3 +54,4 @@ hyper = { version = "1", features = ["server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "http1", "http2"] }
 tower-service = "0.3"
 aes-gcm = "0.10"
+hex = "0.4.3"
