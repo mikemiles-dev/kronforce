@@ -115,6 +115,13 @@ jobs:
       - name: Check for yanked crates
         run: cargo audit --deny yanked
 
+  cargo-deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
   build:
     name: Build
     runs-on: ubuntu-latest

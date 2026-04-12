@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use rustls::ServerConfig;
 use rustls::pki_types::CertificateDer;
+use rustls_pki_types::pem::PemObject;
 use tokio::net::TcpListener;
 use tokio_rustls::TlsAcceptor;
 use tower_service::Service;
@@ -14,17 +15,21 @@ pub fn load_tls_config(cert_path: &str, key_path: &str) -> Result<ServerConfig, 
     let key_file = std::fs::File::open(key_path)
         .map_err(|e| format!("cannot open TLS key {key_path}: {e}"))?;
 
-    let certs: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut BufReader::new(cert_file))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("invalid TLS cert: {e}"))?;
+    let cert_pem = std::io::read_to_string(BufReader::new(cert_file))
+        .map_err(|e| format!("cannot read TLS cert: {e}"))?;
+    let certs: Vec<CertificateDer<'static>> =
+        rustls_pki_types::CertificateDer::pem_slice_iter(cert_pem.as_bytes())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("invalid TLS cert: {e}"))?;
 
     if certs.is_empty() {
         return Err("TLS cert file contains no certificates".into());
     }
 
-    let key = rustls_pemfile::private_key(&mut BufReader::new(key_file))
-        .map_err(|e| format!("invalid TLS key: {e}"))?
-        .ok_or_else(|| "TLS key file contains no private key".to_string())?;
+    let key_pem = std::io::read_to_string(BufReader::new(key_file))
+        .map_err(|e| format!("cannot read TLS key: {e}"))?;
+    let key = rustls_pki_types::PrivateKeyDer::from_pem_slice(key_pem.as_bytes())
+        .map_err(|e| format!("invalid TLS key: {e}"))?;
 
     ServerConfig::builder()
         .with_no_client_auth()
