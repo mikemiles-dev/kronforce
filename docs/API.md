@@ -213,7 +213,50 @@ curl -X POST http://localhost:8080/api/jobs \
     "task": {"type": "redis", "url": "redis://localhost:6379", "channel": "notifications", "message": "{\"type\":\"alert\"}"},
     "schedule": {"type": "on_demand"}
   }'
+
+# Kafka — consume messages from a topic
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "kafka-consume",
+    "task": {"type": "kafka_consume", "broker": "localhost:9092", "topic": "events", "max_messages": 10, "offset": "latest", "group_id": "kronforce-consumer"},
+    "schedule": {"type": "cron", "value": "0 */5 * * * *"}
+  }'
+
+# MQTT — subscribe and receive messages
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "mqtt-subscribe",
+    "task": {"type": "mqtt_subscribe", "broker": "localhost", "topic": "sensors/#", "max_messages": 5, "qos": 1},
+    "schedule": {"type": "cron", "value": "0 * * * * *"},
+    "timeout_secs": 30
+  }'
+
+# RabbitMQ — consume from a queue
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "rabbitmq-consume",
+    "task": {"type": "rabbitmq_consume", "url": "amqp://guest:guest@localhost:5672", "queue": "tasks", "max_messages": 5},
+    "schedule": {"type": "cron", "value": "0 */5 * * * *"}
+  }'
+
+# Redis — read from a list
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "redis-drain",
+    "task": {"type": "redis_read", "url": "redis://localhost:6379", "key": "work-queue", "mode": "lpop", "count": 10},
+    "schedule": {"type": "cron", "value": "0 * * * * *"}
+  }'
 ```
+
+Consume tasks output messages to stdout. Combine with output extraction rules to parse messages, write values to variables, or trigger downstream jobs.
 
 **Trigger fields:** `kind_pattern` (supports wildcards: `job.*`, `*`), `severity` (optional), `job_name_filter` (optional)
 

@@ -45,7 +45,7 @@ That's it. You have a running scheduler with a web dashboard.
 
 ### Scheduling & Execution
 
-- **12 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, MCP (AI tools), file push, Kafka, RabbitMQ, MQTT, Redis, and custom agent-defined types
+- **16 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, MCP (AI tools), file push, Kafka (publish + consume), RabbitMQ (publish + consume), MQTT (publish + subscribe), Redis (publish + read), and custom agent-defined types
 - **Flexible scheduling** — cron (second precision with visual builder), one-shot, on-demand, and event-driven
 - **Priority scheduling** — higher priority jobs fire first when multiple are due
 - **Job templates** — save any job as a reusable template, create new jobs from the template library

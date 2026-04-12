@@ -54,12 +54,19 @@
                 <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> &#128220; Script</label>
                 <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> &#128228; File Push</label>
             </div>
-            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues</label>
+            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues — Publish</label>
             <div class="radio-group">
                 <label class="pill-purple"><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> &#9889; Kafka</label>
                 <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> &#128007; RabbitMQ</label>
                 <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> &#128225; MQTT</label>
                 <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> &#9879; Redis</label>
+            </div>
+            <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Message Queues — Consume</label>
+            <div class="radio-group">
+                <label class="pill-purple"><input type="radio" name="task-type" value="kafka_consume" onchange="updateTaskFields()"> &#9889; Kafka Read</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq_consume" onchange="updateTaskFields()"> &#128007; RabbitMQ Read</label>
+                <label class="pill-purple"><input type="radio" name="task-type" value="mqtt_subscribe" onchange="updateTaskFields()"> &#128225; MQTT Subscribe</label>
+                <label class="pill-red"><input type="radio" name="task-type" value="redis_read" onchange="updateTaskFields()"> &#9879; Redis Read</label>
             </div>
             <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">AI / Tooling</label>
             <div class="radio-group">
@@ -281,6 +288,47 @@
             <div class="form-group">
                 <label>Message</label>
                 <textarea id="f-redis-message" placeholder='{"type": "alert", "text": "..."}'></textarea>
+            </div>
+        </div>
+        <div id="task-kafka_consume-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>Broker</label><input id="f-kafkac-broker" type="text" placeholder="localhost:9092"></div>
+                <div style="flex:1"><label>Topic</label><input id="f-kafkac-topic" type="text" placeholder="my-topic"></div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>Group ID (optional)</label><input id="f-kafkac-group" type="text" placeholder="my-consumer-group"></div>
+                <div style="width:100px"><label>Max Messages</label><input id="f-kafkac-max" type="number" min="1" value="1"></div>
+                <div style="width:100px"><label>Offset</label><select id="f-kafkac-offset"><option value="latest">Latest</option><option value="earliest">Earliest</option></select></div>
+            </div>
+        </div>
+        <div id="task-mqtt_subscribe-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>Broker</label><input id="f-mqtts-broker" type="text" placeholder="localhost"></div>
+                <div style="width:80px"><label>Port</label><input id="f-mqtts-port" type="number" value="1883"></div>
+                <div style="flex:1"><label>Topic</label><input id="f-mqtts-topic" type="text" placeholder="sensors/#"></div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:100px"><label>Max Messages</label><input id="f-mqtts-max" type="number" min="1" value="1"></div>
+                <div style="width:60px"><label>QoS</label><select id="f-mqtts-qos"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></div>
+                <div style="flex:1"><label>Username</label><input id="f-mqtts-user" type="text" placeholder="optional"></div>
+                <div style="flex:1"><label>Password</label><input id="f-mqtts-pass" type="password" placeholder="optional"></div>
+            </div>
+        </div>
+        <div id="task-rabbitmq_consume-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>URL</label><input id="f-rmqc-url" type="text" placeholder="amqp://guest:guest@localhost:5672"></div>
+                <div style="flex:1"><label>Queue</label><input id="f-rmqc-queue" type="text" placeholder="my-queue"></div>
+                <div style="width:100px"><label>Max Messages</label><input id="f-rmqc-max" type="number" min="1" value="1"></div>
+            </div>
+        </div>
+        <div id="task-redis_read-fields" style="display:none">
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>Redis URL</label><input id="f-redisr-url" type="text" placeholder="redis://localhost:6379"></div>
+                <div style="flex:1"><label>Key / Channel</label><input id="f-redisr-key" type="text" placeholder="my-list or my-channel"></div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="width:120px"><label>Mode</label><select id="f-redisr-mode"><option value="lpop">LPOP (list)</option><option value="rpop">RPOP (list)</option><option value="xread">XREAD (stream)</option><option value="subscribe">SUBSCRIBE</option></select></div>
+                <div style="width:100px"><label>Count</label><input id="f-redisr-count" type="number" min="1" value="1"></div>
             </div>
         </div>
         <div id="task-mcp-fields" style="display:none">

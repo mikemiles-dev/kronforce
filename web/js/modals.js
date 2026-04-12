@@ -247,17 +247,11 @@ function closeCreateModal() {
 
 function updateTaskFields() {
     const type = document.querySelector('input[name="task-type"]:checked').value;
-    document.getElementById('task-shell-fields').style.display = type === 'shell' ? '' : 'none';
-    document.getElementById('task-http-fields').style.display = type === 'http' ? '' : 'none';
-    document.getElementById('task-sql-fields').style.display = type === 'sql' ? '' : 'none';
-    document.getElementById('task-ftp-fields').style.display = type === 'ftp' ? '' : 'none';
-    document.getElementById('task-script-fields').style.display = type === 'script' ? '' : 'none';
-    document.getElementById('task-filepush-fields').style.display = type === 'file_push' ? '' : 'none';
-    document.getElementById('task-kafka-fields').style.display = type === 'kafka' ? '' : 'none';
-    document.getElementById('task-rabbitmq-fields').style.display = type === 'rabbitmq' ? '' : 'none';
-    document.getElementById('task-mqtt-fields').style.display = type === 'mqtt' ? '' : 'none';
-    document.getElementById('task-redis-fields').style.display = type === 'redis' ? '' : 'none';
-    document.getElementById('task-mcp-fields').style.display = type === 'mcp' ? '' : 'none';
+    const allTaskFields = ['shell','http','sql','ftp','script','file_push','kafka','rabbitmq','mqtt','redis','mcp','kafka_consume','mqtt_subscribe','rabbitmq_consume','redis_read'];
+    for (const t of allTaskFields) {
+        const el = document.getElementById('task-' + t + '-fields');
+        if (el) el.style.display = t === type ? '' : 'none';
+    }
     if (type === 'script') populateScriptDropdown();
 }
 
@@ -403,6 +397,53 @@ function buildTaskFromForm() {
         if (args) { try { task.arguments = JSON.parse(args); } catch(e) { toast('Invalid arguments JSON', 'error'); return null; } }
         return task;
     }
+    if (type === 'kafka_consume') {
+        const broker = document.getElementById('f-kafkac-broker').value.trim();
+        const topic = document.getElementById('f-kafkac-topic').value.trim();
+        if (!broker || !topic) return null;
+        const task = { type: 'kafka_consume', broker, topic };
+        const group = document.getElementById('f-kafkac-group').value.trim();
+        if (group) task.group_id = group;
+        const max = parseInt(document.getElementById('f-kafkac-max').value);
+        if (max > 1) task.max_messages = max;
+        task.offset = document.getElementById('f-kafkac-offset').value;
+        return task;
+    }
+    if (type === 'mqtt_subscribe') {
+        const broker = document.getElementById('f-mqtts-broker').value.trim();
+        const topic = document.getElementById('f-mqtts-topic').value.trim();
+        if (!broker || !topic) return null;
+        const task = { type: 'mqtt_subscribe', broker, topic };
+        const port = parseInt(document.getElementById('f-mqtts-port').value);
+        if (port && port !== 1883) task.port = port;
+        const max = parseInt(document.getElementById('f-mqtts-max').value);
+        if (max > 1) task.max_messages = max;
+        task.qos = parseInt(document.getElementById('f-mqtts-qos').value);
+        const user = document.getElementById('f-mqtts-user').value.trim();
+        if (user) task.username = user;
+        const pass = document.getElementById('f-mqtts-pass').value;
+        if (pass) task.password = pass;
+        return task;
+    }
+    if (type === 'rabbitmq_consume') {
+        const url = document.getElementById('f-rmqc-url').value.trim();
+        const queue = document.getElementById('f-rmqc-queue').value.trim();
+        if (!url || !queue) return null;
+        const task = { type: 'rabbitmq_consume', url, queue };
+        const max = parseInt(document.getElementById('f-rmqc-max').value);
+        if (max > 1) task.max_messages = max;
+        return task;
+    }
+    if (type === 'redis_read') {
+        const url = document.getElementById('f-redisr-url').value.trim();
+        const key = document.getElementById('f-redisr-key').value.trim();
+        if (!url || !key) return null;
+        const task = { type: 'redis_read', url, key };
+        task.mode = document.getElementById('f-redisr-mode').value;
+        const count = parseInt(document.getElementById('f-redisr-count').value);
+        if (count > 1) task.count = count;
+        return task;
+    }
     return null;
 }
 
@@ -495,6 +536,29 @@ function populateTaskForm(task) {
         const toolSelect = document.getElementById('f-mcp-tool');
         toolSelect.innerHTML = '<option value="' + esc(task.tool || '') + '" selected>' + esc(task.tool || '') + '</option>';
         document.getElementById('f-mcp-args').value = task.arguments ? JSON.stringify(task.arguments, null, 2) : '';
+    } else if (type === 'kafka_consume') {
+        document.getElementById('f-kafkac-broker').value = task.broker || '';
+        document.getElementById('f-kafkac-topic').value = task.topic || '';
+        document.getElementById('f-kafkac-group').value = task.group_id || '';
+        document.getElementById('f-kafkac-max').value = task.max_messages || 1;
+        document.getElementById('f-kafkac-offset').value = task.offset || 'latest';
+    } else if (type === 'mqtt_subscribe') {
+        document.getElementById('f-mqtts-broker').value = task.broker || '';
+        document.getElementById('f-mqtts-topic').value = task.topic || '';
+        document.getElementById('f-mqtts-port').value = task.port || 1883;
+        document.getElementById('f-mqtts-max').value = task.max_messages || 1;
+        document.getElementById('f-mqtts-qos').value = task.qos != null ? task.qos : 0;
+        document.getElementById('f-mqtts-user').value = task.username || '';
+        document.getElementById('f-mqtts-pass').value = task.password || '';
+    } else if (type === 'rabbitmq_consume') {
+        document.getElementById('f-rmqc-url').value = task.url || '';
+        document.getElementById('f-rmqc-queue').value = task.queue || '';
+        document.getElementById('f-rmqc-max').value = task.max_messages || 1;
+    } else if (type === 'redis_read') {
+        document.getElementById('f-redisr-url').value = task.url || '';
+        document.getElementById('f-redisr-key').value = task.key || '';
+        document.getElementById('f-redisr-mode').value = task.mode || 'lpop';
+        document.getElementById('f-redisr-count').value = task.count || 1;
     }
 }
 

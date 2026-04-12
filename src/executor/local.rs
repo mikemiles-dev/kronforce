@@ -482,6 +482,82 @@ pub async fn run_task(
             )
             .await
         }
+        TaskType::KafkaConsume {
+            broker,
+            topic,
+            group_id,
+            max_messages,
+            offset,
+        } => {
+            tasks::run_kafka_consume_task(
+                broker,
+                topic,
+                group_id.as_deref(),
+                *max_messages,
+                offset.as_deref(),
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
+        }
+        TaskType::MqttSubscribe {
+            broker,
+            topic,
+            port,
+            max_messages,
+            username,
+            password,
+            client_id,
+            qos,
+        } => {
+            tasks::run_mqtt_subscribe_task(
+                broker,
+                topic,
+                *port,
+                *max_messages,
+                username.as_deref(),
+                password.as_deref(),
+                client_id.as_deref(),
+                *qos,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
+        }
+        TaskType::RabbitmqConsume {
+            url,
+            queue,
+            max_messages,
+        } => {
+            tasks::run_rabbitmq_consume_task(
+                url,
+                queue,
+                *max_messages,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
+        }
+        TaskType::RedisRead {
+            url,
+            key,
+            mode,
+            count,
+        } => {
+            tasks::run_redis_read_task(
+                url,
+                key,
+                mode.as_deref(),
+                *count,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
+        }
     }
 }
 

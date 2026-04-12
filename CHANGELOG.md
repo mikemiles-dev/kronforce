@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-03
 
 ### Added
+- **Message queue consumers** — 4 new consume/subscribe task types: Kafka Read, MQTT Subscribe, RabbitMQ Read, Redis Read. Consume messages from queues with configurable max message count, offsets, and timeouts. Messages appear in stdout for output extraction processing. Total task types: 16.
 - **Concurrency controls** — `max_concurrent` field on jobs (default 0 = unlimited). Scheduler skips firing if the job already has that many running executions. Prevents overlapping cron runs.
 - **Parameterized runs** — jobs can define parameter schemas (name, type, required, default). Trigger accepts runtime `params` in request body. Use `{{params.NAME}}` in task fields for substitution. UI shows a parameter form when triggering parameterized jobs.
 - **Webhook triggers** — unique token-based URLs per job (`POST /api/webhooks/{token}`) that trigger without API key auth. Enable/disable via `POST/DELETE /api/jobs/{id}/webhook`. Accepts optional params in body. Copy-able URL in job detail view.

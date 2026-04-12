@@ -116,6 +116,45 @@ pub enum TaskType {
         tool: String,
         arguments: Option<serde_json::Value>,
     },
+    /// Consume messages from a Kafka topic.
+    KafkaConsume {
+        broker: String,
+        topic: String,
+        group_id: Option<String>,
+        /// Max number of messages to consume (default 1)
+        max_messages: Option<u32>,
+        /// Start from: "earliest" or "latest" (default "latest")
+        offset: Option<String>,
+    },
+    /// Subscribe to an MQTT topic and receive messages.
+    MqttSubscribe {
+        broker: String,
+        topic: String,
+        port: Option<u16>,
+        /// Max number of messages to receive (default 1)
+        max_messages: Option<u32>,
+        username: Option<String>,
+        password: Option<String>,
+        client_id: Option<String>,
+        qos: Option<u8>,
+    },
+    /// Consume messages from a RabbitMQ queue.
+    RabbitmqConsume {
+        url: String,
+        queue: String,
+        /// Max number of messages (default 1)
+        max_messages: Option<u32>,
+    },
+    /// Read from a Redis list, stream, or subscribe to a channel.
+    RedisRead {
+        url: String,
+        /// Key or channel name
+        key: String,
+        /// "lpop", "rpop", "subscribe", "xread" (default "lpop")
+        mode: Option<String>,
+        /// Max number of items (default 1)
+        count: Option<u32>,
+    },
 }
 
 /// Supported SQL database drivers.

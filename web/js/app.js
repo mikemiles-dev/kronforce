@@ -333,6 +333,10 @@ function fmtTaskBadge(task) {
     if (t === 'rabbitmq') return '<span class="badge badge-paused">rabbitmq</span>';
     if (t === 'mqtt') return '<span class="badge badge-enabled">mqtt</span>';
     if (t === 'redis') return '<span class="badge badge-disabled">redis</span>';
+    if (t === 'kafka_consume') return '<span class="badge badge-running">kafka read</span>';
+    if (t === 'mqtt_subscribe') return '<span class="badge badge-enabled">mqtt sub</span>';
+    if (t === 'rabbitmq_consume') return '<span class="badge badge-paused">rmq read</span>';
+    if (t === 'redis_read') return '<span class="badge badge-disabled">redis read</span>';
     return '<span class="badge">' + t + '</span>';
 }
 
