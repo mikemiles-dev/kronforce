@@ -1014,3 +1014,98 @@ fn test_set_webhook_token() {
     assert!(fetched.webhook_token.is_none());
     assert!(db.get_job_by_webhook_token("newtoken").unwrap().is_none());
 }
+
+// --- Approval + Params ---
+
+#[test]
+fn test_pending_approval_execution_stores_params() {
+    let db = test_db();
+    let job = make_job("approval-params");
+    db.insert_job(&job).unwrap();
+
+    let mut exec = ExecutionRecord::new(Uuid::new_v4(), job.id, TriggerSource::Api);
+    exec.status = ExecutionStatus::PendingApproval;
+    exec.params = Some(serde_json::json!({"version": "3.0", "env": "staging"}));
+    db.insert_execution(&exec).unwrap();
+
+    let fetched = db.get_execution(exec.id).unwrap().unwrap();
+    assert_eq!(fetched.status, ExecutionStatus::PendingApproval);
+    let params = fetched.params.unwrap();
+    assert_eq!(params["version"], "3.0");
+    assert_eq!(params["env"], "staging");
+}
+
+// --- Count Running Edge Cases ---
+
+#[test]
+fn test_count_running_excludes_terminal_statuses() {
+    let db = test_db();
+    let job = make_job("count-edge");
+    db.insert_job(&job).unwrap();
+
+    // Insert executions with various terminal statuses — none should count
+    for status in [
+        ExecutionStatus::Succeeded,
+        ExecutionStatus::Failed,
+        ExecutionStatus::TimedOut,
+        ExecutionStatus::Cancelled,
+        ExecutionStatus::Skipped,
+    ] {
+        let exec = ExecutionRecord {
+            id: Uuid::new_v4(),
+            job_id: job.id,
+            agent_id: None,
+            task_snapshot: None,
+            status,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            stdout_truncated: false,
+            stderr_truncated: false,
+            started_at: Some(Utc::now()),
+            finished_at: Some(Utc::now()),
+            triggered_by: TriggerSource::Api,
+            extracted: None,
+            retry_of: None,
+            attempt_number: 1,
+            params: None,
+        };
+        db.insert_execution(&exec).unwrap();
+    }
+
+    assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 0);
+}
+
+#[test]
+fn test_count_running_different_jobs_isolated() {
+    let db = test_db();
+    let job_a = make_job("count-iso-a");
+    let job_b = make_job("count-iso-b");
+    db.insert_job(&job_a).unwrap();
+    db.insert_job(&job_b).unwrap();
+
+    // Running execution on job_a
+    let exec = ExecutionRecord {
+        id: Uuid::new_v4(),
+        job_id: job_a.id,
+        agent_id: None,
+        task_snapshot: None,
+        status: ExecutionStatus::Running,
+        exit_code: None,
+        stdout: String::new(),
+        stderr: String::new(),
+        stdout_truncated: false,
+        stderr_truncated: false,
+        started_at: Some(Utc::now()),
+        finished_at: None,
+        triggered_by: TriggerSource::Api,
+        extracted: None,
+        retry_of: None,
+        attempt_number: 1,
+        params: None,
+    };
+    db.insert_execution(&exec).unwrap();
+
+    assert_eq!(db.count_running_executions_for_job(job_a.id).unwrap(), 1);
+    assert_eq!(db.count_running_executions_for_job(job_b.id).unwrap(), 0);
+}

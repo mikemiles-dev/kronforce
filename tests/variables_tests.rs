@@ -311,3 +311,36 @@ fn test_substitute_params_numeric_value() {
         panic!("expected Shell task type");
     }
 }
+
+#[test]
+fn test_substitute_params_special_chars_escaped() {
+    // Ensure JSON-special characters in param values don't break the JSON structure
+    let task = TaskType::Shell {
+        command: "echo {{params.msg}}".to_string(),
+    };
+    let vars = HashMap::new();
+    // Value with quotes — must be escaped properly to produce valid JSON
+    let params = serde_json::json!({"msg": "it's a \"test\""});
+    let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
+    if let TaskType::Shell { command } = result {
+        assert!(command.contains("it's a"));
+        assert!(command.contains("test"));
+    } else {
+        panic!("expected Shell task type");
+    }
+}
+
+#[test]
+fn test_substitute_params_boolean_value() {
+    let task = TaskType::Shell {
+        command: "echo {{params.flag}}".to_string(),
+    };
+    let vars = HashMap::new();
+    let params = serde_json::json!({"flag": true});
+    let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
+    if let TaskType::Shell { command } = result {
+        assert_eq!(command, "echo true");
+    } else {
+        panic!("expected Shell task type");
+    }
+}

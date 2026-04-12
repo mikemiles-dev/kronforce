@@ -21,8 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Clickable last run status** — click the last run indicator in jobs table to open execution details; click failed count to jump to history
 - **Job detail action buttons** — Pause/Resume, Delete, and Edit buttons now appear on the job detail view alongside Trigger
 - **Edit/Stop buttons in jobs table** — edit button opens job modal, stop button cancels running execution
+- **Recent events on job detail** — Overview tab now shows the last 15 events for the job with severity, timestamp, kind, and message
+- **Smart empty states** — filtered views show "No matching results" with clear-filters button instead of "Create a job" when filters return nothing
 - **Agent connection command box** — agents page shows a copy-able connection command with real controller URL, binary/docker tabs
-- **JS test framework** — CI now runs JavaScript unit tests for cron builder and formatting logic
+- **JS test framework** — CI now runs JavaScript unit tests for cron builder, formatting, and empty state logic
+
+### Changed
+- **Removed time filter from jobs page** — the time range picker hid jobs whose last run was outside the window, which was confusing. Time filters remain on Executions and Events pages.
+- **State column shows execution state** — Running and pending_approval executions now override the scheduling status in the jobs table State column
+
+### Fixed
+- **Agent callbacks now emit events** — execution.completed events were missing for agent-executed jobs, so failed agent jobs didn't appear in the events log
+- **Approval flow preserves params** — trigger parameters are now stored on pending_approval executions and passed through when approved
+- **JSON escape safety** — parameter substitution fallback now manually escapes dangerous characters instead of inserting raw values
+- **Params validated as object** — trigger endpoint rejects non-object params with 400
+- **Stale params in trigger modal** — frontend now fetches fresh job data before showing the parameter form
+- **Streaming select loop hang** — fixed infinite loop when shell commands exit quickly (e.g. command not found)
 - **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.
 - **Native TLS** — set `KRONFORCE_TLS_CERT` and `KRONFORCE_TLS_KEY` to serve HTTPS on both controller and agent; agent client auto-detects HTTPS when agents use port 443
 - **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels
