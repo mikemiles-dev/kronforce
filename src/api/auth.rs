@@ -18,7 +18,7 @@ use axum::extract::State;
 pub fn hash_api_key(raw: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(raw.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hex::encode(hasher.finalize())
 }
 
 /// Generates a new random API key, returning (raw_key, prefix).

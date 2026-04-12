@@ -38,7 +38,7 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 thiserror = "2"
 reqwest = { version = "0.12", features = ["json"] }
 hostname = "0.4"
-sha2 = "0.10"
+sha2 = "0.11"
 rand = "0.9"
 base64 = "0.22"
 rhai = "1"
@@ -54,3 +54,4 @@ hyper = { version = "1", features = ["server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "http1", "http2"] }
 tower-service = "0.3"
 aes-gcm = "0.10"
+hex = "0.4.3"
