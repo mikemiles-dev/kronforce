@@ -163,6 +163,9 @@ impl super::Executor {
             let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
         }
 
+        // Output forwarding
+        Self::forward_output(db, updated).await;
+
         Self::send_execution_notifications(db, updated, exec_id).await;
 
         info!("execution {} finished: {:?}", exec_id, updated.status);
@@ -202,6 +205,44 @@ impl super::Executor {
         let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
     }
 
+    async fn forward_output(db: &Db, updated: &ExecutionRecord) {
+        let db_fwd = db.clone();
+        let job_id = updated.job_id;
+        let forward_url = tokio::task::spawn_blocking(move || {
+            db_fwd
+                .get_job(job_id)
+                .ok()
+                .flatten()
+                .and_then(|j| j.output_rules)
+                .and_then(|r| r.forward_url)
+        })
+        .await
+        .unwrap_or(None);
+
+        if let Some(url) = forward_url {
+            let payload = serde_json::json!({
+                "job_id": updated.job_id,
+                "execution_id": updated.id,
+                "status": updated.status,
+                "exit_code": updated.exit_code,
+                "stdout": &updated.stdout[..updated.stdout.len().min(100_000)],
+                "stderr": &updated.stderr[..updated.stderr.len().min(100_000)],
+                "started_at": updated.started_at,
+                "finished_at": updated.finished_at,
+            });
+            let client = reqwest::Client::new();
+            if let Err(e) = client
+                .post(&url)
+                .json(&payload)
+                .timeout(std::time::Duration::from_secs(10))
+                .send()
+                .await
+            {
+                warn!("output forwarding to {} failed: {e}", url);
+            }
+        }
+    }
+
     async fn run_output_rules(db: &Db, updated: &ExecutionRecord, exec_id: Uuid) -> Vec<Event> {
         let db_rules = db.clone();
         let stdout_clone = updated.stdout.clone();
@@ -232,6 +273,8 @@ impl super::Executor {
         let exec_status = updated.status;
         let exec_id_short = exec_id.to_string()[..8].to_string();
         let stderr_excerpt = updated.stderr.chars().take(500).collect::<String>();
+        let stdout_full = updated.stdout.clone();
+        let stderr_full = updated.stderr.clone();
         tokio::spawn(async move {
             let job = match tokio::task::spawn_blocking({
                 let db = db_notif.clone();
@@ -250,6 +293,8 @@ impl super::Executor {
                     &exec_id_short,
                     exec_status,
                     &stderr_excerpt,
+                    &stdout_full,
+                    &stderr_full,
                 )
                 .await;
             }

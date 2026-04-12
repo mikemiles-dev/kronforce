@@ -114,7 +114,7 @@ pub struct OutputAssertion {
     pub message: Option<String>, // custom failure message
 }
 
-/// Post-execution output processing: extractions, triggers, and assertions.
+/// Post-execution output processing: extractions, triggers, assertions, and forwarding.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OutputRules {
     #[serde(default)]
@@ -123,6 +123,9 @@ pub struct OutputRules {
     pub triggers: Vec<OutputTrigger>,
     #[serde(default)]
     pub assertions: Vec<OutputAssertion>,
+    /// URL to POST output to after execution completes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forward_url: Option<String>,
 }
 
 /// Defines a parameter that can be passed at trigger time.
@@ -153,6 +156,9 @@ pub struct JobNotificationConfig {
     pub on_assertion_failure: bool,
     #[serde(default)]
     pub recipients: Option<NotificationRecipients>,
+    /// Email full output on: "never" (default), "failure", "always"
+    #[serde(default)]
+    pub email_output: Option<String>,
 }
 
 /// Where a job should be executed.

@@ -286,6 +286,20 @@ function detectOutputType(raw) {
     return 'text';
 }
 
+function downloadOutput(id, label) {
+    const raw = outputRawData[id];
+    if (!raw) return;
+    const blob = new Blob([raw], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (currentExecId ? currentExecId.slice(0, 8) : 'output') + '-' + label + '.log';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function syntaxHighlightJson(json) {
     // Expects already-escaped HTML of pretty-printed JSON
     return json
@@ -309,6 +323,9 @@ function renderOutputSection(label, content, truncated) {
     html += '<button class="output-tab' + (detected === 'text' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'text\',this)">Text</button>';
     html += '<button class="output-tab' + (detected === 'json' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'json\',this)">JSON</button>';
     html += '<button class="output-tab' + (detected === 'html' ? ' active' : '') + '" onclick="switchOutputView(\'' + id + '\',\'html\',this)">HTML</button>';
+    if (content && content !== '(empty)') {
+        html += '<button class="output-tab" onclick="downloadOutput(\'' + id + '\',\'' + esc(label).toLowerCase() + '\')" title="Download as file">&#11015; Download</button>';
+    }
     html += '</div>';
 
     // Render the detected format by default

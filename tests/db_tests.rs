@@ -162,6 +162,7 @@ fn test_job_with_output_rules() {
             pattern: "OK".to_string(),
             message: Some("expected OK".to_string()),
         }],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
 
@@ -184,6 +185,7 @@ fn test_job_with_notifications() {
         on_success: false,
         on_assertion_failure: true,
         recipients: None,
+        email_output: Some("failure".to_string()),
     });
     db.insert_job(&job).unwrap();
 

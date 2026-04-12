@@ -54,6 +54,7 @@ pub(crate) async fn execution_result_callback(
     let stdout_for_rules = rec.stdout.clone();
     let stderr_for_rules = rec.stderr.clone();
     let stderr_for_notif = rec.stderr.clone();
+    let stdout_for_notif = rec.stdout.clone();
     let job_id_for_rules = rec.job_id;
     let exec_id_for_rules = rec.id;
 
@@ -142,6 +143,8 @@ pub(crate) async fn execution_result_callback(
                     &exec_id_short,
                     exec_status,
                     &stderr_excerpt,
+                    &stdout_for_notif,
+                    &stderr_for_notif,
                 )
                 .await;
             }

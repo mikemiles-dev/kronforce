@@ -211,6 +211,7 @@ pub async fn send_notification(
 }
 
 /// Check if notification should be sent for a completed execution, and send it if so.
+#[allow(clippy::too_many_arguments)]
 pub async fn notify_execution_complete(
     db: &Db,
     notif: &JobNotificationConfig,
@@ -218,6 +219,8 @@ pub async fn notify_execution_complete(
     exec_id_short: &str,
     exec_status: ExecutionStatus,
     stderr_excerpt: &str,
+    stdout: &str,
+    stderr: &str,
 ) {
     let should_notify = match exec_status {
         ExecutionStatus::Failed | ExecutionStatus::TimedOut => {
@@ -239,18 +242,41 @@ pub async fn notify_execution_complete(
             _ => "completed",
         }
     );
-    let body = format!(
-        "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n{}",
+
+    // Determine whether to include full output
+    let include_output = match notif.email_output.as_deref() {
+        Some("always") => true,
+        Some("failure") => matches!(
+            exec_status,
+            ExecutionStatus::Failed | ExecutionStatus::TimedOut
+        ),
+        _ => false,
+    };
+
+    let mut body = format!(
+        "Job: {}\nStatus: {:?}\nExecution: {}\nTime: {}\n",
         job_name,
         exec_status,
         exec_id_short,
         chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-        if !stderr_excerpt.is_empty() {
-            format!("\nError output:\n{}", stderr_excerpt)
-        } else {
-            String::new()
-        }
     );
+    if include_output {
+        if !stdout.is_empty() {
+            body.push_str(&format!(
+                "\n--- Output ---\n{}\n",
+                &stdout[..stdout.len().min(50_000)]
+            ));
+        }
+        if !stderr.is_empty() {
+            body.push_str(&format!(
+                "\n--- Error ---\n{}\n",
+                &stderr[..stderr.len().min(50_000)]
+            ));
+        }
+    } else if !stderr_excerpt.is_empty() {
+        body.push_str(&format!("\nError output:\n{}", stderr_excerpt));
+    }
+
     let recipients = notif.recipients.as_ref().map(|r| NotificationRecipients {
         emails: r.emails.clone(),
         phones: r.phones.clone(),

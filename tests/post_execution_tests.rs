@@ -106,6 +106,7 @@ fn test_extraction_stores_extracted_values() {
         }],
         triggers: vec![],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -140,6 +141,7 @@ fn test_extraction_jsonpath() {
         }],
         triggers: vec![],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -174,6 +176,7 @@ fn test_extraction_write_to_variable() {
         }],
         triggers: vec![],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -210,6 +213,7 @@ fn test_extraction_write_to_variable_updates_existing() {
         }],
         triggers: vec![],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -240,6 +244,7 @@ fn test_assertion_pass_does_not_fail_execution() {
             pattern: "OK".to_string(),
             message: None,
         }],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -270,6 +275,7 @@ fn test_assertion_failure_marks_execution_failed() {
             pattern: "SUCCESS".to_string(),
             message: Some("expected SUCCESS in output".to_string()),
         }],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -300,6 +306,7 @@ fn test_assertion_not_run_on_failed_execution() {
             pattern: "NEVER_FOUND".to_string(),
             message: Some("should not trigger".to_string()),
         }],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -333,6 +340,7 @@ fn test_trigger_generates_events() {
             severity: "error".to_string(),
         }],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -364,6 +372,7 @@ fn test_trigger_matches_stderr() {
             severity: "warning".to_string(),
         }],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -392,6 +401,7 @@ fn test_trigger_no_match_no_events() {
             severity: "error".to_string(),
         }],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -425,6 +435,7 @@ fn test_trigger_multiple_patterns() {
             },
         ],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -452,6 +463,7 @@ fn test_trigger_events_stored_in_db() {
             severity: "info".to_string(),
         }],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);
@@ -490,6 +502,7 @@ fn test_combined_extraction_and_trigger() {
             severity: "error".to_string(),
         }],
         assertions: vec![],
+        forward_url: None,
     });
     db.insert_job(&job).unwrap();
     let exec_id = insert_execution(&db, job.id);

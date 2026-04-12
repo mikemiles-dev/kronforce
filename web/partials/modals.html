@@ -538,6 +538,11 @@
                 <div id="assertions-container"></div>
                 <button type="button" class="btn btn-ghost btn-sm" onclick="addAssertionRow()" style="margin-top:4px">+ Add Assertion</button>
             </div>
+            <div class="form-group">
+                <label>&#128232; Forward Output URL (optional)</label>
+                <div class="form-hint">POST full output (JSON with stdout, stderr, status, exit_code) to this URL after each execution.</div>
+                <input id="f-forward-url" type="text" placeholder="https://hooks.example.com/kronforce" style="margin-top:4px">
+            </div>
         </div><!-- end job-tab-rules -->
         <div class="modal-tab-content" id="job-tab-notifications">
             <div class="form-group">
@@ -553,6 +558,15 @@
                 <label>&#128231; Recipient Override (optional)</label>
                 <div class="form-hint">Override the global notification recipients for this job. Leave blank to use the default recipients from Settings.</div>
                 <input id="f-notif-emails" type="text" placeholder="ops@example.com, oncall@example.com" style="margin-top:4px">
+            </div>
+            <div class="form-group">
+                <label>&#128233; Email Output</label>
+                <div class="form-hint">Include full stdout/stderr in the notification email (up to 50KB).</div>
+                <select id="f-email-output" style="margin-top:4px;width:auto">
+                    <option value="">Never</option>
+                    <option value="failure">On failure</option>
+                    <option value="always">Always</option>
+                </select>
             </div>
         </div><!-- end job-tab-notifications -->
         <div class="modal-tab-content" id="job-tab-advanced">

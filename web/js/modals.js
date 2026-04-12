@@ -1160,18 +1160,23 @@ function collectOutputRules() {
         const message = row.querySelector('.assert-message').value.trim();
         if (pattern) assertions.push({ pattern, message: message || null });
     });
-    if (extractions.length === 0 && triggers.length === 0 && assertions.length === 0) return null;
-    return { extractions, triggers, assertions };
+    const forward_url = document.getElementById('f-forward-url').value.trim() || null;
+    if (extractions.length === 0 && triggers.length === 0 && assertions.length === 0 && !forward_url) return null;
+    const rules = { extractions, triggers, assertions };
+    if (forward_url) rules.forward_url = forward_url;
+    return rules;
 }
 
 function populateOutputRules(rules) {
     document.getElementById('extractions-container').innerHTML = '';
     document.getElementById('triggers-container').innerHTML = '';
     document.getElementById('assertions-container').innerHTML = '';
+    document.getElementById('f-forward-url').value = '';
     if (!rules) return;
     (rules.extractions || []).forEach(r => addExtractionRow(r.name, r.pattern, r.type, r.write_to_variable, r.target));
     (rules.triggers || []).forEach(t => addTriggerRow(t.pattern, t.severity));
     (rules.assertions || []).forEach(a => addAssertionRow(a.pattern, a.message));
+    if (rules.forward_url) document.getElementById('f-forward-url').value = rules.forward_url;
 }
 
 async function submitJobForm() {
@@ -1877,12 +1882,14 @@ function collectJobNotifications() {
     const onFailure = document.getElementById('f-notif-failure').checked;
     const onSuccess = document.getElementById('f-notif-success').checked;
     const onAssertion = document.getElementById('f-notif-assertion').checked;
-    if (!onFailure && !onSuccess && !onAssertion) return null;
+    const emailOutput = document.getElementById('f-email-output').value || null;
+    if (!onFailure && !onSuccess && !onAssertion && !emailOutput) return null;
     const emailsStr = document.getElementById('f-notif-emails').value.trim();
     const config = { on_failure: onFailure, on_success: onSuccess, on_assertion_failure: onAssertion };
     if (emailsStr) {
         config.recipients = { emails: emailsStr.split(',').map(s => s.trim()).filter(Boolean), phones: [] };
     }
+    if (emailOutput) config.email_output = emailOutput;
     return config;
 }
 
@@ -1892,6 +1899,7 @@ function populateJobNotifications(notif) {
     document.getElementById('f-notif-assertion').checked = notif ? notif.on_assertion_failure : false;
     const emails = notif && notif.recipients ? (notif.recipients.emails || []).join(', ') : '';
     document.getElementById('f-notif-emails').value = emails;
+    document.getElementById('f-email-output').value = notif && notif.email_output ? notif.email_output : '';
 }
 
 function showCreateKeyForm() {
