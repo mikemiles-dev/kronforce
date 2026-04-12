@@ -857,6 +857,28 @@ function renderSettingsAuth() {
 // --- Theme ---
 let currentTheme = localStorage.getItem('kronforce-theme') || 'dark';
 
+function clearBrowserCache() {
+    if (!confirm('Clear all browser cache for this site and reload?')) return;
+    // Clear localStorage
+    localStorage.clear();
+    // Clear sessionStorage
+    sessionStorage.clear();
+    // Unregister service workers
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for (const reg of registrations) reg.unregister();
+        });
+    }
+    // Clear caches API
+    if ('caches' in window) {
+        caches.keys().then(function(names) {
+            for (const name of names) caches.delete(name);
+        });
+    }
+    // Hard reload
+    setTimeout(function() { location.reload(true); }, 200);
+}
+
 function setTheme(theme) {
     currentTheme = theme;
     localStorage.setItem('kronforce-theme', theme);
