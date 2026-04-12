@@ -621,6 +621,10 @@ function showPage(page) {
     } else if (page === 'jobs') {
         currentJobId = null;
         fetchGroups();
+        // Sync filter button state with current filter value
+        document.querySelectorAll('#status-filters .status-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.status === jobSearch.statusFilter || (!jobSearch.statusFilter && b.dataset.status === ''));
+        });
         setJobsTab(jobsTab);
     } else if (page === 'executions') {
         fetchAllExecutions();
