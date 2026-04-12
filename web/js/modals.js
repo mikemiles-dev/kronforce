@@ -1397,18 +1397,13 @@ async function renderMap() {
     let jobs;
     try {
         const res = await api('GET', '/api/jobs?per_page=1000');
-        jobs = res.data;
+        jobs = typeof applyJobFilters === 'function' ? applyJobFilters(res.data) : res.data;
     } catch (e) {
         console.error('renderMap:', e);
         return;
     }
 
     const container = document.getElementById('map-container');
-
-    // Filter by shared group filter
-    if (typeof groupFilter !== 'undefined' && groupFilter) {
-        jobs = jobs.filter(j => (j.group || 'Default') === groupFilter);
-    }
 
     if (jobs.length === 0) {
         if (cyInstance) { cyInstance.destroy(); cyInstance = null; }

@@ -15,16 +15,6 @@ function setJobsTab(tab) {
         if (el) el.style.display = key === tab ? '' : 'none';
     }
 
-    // Keep the action bar visible but hide search/filter controls on non-Jobs tabs
-    // Keep the share button always visible
-    const actionBar = document.getElementById('jobs-action-bar');
-    if (actionBar) {
-        const isJobs = tab === 'list';
-        actionBar.querySelectorAll('.action-bar-left, .time-range-wrap, .refresh-control').forEach(el => {
-            el.style.visibility = isJobs ? '' : 'hidden';
-        });
-    }
-
     if (tab === 'list') {
         fetchJobs();
     } else if (tab === 'stages') {
@@ -34,13 +24,39 @@ function setJobsTab(tab) {
     }
 }
 
+function applyJobFilters(jobs) {
+    let filtered = jobs;
+    const filter = jobSearch.statusFilter;
+    const search = jobSearch.searchTerm;
+    if (filter === 'blocked') {
+        filtered = filtered.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
+    } else if (filter === 'running') {
+        filtered = filtered.filter(j => j.last_execution && j.last_execution.status === 'running');
+    } else if (filter === 'failed') {
+        filtered = filtered.filter(j => j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out'));
+    } else if (filter === 'scheduled') {
+        filtered = filtered.filter(j => j.status === 'scheduled');
+    } else if (filter === 'paused') {
+        filtered = filtered.filter(j => j.status === 'paused');
+    } else if (filter === 'unscheduled') {
+        filtered = filtered.filter(j => j.status === 'unscheduled' && !(j.depends_on.length > 0 && !j.deps_satisfied));
+    }
+    if (search) {
+        filtered = filtered.filter(j => j.name.toLowerCase().includes(search) || (j.description && j.description.toLowerCase().includes(search)));
+    }
+    if (groupFilter) {
+        filtered = filtered.filter(j => (j.group || 'Default') === groupFilter);
+    }
+    return filtered;
+}
+
 async function renderJobsStagesTab() {
     try {
         const [groups, jobsRes] = await Promise.all([
             api('GET', '/api/jobs/groups'),
             api('GET', '/api/jobs?per_page=1000'),
         ]);
-        const jobs = jobsRes.data;
+        const jobs = applyJobFilters(jobsRes.data);
         const jobsByGroup = {};
         for (const j of jobs) {
             const g = j.group || 'Default';
@@ -48,7 +64,6 @@ async function renderJobsStagesTab() {
             jobsByGroup[g].push(j);
         }
 
-        const selected = groupFilter;
         const content = document.getElementById('stages-content');
         if (!content) return;
 
@@ -60,12 +75,17 @@ async function renderJobsStagesTab() {
             return a.localeCompare(b);
         });
 
-        const groupsToShow = selected ? [selected] : sortedGroups;
+        // Group filter already applied in applyJobFilters, show all groups that have jobs
+        const groupsToShow = sortedGroups;
 
         // Temporarily set ID so renderPipelineView writes to stages-content
         content.id = 'groups-grid';
         renderPipelineView(groupsToShow.filter(g => jobsByGroup[g] && jobsByGroup[g].length > 0), jobsByGroup);
         content.id = 'stages-content';
+
+        if (jobs.length === 0) {
+            content.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">No jobs match the current filters.</div>';
+        }
     } catch (e) {
         console.error('renderJobsStagesTab:', e);
     }
