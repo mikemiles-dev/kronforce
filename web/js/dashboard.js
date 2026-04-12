@@ -249,7 +249,7 @@ async function renderDashboard() {
             statCard(totalJobs, 'Total Jobs', 'neutral', "showPage('jobs')") +
             (running > 0 ? statCard(running, 'Running', 'info', "navJobsFiltered('running')") : '') +
             statCard(scheduled, 'Scheduled', 'info', "navJobsFiltered('scheduled')") +
-            statCard(totalFailed, 'Failed', 'danger', "navJobsFiltered('failed')") +
+            statCard(totalFailed, 'Failed', 'danger', "navExecsFiltered('failed')") +
             statCard(waiting, 'Waiting', 'warning', "navJobsFiltered('blocked')") +
             statCard(paused, 'Paused', 'neutral', "navJobsFiltered('paused')") +
             statCard(totalSucceeded, 'Succeeded', 'success', "navExecsFiltered('succeeded')") +
@@ -373,10 +373,14 @@ function navJobsFiltered(filter) {
 function navExecsFiltered(status) {
     execSearch.statusFilter = status;
     showPage('executions');
-    document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
-        b.classList.toggle('active', b.textContent.toLowerCase() === status || (!status && b.textContent === 'All'));
-    });
-    fetchAllExecutions();
+    // Sync button state — match by the onclick attribute containing the status value
+    setTimeout(function() {
+        document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
+            const onclick = b.getAttribute('onclick') || '';
+            const isMatch = status ? onclick.includes("'" + status + "'") : onclick.includes("''");
+            b.classList.toggle('active', isMatch);
+        });
+    }, 50);
 }
 
 function statCard(value, label, cls, onclick) {

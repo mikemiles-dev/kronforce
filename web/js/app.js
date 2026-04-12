@@ -627,6 +627,12 @@ function showPage(page) {
         });
         setJobsTab(jobsTab);
     } else if (page === 'executions') {
+        // Sync exec filter button state
+        document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
+            const onclick = b.getAttribute('onclick') || '';
+            const isMatch = execSearch.statusFilter ? onclick.includes("'" + execSearch.statusFilter + "'") : onclick.includes("''");
+            b.classList.toggle('active', isMatch);
+        });
         fetchAllExecutions();
     } else if (page === 'scripts') {
         fetchScripts();
