@@ -242,16 +242,19 @@ async function renderDashboard() {
         const groupSet = new Set(jobs.map(j => j.group || 'Default'));
         const totalGroups = groupSet.size;
 
+        const running = jobs.filter(j => j.last_execution && j.last_execution.status === 'running').length;
+
         // Render stats cards
         document.getElementById('dash-stats').innerHTML =
             statCard(totalJobs, 'Total Jobs', 'neutral', "showPage('jobs')") +
+            (running > 0 ? statCard(running, 'Running', 'info', "navJobsFiltered('running')") : '') +
             statCard(scheduled, 'Scheduled', 'info', "navJobsFiltered('scheduled')") +
+            statCard(totalFailed, 'Failed', 'danger', "navJobsFiltered('failed')") +
             statCard(waiting, 'Waiting', 'warning', "navJobsFiltered('blocked')") +
             statCard(paused, 'Paused', 'neutral', "navJobsFiltered('paused')") +
             statCard(totalSucceeded, 'Succeeded', 'success', "navExecsFiltered('succeeded')") +
-            statCard(totalFailed, 'Failed', 'danger', "navExecsFiltered('failed')") +
             statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral', "showPage('agents')") +
-            statCard(totalGroups, 'Groups', 'neutral', "showPage('groups')") +
+            statCard(totalGroups, 'Groups', 'neutral', "showPage('jobs')") +
             statCard(totalExecs, 'Total Runs', 'neutral', "showPage('executions')");
 
         // Recent executions - collect from all jobs
@@ -285,6 +288,27 @@ async function renderDashboard() {
             document.getElementById('dash-recent-execs').innerHTML = html;
         } else {
             document.getElementById('dash-recent-execs').innerHTML = '<div class="empty-state" style="padding:20px"><p>No executions yet</p></div>';
+        }
+
+        // Currently running jobs
+        const runningJobs = jobs.filter(j => j.last_execution && j.last_execution.status === 'running');
+        const runningSection = document.getElementById('dash-running-section');
+        if (runningSection) {
+            if (runningJobs.length > 0) {
+                let rhtml = '<div class="card" style="margin-bottom:16px;border-left:3px solid var(--accent)">';
+                rhtml += '<div class="card-header" style="cursor:pointer" onclick="navJobsFiltered(\'running\')"><h3>&#9654; Running Now (' + runningJobs.length + ') <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>';
+                rhtml += '<div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 12px">';
+                for (const j of runningJobs) {
+                    rhtml += '<div style="padding:6px 12px;background:rgba(62,139,255,0.1);border:1px solid var(--accent);border-radius:6px;cursor:pointer;font-size:12px" onclick="showJobDetail(\'' + j.id + '\')">';
+                    rhtml += '<span style="font-weight:600">' + esc(j.name) + '</span>';
+                    if (j.last_execution.started_at) rhtml += ' <span style="color:var(--text-muted);font-size:11px">since ' + fmtDate(j.last_execution.started_at) + '</span>';
+                    rhtml += '</div>';
+                }
+                rhtml += '</div></div>';
+                runningSection.innerHTML = rhtml;
+            } else {
+                runningSection.innerHTML = '';
+            }
         }
 
         // Recent events
