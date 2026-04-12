@@ -588,13 +588,16 @@ function renderDashCytoMap(jobs) {
 
     if (dashCyInstance) dashCyInstance.destroy();
 
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const textColor = isDark ? '#e0e2eb' : '#1a1d2e';
+
     dashCyInstance = cytoscape({
         container: container,
         elements: elements,
         style: [
             { selector: 'node', style: {
                 'label': 'data(label)', 'background-color': 'data(color)',
-                'color': '#e0e2eb', 'font-size': '11px', 'text-valign': 'bottom',
+                'color': textColor, 'font-size': '11px', 'text-valign': 'bottom',
                 'text-margin-y': 6, 'width': 28, 'height': 28, 'border-width': 2,
                 'border-color': 'data(color)'
             }},
@@ -610,6 +613,16 @@ function renderDashCytoMap(jobs) {
 
     dashCyInstance.on('tap', 'node', function(evt) {
         showJobDetail(evt.target.id());
+    });
+
+    // Show map controls
+    var ctrl = document.getElementById('dash-map-controls');
+    if (ctrl) ctrl.style.display = '';
+
+    // Sync zoom slider
+    dashCyInstance.on('zoom', function() {
+        var slider = document.getElementById('dash-map-zoom-slider');
+        if (slider) slider.value = Math.round(dashCyInstance.zoom() * 100);
     });
 
     setTimeout(function() { if (dashCyInstance) dashCyInstance.fit(undefined, 30); }, 100);
