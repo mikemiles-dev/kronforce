@@ -257,6 +257,12 @@ function updateTaskFields() {
         const el = document.getElementById('task-' + t + '-fields');
         if (el) el.style.display = t === type ? '' : 'none';
     }
+    // Collapse message queues section when a non-queue type is selected
+    const mqTypes = ['kafka','rabbitmq','mqtt','redis','kafka_consume','rabbitmq_consume','mqtt_subscribe','redis_read'];
+    if (!mqTypes.includes(type)) {
+        const sec = document.getElementById('mq-task-section');
+        if (sec) sec.style.display = 'none';
+    }
     if (type === 'script') populateScriptDropdown();
 }
 
