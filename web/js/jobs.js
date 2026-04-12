@@ -245,16 +245,7 @@ async function fetchJobs(resetPage) {
         } else if (filter === 'unscheduled') {
             allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
         }
-        // Time range filter (client-side for jobs - filter by last execution time)
-        if (timeRanges.jobs) {
-            const since = new Date(Date.now() - parseInt(timeRanges.jobs) * 60000);
-            allJobs = allJobs.filter(j => {
-                // Always show jobs that have never run
-                if (!j.last_execution || !j.last_execution.finished_at) return true;
-                return new Date(j.last_execution.finished_at) >= since;
-            });
-        }
-        const isTimeFiltered = !!timeRanges.jobs;
+        const isTimeFiltered = false;
         jobsTotalPages = (isClientFilter || isTimeFiltered) ? 1 : res.total_pages;
         jobsTotal = (isClientFilter || isTimeFiltered) ? allJobs.length : res.total;
         renderJobsTable();
@@ -437,9 +428,37 @@ async function showJobDetail(id) {
         renderJobDetail(job);
         renderMiniMap(job);
         fetchJobTimeline(id);
+        fetchJobEvents(id);
         await fetchExecutions(id, true);
     } catch (e) {
         toast(e.message, 'error');
+    }
+}
+
+async function fetchJobEvents(jobId) {
+    const wrap = document.getElementById('job-events-list');
+    if (!wrap) return;
+    try {
+        const res = await api('GET', '/api/events?per_page=100');
+        const events = res.data.filter(e => e.job_id === jobId).slice(0, 15);
+        if (events.length === 0) {
+            wrap.innerHTML = '<p style="color:var(--text-muted);font-size:12px;padding:8px 0">No events for this job yet.</p>';
+            return;
+        }
+        let html = '<div style="display:flex;flex-direction:column;gap:4px;padding-top:8px">';
+        for (const e of events) {
+            const sevColor = e.severity === 'error' ? 'var(--danger)' : e.severity === 'warning' ? 'var(--warning)' : e.severity === 'success' ? 'var(--success)' : 'var(--text-muted)';
+            html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">';
+            html += '<span style="width:6px;height:6px;border-radius:50%;background:' + sevColor + ';flex-shrink:0"></span>';
+            html += '<span style="color:var(--text-secondary);white-space:nowrap;font-size:11px">' + fmtDate(e.timestamp) + '</span>';
+            html += '<span style="color:var(--accent);font-size:11px;white-space:nowrap">' + esc(e.kind) + '</span>';
+            html += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.message) + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+        wrap.innerHTML = html;
+    } catch (e) {
+        wrap.innerHTML = '<p style="color:var(--text-muted);font-size:12px">Failed to load events.</p>';
     }
 }
 
