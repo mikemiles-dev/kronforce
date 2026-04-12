@@ -312,6 +312,28 @@ async function renderDashboard() {
             }
         }
 
+        // Recently failed jobs
+        const failedJobs = jobs.filter(j => j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out'));
+        const failedSection = document.getElementById('dash-failed-section');
+        if (failedSection) {
+            if (failedJobs.length > 0) {
+                let fhtml = '<div class="card" style="margin-bottom:16px;border-left:3px solid var(--danger)">';
+                fhtml += '<div class="card-header" style="cursor:pointer" onclick="navExecsFiltered(\'failed\')"><h3>&#10060; Recently Failed (' + failedJobs.length + ') <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>';
+                fhtml += '<table class="dash-mini-table"><tbody>';
+                for (const j of failedJobs.slice(0, 8)) {
+                    fhtml += '<tr style="cursor:pointer" onclick="showJobDetail(\'' + j.id + '\')">';
+                    fhtml += '<td><span class="job-name">' + esc(j.name) + '</span>' + groupBadge(j.group) + '</td>';
+                    fhtml += '<td>' + badge(j.last_execution.status) + '</td>';
+                    fhtml += '<td><span class="time-text">' + (j.last_execution.finished_at ? fmtDate(j.last_execution.finished_at) : '') + '</span></td>';
+                    fhtml += '</tr>';
+                }
+                fhtml += '</tbody></table></div>';
+                failedSection.innerHTML = fhtml;
+            } else {
+                failedSection.innerHTML = '';
+            }
+        }
+
         // Recent events
         if (events.length > 0) {
             let html = '<div class="event-timeline">';
@@ -345,8 +367,9 @@ async function renderDashboard() {
             document.getElementById('dash-agents').innerHTML = '<div class="empty-state" style="padding:20px"><p>No agents</p></div>';
         }
 
-        // Mini map
-        renderDashMap(jobs);
+        // Infrastructure: stages + Cytoscape map
+        renderDashStages(jobs);
+        renderDashCytoMap(jobs);
         renderDashGroupSummary(jobs);
         fetchDashTimeline();
         fetchChartStats();
@@ -496,5 +519,99 @@ function renderDashMap(jobs) {
     }
 
     svg.innerHTML = svgHtml;
+}
+
+function renderDashStages(jobs) {
+    const el = document.getElementById('dash-stages');
+    if (!el) return;
+    if (jobs.length === 0) {
+        el.innerHTML = '<div class="empty-state" style="padding:20px"><p>No jobs</p></div>';
+        return;
+    }
+    // Group jobs
+    const jobsByGroup = {};
+    for (const j of jobs) {
+        const g = j.group || 'Default';
+        if (!jobsByGroup[g]) jobsByGroup[g] = [];
+        jobsByGroup[g].push(j);
+    }
+    const sortedGroups = Object.keys(jobsByGroup).sort((a, b) => a === 'Default' ? -1 : b === 'Default' ? 1 : a.localeCompare(b));
+
+    // Reuse renderPipelineView via the ID swap trick
+    el.id = 'groups-grid';
+    if (typeof renderPipelineView === 'function') {
+        renderPipelineView(sortedGroups.filter(g => jobsByGroup[g].length > 0), jobsByGroup);
+    }
+    el.id = 'dash-stages';
+}
+
+let dashCyInstance = null;
+
+function renderDashCytoMap(jobs) {
+    const container = document.getElementById('dash-map-container');
+    if (!container) return;
+    if (typeof cytoscape === 'undefined') {
+        container.innerHTML = '<div class="empty-state" style="padding:20px"><p>Map library not loaded</p></div>';
+        return;
+    }
+    if (jobs.length === 0) {
+        if (dashCyInstance) { dashCyInstance.destroy(); dashCyInstance = null; }
+        container.innerHTML = '<div class="empty-state" style="padding:20px"><p>No jobs</p></div>';
+        return;
+    }
+
+    // Build nodes and edges
+    const elements = [];
+    for (const j of jobs) {
+        const ls = j.last_execution ? j.last_execution.status : 'idle';
+        let color = '#555';
+        if (ls === 'succeeded') color = '#2ecc71';
+        else if (ls === 'failed' || ls === 'timed_out') color = '#e05252';
+        else if (ls === 'running') color = '#3e8bff';
+        elements.push({ data: { id: j.id, label: j.name, color: color, group: j.group || 'Default' } });
+        for (const d of (j.depends_on || [])) {
+            elements.push({ data: { source: d.job_id, target: j.id } });
+        }
+    }
+
+    // Event-based edges (dashed)
+    if (jobs.some(j => j.schedule && j.schedule.type === 'event')) {
+        const nameToId = {};
+        for (const j of jobs) nameToId[j.name] = j.id;
+        for (const j of jobs) {
+            if (j.schedule && j.schedule.type === 'event' && j.schedule.value && j.schedule.value.job_name_filter) {
+                const srcId = nameToId[j.schedule.value.job_name_filter];
+                if (srcId) elements.push({ data: { source: srcId, target: j.id, dashed: true } });
+            }
+        }
+    }
+
+    if (dashCyInstance) dashCyInstance.destroy();
+
+    dashCyInstance = cytoscape({
+        container: container,
+        elements: elements,
+        style: [
+            { selector: 'node', style: {
+                'label': 'data(label)', 'background-color': 'data(color)',
+                'color': '#e0e2eb', 'font-size': '11px', 'text-valign': 'bottom',
+                'text-margin-y': 6, 'width': 28, 'height': 28, 'border-width': 2,
+                'border-color': 'data(color)'
+            }},
+            { selector: 'edge', style: {
+                'width': 2, 'line-color': '#3e8bff', 'target-arrow-color': '#3e8bff',
+                'target-arrow-shape': 'triangle', 'curve-style': 'bezier', 'opacity': 0.6
+            }},
+            { selector: 'edge[dashed]', style: { 'line-style': 'dashed', 'line-color': '#e6a817', 'target-arrow-color': '#e6a817' } }
+        ],
+        layout: { name: 'breadthfirst', directed: true, padding: 30, spacingFactor: 1.2 },
+        userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
+    });
+
+    dashCyInstance.on('tap', 'node', function(evt) {
+        showJobDetail(evt.target.id());
+    });
+
+    setTimeout(function() { if (dashCyInstance) dashCyInstance.fit(undefined, 30); }, 100);
 }
 
