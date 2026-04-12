@@ -29,7 +29,7 @@ function applyJobFilters(jobs) {
     const filter = jobSearch.statusFilter;
     const search = jobSearch.searchTerm;
     if (filter === 'blocked') {
-        filtered = filtered.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
+        filtered = filtered.filter(j => (j.depends_on || []).length > 0 && !j.deps_satisfied);
     } else if (filter === 'running') {
         filtered = filtered.filter(j => j.last_execution && j.last_execution.status === 'running');
     } else if (filter === 'failed') {
@@ -39,7 +39,7 @@ function applyJobFilters(jobs) {
     } else if (filter === 'paused') {
         filtered = filtered.filter(j => j.status === 'paused');
     } else if (filter === 'unscheduled') {
-        filtered = filtered.filter(j => j.status === 'unscheduled' && !(j.depends_on.length > 0 && !j.deps_satisfied));
+        filtered = filtered.filter(j => j.status === 'unscheduled' && !((j.depends_on || []).length > 0 && !j.deps_satisfied));
     }
     if (search) {
         filtered = filtered.filter(j => j.name.toLowerCase().includes(search) || (j.description && j.description.toLowerCase().includes(search)));
@@ -263,7 +263,7 @@ async function fetchJobs(resetPage) {
             allJobs = res.data;
             // Unscheduled: exclude waiting jobs (they're technically scheduled)
             if (filter === 'unscheduled') {
-                allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
+                allJobs = allJobs.filter(j => !((j.depends_on || []).length > 0 && !j.deps_satisfied));
             }
         }
         const isTimeFiltered = false;
@@ -371,7 +371,7 @@ function renderJobsTable() {
         html += '<td><input type="checkbox" class="job-checkbox" data-id="' + j.id + '" onchange="toggleSelectJob(this)"' + checked + '></td>';
         const approvalBadge = j.approval_required ? ' <span class="badge badge-pending_approval" style="font-size:9px;padding:1px 4px" title="Requires approval">approval</span>' : '';
         html += '<td><span class="job-name" onmousedown="this._md=Date.now()" onclick="if(window.getSelection().toString()||Date.now()-this._md>300)return;showJobDetail(\'' + j.id + '\')">' + esc(j.name) + '</span>' + approvalBadge + groupBadge(j.group) + ' ' + fmtTaskBadge(j.task) + '</td>';
-        const isBlocked = j.depends_on.length > 0 && !j.deps_satisfied;
+        const isBlocked = (j.depends_on || []).length > 0 && !j.deps_satisfied;
         const execState = j.last_execution && (j.last_execution.status === 'running' || j.last_execution.status === 'pending_approval');
         if (isBlocked) {
             html += '<td><span class="badge badge-paused" style="cursor:pointer" onclick="showWaitingDetail(\'' + j.id + '\')" title="Click to see what this job is waiting for">waiting</span></td>';

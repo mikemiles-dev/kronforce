@@ -227,14 +227,15 @@ async function renderDashboard() {
         // Compute stats
         const totalJobs = jobs.length;
         const scheduled = jobs.filter(j => j.status === 'scheduled').length;
-        const waiting = jobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied).length;
+        const waiting = jobs.filter(j => (j.depends_on || []).length > 0 && !j.deps_satisfied).length;
         const paused = jobs.filter(j => j.status === 'paused').length;
 
         let totalExecs = 0, totalSucceeded = 0, totalFailed = 0;
         for (const j of jobs) {
-            totalExecs += j.execution_counts.total;
-            totalSucceeded += j.execution_counts.succeeded;
-            totalFailed += j.execution_counts.failed;
+            const c = j.execution_counts || {};
+            totalExecs += c.total || 0;
+            totalSucceeded += c.succeeded || 0;
+            totalFailed += c.failed || 0;
         }
 
         const onlineAgents = allAgents.filter(a => a.status === 'online').length;
