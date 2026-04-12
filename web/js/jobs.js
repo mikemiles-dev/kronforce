@@ -33,7 +33,7 @@ function applyJobFilters(jobs) {
     } else if (filter === 'running') {
         filtered = filtered.filter(j => j.last_execution && j.last_execution.status === 'running');
     } else if (filter === 'failed') {
-        filtered = filtered.filter(j => j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out'));
+        filtered = filtered.filter(j => (j.execution_counts && j.execution_counts.failed > 0) || (j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out')));
     } else if (filter === 'scheduled') {
         filtered = filtered.filter(j => j.status === 'scheduled');
     } else if (filter === 'paused') {
@@ -261,7 +261,7 @@ async function fetchJobs(resetPage) {
         } else if (filter === 'running') {
             allJobs = allJobs.filter(j => j.last_execution && j.last_execution.status === 'running');
         } else if (filter === 'failed') {
-            allJobs = allJobs.filter(j => j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out'));
+            allJobs = allJobs.filter(j => (j.execution_counts && j.execution_counts.failed > 0) || (j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out')));
         } else if (filter === 'unscheduled') {
             allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
         }
