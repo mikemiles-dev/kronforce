@@ -65,7 +65,7 @@ pub async fn discover(issuer: &str) -> Result<OidcProvider, String> {
 
 /// Generates a random URL-safe string for state/nonce parameters.
 fn random_string() -> String {
-    use rand::Rng;
+    use rand::RngExt;
     let mut bytes = [0u8; 32];
     rand::rng().fill(&mut bytes);
     base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes)
