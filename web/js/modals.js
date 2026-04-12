@@ -247,7 +247,11 @@ function closeCreateModal() {
 
 function toggleMqSection() {
     const sec = document.getElementById('mq-task-section');
-    if (sec) sec.style.display = sec.style.display === 'none' ? '' : 'none';
+    if (!sec) return;
+    const showing = sec.style.display === 'none';
+    sec.style.display = showing ? '' : 'none';
+    const btn = document.getElementById('mq-toggle-btn');
+    if (btn) btn.classList.toggle('mq-active', showing);
 }
 
 function updateTaskFields() {
@@ -257,11 +261,16 @@ function updateTaskFields() {
         const el = document.getElementById('task-' + t + '-fields');
         if (el) el.style.display = t === type ? '' : 'none';
     }
-    // Collapse message queues section when a non-queue type is selected
+    // Manage message queues section and button highlight
     const mqTypes = ['kafka','rabbitmq','mqtt','redis','kafka_consume','rabbitmq_consume','mqtt_subscribe','redis_read'];
-    if (!mqTypes.includes(type)) {
+    const isMq = mqTypes.includes(type);
+    const btn = document.getElementById('mq-toggle-btn');
+    if (!isMq) {
         const sec = document.getElementById('mq-task-section');
         if (sec) sec.style.display = 'none';
+        if (btn) btn.classList.remove('mq-active');
+    } else {
+        if (btn) btn.classList.add('mq-active');
     }
     if (type === 'script') populateScriptDropdown();
 }

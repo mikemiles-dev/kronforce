@@ -973,6 +973,7 @@ label.pill-red:has(input:checked) { border-color: var(--danger) !important; back
 label.pill-green:has(input:checked) { border-color: var(--success) !important; background: rgba(46,204,113,0.1); color: var(--success); }
 label.pill-orange:has(input:checked) { border-color: var(--warning) !important; background: rgba(230,168,23,0.1); color: var(--warning); }
 .radio-group label input[type="radio"] { display: none; }
+.radio-group label.mq-active { border-color: #9b59b6; background: rgba(155,89,182,0.1); color: #9b59b6; }
 
 .form-actions {
     display: flex;
