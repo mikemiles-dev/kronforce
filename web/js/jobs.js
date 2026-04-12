@@ -255,15 +255,16 @@ async function fetchJobs(resetPage) {
         if (search) qs += '&search=' + encodeURIComponent(search);
         if (groupFilter) qs += '&group=' + encodeURIComponent(groupFilter);
         const res = await api('GET', '/api/jobs' + qs);
-        allJobs = res.data;
-        if (filter === 'blocked') {
-            allJobs = allJobs.filter(j => j.depends_on.length > 0 && !j.deps_satisfied);
-        } else if (filter === 'running') {
-            allJobs = allJobs.filter(j => j.last_execution && j.last_execution.status === 'running');
-        } else if (filter === 'failed') {
-            allJobs = allJobs.filter(j => (j.execution_counts && j.execution_counts.failed > 0) || (j.last_execution && (j.last_execution.status === 'failed' || j.last_execution.status === 'timed_out')));
-        } else if (filter === 'unscheduled') {
-            allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
+        // Apply client-side filters (blocked, running, failed use applyJobFilters;
+        // scheduled/paused already filtered server-side via apiFilter)
+        if (isClientFilter) {
+            allJobs = applyJobFilters(res.data);
+        } else {
+            allJobs = res.data;
+            // Unscheduled: exclude waiting jobs (they're technically scheduled)
+            if (filter === 'unscheduled') {
+                allJobs = allJobs.filter(j => !(j.depends_on.length > 0 && !j.deps_satisfied));
+            }
         }
         const isTimeFiltered = false;
         jobsTotalPages = (isClientFilter || isTimeFiltered) ? 1 : res.total_pages;
