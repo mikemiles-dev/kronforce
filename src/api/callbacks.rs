@@ -1,6 +1,7 @@
 use axum::Json;
 use axum::extract::State;
 use tracing::info;
+use uuid::Uuid;
 
 use super::auth::AuthUser;
 use super::{AppState, log_and_notify};
@@ -57,9 +58,12 @@ pub(crate) async fn execution_result_callback(
     let exec_id_for_rules = rec.id;
 
     let status = rec.status;
+    let result_job_id = result.job_id;
+    let result_exec_id = result.execution_id;
+    let result_agent_id = result.agent_id;
     db_call(&state.db, move |db| db.update_execution(&rec)).await?;
 
-    // Run output rules (extraction + triggers) and notify scheduler
+    // Run output rules (extraction + triggers), log event, and notify scheduler
     let db_rules = state.db.clone();
     let sched_tx = state.scheduler_tx.clone();
     tokio::task::spawn(async move {
@@ -75,10 +79,42 @@ pub(crate) async fn execution_result_callback(
         })
         .await
         .unwrap_or_default();
-        // Notify scheduler so event-triggered jobs can fire
         for event in output_events {
             let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
         }
+
+        // Log execution.completed event (same as local execution path)
+        let severity = match status {
+            ExecutionStatus::Succeeded => EventSeverity::Success,
+            ExecutionStatus::Failed | ExecutionStatus::TimedOut => EventSeverity::Error,
+            ExecutionStatus::Cancelled => EventSeverity::Warning,
+            _ => EventSeverity::Info,
+        };
+        let job_name = db_rules
+            .get_job(result_job_id)
+            .ok()
+            .flatten()
+            .map(|j| j.name)
+            .unwrap_or_else(|| result_job_id.to_string());
+        let event = Event {
+            id: Uuid::new_v4(),
+            kind: "execution.completed".to_string(),
+            severity,
+            message: format!(
+                "Job '{}' execution {} finished: {:?}",
+                job_name, result_exec_id, status
+            ),
+            job_id: Some(result_job_id),
+            agent_id: Some(result_agent_id),
+            api_key_id: None,
+            api_key_name: None,
+            details: None,
+            timestamp: chrono::Utc::now(),
+        };
+        let db_ev = db_rules.clone();
+        let event2 = event.clone();
+        let _ = tokio::task::spawn_blocking(move || db_ev.insert_event(&event2)).await;
+        let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
     });
 
     // Send notifications based on job config
