@@ -53,7 +53,7 @@
                 <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> &#128193; FTP</label>
                 <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> &#128220; Script</label>
                 <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> &#128228; File Push</label>
-                <span class="pill-purple" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500" onclick="toggleMqSection()">&#9889; Message Queues</span>
+                <label class="pill-purple" onclick="event.preventDefault();toggleMqSection()" id="mq-toggle-btn">&#9889; Message Queues</label>
             </div>
             <div id="mq-task-section" style="display:none;margin-top:4px;padding:8px 0 0;border-top:1px solid var(--border)">
                 <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:0 0 4px;display:block">Publish</label>
