@@ -360,12 +360,12 @@ async function renderDashboard() {
 
 function navJobsFiltered(filter) {
     jobSearch.statusFilter = filter;
+    jobsTab = 'list';
     showPage('jobs');
     // Set the active filter button
     document.querySelectorAll('#status-filters .status-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.status === filter || (!filter && b.dataset.status === ''));
     });
-    fetchJobs(true);
 }
 
 function navExecsFiltered(status) {
