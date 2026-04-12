@@ -47,33 +47,33 @@
         <div class="form-group">
             <label>Task Type</label>
             <div class="radio-group">
-                <label class="pill-green"><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()"> &#9654; Shell</label>
-                <label class="pill-green"><input type="radio" name="task-type" value="http" onchange="updateTaskFields()"> &#127760; HTTP</label>
-                <label class="pill-green"><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()"> &#128451; SQL</label>
-                <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()"> &#128193; FTP</label>
-                <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()"> &#128220; Script</label>
-                <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()"> &#128228; File Push</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="shell" checked onchange="updateTaskFields()" onclick="updateTaskFields()"> &#9654; Shell</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="http" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#127760; HTTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128451; SQL</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128193; FTP</label>
+                <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128220; Script</label>
+                <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128228; File Push</label>
                 <label class="pill-purple" onclick="event.preventDefault();toggleMqSection()" id="mq-toggle-btn">&#9889; Message Queues</label>
             </div>
             <div id="mq-task-section" style="display:none;margin-top:4px;padding:8px 0 0;border-top:1px solid var(--border)">
                 <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:0 0 4px;display:block">Publish</label>
                 <div class="radio-group">
-                    <label class="pill-purple"><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()"> Kafka</label>
-                    <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()"> RabbitMQ</label>
-                    <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()"> MQTT</label>
-                    <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()"> Redis</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="kafka" onchange="updateTaskFields()" onclick="updateTaskFields()"> Kafka</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq" onchange="updateTaskFields()" onclick="updateTaskFields()"> RabbitMQ</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="mqtt" onchange="updateTaskFields()" onclick="updateTaskFields()"> MQTT</label>
+                    <label class="pill-red"><input type="radio" name="task-type" value="redis" onchange="updateTaskFields()" onclick="updateTaskFields()"> Redis</label>
                 </div>
                 <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">Consume</label>
                 <div class="radio-group">
-                    <label class="pill-purple"><input type="radio" name="task-type" value="kafka_consume" onchange="updateTaskFields()"> Kafka Read</label>
-                    <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq_consume" onchange="updateTaskFields()"> RabbitMQ Read</label>
-                    <label class="pill-purple"><input type="radio" name="task-type" value="mqtt_subscribe" onchange="updateTaskFields()"> MQTT Subscribe</label>
-                    <label class="pill-red"><input type="radio" name="task-type" value="redis_read" onchange="updateTaskFields()"> Redis Read</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="kafka_consume" onchange="updateTaskFields()" onclick="updateTaskFields()"> Kafka Read</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="rabbitmq_consume" onchange="updateTaskFields()" onclick="updateTaskFields()"> RabbitMQ Read</label>
+                    <label class="pill-purple"><input type="radio" name="task-type" value="mqtt_subscribe" onchange="updateTaskFields()" onclick="updateTaskFields()"> MQTT Subscribe</label>
+                    <label class="pill-red"><input type="radio" name="task-type" value="redis_read" onchange="updateTaskFields()" onclick="updateTaskFields()"> Redis Read</label>
                 </div>
             </div>
             <label style="font-size:10px;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin:8px 0 4px;display:block">AI / Tooling</label>
             <div class="radio-group">
-                <label class="pill-blue"><input type="radio" name="task-type" value="mcp" onchange="updateTaskFields()"> &#129302; MCP Tool</label>
+                <label class="pill-blue"><input type="radio" name="task-type" value="mcp" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#129302; MCP Tool</label>
             </div>
         </div>
         <div id="task-shell-fields">
