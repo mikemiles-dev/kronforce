@@ -245,6 +245,11 @@ function closeCreateModal() {
     closeModal('create-modal');
 }
 
+function toggleMqSection() {
+    const sec = document.getElementById('mq-task-section');
+    if (sec) sec.style.display = sec.style.display === 'none' ? '' : 'none';
+}
+
 function updateTaskFields() {
     const type = document.querySelector('input[name="task-type"]:checked').value;
     const allTaskFields = ['shell','http','sql','ftp','script','file_push','kafka','rabbitmq','mqtt','redis','mcp','kafka_consume','mqtt_subscribe','rabbitmq_consume','redis_read'];
@@ -473,8 +478,8 @@ function populateTaskForm(task) {
         radio.checked = true;
         // Auto-expand message queues section if a queue type is selected
         if (['kafka','rabbitmq','mqtt','redis','kafka_consume','rabbitmq_consume','mqtt_subscribe','redis_read'].includes(type)) {
-            const details = document.getElementById('mq-task-details');
-            if (details) details.open = true;
+            const sec = document.getElementById('mq-task-section');
+            if (sec) sec.style.display = '';
         }
     }
     updateTaskFields();
