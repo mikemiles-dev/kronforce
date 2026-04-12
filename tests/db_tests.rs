@@ -1111,3 +1111,90 @@ fn test_count_running_different_jobs_isolated() {
     assert_eq!(db.count_running_executions_for_job(job_a.id).unwrap(), 1);
     assert_eq!(db.count_running_executions_for_job(job_b.id).unwrap(), 0);
 }
+
+// --- Schedule Window ---
+
+#[test]
+fn test_schedule_window_round_trip() {
+    let db = test_db();
+    let mut job = make_job("window-job");
+    let starts = chrono::Utc::now() + chrono::Duration::hours(1);
+    let expires = chrono::Utc::now() + chrono::Duration::days(7);
+    job.starts_at = Some(starts);
+    job.expires_at = Some(expires);
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    // Compare timestamps within 1 second (rfc3339 precision)
+    assert!((fetched.starts_at.unwrap() - starts).num_seconds().abs() < 2);
+    assert!((fetched.expires_at.unwrap() - expires).num_seconds().abs() < 2);
+}
+
+// --- Email Output Config ---
+
+#[test]
+fn test_email_output_config_round_trip() {
+    let db = test_db();
+    let mut job = make_job("email-output-job");
+    job.notifications = Some(JobNotificationConfig {
+        on_failure: true,
+        on_success: false,
+        on_assertion_failure: false,
+        recipients: None,
+        email_output: Some("always".to_string()),
+    });
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    let notif = fetched.notifications.unwrap();
+    assert_eq!(notif.email_output.as_deref(), Some("always"));
+    assert!(notif.on_failure);
+}
+
+// --- Output Forward URL ---
+
+#[test]
+fn test_forward_url_round_trip() {
+    let db = test_db();
+    let mut job = make_job("forward-job");
+    job.output_rules = Some(OutputRules {
+        extractions: vec![],
+        triggers: vec![],
+        assertions: vec![],
+        forward_url: Some("https://hooks.example.com/output".to_string()),
+    });
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    let rules = fetched.output_rules.unwrap();
+    assert_eq!(
+        rules.forward_url.as_deref(),
+        Some("https://hooks.example.com/output")
+    );
+}
+
+// --- TriggerSource::Webhook in executions ---
+
+#[test]
+fn test_webhook_trigger_source_round_trip() {
+    let db = test_db();
+    let job = make_job("webhook-trigger-src");
+    db.insert_job(&job).unwrap();
+
+    let mut exec = ExecutionRecord::new(
+        Uuid::new_v4(),
+        job.id,
+        TriggerSource::Webhook {
+            token_prefix: "abcd1234".to_string(),
+        },
+    );
+    exec.status = ExecutionStatus::Succeeded;
+    db.insert_execution(&exec).unwrap();
+
+    let fetched = db.get_execution(exec.id).unwrap().unwrap();
+    if let TriggerSource::Webhook { token_prefix } = fetched.triggered_by {
+        assert_eq!(token_prefix, "abcd1234");
+    } else {
+        panic!("expected Webhook trigger source");
+    }
+}
