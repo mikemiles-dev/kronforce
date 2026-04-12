@@ -23,7 +23,7 @@ pub fn hash_api_key(raw: &str) -> String {
 
 /// Generates a new random API key, returning (raw_key, prefix).
 pub fn generate_api_key() -> (String, String) {
-    use rand::Rng;
+    use rand::RngExt;
     let mut bytes = [0u8; 32];
     rand::rng().fill(&mut bytes);
     let raw = format!(

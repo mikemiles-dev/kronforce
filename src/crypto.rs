@@ -53,7 +53,7 @@ pub fn encrypt(plaintext: &str) -> String {
 
     // Generate random 12-byte nonce
     let mut nonce_bytes = [0u8; 12];
-    use rand::Rng;
+    use rand::RngExt;
     rand::rng().fill(&mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
 
