@@ -39,14 +39,26 @@ function goToEventsPage(p) {
 function renderEvents(events) {
     const wrap = document.getElementById('events-list-wrap');
     if (events.length === 0) {
-        wrap.innerHTML = renderRichEmptyState({
-            icon: '&#128276;',
-            title: 'No events yet',
-            description: 'Events are logged when jobs run, agents change status, API keys are managed, and output patterns match. Activity will appear here automatically.',
-            actions: [
-                { label: 'Create a Job', onclick: "showPage('jobs')", primary: true },
-            ],
-        });
+        const hasFilters = eventSearch.statusFilter || eventSearch.searchTerm || timeRanges.events;
+        if (hasFilters) {
+            wrap.innerHTML = renderRichEmptyState({
+                icon: '&#128270;',
+                title: 'No matching events',
+                description: 'No events match the current filters.',
+                actions: [
+                    { label: 'Clear Filters', onclick: "eventSearch.setStatusFilter(document.querySelector('#event-type-filters .status-btn'), '');fetchEvents()", primary: true },
+                ],
+            });
+        } else {
+            wrap.innerHTML = renderRichEmptyState({
+                icon: '&#128276;',
+                title: 'No events yet',
+                description: 'Events are logged when jobs run, agents change status, API keys are managed, and output patterns match. Activity will appear here automatically.',
+                actions: [
+                    { label: 'Create a Job', onclick: "showPage('jobs')", primary: true },
+                ],
+            });
+        }
         return;
     }
 

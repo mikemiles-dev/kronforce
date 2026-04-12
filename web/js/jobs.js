@@ -300,17 +300,29 @@ function getSortValue(job, col) {
 function renderJobsTable() {
     const wrap = document.getElementById('jobs-table-wrap');
     if (allJobs.length === 0) {
-        wrap.innerHTML = renderRichEmptyState({
-            icon: '&#128203;',
-            title: 'No jobs yet',
-            description: 'Jobs are automated tasks that run on a schedule, on events, or on demand. Pick a template to get started.',
-            actions: [
-                { label: 'Health Check', onclick: "openTemplateJob('health-check')", primary: true },
-                { label: 'Cron Task', onclick: "openTemplateJob('cron-task')" },
-                { label: 'Event Watcher', onclick: "openTemplateJob('event-watcher')" },
-                { label: 'Create from scratch', onclick: 'openCreateModal()' },
-            ],
-        });
+        const hasFilters = jobSearch.statusFilter || jobSearch.searchTerm || groupFilter || timeRanges.jobs;
+        if (hasFilters) {
+            wrap.innerHTML = renderRichEmptyState({
+                icon: '&#128270;',
+                title: 'No matching jobs',
+                description: 'No jobs match the current filters. Try adjusting your search or filter criteria.',
+                actions: [
+                    { label: 'Clear Filters', onclick: "jobSearch.setStatusFilter(document.querySelector('#status-filters .status-btn'), '');fetchJobs(true)", primary: true },
+                ],
+            });
+        } else {
+            wrap.innerHTML = renderRichEmptyState({
+                icon: '&#128203;',
+                title: 'No jobs yet',
+                description: 'Jobs are automated tasks that run on a schedule, on events, or on demand. Pick a template to get started.',
+                actions: [
+                    { label: 'Health Check', onclick: "openTemplateJob('health-check')", primary: true },
+                    { label: 'Cron Task', onclick: "openTemplateJob('cron-task')" },
+                    { label: 'Event Watcher', onclick: "openTemplateJob('event-watcher')" },
+                    { label: 'Create from scratch', onclick: 'openCreateModal()' },
+                ],
+            });
+        }
         return;
     }
 
