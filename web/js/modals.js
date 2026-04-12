@@ -469,7 +469,14 @@ function populateTaskForm(task) {
     if (!task) { document.querySelector('input[name="task-type"][value="shell"]').checked = true; updateTaskFields(); return; }
     const type = task.type;
     const radio = document.querySelector('input[name="task-type"][value="' + type + '"]');
-    if (radio) radio.checked = true;
+    if (radio) {
+        radio.checked = true;
+        // Auto-expand message queues section if a queue type is selected
+        if (['kafka','rabbitmq','mqtt','redis','kafka_consume','rabbitmq_consume','mqtt_subscribe','redis_read'].includes(type)) {
+            const details = document.getElementById('mq-task-details');
+            if (details) details.open = true;
+        }
+    }
     updateTaskFields();
     if (type === 'shell') {
         document.getElementById('f-command').value = task.command || '';
