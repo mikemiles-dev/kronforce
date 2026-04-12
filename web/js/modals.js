@@ -252,6 +252,13 @@ function toggleMqSection() {
     sec.style.display = showing ? '' : 'none';
     const btn = document.getElementById('mq-toggle-btn');
     if (btn) btn.classList.toggle('mq-active', showing);
+    // Deselect top-level non-MQ radios so they unhighlight
+    if (showing) {
+        document.querySelectorAll('.radio-group input[name="task-type"]').forEach(function(r) {
+            var mqTypes = ['kafka','rabbitmq','mqtt','redis','kafka_consume','rabbitmq_consume','mqtt_subscribe','redis_read'];
+            if (!mqTypes.includes(r.value)) r.checked = false;
+        });
+    }
 }
 
 function updateTaskFields() {
