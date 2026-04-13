@@ -1,7 +1,7 @@
 // Kronforce - Job CRUD, list, detail, actions, bulk selection, templates
 // --- Job Groups ---
 let cachedGroups = [];
-let groupFilter = '';
+let groupFilter = localStorage.getItem('kf-group-filter') || '';
 let jobsTab = 'list';
 
 function setJobsTab(tab) {
@@ -188,6 +188,9 @@ function filterGroupPicker() {
 
 function setGroupFilter(value) {
     groupFilter = value;
+    // Persist across refresh
+    if (value) localStorage.setItem('kf-group-filter', value);
+    else localStorage.removeItem('kf-group-filter');
     // Update button label
     const label = document.getElementById('group-picker-label');
     if (label) label.textContent = value || 'All Groups';

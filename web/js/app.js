@@ -669,6 +669,11 @@ function showPage(page) {
         document.querySelectorAll('#status-filters .status-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.status === jobSearch.statusFilter || (!jobSearch.statusFilter && b.dataset.status === ''));
         });
+        // Sync group picker label
+        var gpLabel = document.getElementById('group-picker-label');
+        if (gpLabel) gpLabel.textContent = groupFilter || 'All Groups';
+        var gpBtn = document.getElementById('group-picker-btn');
+        if (gpBtn) gpBtn.classList.toggle('group-picker-active', !!groupFilter);
         setJobsTab(jobsTab);
     } else if (page === 'executions') {
         // Sync exec filter button state
