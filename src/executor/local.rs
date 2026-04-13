@@ -599,24 +599,31 @@ pub async fn run_task_streaming(
                 run_after_build,
                 build_args,
             } => {
-                // Build the docker command string so we can stream it
+                // Write Dockerfile to temp dir using Rust, then just run docker build
                 if let Some(store) = script_store {
                     if let Ok(code) = store.read_code(script_name) {
                         let tag = image_tag.as_deref().unwrap_or(script_name);
-                        // Base64-encode Dockerfile to avoid shell quoting issues
-                        use base64::Engine;
-                        let b64 = base64::engine::general_purpose::STANDARD.encode(code.as_bytes());
-                        let mut cmd = format!(
-                            "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build --progress=plain -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-                            b64,
-                            shell_escape(tag),
-                            build_args.as_deref().unwrap_or("")
-                        );
-                        if *run_after_build {
-                            cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
+                        let tmp = std::env::temp_dir()
+                            .join(format!("kf-docker-{}", uuid::Uuid::new_v4()));
+                        if std::fs::create_dir_all(&tmp).is_ok()
+                            && std::fs::write(tmp.join("Dockerfile"), &code).is_ok()
+                        {
+                            let tmp_path = tmp.display().to_string();
+                            let mut cmd = format!(
+                                "docker build --progress=plain -t {} {} -f {}/Dockerfile {}",
+                                shell_escape(tag),
+                                build_args.as_deref().unwrap_or(""),
+                                shell_escape(&tmp_path),
+                                shell_escape(&tmp_path),
+                            );
+                            if *run_after_build {
+                                cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
+                            }
+                            cmd.push_str(&format!(" ; rm -rf {}", shell_escape(&tmp_path)));
+                            Some(cmd)
+                        } else {
+                            None
                         }
-                        cmd.push_str(" && rm -rf \"$TMPDIR\"");
-                        Some(cmd)
                     } else {
                         None
                     }

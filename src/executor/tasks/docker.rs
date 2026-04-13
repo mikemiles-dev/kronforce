@@ -53,21 +53,50 @@ pub async fn run_docker_build_task(
 
     let tag = image_tag.unwrap_or(script_name);
 
-    // Base64-encode Dockerfile to avoid shell quoting issues with multi-line content
-    use base64::Engine;
-    let b64 = base64::engine::general_purpose::STANDARD.encode(dockerfile_content.as_bytes());
+    // Write Dockerfile to temp dir using Rust to avoid all shell quoting issues
+    let tmp = std::env::temp_dir().join(format!("kf-docker-{}", uuid::Uuid::new_v4()));
+    if let Err(e) = std::fs::create_dir_all(&tmp) {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: None,
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: format!("failed to create temp dir: {e}"),
+                truncated: false,
+            },
+        };
+    }
+    if let Err(e) = std::fs::write(tmp.join("Dockerfile"), &dockerfile_content) {
+        return CommandResult {
+            status: ExecutionStatus::Failed,
+            exit_code: None,
+            stdout: CapturedOutput {
+                text: String::new(),
+                truncated: false,
+            },
+            stderr: CapturedOutput {
+                text: format!("failed to write Dockerfile: {e}"),
+                truncated: false,
+            },
+        };
+    }
+    let tmp_path = tmp.display().to_string();
     let mut cmd = format!(
-        "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build --progress=plain -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-        b64,
+        "docker build --progress=plain -t {} {} -f {}/Dockerfile {}",
         shell_escape(tag),
-        build_args.unwrap_or("")
+        build_args.unwrap_or(""),
+        shell_escape(&tmp_path),
+        shell_escape(&tmp_path),
     );
 
     if run_after_build {
         cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
     }
 
-    cmd.push_str(" && rm -rf \"$TMPDIR\"");
+    cmd.push_str(&format!(" ; rm -rf {}", shell_escape(&tmp_path)));
 
     run_command(&cmd, run_as, timeout_secs, cancel_rx).await
 }
