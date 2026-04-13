@@ -53,21 +53,13 @@ pub async fn run_docker_build_task(
 
     let tag = image_tag.unwrap_or(script_name);
 
-    // Write Dockerfile to a temp location and build
+    // Write Dockerfile to a temp location using heredoc and build
     let mut cmd = format!(
-        "TMPDIR=$(mktemp -d) && echo {} > \"$TMPDIR/Dockerfile\" && docker build -t {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-        shell_escape(&dockerfile_content),
-        shell_escape(tag)
+        "TMPDIR=$(mktemp -d) && cat > \"$TMPDIR/Dockerfile\" <<'KRONFORCE_EOF'\n{}\nKRONFORCE_EOF\ndocker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+        dockerfile_content,
+        shell_escape(tag),
+        build_args.unwrap_or("")
     );
-
-    if let Some(args) = build_args {
-        cmd = format!(
-            "TMPDIR=$(mktemp -d) && echo {} > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-            shell_escape(&dockerfile_content),
-            shell_escape(tag),
-            args
-        );
-    }
 
     if run_after_build {
         cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));

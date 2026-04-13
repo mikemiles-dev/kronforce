@@ -603,9 +603,10 @@ pub async fn run_task_streaming(
                 if let Some(store) = script_store {
                     if let Ok(code) = store.read_code(script_name) {
                         let tag = image_tag.as_deref().unwrap_or(script_name);
+                        // Use heredoc to write multi-line Dockerfile content
                         let mut cmd = format!(
-                            "TMPDIR=$(mktemp -d) && echo {} > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-                            shell_escape(&code),
+                            "TMPDIR=$(mktemp -d) && cat > \"$TMPDIR/Dockerfile\" <<'KRONFORCE_EOF'\n{}\nKRONFORCE_EOF\ndocker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+                            code,
                             shell_escape(tag),
                             build_args.as_deref().unwrap_or("")
                         );
