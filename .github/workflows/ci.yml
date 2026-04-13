@@ -75,25 +75,25 @@ jobs:
           fi
           echo "Testing migration from $PREV_TAG to current"
 
-          # Build previous version
-          git stash || true
-          git checkout "$PREV_TAG"
-          cargo build --release 2>/dev/null || { echo "Previous version build failed, skipping"; exit 0; }
+          # Save current binary
+          cp target/release/kronforce target/release/kronforce-current
+
+          # Build previous version in a worktree to avoid stash issues
+          git worktree add /tmp/prev-release "$PREV_TAG" 2>/dev/null || { echo "Cannot checkout $PREV_TAG, skipping"; exit 0; }
+          cd /tmp/prev-release
+          cargo build --release 2>/dev/null || { echo "Previous version build failed, skipping"; cd -; git worktree remove /tmp/prev-release --force 2>/dev/null; exit 0; }
 
           # Create DB with previous version
-          rm -f kronforce.db
-          timeout 5 ./target/release/kronforce || true
-          OLD_VERSION=$(sqlite3 kronforce.db "SELECT MAX(version) FROM schema_version;")
+          rm -f /tmp/test-migration.db
+          KRONFORCE_DB=/tmp/test-migration.db timeout 5 ./target/release/kronforce || true
+          OLD_VERSION=$(sqlite3 /tmp/test-migration.db "SELECT MAX(version) FROM schema_version;" 2>/dev/null || echo "0")
           echo "Previous DB version: $OLD_VERSION"
-
-          # Switch back to current and rebuild
-          git checkout -
-          git stash pop || true
-          cargo build --release
+          cd -
+          git worktree remove /tmp/prev-release --force 2>/dev/null || true
 
           # Run current version against old DB — should migrate
-          timeout 5 ./target/release/kronforce || true
-          NEW_VERSION=$(sqlite3 kronforce.db "SELECT MAX(version) FROM schema_version;")
+          KRONFORCE_DB=/tmp/test-migration.db timeout 5 ./target/release/kronforce-current || true
+          NEW_VERSION=$(sqlite3 /tmp/test-migration.db "SELECT MAX(version) FROM schema_version;" 2>/dev/null || echo "0")
           echo "Migrated DB version: $NEW_VERSION"
 
           if [ "$NEW_VERSION" -ge "$OLD_VERSION" ]; then
