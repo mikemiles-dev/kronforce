@@ -183,6 +183,7 @@ function renderPipelineView(sortedGroups, jobsByGroup) {
         html += '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
         html += '<strong style="font-size:14px">' + esc(g) + '</strong>';
         html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
+        html += '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="event.stopPropagation();triggerPipeline(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#9654; Run Pipeline</button>';
         html += '</div>';
 
         // Build set of which jobs have a dependency arrow FROM the previous job in sorted order
@@ -251,6 +252,26 @@ async function createNewGroup() {
         fetchGroups();
     } catch (e) {
         toast('Error: ' + e.message, 'error');
+    }
+}
+
+async function triggerPipeline(group) {
+    try {
+        const jobsRes = await api('GET', '/api/jobs?per_page=1000&group=' + encodeURIComponent(group));
+        const jobs = jobsRes.data;
+        const groupIds = new Set(jobs.map(j => j.id));
+        const roots = jobs.filter(j => !(j.depends_on || []).some(d => groupIds.has(d.job_id)));
+        if (roots.length === 0) { toast('No root jobs found in "' + group + '"', 'error'); return; }
+        if (!confirm('Run pipeline "' + group + '"? Will trigger ' + roots.length + ' root job(s), dependencies cascade automatically.')) return;
+        let triggered = 0;
+        for (const j of roots) {
+            try { await api('POST', '/api/jobs/' + j.id + '/trigger'); triggered++; } catch (e) { console.error(e); }
+        }
+        toast(triggered + ' root job(s) triggered — pipeline running', 'success');
+        if (typeof fetchJobs === 'function') fetchJobs();
+        if (typeof renderJobsStagesTab === 'function') setTimeout(renderJobsStagesTab, 1000);
+    } catch (e) {
+        toast(e.message, 'error');
     }
 }
 
