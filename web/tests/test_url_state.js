@@ -94,5 +94,26 @@ var r4 = parseHashParams(hash4);
 assertEqual(r4.group, 'Deploys', 'refresh preserves group on stages tab');
 assertEqual(hash4.startsWith('#/jobs/stages'), true, 'tab preserved in hash');
 
+// --- Clearing group produces clean URL ---
+var clearHash = '#/jobs' + buildHashParams('', '', '');
+assertEqual(clearHash, '#/jobs', 'clearing all params gives clean hash');
+
+var groupThenClear = buildHashParams('', 'ETL', '');
+assertEqual(groupThenClear, '?group=ETL', 'group set');
+var afterClear = buildHashParams('', '', '');
+assertEqual(afterClear, '', 'group cleared gives empty params');
+
+// Simulates: select group → clear → hash should have no ?group=
+var hashWithGroup = '#/jobs' + buildHashParams('', 'Docker', '');
+assertEqual(parseHashParams(hashWithGroup).group, 'Docker', 'group in hash');
+var hashWithoutGroup = '#/jobs' + buildHashParams('', '', '');
+assertEqual(parseHashParams(hashWithoutGroup).group, undefined, 'no group after clear');
+
+// Filter set but group cleared
+var filterNoGroup = '#/jobs' + buildHashParams('running', '', '');
+var parsedFng = parseHashParams(filterNoGroup);
+assertEqual(parsedFng.filter, 'running', 'filter persists');
+assertEqual(parsedFng.group, undefined, 'group gone after clear');
+
 console.log('\n' + (passed + failed) + ' tests, ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
