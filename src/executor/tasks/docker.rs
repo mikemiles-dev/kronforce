@@ -57,7 +57,7 @@ pub async fn run_docker_build_task(
     use base64::Engine;
     let b64 = base64::engine::general_purpose::STANDARD.encode(dockerfile_content.as_bytes());
     let mut cmd = format!(
-        "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+        "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build --progress=plain -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
         b64,
         shell_escape(tag),
         build_args.unwrap_or("")
