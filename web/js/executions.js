@@ -372,17 +372,21 @@ function infoField(label, value, className) {
 
 let liveEventSource = null;
 
-function startLiveStream(execId, retry) {
+var liveStreamRetries = 0;
+
+function startLiveStream(execId) {
     stopLiveStream();
     const pre = document.getElementById('live-output');
     if (!pre) return;
 
     var streamUrl = '/api/executions/' + execId + '/stream';
-    // EventSource can't set headers — pass API key as query param if using key auth
     var apiKey = localStorage.getItem('kronforce-api-key');
     if (apiKey) streamUrl += '?token=' + encodeURIComponent(apiKey);
     liveEventSource = new EventSource(streamUrl);
+    var connected = false;
+    liveEventSource.onopen = function() { connected = true; liveStreamRetries = 0; };
     liveEventSource.onmessage = function(event) {
+        connected = true;
         pre.textContent += event.data + '\n';
         pre.scrollTop = pre.scrollHeight;
     };
@@ -392,11 +396,12 @@ function startLiveStream(execId, retry) {
     });
     liveEventSource.onerror = function() {
         stopLiveStream();
-        // Retry once after a short delay (stream may not be ready yet)
-        if (!retry) {
-            setTimeout(function() { startLiveStream(execId, true); }, 1000);
-        } else {
-            if (pre) pre.textContent += '\n[stream ended]\n';
+        if (!connected && liveStreamRetries < 5) {
+            liveStreamRetries++;
+            setTimeout(function() { startLiveStream(execId); }, 500 * liveStreamRetries);
+        } else if (connected) {
+            // Stream was connected then closed — execution finished
+            setTimeout(function() { showExecDetail(execId); }, 500);
         }
     };
 }
