@@ -701,7 +701,11 @@ async function triggerJob(id, skipDeps) {
     try {
         const qs = skipDeps ? '?skip_deps=true' : '';
         await api('POST', '/api/jobs/' + id + '/trigger' + qs);
-        toast('Job triggered, waiting for result...', 'info');
+        toast('Job triggered', 'info');
+        // If on job detail, refresh to show live output
+        if (currentJobId === id) {
+            setTimeout(function() { showJobDetail(id); }, 1000);
+        }
         // Poll rapidly for execution result
         pollForResult(id);
     } catch (e) {
@@ -749,8 +753,13 @@ async function pollForResult(jobId) {
     const cleanup = () => {
         const btn = document.getElementById('trigger-' + jobId);
         if (btn) btn.classList.remove('trigger-pending');
-        fetchJobs();
-        if (currentJobId) fetchExecutions(currentJobId);
+        if (currentJobId === jobId) {
+            // On job detail: refresh detail and switch to history tab
+            showJobDetail(jobId);
+            setTimeout(function() { setDetailTab('history'); }, 300);
+        } else {
+            fetchJobs();
+        }
     };
     setTimeout(poll, interval);
 }
