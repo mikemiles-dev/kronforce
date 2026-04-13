@@ -519,7 +519,28 @@ impl Scheduler {
             }
         }
 
-        warn!("cancel: execution {} not found or not running", exec_id);
+        // Force-cancel: if the execution is still marked as running/pending in the DB
+        // but we can't find it in the running map (e.g., controller restarted, process died),
+        // update the DB status directly.
+        let db = self.db.clone();
+        let force_result = tokio::task::spawn_blocking(move || {
+            if let Ok(Some(exec)) = db.get_execution(exec_id) {
+                if exec.status == ExecutionStatus::Running
+                    || exec.status == ExecutionStatus::Pending
+                {
+                    db.update_execution_status(exec_id, ExecutionStatus::Cancelled)
+                } else {
+                    Ok(())
+                }
+            } else {
+                Ok(())
+            }
+        })
+        .await;
+        match force_result {
+            Ok(Ok(())) => info!("force-cancelled execution {} in database", exec_id),
+            _ => warn!("cancel: execution {} could not be cancelled", exec_id),
+        }
     }
 
     async fn handle_event(&mut self, event: Event) {
