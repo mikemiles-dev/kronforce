@@ -258,7 +258,7 @@ pub(crate) async fn update_job(
             let deps_clone = deps.clone();
             tokio::task::spawn_blocking(move || dag.validate_no_cycle(id, &deps_clone))
                 .await
-                .unwrap()?;
+                .map_err(|e| AppError::Internal(e.to_string()))??;
         }
         job.depends_on = deps;
     }

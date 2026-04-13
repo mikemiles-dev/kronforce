@@ -542,7 +542,7 @@ async fn run_command_inner(
                         status: ExecutionStatus::TimedOut,
                         exit_code: None,
                         stdout: truncate_output(stdout_buf.join("\n").into_bytes()),
-                        stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
+                        stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap_or(0)), truncated: false },
                     };
                 }
                 _ = &mut cancel_rx => {
@@ -625,7 +625,7 @@ async fn run_command_inner(
                     status: ExecutionStatus::TimedOut,
                     exit_code: None,
                     stdout: CapturedOutput { text: String::new(), truncated: false },
-                    stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap()), truncated: false },
+                    stderr: CapturedOutput { text: format!("job timed out after {}s", timeout_secs.unwrap_or(0)), truncated: false },
                 }
             }
             _ = cancel_rx => {

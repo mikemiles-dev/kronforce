@@ -164,7 +164,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .filter(|a| a.status == kronforce::db::models::AgentStatus::Online)
                     .map(|a| (a.id, a.name.clone()))
                     .collect();
-                let _ = db_tick.expire_agents(timeout);
+                if let Err(e) = db_tick.expire_agents(timeout) {
+                    tracing::warn!("expire_agents failed: {e}");
+                }
                 let after = db_tick.list_agents().unwrap_or_default();
                 let mut went_offline = Vec::new();
                 for (id, name) in &before {
@@ -181,8 +183,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         went_offline.push((name.clone(), a.hostname.clone()));
                     }
                 }
-                let _ = db_tick.fail_stale_pending_queue_items(300);
-                let _ = db_tick.fail_stale_claimed_queue_items(600);
+                if let Err(e) = db_tick.fail_stale_pending_queue_items(300) {
+                    tracing::warn!("fail_stale_pending failed: {e}");
+                }
+                if let Err(e) = db_tick.fail_stale_claimed_queue_items(600) {
+                    tracing::warn!("fail_stale_claimed failed: {e}");
+                }
                 if let Ok(Some(days_str)) = db_tick.get_setting("retention_days")
                     && let Ok(days) = days_str.parse::<i64>()
                     && days > 0

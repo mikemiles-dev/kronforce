@@ -1,7 +1,7 @@
 //! Tick-loop methods: periodic job checking for cron, calendar, interval, and one-shot schedules.
 
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
-use tracing::debug;
+use tracing::{debug, error};
 
 use super::calendar::{last_weekday_of_month, nth_weekday_of_month, parse_weekday};
 use crate::db::models::*;
@@ -42,7 +42,9 @@ impl super::Scheduler {
                 updated.status = JobStatus::Unscheduled;
                 updated.updated_at = Utc::now();
                 let db = self.db.clone();
-                let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
+                if let Err(e) = tokio::task::spawn_blocking(move || db.update_job(&updated)).await {
+                    error!("failed to update job status: {e}");
+                }
                 self.invalidate_cache();
                 continue;
             }
@@ -59,7 +61,11 @@ impl super::Scheduler {
                         updated.status = JobStatus::Unscheduled;
                         updated.updated_at = Utc::now();
                         let db = self.db.clone();
-                        let _ = tokio::task::spawn_blocking(move || db.update_job(&updated)).await;
+                        if let Err(e) =
+                            tokio::task::spawn_blocking(move || db.update_job(&updated)).await
+                        {
+                            error!("failed to update job status: {e}");
+                        }
                         self.invalidate_cache();
                     }
                 }
