@@ -166,6 +166,12 @@ impl super::Executor {
         // Output forwarding
         Self::forward_output(db, updated).await;
 
+        // Dependency cascade: if this execution succeeded, trigger on-demand jobs
+        // that depend on this job and now have all dependencies satisfied
+        if updated.status == ExecutionStatus::Succeeded {
+            Self::cascade_dependencies(db, updated.job_id, sched_tx).await;
+        }
+
         Self::send_execution_notifications(db, updated, exec_id).await;
 
         info!("execution {} finished: {:?}", exec_id, updated.status);
@@ -203,6 +209,106 @@ impl super::Executor {
         let event2 = event.clone();
         let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
         let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
+    }
+
+    async fn cascade_dependencies(
+        db: &Db,
+        completed_job_id: Uuid,
+        sched_tx: &tokio::sync::mpsc::Sender<SchedulerCommand>,
+    ) {
+        let db2 = db.clone();
+        let dependents: Vec<Job> = tokio::task::spawn_blocking(move || {
+            // Get all jobs, find ones that depend on the completed job
+            let all_jobs = db2.list_jobs(None, None, None, 1000, 0)?;
+            Ok::<Vec<Job>, AppError>(
+                all_jobs
+                    .into_iter()
+                    .filter(|j| j.depends_on.iter().any(|d| d.job_id == completed_job_id))
+                    .collect(),
+            )
+        })
+        .await
+        .unwrap_or(Ok(vec![]))
+        .unwrap_or_default();
+
+        for job in dependents {
+            // Only cascade to on-demand or scheduled jobs that aren't event-triggered
+            let db3 = db.clone();
+            let deps = job.depends_on.clone();
+            let satisfied = tokio::task::spawn_blocking(move || {
+                use crate::dag::DagResolver;
+                let dag = DagResolver::new(db3);
+                dag.deps_satisfied(&deps)
+            })
+            .await
+            .unwrap_or(Ok(false));
+
+            if let Ok(true) = satisfied {
+                info!(
+                    "dependency cascade: triggering '{}' after '{}' completed",
+                    job.name, completed_job_id
+                );
+                let _ = sched_tx
+                    .send(SchedulerCommand::TriggerNow {
+                        job_id: job.id,
+                        skip_deps: false,
+                        params: None,
+                    })
+                    .await;
+            }
+        }
+
+        // Check if all jobs in the completed job's group are now done
+        Self::check_group_completed(db, completed_job_id, sched_tx).await;
+    }
+
+    async fn check_group_completed(
+        db: &Db,
+        job_id: Uuid,
+        sched_tx: &tokio::sync::mpsc::Sender<SchedulerCommand>,
+    ) {
+        let db2 = db.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            let job = db2.get_job(job_id)?;
+            let Some(job) = job else {
+                return Ok::<Option<(String, bool)>, AppError>(None);
+            };
+            let group = job.group.clone().unwrap_or_else(|| "Default".to_string());
+            // Get all jobs in this group
+            let group_jobs = db2.list_jobs(None, None, Some(&group), 1000, 0)?;
+            if group_jobs.len() <= 1 {
+                return Ok(None);
+            }
+            // Check if all have a recent successful execution
+            let all_succeeded = group_jobs.iter().all(|j| {
+                db2.get_latest_execution_for_job(j.id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|e| e.status == ExecutionStatus::Succeeded)
+            });
+            Ok(Some((group, all_succeeded)))
+        })
+        .await
+        .unwrap_or(Ok(None));
+
+        if let Ok(Some((group, true))) = result {
+            let event = Event {
+                id: Uuid::new_v4(),
+                kind: "group.completed".to_string(),
+                severity: EventSeverity::Success,
+                message: format!("All jobs in group '{}' have succeeded", group),
+                job_id: Some(job_id),
+                agent_id: None,
+                api_key_id: None,
+                api_key_name: None,
+                details: Some(group),
+                timestamp: chrono::Utc::now(),
+            };
+            let db3 = db.clone();
+            let event2 = event.clone();
+            let _ = tokio::task::spawn_blocking(move || db3.insert_event(&event2)).await;
+            let _ = sched_tx.send(SchedulerCommand::EventOccurred(event)).await;
+        }
     }
 
     async fn forward_output(db: &Db, updated: &ExecutionRecord) {

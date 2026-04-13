@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-03
 
 ### Added
+- **Dependency cascade** — when a job succeeds, on-demand jobs that depend on it are automatically triggered if all their dependencies are now satisfied. Enables Jenkins-style pipeline execution: trigger the first job, the rest cascade automatically.
+- **Group completion events** — when all jobs in a group have succeeded, a `group.completed` event is emitted. Use event triggers to react (send notification, trigger next pipeline, etc.).
+- **Run Group button** — trigger all root jobs in a group with one click. Appears on the toolbar when a group is selected. Dependent jobs cascade from there.
+- **Shell working directory** — optional `working_dir` field on shell tasks. Commands run from the specified directory.
 - **Multi-type scripts** — Scripts page now supports both Rhai scripts and Dockerfiles with type selector, per-type syntax highlighting, and reference panels. Dockerfile highlighting covers instructions (FROM, RUN, COPY, etc.), strings, variables, and flags.
 - **Docker Build task type** — build Docker images from stored Dockerfile scripts. Configure image tag, build args, and optionally run the container after build. 17 total task types.
 - **Calendar schedule** — new schedule type for business-day expressions: "last day of month", "2nd Tuesday", "first Friday - 2 days", with month selection, time, offset, weekend skipping, and holiday exclusion. Visual builder in the Schedule tab with live preview.

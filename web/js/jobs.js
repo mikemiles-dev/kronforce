@@ -187,6 +187,25 @@ function filterGroupPicker() {
     renderGroupPickerList(search ? search.value : '');
 }
 
+async function triggerGroup() {
+    if (!groupFilter) { toast('Select a group first', 'error'); return; }
+    const jobs = allJobs.filter(j => (j.group || 'Default') === groupFilter);
+    // Find root jobs: jobs in this group with no dependencies on other jobs in this group
+    const groupIds = new Set(jobs.map(j => j.id));
+    const roots = jobs.filter(j => !(j.depends_on || []).some(d => groupIds.has(d.job_id)));
+    if (roots.length === 0) { toast('No root jobs found in group', 'error'); return; }
+    if (!confirm('Trigger ' + roots.length + ' root job(s) in "' + groupFilter + '"? Dependent jobs will cascade automatically.')) return;
+    let triggered = 0;
+    for (const j of roots) {
+        try {
+            await api('POST', '/api/jobs/' + j.id + '/trigger');
+            triggered++;
+        } catch (e) { console.error('trigger failed for ' + j.name, e); }
+    }
+    toast(triggered + ' root job(s) triggered — dependencies will cascade', 'success');
+    fetchJobs();
+}
+
 function setGroupFilter(value) {
     groupFilter = value;
     // Persist across refresh
@@ -201,6 +220,9 @@ function setGroupFilter(value) {
     // Close picker
     const pop = document.getElementById('group-picker-popover');
     if (pop) pop.style.display = 'none';
+    // Show/hide Run Group button
+    var rgb = document.getElementById('run-group-btn');
+    if (rgb) rgb.style.display = value ? '' : 'none';
     // Re-render current tab
     setJobsTab(jobsTab);
     // Update URL hash
