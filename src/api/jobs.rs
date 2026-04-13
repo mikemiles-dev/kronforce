@@ -40,6 +40,7 @@ pub(crate) struct CreateJobRequest {
     expires_at: Option<chrono::DateTime<Utc>>,
     max_concurrent: Option<u32>,
     parameters: Option<Vec<JobParameter>>,
+    timezone: Option<String>,
 }
 
 /// Request body for updating an existing job. All fields are optional (partial update).
@@ -68,6 +69,7 @@ pub(crate) struct UpdateJobRequest {
     expires_at: Option<chrono::DateTime<Utc>>,
     max_concurrent: Option<u32>,
     parameters: Option<Vec<JobParameter>>,
+    timezone: Option<String>,
 }
 
 /// Summary of a job's most recent execution.
@@ -322,6 +324,7 @@ pub(crate) async fn create_job(
         max_concurrent: req.max_concurrent.unwrap_or(0),
         parameters: req.parameters,
         webhook_token: None,
+        timezone: req.timezone,
     };
 
     let job_clone = job.clone();
@@ -498,6 +501,9 @@ pub(crate) async fn update_job(
     }
     if req.parameters.is_some() {
         job.parameters = req.parameters;
+    }
+    if req.timezone.is_some() {
+        job.timezone = req.timezone;
     }
 
     job.updated_at = Utc::now();
@@ -777,7 +783,7 @@ pub(crate) async fn trigger_job(
 impl JobResponse {
     /// Builds an enriched job response from a job and database.
     pub(crate) fn from_job(job: Job, db: &Db) -> Self {
-        let next = Self::compute_next_fire(&job);
+        let next = Self::compute_next_fire(&job, db);
         let last_execution = db
             .get_latest_execution_for_job(job.id)
             .ok()
@@ -811,7 +817,7 @@ impl JobResponse {
         }
     }
 
-    fn compute_next_fire(job: &Job) -> Option<chrono::DateTime<Utc>> {
+    fn compute_next_fire(job: &Job, db: &Db) -> Option<chrono::DateTime<Utc>> {
         let now = Utc::now();
 
         // If the job has expired, no next fire
@@ -834,6 +840,20 @@ impl JobResponse {
                 }
             }
             ScheduleKind::Calendar(cal) => compute_next_calendar_fire(cal, now),
+            ScheduleKind::Interval { interval_secs } => {
+                // Next fire = last execution finish + interval
+                let last = db
+                    .get_latest_execution_for_job(job.id)
+                    .ok()
+                    .flatten()
+                    .and_then(|e| e.finished_at);
+                match last {
+                    Some(finished) => {
+                        Some(finished + chrono::Duration::seconds(*interval_secs as i64))
+                    }
+                    None => Some(now), // Never run, fire now
+                }
+            }
             ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
         };
 

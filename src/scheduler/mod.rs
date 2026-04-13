@@ -155,6 +155,9 @@ impl Scheduler {
                 ScheduleKind::Calendar(cal) => {
                     self.check_calendar_job(job, cal, now).await;
                 }
+                ScheduleKind::Interval { interval_secs } => {
+                    self.check_interval_job(job, *interval_secs, now).await;
+                }
                 ScheduleKind::OnDemand | ScheduleKind::Event(_) => {}
             }
         }
@@ -271,9 +274,60 @@ impl Scheduler {
         // Apply offset
         let target = anchor + chrono::Duration::days(cal.offset_days as i64);
 
+        // Skip weekends
+        if cal.skip_weekends {
+            let wd = target.weekday();
+            if wd == chrono::Weekday::Sat || wd == chrono::Weekday::Sun {
+                return;
+            }
+        }
+
+        // Skip holidays
+        if !cal.holidays.is_empty() {
+            let target_str = target.format("%Y-%m-%d").to_string();
+            if cal.holidays.contains(&target_str) {
+                return;
+            }
+        }
+
         // Check if today matches the target
         if today == target {
             self.last_fired.insert(job.id, now);
+            self.fire_job(job, TriggerSource::Scheduler, false, None)
+                .await;
+        }
+    }
+
+    async fn check_interval_job(&mut self, job: &Job, interval_secs: u64, now: DateTime<Utc>) {
+        // Fire if enough time has passed since the last execution finished
+        let db = self.db.clone();
+        let job_id = job.id;
+        let last_exec =
+            tokio::task::spawn_blocking(move || db.get_latest_execution_for_job(job_id))
+                .await
+                .unwrap_or(Ok(None));
+
+        let should_fire = match last_exec {
+            Ok(Some(exec)) => {
+                // Only fire after the previous execution is done
+                if exec.status == ExecutionStatus::Running
+                    || exec.status == ExecutionStatus::Pending
+                {
+                    return;
+                }
+                match exec.finished_at {
+                    Some(finished) => {
+                        let elapsed = (now - finished).num_seconds();
+                        elapsed >= interval_secs as i64
+                    }
+                    None => true, // No finish time recorded, fire
+                }
+            }
+            Ok(None) => true, // Never run before, fire immediately
+            Err(_) => false,
+        };
+
+        if should_fire {
             self.fire_job(job, TriggerSource::Scheduler, false, None)
                 .await;
         }

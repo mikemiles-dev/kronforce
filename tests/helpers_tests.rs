@@ -41,6 +41,7 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         max_concurrent: 0,
         parameters: None,
         webhook_token: None,
+        timezone: None,
     }
 }
 

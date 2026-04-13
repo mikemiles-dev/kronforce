@@ -25,6 +25,11 @@ pub enum ScheduleKind {
     Event(EventTriggerConfig),
     /// Calendar-based schedule with business-day expressions.
     Calendar(CalendarSchedule),
+    /// Fixed interval from last execution completion.
+    Interval {
+        /// Seconds between end of last execution and next fire.
+        interval_secs: u64,
+    },
 }
 
 /// Calendar-based schedule supporting "last day of month", "first Monday", etc.
@@ -50,6 +55,12 @@ pub struct CalendarSchedule {
     /// Months to fire in (1-12). Empty = every month.
     #[serde(default)]
     pub months: Vec<u32>,
+    /// Skip weekends (Saturday/Sunday). If the computed date is a weekend, skip firing.
+    #[serde(default)]
+    pub skip_weekends: bool,
+    /// Holiday dates to skip (ISO format: "2026-12-25"). Job won't fire on these dates.
+    #[serde(default)]
+    pub holidays: Vec<String>,
 }
 
 /// Configuration for event-driven job triggers, with kind/severity/job-name filters.
@@ -258,6 +269,9 @@ pub struct Job {
     /// Webhook trigger token (unique, nullable).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub webhook_token: Option<String>,
+    /// IANA timezone for schedule evaluation (e.g., "America/New_York"). Default: UTC.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
 }
 
 fn default_retry_backoff() -> f64 {
@@ -333,6 +347,7 @@ impl Job {
                 p_json.and_then(|s| serde_json::from_str(&s).ok())
             },
             webhook_token: row.get::<_, Option<String>>(27).unwrap_or(None),
+            timezone: row.get::<_, Option<String>>(28).unwrap_or(None),
         })
     }
 }

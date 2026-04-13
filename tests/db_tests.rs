@@ -41,6 +41,7 @@ fn make_job(name: &str) -> Job {
         max_concurrent: 0,
         parameters: None,
         webhook_token: None,
+        timezone: None,
     }
 }
 
@@ -1196,5 +1197,93 @@ fn test_webhook_trigger_source_round_trip() {
         assert_eq!(token_prefix, "abcd1234");
     } else {
         panic!("expected Webhook trigger source");
+    }
+}
+
+// --- Calendar Schedule ---
+
+#[test]
+fn test_calendar_schedule_round_trip() {
+    let db = test_db();
+    let mut job = make_job("cal-job");
+    job.schedule = ScheduleKind::Calendar(CalendarSchedule {
+        anchor: "last_day".to_string(),
+        offset_days: -2,
+        nth: None,
+        weekday: None,
+        hour: 9,
+        minute: 30,
+        months: vec![1, 4, 7, 10],
+        skip_weekends: true,
+        holidays: vec!["2026-12-25".to_string()],
+    });
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    if let ScheduleKind::Calendar(cal) = &fetched.schedule {
+        assert_eq!(cal.anchor, "last_day");
+        assert_eq!(cal.offset_days, -2);
+        assert_eq!(cal.hour, 9);
+        assert_eq!(cal.minute, 30);
+        assert_eq!(cal.months, vec![1, 4, 7, 10]);
+        assert!(cal.skip_weekends);
+        assert_eq!(cal.holidays, vec!["2026-12-25"]);
+    } else {
+        panic!("expected Calendar schedule");
+    }
+}
+
+#[test]
+fn test_interval_schedule_round_trip() {
+    let db = test_db();
+    let mut job = make_job("interval-job");
+    job.schedule = ScheduleKind::Interval {
+        interval_secs: 1800,
+    };
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    if let ScheduleKind::Interval { interval_secs } = &fetched.schedule {
+        assert_eq!(*interval_secs, 1800);
+    } else {
+        panic!("expected Interval schedule");
+    }
+}
+
+#[test]
+fn test_timezone_round_trip() {
+    let db = test_db();
+    let mut job = make_job("tz-job");
+    job.timezone = Some("America/New_York".to_string());
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    assert_eq!(fetched.timezone.as_deref(), Some("America/New_York"));
+}
+
+#[test]
+fn test_nth_weekday_schedule() {
+    let db = test_db();
+    let mut job = make_job("nth-wd-job");
+    job.schedule = ScheduleKind::Calendar(CalendarSchedule {
+        anchor: "nth_weekday".to_string(),
+        offset_days: 0,
+        nth: Some(2),
+        weekday: Some("tuesday".to_string()),
+        hour: 10,
+        minute: 0,
+        months: vec![],
+        skip_weekends: false,
+        holidays: vec![],
+    });
+    db.insert_job(&job).unwrap();
+
+    let fetched = db.get_job(job.id).unwrap().unwrap();
+    if let ScheduleKind::Calendar(cal) = &fetched.schedule {
+        assert_eq!(cal.anchor, "nth_weekday");
+        assert_eq!(cal.nth, Some(2));
+        assert_eq!(cal.weekday.as_deref(), Some("tuesday"));
+    } else {
+        panic!("expected Calendar schedule");
     }
 }

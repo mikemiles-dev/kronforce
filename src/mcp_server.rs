@@ -505,6 +505,7 @@ async fn tool_create_job(args: &Value, state: &AppState) -> Result<String, Strin
         max_concurrent: 0,
         parameters: None,
         webhook_token: None,
+        timezone: None,
     };
 
     let job_clone = job.clone();
