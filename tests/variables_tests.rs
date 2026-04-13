@@ -1,15 +1,11 @@
+mod common;
+use common::*;
+
 use chrono::Utc;
 use std::collections::HashMap;
 
-use kronforce::db::Db;
 use kronforce::db::models::*;
 use kronforce::executor::substitute_variables;
-
-fn test_db() -> Db {
-    let db = Db::open(":memory:").unwrap();
-    db.migrate().unwrap();
-    db
-}
 
 // --- DB CRUD Tests ---
 

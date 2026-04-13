@@ -1,61 +1,18 @@
-use chrono::Utc;
-use kronforce::db::Db;
+mod common;
+use common::*;
+
 use kronforce::db::models::*;
-use uuid::Uuid;
-
-fn test_db() -> Db {
-    let db = Db::open(":memory:").unwrap();
-    db.migrate().unwrap();
-    db
-}
-
-fn make_job(name: &str, status: JobStatus) -> Job {
-    Job {
-        id: Uuid::new_v4(),
-        name: name.to_string(),
-        description: Some(format!("{} description", name)),
-        task: TaskType::Shell {
-            command: format!("echo {}", name),
-            working_dir: None,
-        },
-        run_as: None,
-        schedule: ScheduleKind::OnDemand,
-        status,
-        timeout_secs: None,
-        depends_on: vec![],
-        target: None,
-        created_by: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        output_rules: None,
-        notifications: None,
-        group: None,
-        retry_max: 0,
-        retry_delay_secs: 0,
-        retry_backoff: 1.0,
-        approval_required: false,
-        priority: 0,
-        sla_deadline: None,
-        sla_warning_mins: 0,
-        starts_at: None,
-        expires_at: None,
-        max_concurrent: 0,
-        parameters: None,
-        webhook_token: None,
-        timezone: None,
-    }
-}
 
 // --- count_jobs with filters ---
 
 #[test]
 fn test_count_jobs_no_filter() {
     let db = test_db();
-    db.insert_job(&make_job("job-1", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("job-1", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("job-2", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("job-2", JobStatus::Paused))
         .unwrap();
-    db.insert_job(&make_job("job-3", JobStatus::Unscheduled))
+    db.insert_job(&make_job_with_status("job-3", JobStatus::Unscheduled))
         .unwrap();
 
     let count = db.count_jobs(None, None, None).unwrap();
@@ -65,11 +22,11 @@ fn test_count_jobs_no_filter() {
 #[test]
 fn test_count_jobs_status_filter_scheduled() {
     let db = test_db();
-    db.insert_job(&make_job("active-1", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("active-1", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("active-2", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("active-2", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("paused-1", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("paused-1", JobStatus::Paused))
         .unwrap();
 
     let count = db.count_jobs(Some("scheduled"), None, None).unwrap();
@@ -79,11 +36,11 @@ fn test_count_jobs_status_filter_scheduled() {
 #[test]
 fn test_count_jobs_status_filter_paused() {
     let db = test_db();
-    db.insert_job(&make_job("active-1", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("active-1", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("paused-1", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("paused-1", JobStatus::Paused))
         .unwrap();
-    db.insert_job(&make_job("paused-2", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("paused-2", JobStatus::Paused))
         .unwrap();
 
     let count = db.count_jobs(Some("paused"), None, None).unwrap();
@@ -93,11 +50,11 @@ fn test_count_jobs_status_filter_paused() {
 #[test]
 fn test_count_jobs_search_filter() {
     let db = test_db();
-    db.insert_job(&make_job("deploy-web", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("deploy-web", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("deploy-api", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("deploy-api", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("backup-db", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("backup-db", JobStatus::Scheduled))
         .unwrap();
 
     let count = db.count_jobs(None, Some("deploy"), None).unwrap();
@@ -107,11 +64,11 @@ fn test_count_jobs_search_filter() {
 #[test]
 fn test_count_jobs_combined_filters() {
     let db = test_db();
-    db.insert_job(&make_job("deploy-web", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("deploy-web", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("deploy-api", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("deploy-api", JobStatus::Paused))
         .unwrap();
-    db.insert_job(&make_job("backup-db", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("backup-db", JobStatus::Scheduled))
         .unwrap();
 
     let count = db
@@ -123,7 +80,7 @@ fn test_count_jobs_combined_filters() {
 #[test]
 fn test_count_jobs_no_match() {
     let db = test_db();
-    db.insert_job(&make_job("job-a", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("job-a", JobStatus::Scheduled))
         .unwrap();
 
     let count = db.count_jobs(None, Some("nonexistent"), None).unwrap();
@@ -135,9 +92,10 @@ fn test_count_jobs_no_match() {
 #[test]
 fn test_list_jobs_no_filter() {
     let db = test_db();
-    db.insert_job(&make_job("alpha", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("alpha", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("beta", JobStatus::Paused)).unwrap();
+    db.insert_job(&make_job_with_status("beta", JobStatus::Paused))
+        .unwrap();
 
     let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
     assert_eq!(jobs.len(), 2);
@@ -146,9 +104,9 @@ fn test_list_jobs_no_filter() {
 #[test]
 fn test_list_jobs_status_filter() {
     let db = test_db();
-    db.insert_job(&make_job("active-job", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("active-job", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("paused-job", JobStatus::Paused))
+    db.insert_job(&make_job_with_status("paused-job", JobStatus::Paused))
         .unwrap();
 
     let jobs = db.list_jobs(Some("paused"), None, None, 100, 0).unwrap();
@@ -159,11 +117,14 @@ fn test_list_jobs_status_filter() {
 #[test]
 fn test_list_jobs_search_filter() {
     let db = test_db();
-    db.insert_job(&make_job("deploy-prod", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("deploy-prod", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("deploy-staging", JobStatus::Scheduled))
-        .unwrap();
-    db.insert_job(&make_job("backup-daily", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status(
+        "deploy-staging",
+        JobStatus::Scheduled,
+    ))
+    .unwrap();
+    db.insert_job(&make_job_with_status("backup-daily", JobStatus::Scheduled))
         .unwrap();
 
     let jobs = db.list_jobs(None, Some("deploy"), None, 100, 0).unwrap();
@@ -174,8 +135,11 @@ fn test_list_jobs_search_filter() {
 fn test_list_jobs_pagination_limit() {
     let db = test_db();
     for i in 0..5 {
-        db.insert_job(&make_job(&format!("job-{:02}", i), JobStatus::Scheduled))
-            .unwrap();
+        db.insert_job(&make_job_with_status(
+            &format!("job-{:02}", i),
+            JobStatus::Scheduled,
+        ))
+        .unwrap();
     }
 
     let page = db.list_jobs(None, None, None, 2, 0).unwrap();
@@ -186,8 +150,11 @@ fn test_list_jobs_pagination_limit() {
 fn test_list_jobs_pagination_offset() {
     let db = test_db();
     for i in 0..5 {
-        db.insert_job(&make_job(&format!("job-{:02}", i), JobStatus::Scheduled))
-            .unwrap();
+        db.insert_job(&make_job_with_status(
+            &format!("job-{:02}", i),
+            JobStatus::Scheduled,
+        ))
+        .unwrap();
     }
 
     let page1 = db.list_jobs(None, None, None, 3, 0).unwrap();
@@ -201,11 +168,11 @@ fn test_list_jobs_pagination_offset() {
 #[test]
 fn test_list_jobs_ordered_by_name() {
     let db = test_db();
-    db.insert_job(&make_job("charlie", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("charlie", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("alpha", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("alpha", JobStatus::Scheduled))
         .unwrap();
-    db.insert_job(&make_job("bravo", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("bravo", JobStatus::Scheduled))
         .unwrap();
 
     let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
@@ -218,7 +185,7 @@ fn test_list_jobs_ordered_by_name() {
 fn test_list_jobs_search_matches_task_json() {
     let db = test_db();
     // The task_json contains the command, so searching for "echo" should match
-    db.insert_job(&make_job("my-job", JobStatus::Scheduled))
+    db.insert_job(&make_job_with_status("my-job", JobStatus::Scheduled))
         .unwrap();
 
     let jobs = db.list_jobs(None, Some("echo"), None, 100, 0).unwrap();

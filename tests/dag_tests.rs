@@ -1,51 +1,9 @@
-use chrono::Utc;
+mod common;
+use common::*;
+
 use kronforce::dag::DagResolver;
-use kronforce::db::Db;
 use kronforce::db::models::*;
 use uuid::Uuid;
-
-fn test_db() -> Db {
-    let db = Db::open(":memory:").unwrap();
-    db.migrate().unwrap();
-    db
-}
-
-fn make_job(name: &str) -> Job {
-    Job {
-        id: Uuid::new_v4(),
-        name: name.to_string(),
-        description: None,
-        task: TaskType::Shell {
-            command: "echo".to_string(),
-            working_dir: None,
-        },
-        run_as: None,
-        schedule: ScheduleKind::OnDemand,
-        status: JobStatus::Scheduled,
-        timeout_secs: None,
-        depends_on: vec![],
-        target: None,
-        created_by: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        output_rules: None,
-        notifications: None,
-        group: None,
-        retry_max: 0,
-        retry_delay_secs: 0,
-        retry_backoff: 1.0,
-        approval_required: false,
-        priority: 0,
-        sla_deadline: None,
-        sla_warning_mins: 0,
-        starts_at: None,
-        expires_at: None,
-        max_concurrent: 0,
-        parameters: None,
-        webhook_token: None,
-        timezone: None,
-    }
-}
 
 #[test]
 fn test_no_cycle_simple() {
@@ -134,25 +92,7 @@ fn test_deps_satisfied_with_successful_execution() {
     let job = make_job("dep-target-ok");
     db.insert_job(&job).unwrap();
 
-    let exec = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Scheduler,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec = make_execution(job.id, ExecutionStatus::Succeeded);
     db.insert_execution(&exec).unwrap();
 
     let dag = DagResolver::new(db);
@@ -169,25 +109,7 @@ fn test_deps_satisfied_with_failed_execution() {
     let job = make_job("dep-target-fail");
     db.insert_job(&job).unwrap();
 
-    let exec = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Failed,
-        exit_code: Some(1),
-        stdout: String::new(),
-        stderr: "error".to_string(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Scheduler,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec = make_execution(job.id, ExecutionStatus::Failed);
     db.insert_execution(&exec).unwrap();
 
     let dag = DagResolver::new(db);
@@ -208,25 +130,7 @@ fn test_deps_satisfied_multiple_deps_all_ok() {
     db.insert_job(&job_b).unwrap();
 
     for job in [&job_a, &job_b] {
-        let exec = ExecutionRecord {
-            id: Uuid::new_v4(),
-            job_id: job.id,
-            agent_id: None,
-            task_snapshot: None,
-            status: ExecutionStatus::Succeeded,
-            exit_code: Some(0),
-            stdout: String::new(),
-            stderr: String::new(),
-            stdout_truncated: false,
-            stderr_truncated: false,
-            started_at: Some(Utc::now()),
-            finished_at: Some(Utc::now()),
-            triggered_by: TriggerSource::Scheduler,
-            extracted: None,
-            retry_of: None,
-            attempt_number: 1,
-            params: None,
-        };
+        let exec = make_execution(job.id, ExecutionStatus::Succeeded);
         db.insert_execution(&exec).unwrap();
     }
 
@@ -253,48 +157,12 @@ fn test_deps_satisfied_multiple_deps_one_failed() {
     db.insert_job(&job_b).unwrap();
 
     // job_a succeeded
-    db.insert_execution(&ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job_a.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Scheduler,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    })
-    .unwrap();
+    db.insert_execution(&make_execution(job_a.id, ExecutionStatus::Succeeded))
+        .unwrap();
 
     // job_b failed
-    db.insert_execution(&ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job_b.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Failed,
-        exit_code: Some(1),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Scheduler,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    })
-    .unwrap();
+    db.insert_execution(&make_execution(job_b.id, ExecutionStatus::Failed))
+        .unwrap();
 
     let dag = DagResolver::new(db);
     let deps = vec![

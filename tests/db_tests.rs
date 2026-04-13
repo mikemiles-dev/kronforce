@@ -1,50 +1,9 @@
+mod common;
+use common::*;
+
 use chrono::Utc;
-use kronforce::db::Db;
 use kronforce::db::models::*;
 use uuid::Uuid;
-
-fn test_db() -> Db {
-    let db = Db::open(":memory:").unwrap();
-    db.migrate().unwrap();
-    db
-}
-
-fn make_job(name: &str) -> Job {
-    Job {
-        id: Uuid::new_v4(),
-        name: name.to_string(),
-        description: Some("test job".to_string()),
-        task: TaskType::Shell {
-            command: "echo hello".to_string(),
-            working_dir: None,
-        },
-        run_as: None,
-        schedule: ScheduleKind::OnDemand,
-        status: JobStatus::Scheduled,
-        timeout_secs: None,
-        depends_on: vec![],
-        target: None,
-        created_by: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-        output_rules: None,
-        notifications: None,
-        group: None,
-        retry_max: 0,
-        retry_delay_secs: 0,
-        retry_backoff: 1.0,
-        approval_required: false,
-        priority: 0,
-        sla_deadline: None,
-        sla_warning_mins: 0,
-        starts_at: None,
-        expires_at: None,
-        max_concurrent: 0,
-        parameters: None,
-        webhook_token: None,
-        timezone: None,
-    }
-}
 
 // --- Job CRUD ---
 
@@ -206,25 +165,9 @@ fn test_insert_and_get_execution() {
     let job = make_job("exec-job");
     db.insert_job(&job).unwrap();
 
-    let exec = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: Some(job.task.clone()),
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: "hello".to_string(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let mut exec = make_execution(job.id, ExecutionStatus::Succeeded);
+    exec.task_snapshot = Some(job.task.clone());
+    exec.stdout = "hello".to_string();
     db.insert_execution(&exec).unwrap();
 
     let fetched = db.get_execution(exec.id).unwrap().unwrap();
@@ -238,25 +181,7 @@ fn test_update_execution_extracted() {
     let job = make_job("extract-job");
     db.insert_job(&job).unwrap();
 
-    let exec = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec = make_execution(job.id, ExecutionStatus::Succeeded);
     db.insert_execution(&exec).unwrap();
     db.update_execution_extracted(exec.id, &serde_json::json!({"key": "value"}))
         .unwrap();
@@ -276,25 +201,7 @@ fn test_execution_counts() {
         ExecutionStatus::Succeeded,
         ExecutionStatus::Failed,
     ] {
-        let exec = ExecutionRecord {
-            id: Uuid::new_v4(),
-            job_id: job.id,
-            agent_id: None,
-            task_snapshot: None,
-            status,
-            exit_code: None,
-            stdout: String::new(),
-            stderr: String::new(),
-            stdout_truncated: false,
-            stderr_truncated: false,
-            started_at: Some(Utc::now()),
-            finished_at: Some(Utc::now()),
-            triggered_by: TriggerSource::Scheduler,
-            extracted: None,
-            retry_of: None,
-            attempt_number: 1,
-            params: None,
-        };
+        let exec = make_execution(job.id, status);
         db.insert_execution(&exec).unwrap();
     }
 
@@ -796,25 +703,7 @@ fn test_delete_job_with_executions() {
     db.insert_job(&job).unwrap();
 
     // Create an execution for this job
-    let exec = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec = make_execution(job.id, ExecutionStatus::Succeeded);
     db.insert_execution(&exec).unwrap();
 
     // Should succeed now (was failing with FK constraint before fix)
@@ -847,71 +736,19 @@ fn test_count_running_executions_for_job() {
     assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 0);
 
     // Insert a running execution
-    let exec1 = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Running,
-        exit_code: None,
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: None,
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec1 = make_execution(job.id, ExecutionStatus::Running);
     db.insert_execution(&exec1).unwrap();
     assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 1);
 
     // Insert a pending execution
-    let exec2 = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Pending,
-        exit_code: None,
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: None,
-        finished_at: None,
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let mut exec2 = make_execution(job.id, ExecutionStatus::Pending);
+    exec2.started_at = None;
+    exec2.finished_at = None;
     db.insert_execution(&exec2).unwrap();
     assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 2);
 
     // Insert a succeeded execution — should NOT count
-    let exec3 = ExecutionRecord {
-        id: Uuid::new_v4(),
-        job_id: job.id,
-        agent_id: None,
-        task_snapshot: None,
-        status: ExecutionStatus::Succeeded,
-        exit_code: Some(0),
-        stdout: String::new(),
-        stderr: String::new(),
-        stdout_truncated: false,
-        stderr_truncated: false,
-        started_at: Some(Utc::now()),
-        finished_at: Some(Utc::now()),
-        triggered_by: TriggerSource::Api,
-        extracted: None,
-        retry_of: None,
-        attempt_number: 1,
-        params: None,
-    };
+    let exec3 = make_execution(job.id, ExecutionStatus::Succeeded);
     db.insert_execution(&exec3).unwrap();
     assert_eq!(db.count_running_executions_for_job(job.id).unwrap(), 2);
 }
