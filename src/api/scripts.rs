@@ -28,6 +28,8 @@ fn require_write(auth: &AuthUser) -> Result<(), AppError> {
 #[derive(Deserialize)]
 pub(crate) struct SaveScriptRequest {
     code: String,
+    #[serde(default)]
+    script_type: Option<String>,
 }
 
 /// Returns metadata for all stored scripts.
@@ -67,7 +69,8 @@ pub(crate) async fn save_script(
     let store = state.script_store.clone();
     let name2 = name.clone();
     let code = req.code.clone();
-    tokio::task::spawn_blocking(move || store.save(&name2, &code))
+    let script_type = req.script_type.clone();
+    tokio::task::spawn_blocking(move || store.save(&name2, &code, script_type.as_deref()))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))??;
 

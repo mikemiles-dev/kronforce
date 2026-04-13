@@ -337,6 +337,7 @@ function fmtTaskBadge(task) {
     if (t === 'mqtt_subscribe') return '<span class="badge badge-enabled">mqtt sub</span>';
     if (t === 'rabbitmq_consume') return '<span class="badge badge-paused">rmq read</span>';
     if (t === 'redis_read') return '<span class="badge badge-disabled">redis read</span>';
+    if (t === 'docker_build') return '<span class="badge badge-running">docker</span>';
     return '<span class="badge">' + t + '</span>';
 }
 

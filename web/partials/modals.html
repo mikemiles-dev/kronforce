@@ -52,6 +52,7 @@
                 <label class="pill-green"><input type="radio" name="task-type" value="sql" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128451; SQL</label>
                 <label class="pill-green"><input type="radio" name="task-type" value="ftp" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128193; FTP</label>
                 <label class="pill-green"><input type="radio" name="task-type" value="script" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128220; Script</label>
+                <label class="pill-blue"><input type="radio" name="task-type" value="docker_build" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128051; Docker Build</label>
                 <label class="pill-orange"><input type="radio" name="task-type" value="file_push" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#128228; File Push</label>
                 <label class="pill-purple" onclick="event.preventDefault();toggleMqSection()" id="mq-toggle-btn">&#9889; Message Queues</label>
             </div>
@@ -169,6 +170,22 @@
                     <option value="">Select a script...</option>
                 </select>
                 <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
+            </div>
+        </div>
+        <div id="task-docker_build-fields" style="display:none">
+            <div class="form-group">
+                <label>Dockerfile Script</label>
+                <select id="f-docker-script" style="width:100%">
+                    <option value="">Select a Dockerfile script...</option>
+                </select>
+                <div class="form-hint">Create Dockerfile scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page with type "Dockerfile"</div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px">
+                <div style="flex:1"><label>Image Tag (optional)</label><input id="f-docker-tag" type="text" placeholder="my-app:latest"></div>
+                <div style="flex:1"><label>Build Args (optional)</label><input id="f-docker-args" type="text" placeholder="--build-arg VERSION=1.0"></div>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f-docker-run"> Run container after build</label>
             </div>
         </div>
         <div id="task-filepush-fields" style="display:none">

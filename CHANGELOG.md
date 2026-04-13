@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-03
 
 ### Added
+- **Multi-type scripts** — Scripts page now supports both Rhai scripts and Dockerfiles with type selector, per-type syntax highlighting, and reference panels. Dockerfile highlighting covers instructions (FROM, RUN, COPY, etc.), strings, variables, and flags.
+- **Docker Build task type** — build Docker images from stored Dockerfile scripts. Configure image tag, build args, and optionally run the container after build. 17 total task types.
 - **Calendar schedule** — new schedule type for business-day expressions: "last day of month", "2nd Tuesday", "first Friday - 2 days", with month selection, time, offset, weekend skipping, and holiday exclusion. Visual builder in the Schedule tab with live preview.
 - **Interval schedule** — "fixed interval from last completion" schedule type. Run again N seconds after the previous execution finishes. Prevents overlap for variable-duration jobs.
 - **Timezone support** — optional `timezone` field on jobs (IANA format, e.g. "America/New_York") for timezone-aware schedule evaluation.

@@ -375,6 +375,24 @@ pub async fn run_task(
         TaskType::Script { script_name } => {
             tasks::run_script_task(script_name, script_store, timeout_secs, cancel_rx).await
         }
+        TaskType::DockerBuild {
+            script_name,
+            image_tag,
+            run_after_build,
+            build_args,
+        } => {
+            tasks::run_docker_build_task(
+                script_name,
+                image_tag.as_deref(),
+                *run_after_build,
+                build_args.as_deref(),
+                script_store,
+                run_as,
+                timeout_secs,
+                cancel_rx,
+            )
+            .await
+        }
         TaskType::Custom { .. } => CommandResult {
             status: ExecutionStatus::Failed,
             exit_code: None,

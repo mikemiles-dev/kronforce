@@ -269,7 +269,7 @@ function toggleMqSection() {
 
 function updateTaskFields() {
     const type = document.querySelector('input[name="task-type"]:checked').value;
-    const allTaskFields = ['shell','http','sql','ftp','script','file_push','kafka','rabbitmq','mqtt','redis','mcp','kafka_consume','mqtt_subscribe','rabbitmq_consume','redis_read'];
+    const allTaskFields = ['shell','http','sql','ftp','script','docker_build','file_push','kafka','rabbitmq','mqtt','redis','mcp','kafka_consume','mqtt_subscribe','rabbitmq_consume','redis_read'];
     for (const t of allTaskFields) {
         const el = document.getElementById('task-' + t + '-fields');
         if (el) el.style.display = t === type ? '' : 'none';
@@ -286,6 +286,7 @@ function updateTaskFields() {
         if (btn) btn.classList.add('mq-active');
     }
     if (type === 'script') populateScriptDropdown();
+    if (type === 'docker_build') populateDockerScriptDropdown();
 }
 
 let filePushBase64 = '';
@@ -359,6 +360,17 @@ function buildTaskFromForm() {
         const scriptName = document.getElementById('f-script-name').value;
         if (!scriptName) return null;
         return { type: 'script', script_name: scriptName };
+    }
+    if (type === 'docker_build') {
+        const scriptName = document.getElementById('f-docker-script').value;
+        if (!scriptName) { toast('Select a Dockerfile script', 'error'); return null; }
+        const task = { type: 'docker_build', script_name: scriptName };
+        const tag = document.getElementById('f-docker-tag').value.trim();
+        if (tag) task.image_tag = tag;
+        const args = document.getElementById('f-docker-args').value.trim();
+        if (args) task.build_args = args;
+        if (document.getElementById('f-docker-run').checked) task.run_after_build = true;
+        return task;
     }
     if (type === 'file_push') {
         const dest = document.getElementById('f-filepush-dest').value.trim();
@@ -534,6 +546,11 @@ function populateTaskForm(task) {
         document.getElementById('f-ftp-local').value = task.local_path || '';
     } else if (type === 'script') {
         populateScriptDropdown(task.script_name);
+    } else if (type === 'docker_build') {
+        populateDockerScriptDropdown(task.script_name);
+        document.getElementById('f-docker-tag').value = task.image_tag || '';
+        document.getElementById('f-docker-args').value = task.build_args || '';
+        document.getElementById('f-docker-run').checked = task.run_after_build || false;
     } else if (type === 'file_push') {
         document.getElementById('f-filepush-dest').value = task.destination || '';
         document.getElementById('f-filepush-perms').value = task.permissions || '';

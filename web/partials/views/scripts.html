@@ -14,9 +14,20 @@
                     </div>
                 </div>
                 <div class="form-group" id="script-name-group">
-                    <label>Name</label>
-                    <input id="script-name" type="text" placeholder="my-health-check">
-                    <div class="form-hint">Alphanumeric, dashes, and underscores only. Saved as {name}.rhai</div>
+                    <div style="display:flex;gap:12px;align-items:end">
+                        <div style="flex:1">
+                            <label>Name</label>
+                            <input id="script-name" type="text" placeholder="my-health-check">
+                        </div>
+                        <div style="width:140px">
+                            <label>Type</label>
+                            <select id="script-type" onchange="onScriptTypeChange()">
+                                <option value="rhai">Rhai Script</option>
+                                <option value="dockerfile">Dockerfile</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-hint">Alphanumeric, dashes, and underscores only.</div>
                 </div>
                 <div class="form-group">
                     <label>Code</label>
@@ -25,8 +36,8 @@
                         <textarea id="script-code" class="script-textarea" spellcheck="false" oninput="highlightScript()" onscroll="syncScriptScroll()"></textarea>
                     </div>
                 </div>
-                <div class="script-reference">
-                    <label>Available Functions</label>
+                <div class="script-reference" id="ref-rhai">
+                    <label>Rhai Functions Reference</label>
                     <ul>
                         <li><code>print(msg)</code> — append to job output</li>
                         <li><code>http_get(url)</code> — returns <code>#{status, body}</code></li>
@@ -35,12 +46,23 @@
                         <li><code>env_var(name)</code> — read environment variable</li>
                         <li><code>sleep_ms(ms)</code> — pause execution</li>
                         <li><code>fail(msg)</code> — mark execution as failed</li>
-                        <li><code>udp_send(addr, data)</code> — returns <code>#{sent, error}</code></li>
-                        <li><code>tcp_send(addr, data)</code> — returns <code>#{response, error}</code></li>
-                        <li><code>udp_send_hex(addr, hex)</code> — send raw bytes via UDP</li>
-                        <li><code>tcp_send_hex(addr, hex)</code> — returns <code>#{response_hex, response, error}</code></li>
-                        <li><code>hex_encode(string)</code> — string to hex</li>
-                        <li><code>hex_decode(hex)</code> — hex to string</li>
+                        <li><code>udp_send(addr, data)</code> / <code>tcp_send(addr, data)</code></li>
+                        <li><code>hex_encode(string)</code> / <code>hex_decode(hex)</code></li>
+                    </ul>
+                </div>
+                <div class="script-reference" id="ref-dockerfile" style="display:none">
+                    <label>Dockerfile Reference</label>
+                    <ul>
+                        <li><code>FROM</code> — base image (e.g. <code>FROM python:3.12-slim</code>)</li>
+                        <li><code>RUN</code> — execute command during build</li>
+                        <li><code>COPY</code> / <code>ADD</code> — add files to image</li>
+                        <li><code>WORKDIR</code> — set working directory</li>
+                        <li><code>ENV</code> — set environment variable</li>
+                        <li><code>EXPOSE</code> — document port</li>
+                        <li><code>CMD</code> — default command when container runs</li>
+                        <li><code>ENTRYPOINT</code> — container entry command</li>
+                        <li><code>ARG</code> — build-time variable</li>
+                        <li><code>LABEL</code> — metadata</li>
                     </ul>
                 </div>
             </div>

@@ -1,3 +1,4 @@
+mod docker;
 mod file_push;
 mod ftp;
 mod http;
@@ -7,6 +8,7 @@ mod script;
 mod shell;
 mod sql;
 
+pub use docker::run_docker_build_task;
 pub use file_push::run_file_push_task;
 pub use ftp::run_ftp_task;
 pub use http::run_http_task;

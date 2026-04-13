@@ -62,6 +62,16 @@ pub enum TaskType {
     },
     /// Run a stored Rhai script by name.
     Script { script_name: String },
+    /// Build a Docker image from a stored Dockerfile script and optionally run it.
+    DockerBuild {
+        script_name: String,
+        image_tag: Option<String>,
+        /// If true, run the built image after building.
+        #[serde(default)]
+        run_after_build: bool,
+        /// Extra docker build args (e.g., "--build-arg FOO=bar").
+        build_args: Option<String>,
+    },
     /// Agent-defined custom task type with arbitrary JSON data.
     Custom {
         agent_task_type: String,
