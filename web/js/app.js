@@ -158,9 +158,22 @@ function shareCurrentPage() {
         if (params.length > 0) hash += '?' + params.join('&');
     } else if (currentPage === 'executions') {
         if (currentExecId) hash = '#/executions/' + currentExecId;
-        if (typeof execSearch !== 'undefined' && execSearch.statusFilter) hash += '?filter=' + encodeURIComponent(execSearch.statusFilter);
+        var ep = [];
+        if (typeof execSearch !== 'undefined' && execSearch.statusFilter) ep.push('filter=' + encodeURIComponent(execSearch.statusFilter));
+        if (typeof execSearch !== 'undefined' && execSearch.searchTerm) ep.push('search=' + encodeURIComponent(execSearch.searchTerm));
+        if (typeof timeRanges !== 'undefined' && timeRanges.execs) ep.push('time=' + timeRanges.execs);
+        if (ep.length > 0) hash += '?' + ep.join('&');
     } else if (currentPage === 'events') {
-        if (typeof eventSearch !== 'undefined' && eventSearch.statusFilter) hash += '?filter=' + encodeURIComponent(eventSearch.statusFilter);
+        var evp = [];
+        if (typeof eventSearch !== 'undefined' && eventSearch.statusFilter) evp.push('filter=' + encodeURIComponent(eventSearch.statusFilter));
+        if (typeof eventSearch !== 'undefined' && eventSearch.searchTerm) evp.push('search=' + encodeURIComponent(eventSearch.searchTerm));
+        if (typeof timeRanges !== 'undefined' && timeRanges.events) evp.push('time=' + timeRanges.events);
+        if (evp.length > 0) hash += '?' + evp.join('&');
+    } else if (currentPage === 'agents') {
+        var ap = [];
+        if (typeof agentSearch !== 'undefined' && agentSearch.statusFilter) ap.push('filter=' + encodeURIComponent(agentSearch.statusFilter));
+        if (typeof agentSearch !== 'undefined' && agentSearch.searchTerm) ap.push('search=' + encodeURIComponent(agentSearch.searchTerm));
+        if (ap.length > 0) hash += '?' + ap.join('&');
     }
     var url = window.location.origin + window.location.pathname + hash;
     copyToClipboard(url, 'Link copied to clipboard');
@@ -977,23 +990,39 @@ function handleRoute() {
     const parts = cleanHash.replace('#/', '').split('/');
 
     // Apply shared filter state from URL params
-    if (params.filter && parts[0] === 'jobs') {
-        jobSearch.statusFilter = params.filter;
+    if (parts[0] === 'jobs') {
+        if (params.filter) jobSearch.statusFilter = params.filter;
+        if (params.group) {
+            if (typeof setGroupFilter === 'function') setGroupFilter(params.group);
+            else groupFilter = params.group;
+        }
+        if (params.search) {
+            var si = document.getElementById('search-input');
+            if (si) si.value = params.search;
+        }
     }
-    if (params.group && parts[0] === 'jobs') {
-        if (typeof setGroupFilter === 'function') setGroupFilter(params.group);
-        else groupFilter = params.group;
+    if (parts[0] === 'executions' && typeof execSearch !== 'undefined') {
+        if (params.filter) execSearch.statusFilter = params.filter;
+        if (params.search) {
+            var esi = document.getElementById('exec-search-input');
+            if (esi) esi.value = params.search;
+        }
+        if (params.time && typeof timeRanges !== 'undefined') timeRanges.execs = params.time;
     }
-    if (params.search && parts[0] === 'jobs') {
-        jobSearch.statusFilter = jobSearch.statusFilter || '';
-        var searchInput = document.getElementById('search-input');
-        if (searchInput) searchInput.value = params.search;
+    if (parts[0] === 'events' && typeof eventSearch !== 'undefined') {
+        if (params.filter) eventSearch.statusFilter = params.filter;
+        if (params.search) {
+            var evi = document.getElementById('event-search-input');
+            if (evi) evi.value = params.search;
+        }
+        if (params.time && typeof timeRanges !== 'undefined') timeRanges.events = params.time;
     }
-    if (params.filter && parts[0] === 'executions' && typeof execSearch !== 'undefined') {
-        execSearch.statusFilter = params.filter;
-    }
-    if (params.filter && parts[0] === 'events' && typeof eventSearch !== 'undefined') {
-        eventSearch.statusFilter = params.filter;
+    if (parts[0] === 'agents' && typeof agentSearch !== 'undefined') {
+        if (params.filter) agentSearch.statusFilter = params.filter;
+        if (params.search) {
+            var asi = document.getElementById('agent-search-input');
+            if (asi) asi.value = params.search;
+        }
     }
 
     if (parts[0] === 'jobs' && parts[1]) {
