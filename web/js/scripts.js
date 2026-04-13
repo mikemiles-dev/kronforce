@@ -53,8 +53,20 @@ function showCreateScript() {
     highlightScript();
 }
 
+var rhaiTemplate = '// Your script here\nlet resp = http_get("https://example.com/health");\nprint("Status: " + resp.status);\nif resp.status != 200 {\n    fail("Health check failed");\n}';
+var dockerfileTemplate = 'FROM python:3.12-slim\n\nWORKDIR /app\n\n# Install dependencies\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\n# Copy application\nCOPY . .\n\nEXPOSE 8000\n\nCMD ["python", "app.py"]';
+
 function onScriptTypeChange() {
     currentScriptType = document.getElementById('script-type').value;
+    // Swap template if creating a new script and code matches the other template
+    if (!editingScript) {
+        var code = document.getElementById('script-code').value;
+        if (currentScriptType === 'dockerfile' && (code === rhaiTemplate || !code.trim())) {
+            document.getElementById('script-code').value = dockerfileTemplate;
+        } else if (currentScriptType === 'rhai' && (code === dockerfileTemplate || !code.trim())) {
+            document.getElementById('script-code').value = rhaiTemplate;
+        }
+    }
     document.getElementById('ref-rhai').style.display = currentScriptType === 'rhai' ? '' : 'none';
     document.getElementById('ref-dockerfile').style.display = currentScriptType === 'dockerfile' ? '' : 'none';
     highlightScript();
