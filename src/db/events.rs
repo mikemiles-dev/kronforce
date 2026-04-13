@@ -3,6 +3,7 @@ use rusqlite::params;
 use uuid::Uuid;
 
 use super::Db;
+use super::helpers::col;
 use crate::db::models::*;
 use crate::error::AppError;
 
@@ -124,14 +125,14 @@ impl Db {
                     None => rusqlite::params_from_iter(vec![limit.to_string(), offset.to_string()]),
                 },
                 |row| {
-                    let id_str: String = row.get(0)?;
-                    let severity_str: String = row.get(2)?;
-                    let job_id_str: Option<String> = row.get(4)?;
-                    let agent_id_str: Option<String> = row.get(5)?;
-                    let api_key_id_str: Option<String> = row.get(6)?;
-                    let api_key_name: Option<String> = row.get(7)?;
-                    let details: Option<String> = row.get(8)?;
-                    let ts_str: String = row.get(9)?;
+                    let id_str: String = col(row, "id")?;
+                    let severity_str: String = col(row, "severity")?;
+                    let job_id_str: Option<String> = col(row, "job_id")?;
+                    let agent_id_str: Option<String> = col(row, "agent_id")?;
+                    let api_key_id_str: Option<String> = col(row, "api_key_id")?;
+                    let api_key_name: Option<String> = col(row, "api_key_name")?;
+                    let details: Option<String> = col(row, "details")?;
+                    let ts_str: String = col(row, "timestamp")?;
                     Ok(Event {
                         id: Uuid::parse_str(&id_str).map_err(|_| {
                             rusqlite::Error::InvalidColumnType(
@@ -140,10 +141,10 @@ impl Db {
                                 rusqlite::types::Type::Text,
                             )
                         })?,
-                        kind: row.get(1)?,
+                        kind: col(row, "kind")?,
                         severity: EventSeverity::from_str(&severity_str)
                             .unwrap_or(EventSeverity::Info),
-                        message: row.get(3)?,
+                        message: col(row, "message")?,
                         job_id: job_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
                         agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
                         api_key_id: api_key_id_str.and_then(|s| Uuid::parse_str(&s).ok()),

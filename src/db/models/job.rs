@@ -284,24 +284,24 @@ impl Job {
     /// Columns: id(0), name(1), description(2), task_json(3), run_as(4), schedule_json(5), status(6),
     ///          timeout_secs(7), depends_on_json(8), target_json(9), created_by(10), created_at(11), updated_at(12), output_rules_json(13), notifications_json(14), group_name(15), retry_max(16), retry_delay_secs(17), retry_backoff(18), approval_required(19), priority(20), sla_deadline(21), sla_warning_mins(22)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
+        use crate::db::helpers::{col, parse_datetime, parse_json, parse_uuid};
 
-        let id_str: String = row.get(0)?;
-        let run_as: Option<String> = row.get(4)?;
-        let schedule_json: String = row.get(5)?;
-        let status_str: String = row.get(6)?;
-        let timeout: Option<i64> = row.get(7)?;
-        let depends_json: String = row.get(8)?;
-        let target_json: Option<String> = row.get(9)?;
-        let created_by_str: Option<String> = row.get(10)?;
-        let created_str: String = row.get(11)?;
-        let updated_str: String = row.get(12)?;
-        let task_json: String = row.get(3)?;
+        let id_str: String = col(row, "id")?;
+        let run_as: Option<String> = col(row, "run_as")?;
+        let schedule_json: String = col(row, "schedule_json")?;
+        let status_str: String = col(row, "status")?;
+        let timeout: Option<i64> = col(row, "timeout_secs")?;
+        let depends_json: String = col(row, "depends_on_json")?;
+        let target_json: Option<String> = col(row, "target_json")?;
+        let created_by_str: Option<String> = col(row, "created_by")?;
+        let created_str: String = col(row, "created_at")?;
+        let updated_str: String = col(row, "updated_at")?;
+        let task_json: String = col(row, "task_json")?;
 
         Ok(Job {
             id: parse_uuid(&id_str)?,
-            name: row.get(1)?,
-            description: row.get(2)?,
+            name: col(row, "name")?,
+            description: col(row, "description")?,
             task: parse_json(&task_json)?,
             run_as,
             schedule: parse_json(&schedule_json)?,
@@ -313,41 +313,53 @@ impl Job {
             created_at: parse_datetime(&created_str)?,
             updated_at: parse_datetime(&updated_str)?,
             output_rules: {
-                let or_json: Option<String> = row.get(13).unwrap_or(None);
+                let or_json: Option<String> = col(row, "output_rules_json").unwrap_or(None);
                 or_json.and_then(|s| serde_json::from_str(&s).ok())
             },
             notifications: {
-                let n_json: Option<String> = row.get(14).unwrap_or(None);
+                let n_json: Option<String> = col(row, "notifications_json").unwrap_or(None);
                 n_json.and_then(|s| serde_json::from_str(&s).ok())
             },
-            group: row
-                .get::<_, Option<String>>(15)
+            group: col::<Option<String>>(row, "group_name")
                 .unwrap_or(None)
                 .or_else(|| Some("Default".to_string())),
-            retry_max: row.get::<_, Option<i64>>(16).unwrap_or(None).unwrap_or(0) as u32,
-            retry_delay_secs: row.get::<_, Option<i64>>(17).unwrap_or(None).unwrap_or(0) as u64,
-            retry_backoff: row.get::<_, Option<f64>>(18).unwrap_or(None).unwrap_or(1.0),
-            approval_required: row.get::<_, Option<i32>>(19).unwrap_or(None).unwrap_or(0) != 0,
-            priority: row.get::<_, Option<i32>>(20).unwrap_or(None).unwrap_or(0),
-            sla_deadline: row.get::<_, Option<String>>(21).unwrap_or(None),
-            sla_warning_mins: row.get::<_, Option<i32>>(22).unwrap_or(None).unwrap_or(0) as u32,
-            starts_at: row
-                .get::<_, Option<String>>(23)
+            retry_max: col::<Option<i64>>(row, "retry_max")
+                .unwrap_or(None)
+                .unwrap_or(0) as u32,
+            retry_delay_secs: col::<Option<i64>>(row, "retry_delay_secs")
+                .unwrap_or(None)
+                .unwrap_or(0) as u64,
+            retry_backoff: col::<Option<f64>>(row, "retry_backoff")
+                .unwrap_or(None)
+                .unwrap_or(1.0),
+            approval_required: col::<Option<i32>>(row, "approval_required")
+                .unwrap_or(None)
+                .unwrap_or(0)
+                != 0,
+            priority: col::<Option<i32>>(row, "priority")
+                .unwrap_or(None)
+                .unwrap_or(0),
+            sla_deadline: col::<Option<String>>(row, "sla_deadline").unwrap_or(None),
+            sla_warning_mins: col::<Option<i32>>(row, "sla_warning_mins")
+                .unwrap_or(None)
+                .unwrap_or(0) as u32,
+            starts_at: col::<Option<String>>(row, "starts_at")
                 .unwrap_or(None)
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc)),
-            expires_at: row
-                .get::<_, Option<String>>(24)
+            expires_at: col::<Option<String>>(row, "expires_at")
                 .unwrap_or(None)
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc)),
-            max_concurrent: row.get::<_, Option<i32>>(25).unwrap_or(None).unwrap_or(0) as u32,
+            max_concurrent: col::<Option<i32>>(row, "max_concurrent")
+                .unwrap_or(None)
+                .unwrap_or(0) as u32,
             parameters: {
-                let p_json: Option<String> = row.get(26).unwrap_or(None);
+                let p_json: Option<String> = col(row, "parameters_json").unwrap_or(None);
                 p_json.and_then(|s| serde_json::from_str(&s).ok())
             },
-            webhook_token: row.get::<_, Option<String>>(27).unwrap_or(None),
-            timezone: row.get::<_, Option<String>>(28).unwrap_or(None),
+            webhook_token: col::<Option<String>>(row, "webhook_token").unwrap_or(None),
+            timezone: col::<Option<String>>(row, "timezone").unwrap_or(None),
         })
     }
 }

@@ -76,6 +76,15 @@ impl QueryFilters {
     }
 }
 
+/// Get a column value by name instead of positional index.
+/// This eliminates the fragile row.get(N) pattern that breaks when columns are added.
+pub(crate) fn col<T: rusqlite::types::FromSql>(
+    row: &rusqlite::Row,
+    name: &str,
+) -> rusqlite::Result<T> {
+    row.get(row.as_ref().column_index(name)?)
+}
+
 pub(crate) fn parse_uuid(s: &str) -> rusqlite::Result<Uuid> {
     Uuid::parse_str(s).map_err(|e| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))

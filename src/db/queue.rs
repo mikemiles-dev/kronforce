@@ -3,6 +3,7 @@ use rusqlite::params;
 use uuid::Uuid;
 
 use super::Db;
+use super::helpers::col;
 use crate::db::models::*;
 use crate::error::AppError;
 
@@ -51,14 +52,14 @@ impl Db {
             .prepare("SELECT id, execution_id, agent_id, task_json, run_as, timeout_secs, callback_url, job_id FROM job_queue WHERE agent_id = ?1 AND status = 'pending' ORDER BY created_at ASC LIMIT 1")
             .map_err(AppError::Db)?;
         let result = stmt.query_row(params![agent_id.to_string()], |row| {
-            let id: String = row.get(0)?;
-            let exec_id: String = row.get(1)?;
-            let agent: String = row.get(2)?;
-            let task_json: String = row.get(3)?;
-            let run_as: Option<String> = row.get(4)?;
-            let timeout: Option<i64> = row.get(5)?;
-            let callback: String = row.get(6)?;
-            let job_id: Option<String> = row.get(7)?;
+            let id: String = col(row, "id")?;
+            let exec_id: String = col(row, "execution_id")?;
+            let agent: String = col(row, "agent_id")?;
+            let task_json: String = col(row, "task_json")?;
+            let run_as: Option<String> = col(row, "run_as")?;
+            let timeout: Option<i64> = col(row, "timeout_secs")?;
+            let callback: String = col(row, "callback_url")?;
+            let job_id: Option<String> = col(row, "job_id")?;
             Ok((
                 id, exec_id, agent, task_json, run_as, timeout, callback, job_id,
             ))
@@ -129,7 +130,9 @@ impl Db {
             "SELECT id, execution_id FROM job_queue WHERE status = 'pending' AND created_at < ?1"
         ).map_err(AppError::Db)?;
         let rows: Vec<(String, String)> = stmt
-            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_map(params![cutoff], |row| {
+                Ok((col(row, "id")?, col(row, "execution_id")?))
+            })
             .map_err(AppError::Db)?
             .filter_map(|r| r.ok())
             .collect();
@@ -160,7 +163,9 @@ impl Db {
             "SELECT id, execution_id FROM job_queue WHERE status = 'claimed' AND claimed_at < ?1"
         ).map_err(AppError::Db)?;
         let rows: Vec<(String, String)> = stmt
-            .query_map(params![cutoff], |row| Ok((row.get(0)?, row.get(1)?)))
+            .query_map(params![cutoff], |row| {
+                Ok((col(row, "id")?, col(row, "execution_id")?))
+            })
             .map_err(AppError::Db)?
             .filter_map(|r| r.ok())
             .collect();

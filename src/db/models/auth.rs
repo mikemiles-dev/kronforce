@@ -60,22 +60,22 @@ impl ApiKey {
     ///
     /// Columns: id(0), key_prefix(1), key_hash(2), name(3), role(4), created_at(5), last_used_at(6), active(7), allowed_groups_json(8)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        use crate::db::helpers::{parse_datetime, parse_uuid};
+        use crate::db::helpers::{col, parse_datetime, parse_uuid};
 
-        let id_str: String = row.get(0)?;
-        let role_str: String = row.get(4)?;
-        let created_str: String = row.get(5)?;
-        let last_used_str: Option<String> = row.get(6)?;
-        let active_int: i32 = row.get(7)?;
-        let groups_json: Option<String> = row.get(8).unwrap_or(None);
-        let ip_json: Option<String> = row.get(9).unwrap_or(None);
-        let expires_str: Option<String> = row.get(10).unwrap_or(None);
+        let id_str: String = col(row, "id")?;
+        let role_str: String = col(row, "role")?;
+        let created_str: String = col(row, "created_at")?;
+        let last_used_str: Option<String> = col(row, "last_used_at")?;
+        let active_int: i32 = col(row, "active")?;
+        let groups_json: Option<String> = col(row, "allowed_groups_json").unwrap_or(None);
+        let ip_json: Option<String> = col(row, "ip_allowlist").unwrap_or(None);
+        let expires_str: Option<String> = col(row, "expires_at").unwrap_or(None);
 
         Ok(ApiKey {
             id: parse_uuid(&id_str)?,
-            key_prefix: row.get(1)?,
-            key_hash: row.get(2)?,
-            name: row.get(3)?,
+            key_prefix: col(row, "key_prefix")?,
+            key_hash: col(row, "key_hash")?,
+            name: col(row, "name")?,
             role: ApiKeyRole::from_str(&role_str).unwrap_or(ApiKeyRole::Viewer),
             created_at: parse_datetime(&created_str)?,
             last_used_at: last_used_str.map(|s| parse_datetime(&s)).transpose()?,

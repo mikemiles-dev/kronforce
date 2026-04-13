@@ -325,9 +325,9 @@ impl Db {
             .collect();
         let rows = stmt
             .query_map(params.as_slice(), |row| {
-                let bucket: Option<String> = row.get(0)?;
-                let status: String = row.get(1)?;
-                let count: u32 = row.get(2)?;
+                let bucket: Option<String> = col(row, "bucket")?;
+                let status: String = col(row, "status")?;
+                let count: u32 = col(row, "cnt")?;
                 Ok((bucket.unwrap_or_default(), status, count))
             })
             .map_err(AppError::Db)?;
@@ -377,9 +377,9 @@ impl Db {
         let rows = stmt
             .query_map(params![bucket_start, bucket_end], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, u32>(2)?,
+                    col::<String>(row, "name")?,
+                    col::<String>(row, "status")?,
+                    col::<u32>(row, "cnt")?,
                 ))
             })
             .map_err(AppError::Db)?;
@@ -426,8 +426,8 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| {
-                let status: String = row.get(0)?;
-                let count: u32 = row.get(1)?;
+                let status: String = col(row, "status")?;
+                let count: u32 = row.get(1)?; // COUNT(*) has no stable column name
                 Ok((status, count))
             })
             .map_err(AppError::Db)?;

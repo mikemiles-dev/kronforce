@@ -18,19 +18,19 @@ pub struct OidcSession {
 
 impl OidcSession {
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        use crate::db::helpers::parse_datetime;
+        use crate::db::helpers::{col, parse_datetime};
 
-        let role_str: String = row.get(3)?;
-        let created_str: String = row.get(5)?;
-        let expires_str: String = row.get(6)?;
-        let last_active_str: String = row.get(7)?;
+        let role_str: String = col(row, "role")?;
+        let created_str: String = col(row, "created_at")?;
+        let expires_str: String = col(row, "expires_at")?;
+        let last_active_str: String = col(row, "last_active_at")?;
 
         Ok(OidcSession {
-            id_hash: row.get(0)?,
-            user_email: row.get(1)?,
-            user_name: row.get(2)?,
+            id_hash: col(row, "id_hash")?,
+            user_email: col(row, "user_email")?,
+            user_name: col(row, "user_name")?,
             role: ApiKeyRole::from_str(&role_str).unwrap_or(ApiKeyRole::Viewer),
-            id_token_claims: row.get(4)?,
+            id_token_claims: col(row, "id_token_claims")?,
             created_at: parse_datetime(&created_str)?,
             expires_at: parse_datetime(&expires_str)?,
             last_active_at: parse_datetime(&last_active_str)?,

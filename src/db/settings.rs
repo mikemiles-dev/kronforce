@@ -2,6 +2,7 @@ use chrono::Utc;
 use rusqlite::params;
 
 use super::Db;
+use super::helpers::col;
 use crate::error::AppError;
 
 impl Db {
@@ -14,7 +15,7 @@ impl Db {
         let result = conn.query_row(
             "SELECT value FROM settings WHERE key = ?1",
             params![key],
-            |row| row.get(0),
+            |row| col(row, "value"),
         );
         match result {
             Ok(val) => Ok(Some(val)),
@@ -47,7 +48,7 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((col::<String>(row, "key")?, col::<String>(row, "value")?))
             })
             .map_err(AppError::Db)?;
         let mut map = std::collections::HashMap::new();

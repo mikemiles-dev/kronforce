@@ -155,18 +155,18 @@ impl ExecutionRecord {
     /// Columns: id(0), job_id(1), agent_id(2), task_snapshot_json(3), status(4), exit_code(5),
     ///          stdout(6), stderr(7), stdout_truncated(8), stderr_truncated(9), started_at(10), finished_at(11), triggered_by_json(12), extracted_json(13), retry_of(14), attempt_number(15), params_json(16)
     pub(crate) fn from_row(row: &rusqlite::Row) -> rusqlite::Result<Self> {
-        use crate::db::helpers::{parse_datetime, parse_json, parse_uuid};
+        use crate::db::helpers::{col, parse_datetime, parse_json, parse_uuid};
 
-        let id_str: String = row.get(0)?;
-        let job_id_str: String = row.get(1)?;
-        let agent_id_str: Option<String> = row.get(2)?;
-        let task_snap_json: Option<String> = row.get(3)?;
-        let status_str: String = row.get(4)?;
-        let stdout_trunc: i32 = row.get(8)?;
-        let stderr_trunc: i32 = row.get(9)?;
-        let started_str: Option<String> = row.get(10)?;
-        let finished_str: Option<String> = row.get(11)?;
-        let triggered_json: String = row.get(12)?;
+        let id_str: String = col(row, "id")?;
+        let job_id_str: String = col(row, "job_id")?;
+        let agent_id_str: Option<String> = col(row, "agent_id")?;
+        let task_snap_json: Option<String> = col(row, "task_snapshot_json")?;
+        let status_str: String = col(row, "status")?;
+        let stdout_trunc: i32 = col(row, "stdout_truncated")?;
+        let stderr_trunc: i32 = col(row, "stderr_truncated")?;
+        let started_str: Option<String> = col(row, "started_at")?;
+        let finished_str: Option<String> = col(row, "finished_at")?;
+        let triggered_json: String = col(row, "triggered_by_json")?;
 
         Ok(ExecutionRecord {
             id: parse_uuid(&id_str)?,
@@ -174,25 +174,27 @@ impl ExecutionRecord {
             agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
             task_snapshot: task_snap_json.and_then(|s| serde_json::from_str(&s).ok()),
             status: ExecutionStatus::from_str(&status_str).unwrap_or(ExecutionStatus::Failed),
-            exit_code: row.get(5)?,
-            stdout: row.get(6)?,
-            stderr: row.get(7)?,
+            exit_code: col(row, "exit_code")?,
+            stdout: col(row, "stdout")?,
+            stderr: col(row, "stderr")?,
             stdout_truncated: stdout_trunc != 0,
             stderr_truncated: stderr_trunc != 0,
             started_at: started_str.map(|s| parse_datetime(&s)).transpose()?,
             finished_at: finished_str.map(|s| parse_datetime(&s)).transpose()?,
             triggered_by: parse_json(&triggered_json)?,
             extracted: {
-                let ex_json: Option<String> = row.get(13).unwrap_or(None);
+                let ex_json: Option<String> = col(row, "extracted_json").unwrap_or(None);
                 ex_json.and_then(|s| serde_json::from_str(&s).ok())
             },
             retry_of: {
-                let r: Option<String> = row.get(14).unwrap_or(None);
+                let r: Option<String> = col(row, "retry_of").unwrap_or(None);
                 r.and_then(|s| Uuid::parse_str(&s).ok())
             },
-            attempt_number: row.get::<_, Option<i32>>(15).unwrap_or(None).unwrap_or(1) as u32,
+            attempt_number: col::<Option<i32>>(row, "attempt_number")
+                .unwrap_or(None)
+                .unwrap_or(1) as u32,
             params: {
-                let p_json: Option<String> = row.get(16).unwrap_or(None);
+                let p_json: Option<String> = col(row, "params_json").unwrap_or(None);
                 p_json.and_then(|s| serde_json::from_str(&s).ok())
             },
         })

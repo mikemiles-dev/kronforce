@@ -86,18 +86,18 @@ impl Db {
         let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
         let rows = stmt
             .query_map(f.to_params().as_slice(), |row| {
-                let id_str: String = row.get(0)?;
-                let ts_str: String = row.get(1)?;
-                let actor_id_str: Option<String> = row.get(2)?;
+                let id_str: String = col(row, "id")?;
+                let ts_str: String = col(row, "timestamp")?;
+                let actor_id_str: Option<String> = col(row, "actor_key_id")?;
                 Ok(AuditEntry {
                     id: parse_uuid(&id_str)?,
                     timestamp: parse_datetime(&ts_str)?,
                     actor_key_id: actor_id_str.map(|s| parse_uuid(&s)).transpose()?,
-                    actor_key_name: row.get(3)?,
-                    operation: row.get(4)?,
-                    resource_type: row.get(5)?,
-                    resource_id: row.get(6)?,
-                    details: row.get(7)?,
+                    actor_key_name: col(row, "actor_key_name")?,
+                    operation: col(row, "operation")?,
+                    resource_type: col(row, "resource_type")?,
+                    resource_id: col(row, "resource_id")?,
+                    details: col(row, "details")?,
                 })
             })
             .map_err(AppError::Db)?;

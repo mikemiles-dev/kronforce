@@ -2,14 +2,15 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 
 use super::Db;
+use super::helpers::col;
 use crate::db::models::Variable;
 use crate::error::AppError;
 
 fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
-    let updated_str: String = row.get(2)?;
-    let secret_int: i32 = row.get(3).unwrap_or(0);
+    let updated_str: String = col(row, "updated_at")?;
+    let secret_int: i32 = col(row, "secret").unwrap_or(0);
     let is_secret = secret_int != 0;
-    let raw_value: String = row.get(1)?;
+    let raw_value: String = col(row, "value")?;
     // Decrypt secret values that are stored encrypted
     let value = if is_secret {
         crate::crypto::decrypt(&raw_value).unwrap_or(raw_value)
@@ -17,7 +18,7 @@ fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
         raw_value
     };
     Ok(Variable {
-        name: row.get(0)?,
+        name: col(row, "name")?,
         value,
         updated_at: DateTime::parse_from_rfc3339(&updated_str)
             .map(|d| d.with_timezone(&Utc))
@@ -97,7 +98,7 @@ impl Db {
             .query_row(
                 "SELECT secret FROM variables WHERE name = ?1",
                 params![name],
-                |row| row.get::<_, i32>(0),
+                |row| col::<i32>(row, "secret"),
             )
             .map(|v| v != 0)
             .unwrap_or(false);
@@ -156,7 +157,7 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((col::<String>(row, "name")?, col::<String>(row, "value")?))
             })
             .map_err(AppError::Db)?;
         let mut map = std::collections::HashMap::new();

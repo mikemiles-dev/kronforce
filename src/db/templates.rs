@@ -1,6 +1,7 @@
 use rusqlite::params;
 
 use super::Db;
+use super::helpers::col;
 use crate::error::AppError;
 
 /// A saved job template.
@@ -25,13 +26,13 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| {
-                let snapshot_str: String = row.get(2)?;
+                let snapshot_str: String = col(row, "snapshot_json")?;
                 Ok(JobTemplate {
-                    name: row.get(0)?,
-                    description: row.get(1)?,
+                    name: col(row, "name")?,
+                    description: col(row, "description")?,
                     snapshot: serde_json::from_str(&snapshot_str).unwrap_or_default(),
-                    created_by: row.get(3)?,
-                    created_at: row.get(4)?,
+                    created_by: col(row, "created_by")?,
+                    created_at: col(row, "created_at")?,
                 })
             })
             .map_err(AppError::Db)?;
@@ -52,13 +53,13 @@ impl Db {
             "SELECT name, description, snapshot_json, created_by, created_at FROM job_templates WHERE name = ?1",
             params![name],
             |row| {
-                let snapshot_str: String = row.get(2)?;
+                let snapshot_str: String = col(row, "snapshot_json")?;
                 Ok(JobTemplate {
-                    name: row.get(0)?,
-                    description: row.get(1)?,
+                    name: col(row, "name")?,
+                    description: col(row, "description")?,
                     snapshot: serde_json::from_str(&snapshot_str).unwrap_or_default(),
-                    created_by: row.get(3)?,
-                    created_at: row.get(4)?,
+                    created_by: col(row, "created_by")?,
+                    created_at: col(row, "created_at")?,
                 })
             },
         );

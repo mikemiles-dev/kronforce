@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 
 use super::Db;
+use super::helpers::col;
 use crate::db::models::session::{OidcAuthState, OidcSession};
 use crate::error::AppError;
 
@@ -131,10 +132,10 @@ impl Db {
             .map_err(AppError::Db)?;
         let result = stmt
             .query_row(params![state, cutoff], |row| {
-                let created_str: String = row.get(2)?;
+                let created_str: String = col(row, "created_at")?;
                 Ok(OidcAuthState {
-                    state: row.get(0)?,
-                    nonce: row.get(1)?,
+                    state: col(row, "state")?,
+                    nonce: col(row, "nonce")?,
                     created_at: crate::db::helpers::parse_datetime(&created_str)?,
                 })
             })

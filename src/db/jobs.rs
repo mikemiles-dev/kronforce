@@ -258,7 +258,10 @@ impl Db {
                     .map_err(AppError::Db)?;
                 let rows = stmt
                     .query_map(params![id.to_string()], |row| {
-                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                        Ok((
+                            col::<String>(row, "name")?,
+                            col::<String>(row, "depends_on_json")?,
+                        ))
                     })
                     .map_err(AppError::Db)?;
                 let mut deps = Vec::new();
@@ -317,8 +320,8 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map([], |row| {
-                let id: String = row.get(0)?;
-                let deps_json: String = row.get(1)?;
+                let id: String = col(row, "id")?;
+                let deps_json: String = col(row, "depends_on_json")?;
                 Ok((id, deps_json))
             })
             .map_err(AppError::Db)?;
@@ -349,7 +352,7 @@ impl Db {
             .prepare("SELECT task_json FROM jobs")
             .map_err(AppError::Db)?;
         let rows = stmt
-            .query_map([], |row| row.get::<_, String>(0))
+            .query_map([], |row| col::<String>(row, "task_json"))
             .map_err(AppError::Db)?;
         let mut counts = std::collections::HashMap::new();
         for row in rows {
@@ -399,7 +402,7 @@ impl Db {
             .prepare("SELECT schedule_json FROM jobs")
             .map_err(AppError::Db)?;
         let rows = stmt
-            .query_map([], |row| row.get::<_, String>(0))
+            .query_map([], |row| col::<String>(row, "schedule_json"))
             .map_err(AppError::Db)?;
         let mut counts = std::collections::HashMap::new();
         for row in rows {
@@ -456,7 +459,7 @@ impl Db {
             .query_row(
                 "SELECT value FROM settings WHERE key = 'custom_groups'",
                 [],
-                |row| row.get::<_, String>(0),
+                |row| col::<String>(row, "value"),
             )
             .unwrap_or_default();
         if !custom.is_empty()
@@ -484,7 +487,7 @@ impl Db {
             .query_row(
                 "SELECT value FROM settings WHERE key = 'custom_groups'",
                 [],
-                |row| row.get::<_, String>(0),
+                |row| col::<String>(row, "value"),
             )
             .unwrap_or_default();
         let mut names: Vec<String> = if existing.is_empty() {
@@ -603,10 +606,10 @@ impl Db {
             .map_err(AppError::Db)?;
         let rows = stmt
             .query_map(params![job_id.to_string()], |row| {
-                let version: i64 = row.get(0)?;
-                let snapshot: String = row.get(1)?;
-                let changed_by: Option<String> = row.get(2)?;
-                let created_at: String = row.get(3)?;
+                let version: i64 = col(row, "version")?;
+                let snapshot: String = col(row, "snapshot_json")?;
+                let changed_by: Option<String> = col(row, "changed_by_name")?;
+                let created_at: String = col(row, "created_at")?;
                 Ok(serde_json::json!({
                     "version": version,
                     "snapshot": serde_json::from_str::<serde_json::Value>(&snapshot).unwrap_or_default(),
