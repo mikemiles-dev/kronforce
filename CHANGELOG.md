@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-03
 
 ### Added
+- **Calendar schedule** — new schedule type for business-day expressions: "last day of month", "2nd Tuesday", "first Friday - 2 days", with month selection, time, and offset. Visual builder in the Schedule tab with live preview. Next fire date computed for the API response.
 - **Message queue consumers** — 4 new consume/subscribe task types: Kafka Read, MQTT Subscribe, RabbitMQ Read, Redis Read. Consume messages from queues with configurable max message count, offsets, and timeouts. Messages appear in stdout for output extraction processing. Total task types: 16.
 - **Concurrency controls** — `max_concurrent` field on jobs (default 0 = unlimited). Scheduler skips firing if the job already has that many running executions. Prevents overlapping cron runs.
 - **Parameterized runs** — jobs can define parameter schemas (name, type, required, default). Trigger accepts runtime `params` in request body. Use `{{params.NAME}}` in task fields for substitution. UI shows a parameter form when triggering parameterized jobs.

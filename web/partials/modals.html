@@ -361,6 +361,7 @@
                 <label class="pill-green"><input type="radio" name="sched-type" value="cron" onchange="updateSchedFields()"> &#128336; Cron</label>
                 <label class="pill-orange"><input type="radio" name="sched-type" value="on_demand" onchange="updateSchedFields()"> &#9889; On-Demand</label>
                 <label class="pill-purple"><input type="radio" name="sched-type" value="event" onchange="updateSchedFields()"> &#128276; Event</label>
+                <label class="pill-blue"><input type="radio" name="sched-type" value="calendar" onchange="updateSchedFields()"> &#128197; Calendar</label>
             </div>
         </div>
         <div class="form-group" id="oneshot-field">
@@ -527,6 +528,75 @@
                     </div>
                     <div class="form-hint">Only trigger when the event came from this job</div>
                 </div>
+            </div>
+        </div>
+        <div id="calendar-field" style="display:none">
+            <div class="form-group">
+                <label>Run on</label>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <select id="f-cal-anchor" onchange="updateCalPreview()" style="width:160px">
+                        <option value="last_day">Last day of month</option>
+                        <option value="day_1">Day 1</option>
+                        <option value="day_15">Day 15</option>
+                        <option value="first_monday">First Monday</option>
+                        <option value="first_tuesday">First Tuesday</option>
+                        <option value="first_wednesday">First Wednesday</option>
+                        <option value="first_thursday">First Thursday</option>
+                        <option value="first_friday">First Friday</option>
+                        <option value="last_monday">Last Monday</option>
+                        <option value="last_tuesday">Last Tuesday</option>
+                        <option value="last_wednesday">Last Wednesday</option>
+                        <option value="last_thursday">Last Thursday</option>
+                        <option value="last_friday">Last Friday</option>
+                        <option value="nth_weekday">Nth Weekday...</option>
+                    </select>
+                    <span style="font-size:12px;color:var(--text-muted)">offset</span>
+                    <input id="f-cal-offset" type="number" value="0" style="width:60px" onchange="updateCalPreview()">
+                    <span style="font-size:12px;color:var(--text-muted)">days</span>
+                </div>
+            </div>
+            <div id="cal-nth-fields" style="display:none">
+                <div class="form-group" style="display:flex;gap:8px;align-items:center">
+                    <select id="f-cal-nth" style="width:80px" onchange="updateCalPreview()">
+                        <option value="1">1st</option><option value="2">2nd</option>
+                        <option value="3">3rd</option><option value="4">4th</option>
+                    </select>
+                    <select id="f-cal-weekday" style="width:120px" onchange="updateCalPreview()">
+                        <option value="monday">Monday</option><option value="tuesday">Tuesday</option>
+                        <option value="wednesday">Wednesday</option><option value="thursday">Thursday</option>
+                        <option value="friday">Friday</option><option value="saturday">Saturday</option>
+                        <option value="sunday">Sunday</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="display:flex;gap:8px;align-items:center">
+                <label style="margin:0">At</label>
+                <input id="f-cal-hour" type="number" min="0" max="23" value="9" style="width:50px" onchange="updateCalPreview()">
+                <span>:</span>
+                <input id="f-cal-minute" type="number" min="0" max="59" value="0" style="width:50px" onchange="updateCalPreview()">
+                <span style="font-size:12px;color:var(--text-muted)">UTC</span>
+            </div>
+            <div class="form-group">
+                <label>Months</label>
+                <div style="display:flex;gap:4px;flex-wrap:wrap" id="cal-months">
+                    <button type="button" class="cron-dow" data-month="1" onclick="this.classList.toggle('active');updateCalPreview()">Jan</button>
+                    <button type="button" class="cron-dow" data-month="2" onclick="this.classList.toggle('active');updateCalPreview()">Feb</button>
+                    <button type="button" class="cron-dow" data-month="3" onclick="this.classList.toggle('active');updateCalPreview()">Mar</button>
+                    <button type="button" class="cron-dow" data-month="4" onclick="this.classList.toggle('active');updateCalPreview()">Apr</button>
+                    <button type="button" class="cron-dow" data-month="5" onclick="this.classList.toggle('active');updateCalPreview()">May</button>
+                    <button type="button" class="cron-dow" data-month="6" onclick="this.classList.toggle('active');updateCalPreview()">Jun</button>
+                    <button type="button" class="cron-dow" data-month="7" onclick="this.classList.toggle('active');updateCalPreview()">Jul</button>
+                    <button type="button" class="cron-dow" data-month="8" onclick="this.classList.toggle('active');updateCalPreview()">Aug</button>
+                    <button type="button" class="cron-dow" data-month="9" onclick="this.classList.toggle('active');updateCalPreview()">Sep</button>
+                    <button type="button" class="cron-dow" data-month="10" onclick="this.classList.toggle('active');updateCalPreview()">Oct</button>
+                    <button type="button" class="cron-dow" data-month="11" onclick="this.classList.toggle('active');updateCalPreview()">Nov</button>
+                    <button type="button" class="cron-dow" data-month="12" onclick="this.classList.toggle('active');updateCalPreview()">Dec</button>
+                </div>
+                <div class="form-hint">Select specific months or leave all unselected for every month.</div>
+            </div>
+            <div class="cron-preview">
+                <label>Preview</label>
+                <span id="cal-preview" class="cron-description"></span>
             </div>
         </div>
         <details class="schedule-window-details" style="margin-top:12px">

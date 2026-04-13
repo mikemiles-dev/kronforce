@@ -7,7 +7,7 @@ pub mod cron_parser;
 
 use std::collections::HashMap;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -152,6 +152,9 @@ impl Scheduler {
                         self.invalidate_cache();
                     }
                 }
+                ScheduleKind::Calendar(cal) => {
+                    self.check_calendar_job(job, cal, now).await;
+                }
                 ScheduleKind::OnDemand | ScheduleKind::Event(_) => {}
             }
         }
@@ -202,6 +205,77 @@ impl Scheduler {
             if let Some(next) = schedule.next_after(now) {
                 self.next_fire_times.insert(job.id, next);
             }
+        }
+    }
+
+    async fn check_calendar_job(&mut self, job: &Job, cal: &CalendarSchedule, now: DateTime<Utc>) {
+        // Only fire once per day — check if we already fired today
+        let today = now.date_naive();
+        if let Some(last) = self.last_fired.get(&job.id)
+            && last.date_naive() == today
+        {
+            return;
+        }
+
+        // Check month filter
+        if !cal.months.is_empty() && !cal.months.contains(&(now.month())) {
+            return;
+        }
+
+        // Check if now is past the fire time for today
+        let fire_time_today = today
+            .and_hms_opt(cal.hour, cal.minute, 0)
+            .map(|dt| dt.and_utc());
+        let Some(fire_at) = fire_time_today else {
+            return;
+        };
+        if now < fire_at {
+            return;
+        }
+
+        // Compute the anchor date for this month
+        let year = now.year();
+        let month = now.month();
+
+        let anchor_date: Option<NaiveDate> = if cal.anchor == "last_day" {
+            // Last day of current month
+            if month == 12 {
+                NaiveDate::from_ymd_opt(year + 1, 1, 1)
+            } else {
+                NaiveDate::from_ymd_opt(year, month + 1, 1)
+            }
+            .map(|d| d.pred_opt().unwrap_or(d))
+        } else if cal.anchor.starts_with("day_") {
+            // Specific day: day_1, day_15, etc.
+            let day: u32 = cal.anchor[4..].parse().unwrap_or(1);
+            NaiveDate::from_ymd_opt(year, month, day)
+        } else if cal.anchor == "nth_weekday" {
+            // Nth weekday of the month: e.g., 2nd Tuesday
+            let nth = cal.nth.unwrap_or(1);
+            let wd = parse_weekday(cal.weekday.as_deref().unwrap_or("monday"));
+            nth_weekday_of_month(year, month, wd, nth)
+        } else if cal.anchor.starts_with("first_") {
+            let wd = parse_weekday(&cal.anchor[6..]);
+            nth_weekday_of_month(year, month, wd, 1)
+        } else if cal.anchor.starts_with("last_") && cal.anchor != "last_day" {
+            let wd = parse_weekday(&cal.anchor[5..]);
+            last_weekday_of_month(year, month, wd)
+        } else {
+            None
+        };
+
+        let Some(anchor) = anchor_date else {
+            return;
+        };
+
+        // Apply offset
+        let target = anchor + chrono::Duration::days(cal.offset_days as i64);
+
+        // Check if today matches the target
+        if today == target {
+            self.last_fired.insert(job.id, now);
+            self.fire_job(job, TriggerSource::Scheduler, false, None)
+                .await;
         }
     }
 
@@ -508,4 +582,54 @@ impl Scheduler {
         }
         pattern == value
     }
+}
+
+pub fn parse_weekday(s: &str) -> chrono::Weekday {
+    match s.to_lowercase().as_str() {
+        "monday" | "mon" => chrono::Weekday::Mon,
+        "tuesday" | "tue" => chrono::Weekday::Tue,
+        "wednesday" | "wed" => chrono::Weekday::Wed,
+        "thursday" | "thu" => chrono::Weekday::Thu,
+        "friday" | "fri" => chrono::Weekday::Fri,
+        "saturday" | "sat" => chrono::Weekday::Sat,
+        "sunday" | "sun" => chrono::Weekday::Sun,
+        _ => chrono::Weekday::Mon,
+    }
+}
+
+pub fn nth_weekday_of_month(
+    year: i32,
+    month: u32,
+    weekday: chrono::Weekday,
+    nth: u32,
+) -> Option<chrono::NaiveDate> {
+    let first = chrono::NaiveDate::from_ymd_opt(year, month, 1)?;
+    let first_wd = first.weekday();
+    let days_ahead =
+        (weekday.num_days_from_monday() as i32 - first_wd.num_days_from_monday() as i32 + 7) % 7;
+    let target = first + chrono::Duration::days(days_ahead as i64 + (nth as i64 - 1) * 7);
+    if target.month() == month {
+        Some(target)
+    } else {
+        None
+    }
+}
+
+pub fn last_weekday_of_month(
+    year: i32,
+    month: u32,
+    weekday: chrono::Weekday,
+) -> Option<chrono::NaiveDate> {
+    // Start from the last day and walk backwards
+    let last_day = if month == 12 {
+        chrono::NaiveDate::from_ymd_opt(year + 1, 1, 1)
+    } else {
+        chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
+    }?
+    .pred_opt()?;
+    let mut d = last_day;
+    while d.weekday() != weekday {
+        d = d.pred_opt()?;
+    }
+    Some(d)
 }

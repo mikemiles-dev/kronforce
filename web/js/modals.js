@@ -123,6 +123,8 @@ async function copyJob(id) {
             setEventKindValue(job.schedule.value.kind_pattern || '*');
             document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
             setEventJobFilter(job.schedule.value.job_name_filter || '');
+        } else if (schedType === 'calendar' && job.schedule.value) {
+            populateCalendarFields(job.schedule.value);
         }
 
         // Populate target
@@ -209,6 +211,10 @@ async function openEditModal(id) {
             setEventKindValue(job.schedule.value.kind_pattern || '*');
             document.getElementById('f-event-severity').value = job.schedule.value.severity || '';
             setEventJobFilter(job.schedule.value.job_name_filter || '');
+        } else if (schedType === 'calendar' && job.schedule.value) {
+            populateCalendarFields(job.schedule.value);
+        } else if (schedType === 'calendar' && job.schedule.value) {
+            populateCalendarFields(job.schedule.value);
         }
 
         // Set target
@@ -797,6 +803,73 @@ function updateSchedFields() {
     document.getElementById('cron-field').style.display = type === 'cron' ? '' : 'none';
     document.getElementById('oneshot-field').style.display = type === 'one_shot' ? '' : 'none';
     document.getElementById('event-field').style.display = type === 'event' ? '' : 'none';
+    document.getElementById('calendar-field').style.display = type === 'calendar' ? '' : 'none';
+    if (type === 'calendar') updateCalPreview();
+}
+
+function updateCalPreview() {
+    const anchor = document.getElementById('f-cal-anchor').value;
+    document.getElementById('cal-nth-fields').style.display = anchor === 'nth_weekday' ? '' : 'none';
+    const offset = parseInt(document.getElementById('f-cal-offset').value) || 0;
+    const hour = String(parseInt(document.getElementById('f-cal-hour').value) || 0).padStart(2, '0');
+    const minute = String(parseInt(document.getElementById('f-cal-minute').value) || 0).padStart(2, '0');
+    const months = Array.from(document.querySelectorAll('#cal-months .cron-dow.active')).map(b => parseInt(b.dataset.month));
+    const monthNames = {1:'Jan',2:'Feb',3:'Mar',4:'Apr',5:'May',6:'Jun',7:'Jul',8:'Aug',9:'Sep',10:'Oct',11:'Nov',12:'Dec'};
+
+    let desc = '';
+    if (anchor === 'last_day') desc = 'Last day of month';
+    else if (anchor.startsWith('day_')) desc = 'Day ' + anchor.slice(4);
+    else if (anchor === 'nth_weekday') {
+        const nth = document.getElementById('f-cal-nth').value;
+        const wd = document.getElementById('f-cal-weekday').value;
+        const ordinal = {1:'1st',2:'2nd',3:'3rd',4:'4th'}[nth] || nth + 'th';
+        desc = ordinal + ' ' + wd.charAt(0).toUpperCase() + wd.slice(1);
+    } else {
+        desc = anchor.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+    if (offset > 0) desc += ' + ' + offset + ' days';
+    else if (offset < 0) desc += ' - ' + Math.abs(offset) + ' days';
+    desc += ' at ' + hour + ':' + minute + ' UTC';
+    if (months.length > 0 && months.length < 12) {
+        desc += ' in ' + months.map(m => monthNames[m]).join(', ');
+    }
+    document.getElementById('cal-preview').textContent = desc;
+}
+
+function buildCalendarSchedule() {
+    const anchor = document.getElementById('f-cal-anchor').value;
+    const cal = {
+        anchor: anchor,
+        offset_days: parseInt(document.getElementById('f-cal-offset').value) || 0,
+        hour: parseInt(document.getElementById('f-cal-hour').value) || 0,
+        minute: parseInt(document.getElementById('f-cal-minute').value) || 0,
+    };
+    if (anchor === 'nth_weekday') {
+        cal.nth = parseInt(document.getElementById('f-cal-nth').value) || 1;
+        cal.weekday = document.getElementById('f-cal-weekday').value;
+    }
+    const months = Array.from(document.querySelectorAll('#cal-months .cron-dow.active')).map(b => parseInt(b.dataset.month));
+    if (months.length > 0 && months.length < 12) cal.months = months;
+    else cal.months = [];
+    return cal;
+}
+
+function populateCalendarFields(cal) {
+    if (!cal) return;
+    document.getElementById('f-cal-anchor').value = cal.anchor || 'last_day';
+    document.getElementById('f-cal-offset').value = cal.offset_days || 0;
+    document.getElementById('f-cal-hour').value = cal.hour || 0;
+    document.getElementById('f-cal-minute').value = cal.minute || 0;
+    if (cal.nth) document.getElementById('f-cal-nth').value = cal.nth;
+    if (cal.weekday) document.getElementById('f-cal-weekday').value = cal.weekday;
+    document.querySelectorAll('#cal-months .cron-dow').forEach(b => b.classList.remove('active'));
+    if (cal.months) {
+        for (const m of cal.months) {
+            const btn = document.querySelector('#cal-months .cron-dow[data-month="' + m + '"]');
+            if (btn) btn.classList.add('active');
+        }
+    }
+    updateCalPreview();
 }
 
 let currentExecMode = 'standard';
@@ -1306,6 +1379,8 @@ async function submitJobForm() {
         const jobFilter = document.getElementById('f-event-job-filter').value.trim();
         if (jobFilter) config.job_name_filter = jobFilter;
         schedule = { type: 'event', value: config };
+    } else if (schedType === 'calendar') {
+        schedule = { type: 'calendar', value: buildCalendarSchedule() };
     } else {
         schedule = { type: 'on_demand' };
     }
