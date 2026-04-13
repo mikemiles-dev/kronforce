@@ -966,9 +966,20 @@ function updateHash() {
         newHash = '#/executions/' + currentExecId;
     } else {
         newHash = '#/' + currentPage;
+        // Persist filter state in the hash for jobs page
+        if (currentPage === 'jobs') {
+            if (typeof jobsTab !== 'undefined' && jobsTab !== 'list') {
+                newHash = '#/jobs/' + jobsTab;
+            }
+            var params = [];
+            if (typeof jobSearch !== 'undefined' && jobSearch.statusFilter) params.push('filter=' + encodeURIComponent(jobSearch.statusFilter));
+            if (typeof groupFilter !== 'undefined' && groupFilter) params.push('group=' + encodeURIComponent(groupFilter));
+            if (typeof jobSearch !== 'undefined' && jobSearch.searchTerm) params.push('search=' + encodeURIComponent(jobSearch.searchTerm));
+            if (params.length > 0) newHash += '?' + params.join('&');
+        }
     }
     if (location.hash !== newHash) {
-        history.pushState(null, '', newHash);
+        history.replaceState(null, '', newHash);
     }
 }
 
