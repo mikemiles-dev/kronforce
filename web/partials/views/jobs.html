@@ -54,6 +54,12 @@
             <button class="groups-tab" id="dt-map" onclick="setDetailTab('map')">Map</button>
         </div>
         <div id="detail-overview-panel">
+            <div id="job-live-output-card" style="display:none">
+                <div class="card" style="margin-bottom:12px;border-left:3px solid var(--accent)">
+                    <div class="card-header"><h3>&#9654; Live Output</h3></div>
+                    <pre class="output-pre" id="job-live-output" style="max-height:400px;overflow-y:auto;font-size:11px;margin:0 16px 12px"></pre>
+                </div>
+            </div>
             <div class="card" id="job-timeline-card">
                 <div class="card-header"><h3>Timeline (1 hour)</h3></div>
                 <div id="job-timeline"></div>

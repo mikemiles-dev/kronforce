@@ -456,8 +456,62 @@ async function showJobDetail(id) {
         fetchJobTimeline(id);
         fetchJobEvents(id);
         await fetchExecutions(id, true);
+
+        // Show live output if last execution is running
+        var liveCard = document.getElementById('job-live-output-card');
+        if (liveCard) {
+            if (job.last_execution && job.last_execution.status === 'running') {
+                liveCard.style.display = '';
+                startJobLiveStream(job.last_execution.id);
+            } else {
+                liveCard.style.display = 'none';
+                stopJobLiveStream();
+            }
+        }
     } catch (e) {
         toast(e.message, 'error');
+    }
+}
+
+var jobLiveEventSource = null;
+var jobLiveRetries = 0;
+
+function startJobLiveStream(execId) {
+    stopJobLiveStream();
+    var pre = document.getElementById('job-live-output');
+    if (!pre) return;
+    pre.textContent = '';
+
+    var streamUrl = '/api/executions/' + execId + '/stream';
+    var apiKey = localStorage.getItem('kronforce-api-key');
+    if (apiKey) streamUrl += '?token=' + encodeURIComponent(apiKey);
+    jobLiveEventSource = new EventSource(streamUrl);
+    var connected = false;
+    jobLiveEventSource.onopen = function() { connected = true; jobLiveRetries = 0; };
+    jobLiveEventSource.onmessage = function(event) {
+        connected = true;
+        pre.textContent += event.data + '\n';
+        pre.scrollTop = pre.scrollHeight;
+    };
+    jobLiveEventSource.addEventListener('done', function() {
+        stopJobLiveStream();
+        if (currentJobId) showJobDetail(currentJobId);
+    });
+    jobLiveEventSource.onerror = function() {
+        stopJobLiveStream();
+        if (!connected && jobLiveRetries < 5) {
+            jobLiveRetries++;
+            setTimeout(function() { startJobLiveStream(execId); }, 500 * jobLiveRetries);
+        } else if (connected && currentJobId) {
+            setTimeout(function() { showJobDetail(currentJobId); }, 500);
+        }
+    };
+}
+
+function stopJobLiveStream() {
+    if (jobLiveEventSource) {
+        jobLiveEventSource.close();
+        jobLiveEventSource = null;
     }
 }
 
@@ -489,6 +543,7 @@ async function fetchJobEvents(jobId) {
 }
 
 function showJobsList() {
+    stopJobLiveStream();
     currentJobId = null;
     document.getElementById('detail-view').style.display = 'none';
     showPage(detailReturnTo);
