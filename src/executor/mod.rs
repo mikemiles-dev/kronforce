@@ -8,10 +8,18 @@ mod dispatch;
 mod local;
 pub mod notifications;
 pub mod output_rules;
+mod post_execution;
+mod runner;
 pub mod scripts;
 pub(crate) mod tasks;
+mod utils;
 
-pub use local::run_task;
+pub(crate) use runner::run_command;
+pub use runner::{CapturedOutput, CommandResult, run_task};
+pub(crate) use utils::{
+    DEFAULT_SCRIPT_TIMEOUT_SECS, MAX_SCRIPT_OPERATIONS, MAX_SCRIPT_STRING_SIZE, bytes_to_hex,
+    calculate_retry_delay, hex_to_bytes, shell_escape, should_retry,
+};
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,12 +38,6 @@ use crate::db::models::*;
 use crate::error::AppError;
 use crate::executor::scripts::ScriptStore;
 use crate::scheduler::SchedulerCommand;
-
-pub use local::{CapturedOutput, CommandResult};
-pub(crate) use local::{
-    DEFAULT_SCRIPT_TIMEOUT_SECS, MAX_SCRIPT_OPERATIONS, MAX_SCRIPT_STRING_SIZE, bytes_to_hex,
-    calculate_retry_delay, hex_to_bytes, run_command, shell_escape, should_retry,
-};
 
 struct RunningJob {
     cancel_tx: oneshot::Sender<()>,
