@@ -202,6 +202,8 @@ function setGroupFilter(value) {
     if (pop) pop.style.display = 'none';
     // Re-render current tab
     setJobsTab(jobsTab);
+    // Update URL hash
+    if (typeof updateHash === 'function') updateHash();
 }
 
 // Close group picker when clicking outside
