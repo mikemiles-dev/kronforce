@@ -22,6 +22,7 @@ function setJobsTab(tab) {
     } else if (tab === 'map') {
         renderMap();
     }
+    if (typeof updateHash === 'function') updateHash();
 }
 
 function applyJobFilters(jobs) {
