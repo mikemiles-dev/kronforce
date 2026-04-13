@@ -96,7 +96,10 @@ pub async fn run_docker_build_task(
         cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
     }
 
-    cmd.push_str(&format!(" ; rm -rf {}", shell_escape(&tmp_path)));
+    cmd.push_str(&format!(
+        " ; RET=$?; rm -rf {}; exit $RET",
+        shell_escape(&tmp_path)
+    ));
 
     run_command(&cmd, run_as, timeout_secs, cancel_rx).await
 }

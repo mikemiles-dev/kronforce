@@ -619,7 +619,10 @@ pub async fn run_task_streaming(
                             if *run_after_build {
                                 cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
                             }
-                            cmd.push_str(&format!(" ; rm -rf {}", shell_escape(&tmp_path)));
+                            cmd.push_str(&format!(
+                                " ; RET=$?; rm -rf {}; exit $RET",
+                                shell_escape(&tmp_path)
+                            ));
                             Some(cmd)
                         } else {
                             None
