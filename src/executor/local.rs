@@ -603,10 +603,12 @@ pub async fn run_task_streaming(
                 if let Some(store) = script_store {
                     if let Ok(code) = store.read_code(script_name) {
                         let tag = image_tag.as_deref().unwrap_or(script_name);
-                        // Use heredoc to write multi-line Dockerfile content
+                        // Base64-encode Dockerfile to avoid shell quoting issues
+                        use base64::Engine;
+                        let b64 = base64::engine::general_purpose::STANDARD.encode(code.as_bytes());
                         let mut cmd = format!(
-                            "TMPDIR=$(mktemp -d) && cat > \"$TMPDIR/Dockerfile\" <<'KRONFORCE_EOF'\n{}\nKRONFORCE_EOF\ndocker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-                            code,
+                            "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+                            b64,
                             shell_escape(tag),
                             build_args.as_deref().unwrap_or("")
                         );

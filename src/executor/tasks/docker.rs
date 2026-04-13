@@ -53,10 +53,12 @@ pub async fn run_docker_build_task(
 
     let tag = image_tag.unwrap_or(script_name);
 
-    // Write Dockerfile to a temp location using heredoc and build
+    // Base64-encode Dockerfile to avoid shell quoting issues with multi-line content
+    use base64::Engine;
+    let b64 = base64::engine::general_purpose::STANDARD.encode(dockerfile_content.as_bytes());
     let mut cmd = format!(
-        "TMPDIR=$(mktemp -d) && cat > \"$TMPDIR/Dockerfile\" <<'KRONFORCE_EOF'\n{}\nKRONFORCE_EOF\ndocker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
-        dockerfile_content,
+        "TMPDIR=$(mktemp -d) && echo {} | base64 -d > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+        b64,
         shell_escape(tag),
         build_args.unwrap_or("")
     );
