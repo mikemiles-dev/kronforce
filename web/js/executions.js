@@ -372,7 +372,7 @@ function infoField(label, value, className) {
 
 let liveEventSource = null;
 
-function startLiveStream(execId) {
+function startLiveStream(execId, retry) {
     stopLiveStream();
     const pre = document.getElementById('live-output');
     if (!pre) return;
@@ -388,11 +388,16 @@ function startLiveStream(execId) {
     };
     liveEventSource.addEventListener('done', function() {
         stopLiveStream();
-        // Refresh to show final static output
         showExecDetail(execId);
     });
     liveEventSource.onerror = function() {
         stopLiveStream();
+        // Retry once after a short delay (stream may not be ready yet)
+        if (!retry) {
+            setTimeout(function() { startLiveStream(execId, true); }, 1000);
+        } else {
+            if (pre) pre.textContent += '\n[stream ended]\n';
+        }
     };
 }
 

@@ -63,11 +63,11 @@ impl super::Executor {
         let job_clone = job.clone();
         let live_output = self.live_output.clone();
 
-        tokio::spawn(async move {
-            // Set up live output broadcast channel
-            let (tx, _) = tokio::sync::broadcast::channel::<String>(1024);
-            live_output.insert(exec_id, tx.clone());
+        // Create broadcast channel BEFORE spawn so SSE can connect immediately
+        let (tx, _) = tokio::sync::broadcast::channel::<String>(1024);
+        self.live_output.insert(exec_id, tx.clone());
 
+        tokio::spawn(async move {
             let result = run_task_streaming(
                 &task,
                 run_as.as_deref(),
