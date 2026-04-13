@@ -447,6 +447,50 @@ curl -X POST http://localhost:8080/api/jobs \
 
 **Months:** Empty array = every month. `[1, 7]` = January and July only.
 
+**Business days:** `"skip_weekends": true` skips Saturday/Sunday. `"holidays": ["2026-12-25"]` skips specific dates.
+
+### Interval Schedule
+
+Run a job at a fixed delay after the last execution finishes:
+
+```bash
+# Run every 30 minutes after the previous run completes
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "polling-job", "task": {"type": "shell", "command": "./poll.sh"}, "schedule": {"type": "interval", "value": {"interval_secs": 1800}}}'
+```
+
+The scheduler checks if enough time has elapsed since the last execution's `finished_at`. Won't fire if the previous execution is still running.
+
+### Timezone
+
+Set `timezone` on a job (IANA format) for timezone-aware scheduling:
+
+```bash
+curl -X PUT http://localhost:8080/api/jobs/{id} \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"timezone": "America/New_York"}'
+```
+
+### Docker Build
+
+Build Docker images from stored Dockerfile scripts:
+
+```bash
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "build-app",
+    "task": {"type": "docker_build", "script_name": "my-dockerfile", "image_tag": "my-app:latest", "run_after_build": true},
+    "schedule": {"type": "on_demand"}
+  }'
+```
+
+Create Dockerfile scripts in the Scripts page (select type "Dockerfile"). The build writes the Dockerfile to a temp directory and runs `docker build`. Set `run_after_build: true` to also run the container.
+
 ### Schedule Window
 
 Constrain when a job's schedule is active with `starts_at` and `expires_at` (ISO 8601 datetimes). These work with any schedule type (cron, one-shot, on-demand, event, calendar):

@@ -2,7 +2,7 @@
         <div class="docs-layout">
             <nav class="docs-sidebar">
                 <button class="docs-topic active" onclick="scrollToDocTopic('doc-custom-agents')">Custom Agents</button>
-                <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting (Rhai)</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
@@ -135,8 +135,13 @@ KRONFORCE_AGENT_KEY=kf_your_key python3 examples/grpc_agent.py</code></pre>
                 </div>
 
                 <div class="docs-section" id="doc-scripting">
-                    <h2>Scripting (Rhai)</h2>
-                    <p>The <code>script</code> task type runs custom logic written in <a href="https://rhai.rs" style="color:var(--accent)">Rhai</a>, a lightweight scripting language embedded in the Rust binary. Scripts are stored as <code>.rhai</code> files in the scripts directory.</p>
+                    <h2>Scripting</h2>
+                    <p>Kronforce supports two script types:</p>
+                    <ul>
+                        <li><strong>Rhai Scripts</strong> (<code>.rhai</code>) — lightweight scripting language embedded in the Rust binary. Use the <code>script</code> task type.</li>
+                        <li><strong>Dockerfile Scripts</strong> (<code>.dockerfile</code>) — Docker image definitions. Use the <code>docker_build</code> task type to build images and optionally run containers.</li>
+                    </ul>
+                    <p>Both types are managed in the <strong>Scripts</strong> page with syntax highlighting and a reference panel. Select the script type when creating a new script.</p>
 
                     <h3>Managing Scripts</h3>
                     <p>Use the <strong>Scripts</strong> page in the dashboard (with syntax-highlighted editor), the API, or drop <code>.rhai</code> files in the scripts directory.</p>
@@ -642,6 +647,8 @@ python3 examples/mcp_test_server.py</code></pre>
                         <tr><td>Cron</td><td><code>{"type": "cron", "value": "0 * * * * *"}</code></td><td>Recurring schedule</td></tr>
                         <tr><td>On-demand</td><td><code>{"type": "on_demand"}</code></td><td>Triggered manually only</td></tr>
                         <tr><td>Event</td><td><code>{"type": "event", "value": {...}}</code></td><td>Fires on system events</td></tr>
+                        <tr><td>Calendar</td><td><code>{"type": "calendar", "value": {"anchor": "last_day", ...}}</code></td><td>Business-day expressions (last day, nth weekday, skip weekends/holidays)</td></tr>
+                        <tr><td>Interval</td><td><code>{"type": "interval", "value": {"interval_secs": 1800}}</code></td><td>Fixed delay from last execution completion</td></tr>
                     </table>
 
                     <h3>Event Triggers</h3>

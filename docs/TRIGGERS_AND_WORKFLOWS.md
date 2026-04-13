@@ -14,6 +14,8 @@ Kronforce has a powerful event-driven system that lets you chain jobs together, 
 | **Dependency chain** | `depends_on: [{ job_id: "...", within_secs: 3600 }]` | ETL pipelines — only run if parent succeeded recently |
 | **Output pattern match** | Output triggers on a parent job emit `output.matched` events | React to specific content in job output |
 | **Webhook** | `POST /api/webhooks/{token}` (no auth) | External integrations — GitHub, CI/CD, Stripe, PagerDuty |
+| **Calendar** | `schedule: { type: "calendar", value: { anchor: "last_day", ... } }` | Business-day scheduling — last day of month, 2nd Tuesday, skip weekends/holidays |
+| **Interval** | `schedule: { type: "interval", value: { interval_secs: 1800 } }` | Fixed delay from last completion — variable-duration jobs that shouldn't overlap |
 
 ## Parameterized Runs
 

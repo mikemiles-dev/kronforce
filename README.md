@@ -46,7 +46,8 @@ That's it. You have a running scheduler with a web dashboard.
 ### Scheduling & Execution
 
 - **17 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, Docker Build, MCP (AI tools), file push, Kafka (pub + consume), RabbitMQ (pub + consume), MQTT (pub + subscribe), Redis (pub + read), and custom agent-defined types
-- **Flexible scheduling** — cron (second precision with visual builder), calendar expressions (last day of month, nth weekday, offsets), one-shot, on-demand, and event-driven
+- **Flexible scheduling** — cron (second precision), calendar expressions (last day, nth weekday, skip weekends/holidays), interval (fixed delay from last completion), one-shot, on-demand, event-driven
+- **Timezone support** — optional IANA timezone per job (e.g. "America/New_York") for timezone-aware scheduling with DST handling
 - **Priority scheduling** — higher priority jobs fire first when multiple are due
 - **Job templates** — save any job as a reusable template, create new jobs from the template library
 - **Execution retry** — automatic retry on failure/timeout with configurable backoff

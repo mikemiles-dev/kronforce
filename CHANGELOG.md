@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Params validated as object** — trigger endpoint rejects non-object params with 400
 - **Stale params in trigger modal** — frontend now fetches fresh job data before showing the parameter form
 - **Streaming select loop hang** — fixed infinite loop when shell commands exit quickly (e.g. command not found)
+- **cargo-deny** — license and advisory checks in CI with `deny.toml` config. Replaced unmaintained `rustls-pemfile` with `rustls-pki-types`.
+- **Dependabot** — weekly automated dependency updates for Cargo and GitHub Actions
 - **OIDC/SSO Authentication** — optional OpenID Connect login alongside existing API keys. Supports Okta, Azure AD, Google, Keycloak, and any standard OIDC provider. Configurable role mapping from IdP claims to Kronforce roles (admin/operator/viewer). Server-side sessions stored in SQLite with automatic cleanup.
 - **Native TLS** — set `KRONFORCE_TLS_CERT` and `KRONFORCE_TLS_KEY` to serve HTTPS on both controller and agent; agent client auto-detects HTTPS when agents use port 443
 - **Webhook notifications** — Slack, Microsoft Teams, PagerDuty, and generic webhook support alongside existing email and SMS channels
