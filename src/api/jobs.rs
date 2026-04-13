@@ -833,6 +833,7 @@ impl JobResponse {
                     None
                 }
             }
+            ScheduleKind::Calendar(cal) => compute_next_calendar_fire(cal, now),
             ScheduleKind::OnDemand | ScheduleKind::Event(_) => None,
         };
 
@@ -1187,4 +1188,59 @@ pub(crate) async fn delete_webhook(
     }
     db_call(&state.db, move |db| db.set_webhook_token(id, None)).await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+/// Compute the next fire date for a calendar schedule by scanning forward up to 13 months.
+fn compute_next_calendar_fire(
+    cal: &CalendarSchedule,
+    now: chrono::DateTime<Utc>,
+) -> Option<chrono::DateTime<Utc>> {
+    use chrono::{Datelike, NaiveDate, TimeZone};
+
+    for month_offset in 0..=13i32 {
+        let total_months = now.year() * 12 + now.month() as i32 - 1 + month_offset;
+        let year = total_months / 12;
+        let month = (total_months % 12 + 1) as u32;
+
+        if !cal.months.is_empty() && !cal.months.contains(&month) {
+            continue;
+        }
+
+        let anchor = if cal.anchor == "last_day" {
+            if month == 12 {
+                NaiveDate::from_ymd_opt(year + 1, 1, 1)
+            } else {
+                NaiveDate::from_ymd_opt(year, month + 1, 1)
+            }
+            .and_then(|d| d.pred_opt())
+        } else if cal.anchor.starts_with("day_") {
+            let day: u32 = cal.anchor[4..].parse().unwrap_or(1);
+            NaiveDate::from_ymd_opt(year, month, day)
+        } else if cal.anchor == "nth_weekday" {
+            let nth = cal.nth.unwrap_or(1);
+            let wd = crate::scheduler::parse_weekday(cal.weekday.as_deref().unwrap_or("monday"));
+            crate::scheduler::nth_weekday_of_month(year, month, wd, nth)
+        } else if cal.anchor.starts_with("first_") {
+            let wd = crate::scheduler::parse_weekday(&cal.anchor[6..]);
+            crate::scheduler::nth_weekday_of_month(year, month, wd, 1)
+        } else if cal.anchor.starts_with("last_") && cal.anchor != "last_day" {
+            let wd = crate::scheduler::parse_weekday(&cal.anchor[5..]);
+            crate::scheduler::last_weekday_of_month(year, month, wd)
+        } else {
+            None
+        };
+
+        let Some(anchor_date) = anchor else {
+            continue;
+        };
+
+        let target = anchor_date + chrono::Duration::days(cal.offset_days as i64);
+        let fire_dt = target.and_hms_opt(cal.hour, cal.minute, 0)?;
+        let fire_utc = Utc.from_utc_datetime(&fire_dt);
+
+        if fire_utc > now {
+            return Some(fire_utc);
+        }
+    }
+    None
 }

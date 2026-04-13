@@ -23,6 +23,33 @@ pub enum ScheduleKind {
     OnDemand,
     /// Fires in response to matching system events.
     Event(EventTriggerConfig),
+    /// Calendar-based schedule with business-day expressions.
+    Calendar(CalendarSchedule),
+}
+
+/// Calendar-based schedule supporting "last day of month", "first Monday", etc.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalendarSchedule {
+    /// Anchor point: "last_day", "day_N" (e.g. "day_15"), "first_monday"..."last_friday", "nth_weekday"
+    pub anchor: String,
+    /// Offset in days from the anchor (negative = before, positive = after)
+    #[serde(default)]
+    pub offset_days: i32,
+    /// For "nth_weekday": which occurrence (1=first, 2=second, etc.)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nth: Option<u32>,
+    /// For weekday-based anchors: "monday"..."sunday"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub weekday: Option<String>,
+    /// Hour to fire (0-23, UTC)
+    #[serde(default)]
+    pub hour: u32,
+    /// Minute to fire (0-59)
+    #[serde(default)]
+    pub minute: u32,
+    /// Months to fire in (1-12). Empty = every month.
+    #[serde(default)]
+    pub months: Vec<u32>,
 }
 
 /// Configuration for event-driven job triggers, with kind/severity/job-name filters.

@@ -405,6 +405,17 @@ function fmtSchedule(s) {
         if (s.value.job_name_filter) desc += ' [' + s.value.job_name_filter + ']';
         return desc;
     }
+    if (s.type === 'calendar' && s.value) {
+        let desc = s.value.anchor.replace(/_/g, ' ');
+        if (s.value.anchor === 'nth_weekday' && s.value.weekday) {
+            const ordinal = {1:'1st',2:'2nd',3:'3rd',4:'4th'}[s.value.nth] || s.value.nth + 'th';
+            desc = ordinal + ' ' + s.value.weekday;
+        }
+        if (s.value.offset_days > 0) desc += ' +' + s.value.offset_days + 'd';
+        else if (s.value.offset_days < 0) desc += ' ' + s.value.offset_days + 'd';
+        desc += ' @ ' + String(s.value.hour || 0).padStart(2, '0') + ':' + String(s.value.minute || 0).padStart(2, '0');
+        return desc;
+    }
     return 'on-demand';
 }
 

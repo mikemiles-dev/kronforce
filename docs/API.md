@@ -417,9 +417,39 @@ curl -X PUT http://localhost:8080/api/jobs/{id} \
 
 When the job is still running at 05:45 UTC, a `sla.warning` event fires. At 06:00 UTC, a `sla.breach` event fires. Both trigger configured notifications (Slack, email, PagerDuty).
 
+### Calendar Schedule
+
+Schedule jobs using business-day expressions instead of cron:
+
+```bash
+# Run 2 days before end of month at 9am
+curl -X POST http://localhost:8080/api/jobs \
+  -H "Authorization: Bearer kf_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "month-end-report",
+    "task": {"type": "shell", "command": "./generate-report.sh"},
+    "schedule": {"type": "calendar", "value": {"anchor": "last_day", "offset_days": -2, "hour": 9, "minute": 0}}
+  }'
+
+# Run on the 2nd Tuesday of every quarter (Jan, Apr, Jul, Oct)
+curl -X POST http://localhost:8080/api/jobs \
+  -d '{
+    "name": "quarterly-review",
+    "task": {"type": "shell", "command": "./quarterly.sh"},
+    "schedule": {"type": "calendar", "value": {"anchor": "nth_weekday", "nth": 2, "weekday": "tuesday", "hour": 10, "minute": 0, "months": [1, 4, 7, 10]}}
+  }'
+```
+
+**Anchor options:** `last_day`, `day_N` (e.g. `day_15`), `first_monday`...`first_friday`, `last_monday`...`last_friday`, `nth_weekday` (with `nth` and `weekday` fields).
+
+**Offset:** `offset_days` shifts from the anchor (negative = before, positive = after). "Last day - 2" = `{"anchor": "last_day", "offset_days": -2}`.
+
+**Months:** Empty array = every month. `[1, 7]` = January and July only.
+
 ### Schedule Window
 
-Constrain when a job's schedule is active with `starts_at` and `expires_at` (ISO 8601 datetimes). These work with any schedule type (cron, one-shot, on-demand, event):
+Constrain when a job's schedule is active with `starts_at` and `expires_at` (ISO 8601 datetimes). These work with any schedule type (cron, one-shot, on-demand, event, calendar):
 
 ```bash
 # Run every hour, but only for the next 3 weeks
