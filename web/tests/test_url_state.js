@@ -65,5 +65,34 @@ var parsed3 = parseHashParams(hash3);
 assertEqual(parsed3.filter, undefined, 'no filter set');
 assertEqual(parsed3.group, 'Deploys', 'group persists without filter');
 
+// --- Refresh persistence simulation ---
+// Simulate: set group → build hash → parse on refresh → group is restored
+function simulateRefreshCycle(filter, group, search) {
+    // Build hash (what updateHash does)
+    var hash = '#/jobs' + buildHashParams(filter, group, search);
+    // Parse (what handleRoute does on load)
+    var restored = parseHashParams(hash);
+    return restored;
+}
+
+var r1 = simulateRefreshCycle('', 'ETL', '');
+assertEqual(r1.group, 'ETL', 'refresh preserves group');
+assertEqual(r1.filter, undefined, 'refresh: no filter when only group set');
+
+var r2 = simulateRefreshCycle('failed', 'Monitoring', 'health');
+assertEqual(r2.filter, 'failed', 'refresh preserves filter');
+assertEqual(r2.group, 'Monitoring', 'refresh preserves group with filter');
+assertEqual(r2.search, 'health', 'refresh preserves search');
+
+var r3 = simulateRefreshCycle('running', '', '');
+assertEqual(r3.filter, 'running', 'refresh preserves running filter');
+assertEqual(r3.group, undefined, 'refresh: no group when only filter set');
+
+// Tab + group
+var hash4 = '#/jobs/stages' + buildHashParams('', 'Deploys', '');
+var r4 = parseHashParams(hash4);
+assertEqual(r4.group, 'Deploys', 'refresh preserves group on stages tab');
+assertEqual(hash4.startsWith('#/jobs/stages'), true, 'tab preserved in hash');
+
 console.log('\n' + (passed + failed) + ' tests, ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);

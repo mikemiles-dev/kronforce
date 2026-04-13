@@ -1000,16 +1000,12 @@ function handleRoute() {
     const params = parseHashParams(hash);
     const parts = cleanHash.replace('#/', '').split('/');
 
-    // Apply shared filter state from URL params
+    // Apply shared filter state from URL params (set variables only, don't trigger renders)
     if (parts[0] === 'jobs') {
         if (params.filter) jobSearch.statusFilter = params.filter;
-        if (params.group) {
-            if (typeof setGroupFilter === 'function') setGroupFilter(params.group);
-            else groupFilter = params.group;
-        }
+        if (params.group) groupFilter = params.group;
         if (params.search) {
-            var si = document.getElementById('search-input');
-            if (si) si.value = params.search;
+            // Will be applied after DOM renders via setTimeout below
         }
     }
     if (parts[0] === 'executions' && typeof execSearch !== 'undefined') {
@@ -1067,6 +1063,32 @@ function handleRoute() {
     } else {
         showPage('jobs');
     }
+
+    // Sync UI elements after page renders
+    setTimeout(function() {
+        if (params.group && parts[0] === 'jobs') {
+            var label = document.getElementById('group-picker-label');
+            if (label) label.textContent = params.group;
+            var btn = document.getElementById('group-picker-btn');
+            if (btn) btn.classList.toggle('group-picker-active', true);
+        }
+        if (params.search && parts[0] === 'jobs') {
+            var si = document.getElementById('search-input');
+            if (si) si.value = params.search;
+        }
+        if (params.search && parts[0] === 'executions') {
+            var esi = document.getElementById('exec-search-input');
+            if (esi) esi.value = params.search;
+        }
+        if (params.search && parts[0] === 'events') {
+            var evi = document.getElementById('event-search-input');
+            if (evi) evi.value = params.search;
+        }
+        if (params.search && parts[0] === 'agents') {
+            var asi = document.getElementById('agent-search-input');
+            if (asi) asi.value = params.search;
+        }
+    }, 100);
 }
 
 // Patch showPage and showJobDetail to update the hash
