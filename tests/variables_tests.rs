@@ -136,6 +136,7 @@ fn test_variable_get_all_map() {
 fn test_substitute_single_variable() {
     let task = TaskType::Shell {
         command: "curl {{API_HOST}}/status".to_string(),
+        working_dir: None,
     };
     let mut vars = HashMap::new();
     vars.insert(
@@ -144,7 +145,7 @@ fn test_substitute_single_variable() {
     );
 
     let result = substitute_variables(&task, &vars, None).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "curl https://api.example.com/status");
     } else {
         panic!("expected Shell task type");
@@ -155,13 +156,14 @@ fn test_substitute_single_variable() {
 fn test_substitute_multiple_variables() {
     let task = TaskType::Shell {
         command: "curl {{HOST}}:{{PORT}}/api".to_string(),
+        working_dir: None,
     };
     let mut vars = HashMap::new();
     vars.insert("HOST".to_string(), "localhost".to_string());
     vars.insert("PORT".to_string(), "8080".to_string());
 
     let result = substitute_variables(&task, &vars, None).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "curl localhost:8080/api");
     } else {
         panic!("expected Shell task type");
@@ -172,6 +174,7 @@ fn test_substitute_multiple_variables() {
 fn test_substitute_missing_variable_left_as_is() {
     let task = TaskType::Shell {
         command: "echo {{MISSING}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
 
@@ -183,6 +186,7 @@ fn test_substitute_missing_variable_left_as_is() {
 fn test_substitute_no_placeholders() {
     let task = TaskType::Shell {
         command: "echo hello".to_string(),
+        working_dir: None,
     };
     let mut vars = HashMap::new();
     vars.insert("UNUSED".to_string(), "value".to_string());
@@ -195,12 +199,13 @@ fn test_substitute_no_placeholders() {
 fn test_substitute_special_json_characters() {
     let task = TaskType::Shell {
         command: "echo {{MSG}}".to_string(),
+        working_dir: None,
     };
     let mut vars = HashMap::new();
     vars.insert("MSG".to_string(), "he said \"hello\"".to_string());
 
     let result = substitute_variables(&task, &vars, None).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "echo he said \"hello\"");
     } else {
         panic!("expected Shell task type");
@@ -211,6 +216,7 @@ fn test_substitute_special_json_characters() {
 fn test_substitute_empty_vars_map() {
     let task = TaskType::Shell {
         command: "echo {{VAR}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     assert!(substitute_variables(&task, &vars, None).is_none());
@@ -245,11 +251,12 @@ fn test_substitute_http_task() {
 fn test_substitute_params_basic() {
     let task = TaskType::Shell {
         command: "deploy {{params.version}} to {{params.env}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     let params = serde_json::json!({"version": "1.2.3", "env": "production"});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "deploy 1.2.3 to production");
     } else {
         panic!("expected Shell task type");
@@ -260,6 +267,7 @@ fn test_substitute_params_basic() {
 fn test_substitute_params_and_vars_combined() {
     let task = TaskType::Shell {
         command: "curl {{BASE_URL}}/deploy?v={{params.version}}".to_string(),
+        working_dir: None,
     };
     let mut vars = HashMap::new();
     vars.insert(
@@ -268,7 +276,7 @@ fn test_substitute_params_and_vars_combined() {
     );
     let params = serde_json::json!({"version": "2.0"});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "curl https://api.example.com/deploy?v=2.0");
     } else {
         panic!("expected Shell task type");
@@ -279,6 +287,7 @@ fn test_substitute_params_and_vars_combined() {
 fn test_substitute_params_missing_left_as_is() {
     let task = TaskType::Shell {
         command: "echo {{params.missing}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     let params = serde_json::json!({"other": "value"});
@@ -291,6 +300,7 @@ fn test_substitute_params_missing_left_as_is() {
 fn test_substitute_params_none_ignores_param_placeholders() {
     let task = TaskType::Shell {
         command: "echo {{params.version}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     let result = substitute_variables(&task, &vars, None);
@@ -301,11 +311,12 @@ fn test_substitute_params_none_ignores_param_placeholders() {
 fn test_substitute_params_numeric_value() {
     let task = TaskType::Shell {
         command: "echo {{params.count}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     let params = serde_json::json!({"count": 42});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "echo 42");
     } else {
         panic!("expected Shell task type");
@@ -317,12 +328,13 @@ fn test_substitute_params_special_chars_escaped() {
     // Ensure JSON-special characters in param values don't break the JSON structure
     let task = TaskType::Shell {
         command: "echo {{params.msg}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     // Value with quotes — must be escaped properly to produce valid JSON
     let params = serde_json::json!({"msg": "it's a \"test\""});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert!(command.contains("it's a"));
         assert!(command.contains("test"));
     } else {
@@ -334,11 +346,12 @@ fn test_substitute_params_special_chars_escaped() {
 fn test_substitute_params_boolean_value() {
     let task = TaskType::Shell {
         command: "echo {{params.flag}}".to_string(),
+        working_dir: None,
     };
     let vars = HashMap::new();
     let params = serde_json::json!({"flag": true});
     let result = substitute_variables(&task, &vars, Some(&params)).unwrap();
-    if let TaskType::Shell { command } = result {
+    if let TaskType::Shell { command, .. } = result {
         assert_eq!(command, "echo true");
     } else {
         panic!("expected Shell task type");

@@ -311,8 +311,15 @@ pub async fn run_task(
     cancel_rx: oneshot::Receiver<()>,
 ) -> CommandResult {
     match task {
-        TaskType::Shell { command } => {
-            tasks::run_shell_task(command, run_as, timeout_secs, cancel_rx).await
+        TaskType::Shell {
+            command,
+            working_dir,
+        } => {
+            let cmd = match working_dir {
+                Some(dir) => format!("cd {} && {}", shell_escape(dir), command),
+                None => command.clone(),
+            };
+            tasks::run_shell_task(&cmd, run_as, timeout_secs, cancel_rx).await
         }
         TaskType::Sql {
             driver,
@@ -592,7 +599,13 @@ pub async fn run_task_streaming(
     if let Some(tx) = live_tx {
         // For shell-based tasks, stream output line-by-line
         let shell_cmd = match task {
-            TaskType::Shell { command } => Some(command.clone()),
+            TaskType::Shell {
+                command,
+                working_dir,
+            } => Some(match working_dir {
+                Some(dir) => format!("cd {} && {}", shell_escape(dir), command),
+                None => command.clone(),
+            }),
             TaskType::DockerBuild {
                 script_name,
                 image_tag,

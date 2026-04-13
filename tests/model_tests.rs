@@ -6,11 +6,12 @@ use kronforce::db::models::*;
 fn test_shell_task_serde() {
     let task = TaskType::Shell {
         command: "echo hello".to_string(),
+        working_dir: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"shell\""));
     let back: TaskType = serde_json::from_str(&json).unwrap();
-    if let TaskType::Shell { command } = back {
+    if let TaskType::Shell { command, .. } = back {
         assert_eq!(command, "echo hello");
     } else {
         panic!("wrong variant");

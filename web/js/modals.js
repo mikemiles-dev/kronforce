@@ -26,6 +26,7 @@ function openCreateModal() {
     document.getElementById('modal-title').textContent = 'Create Job';
     document.getElementById('f-name').value = '';
     document.getElementById('f-command').value = '';
+    document.getElementById('f-working-dir').value = '';
     document.getElementById('f-run-as').value = '';
     populateTaskForm(null);
     parseCronToUI('');
@@ -320,7 +321,10 @@ function buildTaskFromForm() {
     if (type === 'shell') {
         const command = document.getElementById('f-command').value.trim();
         if (!command) return null;
-        return { type: 'shell', command };
+        const task = { type: 'shell', command };
+        const wd = document.getElementById('f-working-dir').value.trim();
+        if (wd) task.working_dir = wd;
+        return task;
     }
     if (type === 'http') {
         const url = document.getElementById('f-http-url').value.trim();
@@ -525,6 +529,7 @@ function populateTaskForm(task) {
     updateTaskFields();
     if (type === 'shell') {
         document.getElementById('f-command').value = task.command || '';
+        document.getElementById('f-working-dir').value = task.working_dir || '';
     } else if (type === 'http') {
         document.getElementById('f-http-method').value = task.method || 'get';
         document.getElementById('f-http-url').value = task.url || '';

@@ -16,6 +16,7 @@ fn make_job(name: &str) -> Job {
         description: Some("test job".to_string()),
         task: TaskType::Shell {
             command: "echo hello".to_string(),
+            working_dir: None,
         },
         run_as: None,
         schedule: ScheduleKind::OnDemand,
@@ -528,6 +529,7 @@ fn test_enqueue_and_dequeue() {
         job_id,
         &TaskType::Shell {
             command: "echo test".to_string(),
+            working_dir: None,
         },
         None,
         None,
@@ -560,6 +562,7 @@ fn test_queue_depth() {
             Uuid::new_v4(),
             &TaskType::Shell {
                 command: "echo".to_string(),
+                working_dir: None,
             },
             None,
             None,

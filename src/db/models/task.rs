@@ -34,7 +34,11 @@ pub struct TaskTypeDefinition {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TaskType {
     /// Execute a shell command on the target host.
-    Shell { command: String },
+    Shell {
+        command: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        working_dir: Option<String>,
+    },
     /// Run a SQL query against a database.
     Sql {
         driver: SqlDriver,

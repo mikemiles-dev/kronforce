@@ -17,6 +17,7 @@ fn make_job(name: &str) -> Job {
         description: None,
         task: TaskType::Shell {
             command: "echo test".to_string(),
+            working_dir: None,
         },
         run_as: None,
         schedule: ScheduleKind::OnDemand,

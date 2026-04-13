@@ -16,6 +16,7 @@ fn make_job(name: &str, status: JobStatus) -> Job {
         description: Some(format!("{} description", name)),
         task: TaskType::Shell {
             command: format!("echo {}", name),
+            working_dir: None,
         },
         run_as: None,
         schedule: ScheduleKind::OnDemand,

@@ -86,11 +86,12 @@ fn test_with_agent_id() {
 fn test_with_task_snapshot() {
     let task = TaskType::Shell {
         command: "echo hello".to_string(),
+        working_dir: None,
     };
     let rec = ExecutionRecord::new(Uuid::new_v4(), Uuid::new_v4(), TriggerSource::Api)
         .with_task_snapshot(task);
     assert!(rec.task_snapshot.is_some());
-    if let Some(TaskType::Shell { command }) = &rec.task_snapshot {
+    if let Some(TaskType::Shell { command, .. }) = &rec.task_snapshot {
         assert_eq!(command, "echo hello");
     } else {
         panic!("expected Shell task snapshot");
