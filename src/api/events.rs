@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{AppState, PaginatedResponse};
+use super::{AppState, PaginatedResponse, paginate, paginated_response};
 use crate::db::db_call;
 use crate::db::models::Event;
 use crate::error::AppError;
@@ -44,9 +44,7 @@ pub(crate) async fn list_events(
     State(state): State<AppState>,
     Query(query): Query<ListEventsQuery>,
 ) -> Result<Json<PaginatedResponse<Vec<Event>>>, AppError> {
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(50).min(100);
-    let offset = (page - 1) * per_page;
+    let (page, per_page, offset) = paginate(query.page, query.per_page.or(Some(50)));
     let since = query.since.clone();
 
     let t2 = since.clone();
@@ -57,19 +55,7 @@ pub(crate) async fn list_events(
     })
     .await?;
 
-    let total_pages = if total == 0 {
-        1
-    } else {
-        total.div_ceil(per_page)
-    };
-
-    Ok(Json(PaginatedResponse {
-        data: events,
-        total,
-        page,
-        per_page,
-        total_pages,
-    }))
+    Ok(Json(paginated_response(events, total, page, per_page)))
 }
 
 fn to_timeline_buckets(data: Vec<(String, u32, u32, u32)>) -> Vec<TimelineBucket> {

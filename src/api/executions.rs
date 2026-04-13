@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use super::{AppState, PaginatedResponse};
+use super::{AppState, PaginatedResponse, paginate, paginated_response};
 use crate::db::db_call;
 use crate::db::models::*;
 use crate::error::AppError;
@@ -33,9 +33,7 @@ pub(crate) async fn list_executions(
     Path(job_id): Path<Uuid>,
     Query(query): Query<ListExecsQuery>,
 ) -> Result<Json<PaginatedResponse<Vec<ExecutionRecord>>>, AppError> {
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(query.limit.unwrap_or(20)).min(100);
-    let offset = (page - 1) * per_page;
+    let (page, per_page, offset) = paginate(query.page, query.per_page.or(query.limit));
 
     let total = db_call(&state.db, move |db| db.count_executions_for_job(job_id)).await?;
 
@@ -44,19 +42,7 @@ pub(crate) async fn list_executions(
     })
     .await?;
 
-    let total_pages = if total == 0 {
-        1
-    } else {
-        total.div_ceil(per_page)
-    };
-
-    Ok(Json(PaginatedResponse {
-        data: recs,
-        total,
-        page,
-        per_page,
-        total_pages,
-    }))
+    Ok(Json(paginated_response(recs, total, page, per_page)))
 }
 
 /// Returns a paginated list of all executions with optional status, search, and time filters.
@@ -64,9 +50,7 @@ pub(crate) async fn list_all_executions(
     State(state): State<AppState>,
     Query(query): Query<ListAllExecsQuery>,
 ) -> Result<Json<PaginatedResponse<Vec<ExecutionRecord>>>, AppError> {
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(20).min(100);
-    let offset = (page - 1) * per_page;
+    let (page, per_page, offset) = paginate(query.page, query.per_page);
     let status = query.status.clone();
     let search = query.search.clone();
     let since = query.since.clone();
@@ -90,19 +74,7 @@ pub(crate) async fn list_all_executions(
     })
     .await?;
 
-    let total_pages = if total == 0 {
-        1
-    } else {
-        total.div_ceil(per_page)
-    };
-
-    Ok(Json(PaginatedResponse {
-        data: recs,
-        total,
-        page,
-        per_page,
-        total_pages,
-    }))
+    Ok(Json(paginated_response(recs, total, page, per_page)))
 }
 
 /// Returns a single execution by ID.

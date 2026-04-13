@@ -2,7 +2,7 @@ use axum::Json;
 use axum::extract::{Query, Request, State};
 use serde::Deserialize;
 
-use super::{AppState, PaginatedResponse};
+use super::{AppState, PaginatedResponse, paginate, paginated_response};
 use crate::db::audit::AuditEntry;
 use crate::db::db_call;
 use crate::error::AppError;
@@ -25,9 +25,7 @@ pub(crate) async fn list_audit_log(
 ) -> Result<Json<PaginatedResponse<Vec<AuditEntry>>>, AppError> {
     require_admin(&req)?;
 
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(50).min(100);
-    let offset = (page - 1) * per_page;
+    let (page, per_page, offset) = paginate(query.page, query.per_page.or(Some(50)));
 
     let op = query.operation.clone();
     let actor = query.actor.clone();
@@ -53,17 +51,5 @@ pub(crate) async fn list_audit_log(
     })
     .await?;
 
-    let total_pages = if total == 0 {
-        1
-    } else {
-        total.div_ceil(per_page)
-    };
-
-    Ok(Json(PaginatedResponse {
-        data: entries,
-        total,
-        page,
-        per_page,
-        total_pages,
-    }))
+    Ok(Json(paginated_response(entries, total, page, per_page)))
 }

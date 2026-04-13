@@ -67,6 +67,35 @@ pub(crate) struct PaginatedResponse<T: serde::Serialize> {
     pub(crate) total_pages: u32,
 }
 
+/// Parse page/per_page from query params with defaults and clamping.
+pub(crate) fn paginate(page: Option<u32>, per_page: Option<u32>) -> (u32, u32, u32) {
+    let page = page.unwrap_or(1).max(1);
+    let per_page = per_page.unwrap_or(20).min(100);
+    let offset = (page - 1) * per_page;
+    (page, per_page, offset)
+}
+
+/// Build a PaginatedResponse from data, total count, page, and per_page.
+pub(crate) fn paginated_response<T: serde::Serialize>(
+    data: T,
+    total: u32,
+    page: u32,
+    per_page: u32,
+) -> PaginatedResponse<T> {
+    let total_pages = if total == 0 {
+        1
+    } else {
+        (total + per_page - 1) / per_page
+    };
+    PaginatedResponse {
+        data,
+        total,
+        page,
+        per_page,
+        total_pages,
+    }
+}
+
 #[derive(Serialize)]
 struct HealthResponse {
     status: String,

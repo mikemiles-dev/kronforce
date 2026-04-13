@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::auth::AuthUser;
-use super::{AppState, PaginatedResponse, log_and_notify};
+use super::{AppState, PaginatedResponse, log_and_notify, paginate, paginated_response};
 use crate::db::models::*;
 use crate::db::{Db, db_call};
 use crate::error::AppError;
@@ -132,9 +132,7 @@ pub(crate) async fn list_jobs(
     State(state): State<AppState>,
     Query(query): Query<ListJobsQuery>,
 ) -> Result<Json<PaginatedResponse<Vec<JobResponse>>>, AppError> {
-    let page = query.page.unwrap_or(1).max(1);
-    let per_page = query.per_page.unwrap_or(20).min(100);
-    let offset = (page - 1) * per_page;
+    let (page, per_page, offset) = paginate(query.page, query.per_page);
     let filter_owned = query.status.clone();
     let search_owned = query.search.clone();
     let group_owned = query.group.clone();
@@ -166,19 +164,7 @@ pub(crate) async fn list_jobs(
     })
     .await?;
 
-    let total_pages = if total == 0 {
-        1
-    } else {
-        total.div_ceil(per_page)
-    };
-
-    Ok(Json(PaginatedResponse {
-        data: responses,
-        total,
-        page,
-        per_page,
-        total_pages,
-    }))
+    Ok(Json(paginated_response(responses, total, page, per_page)))
 }
 
 /// Maximum allowed length for group names.
