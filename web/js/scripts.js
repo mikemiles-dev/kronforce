@@ -54,7 +54,7 @@ function showCreateScript() {
 }
 
 var rhaiTemplate = '// Your script here\nlet resp = http_get("https://example.com/health");\nprint("Status: " + resp.status);\nif resp.status != 200 {\n    fail("Health check failed");\n}';
-var dockerfileTemplate = 'FROM python:3.12-slim\n\nWORKDIR /app\n\n# Install dependencies\nCOPY requirements.txt .\nRUN pip install --no-cache-dir -r requirements.txt\n\n# Copy application\nCOPY . .\n\nEXPOSE 8000\n\nCMD ["python", "app.py"]';
+var dockerfileTemplate = 'FROM alpine:latest\n\n# This Dockerfile builds and runs successfully out of the box.\n# Edit it to fit your needs.\n\nRUN echo "Hello from Kronforce Docker Build"\n\nCMD ["echo", "Build complete"]';
 
 function onScriptTypeChange() {
     currentScriptType = document.getElementById('script-type').value;
