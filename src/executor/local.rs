@@ -589,12 +589,45 @@ pub async fn run_task_streaming(
     cancel_rx: oneshot::Receiver<()>,
     live_tx: Option<&tokio::sync::broadcast::Sender<String>>,
 ) -> CommandResult {
-    if let TaskType::Shell { command } = task
-        && let Some(tx) = live_tx
-    {
-        return run_command_streaming(command, run_as, timeout_secs, cancel_rx, tx).await;
+    if let Some(tx) = live_tx {
+        // For shell-based tasks, stream output line-by-line
+        let shell_cmd = match task {
+            TaskType::Shell { command } => Some(command.clone()),
+            TaskType::DockerBuild {
+                script_name,
+                image_tag,
+                run_after_build,
+                build_args,
+            } => {
+                // Build the docker command string so we can stream it
+                if let Some(store) = script_store {
+                    if let Ok(code) = store.read_code(script_name) {
+                        let tag = image_tag.as_deref().unwrap_or(script_name);
+                        let mut cmd = format!(
+                            "TMPDIR=$(mktemp -d) && echo {} > \"$TMPDIR/Dockerfile\" && docker build -t {} {} -f \"$TMPDIR/Dockerfile\" \"$TMPDIR\"",
+                            shell_escape(&code),
+                            shell_escape(tag),
+                            build_args.as_deref().unwrap_or("")
+                        );
+                        if *run_after_build {
+                            cmd.push_str(&format!(" && docker run --rm {}", shell_escape(tag)));
+                        }
+                        cmd.push_str(" && rm -rf \"$TMPDIR\"");
+                        Some(cmd)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+        if let Some(cmd) = shell_cmd {
+            return run_command_streaming(&cmd, run_as, timeout_secs, cancel_rx, tx).await;
+        }
     }
-    // For non-shell tasks or when no live_tx, use standard run_task
+    // For non-streamable tasks or when no live_tx, use standard run_task
     // and broadcast the final output
     let result = run_task(task, run_as, timeout_secs, script_store, cancel_rx).await;
     if let Some(tx) = live_tx {
