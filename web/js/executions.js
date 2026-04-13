@@ -377,7 +377,11 @@ function startLiveStream(execId) {
     const pre = document.getElementById('live-output');
     if (!pre) return;
 
-    liveEventSource = new EventSource('/api/executions/' + execId + '/stream');
+    var streamUrl = '/api/executions/' + execId + '/stream';
+    // EventSource can't set headers — pass API key as query param if using key auth
+    var apiKey = localStorage.getItem('kronforce-api-key');
+    if (apiKey) streamUrl += '?token=' + encodeURIComponent(apiKey);
+    liveEventSource = new EventSource(streamUrl);
     liveEventSource.onmessage = function(event) {
         pre.textContent += event.data + '\n';
         pre.scrollTop = pre.scrollHeight;

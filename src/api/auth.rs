@@ -253,6 +253,31 @@ pub(crate) async fn auth_middleware(
         return Ok(next.run(req).await);
     }
 
+    // Try query param token (for EventSource/SSE which can't set headers)
+    if let Some(query) = req.uri().query() {
+        for pair in query.split('&') {
+            if let Some(token) = pair.strip_prefix("token=") {
+                let token = token.to_string();
+                if !token.is_empty() {
+                    let db = state.db.clone();
+                    let hash = hash_api_key(&token);
+                    if let Ok(Some(key)) =
+                        tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash))
+                            .await
+                            .unwrap_or(Ok(None))
+                        && key.active
+                        && key.expires_at.is_none_or(|exp| Utc::now() < exp)
+                    {
+                        check_ip_allowlist(&key, &req)?;
+                        touch_api_key(&state.db, key.id).await;
+                        req.extensions_mut().insert(key);
+                        return Ok(next.run(req).await);
+                    }
+                }
+            }
+        }
+    }
+
     // No Bearer and no cookie — check if auth is disabled (no keys configured)
     let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
     if key_count == 0 {
