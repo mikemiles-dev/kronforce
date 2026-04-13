@@ -143,11 +143,26 @@ function refreshForScope(scope) {
 }
 
 function shareCurrentPage() {
-    let url = window.location.href;
-    // Include jobs tab in the URL if not on the default list tab
-    if (currentPage === 'jobs' && typeof jobsTab !== 'undefined' && jobsTab !== 'list') {
-        url = window.location.origin + window.location.pathname + '#/jobs/' + jobsTab;
+    let hash = '#/' + currentPage;
+    if (currentPage === 'jobs') {
+        if (currentJobId) {
+            hash = '#/jobs/' + currentJobId;
+        } else if (jobsTab !== 'list') {
+            hash = '#/jobs/' + jobsTab;
+        }
+        // Append filter state as query params
+        var params = [];
+        if (typeof jobSearch !== 'undefined' && jobSearch.statusFilter) params.push('filter=' + encodeURIComponent(jobSearch.statusFilter));
+        if (typeof groupFilter !== 'undefined' && groupFilter) params.push('group=' + encodeURIComponent(groupFilter));
+        if (typeof jobSearch !== 'undefined' && jobSearch.searchTerm) params.push('search=' + encodeURIComponent(jobSearch.searchTerm));
+        if (params.length > 0) hash += '?' + params.join('&');
+    } else if (currentPage === 'executions') {
+        if (currentExecId) hash = '#/executions/' + currentExecId;
+        if (typeof execSearch !== 'undefined' && execSearch.statusFilter) hash += '?filter=' + encodeURIComponent(execSearch.statusFilter);
+    } else if (currentPage === 'events') {
+        if (typeof eventSearch !== 'undefined' && eventSearch.statusFilter) hash += '?filter=' + encodeURIComponent(eventSearch.statusFilter);
     }
+    var url = window.location.origin + window.location.pathname + hash;
     copyToClipboard(url, 'Link copied to clipboard');
 }
 
@@ -944,12 +959,45 @@ function updateHash() {
     }
 }
 
+function parseHashParams(hash) {
+    var qIdx = hash.indexOf('?');
+    if (qIdx === -1) return {};
+    var params = {};
+    hash.slice(qIdx + 1).split('&').forEach(function(p) {
+        var kv = p.split('=');
+        if (kv.length === 2) params[kv[0]] = decodeURIComponent(kv[1]);
+    });
+    return params;
+}
+
 function handleRoute() {
     const hash = location.hash || '#/dashboard';
-    const parts = hash.replace('#/', '').split('/');
+    const cleanHash = hash.split('?')[0];
+    const params = parseHashParams(hash);
+    const parts = cleanHash.replace('#/', '').split('/');
+
+    // Apply shared filter state from URL params
+    if (params.filter && parts[0] === 'jobs') {
+        jobSearch.statusFilter = params.filter;
+    }
+    if (params.group && parts[0] === 'jobs') {
+        if (typeof setGroupFilter === 'function') setGroupFilter(params.group);
+        else groupFilter = params.group;
+    }
+    if (params.search && parts[0] === 'jobs') {
+        jobSearch.statusFilter = jobSearch.statusFilter || '';
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.value = params.search;
+    }
+    if (params.filter && parts[0] === 'executions' && typeof execSearch !== 'undefined') {
+        execSearch.statusFilter = params.filter;
+    }
+    if (params.filter && parts[0] === 'events' && typeof eventSearch !== 'undefined') {
+        eventSearch.statusFilter = params.filter;
+    }
 
     if (parts[0] === 'jobs' && parts[1]) {
-        // Jobs tab: #/jobs/groups, #/jobs/stages, #/jobs/map
+        // Jobs tab: #/jobs/stages, #/jobs/map
         if (['groups', 'stages', 'map'].includes(parts[1])) {
             jobsTab = parts[1];
             showPage('jobs');
