@@ -102,7 +102,13 @@ async function fetchGroupsPage() {
             const selectedGroup = stagesFilter ? stagesFilter.value : '';
             if (selectedGroup) {
                 const filtered = [selectedGroup];
-                renderPipelineView(filtered, jobsByGroup);
+                // Fetch pipeline schedule for this group
+                let scheduleMap = {};
+                try {
+                    const sched = await api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(selectedGroup));
+                    if (sched && sched.type) scheduleMap[selectedGroup] = sched;
+                } catch (e) { /* no schedule */ }
+                renderPipelineView(filtered, jobsByGroup, scheduleMap);
             } else {
                 document.getElementById('groups-grid').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">Select a group above to see its pipeline.</div>';
             }
@@ -148,7 +154,8 @@ function renderCardsView(sortedGroups, jobsByGroup) {
     grid.innerHTML = html;
 }
 
-function renderPipelineView(sortedGroups, jobsByGroup) {
+function renderPipelineView(sortedGroups, jobsByGroup, scheduleMap) {
+    scheduleMap = scheduleMap || {};
     const grid = document.getElementById('groups-grid');
     grid.className = '';
     let html = '';
@@ -177,13 +184,26 @@ function renderPipelineView(sortedGroups, jobsByGroup) {
         const jobMap = {};
         for (const j of groupJobs) jobMap[j.id] = j;
 
+        // Pipeline schedule badge
+        const sched = scheduleMap[g];
+        let schedBadge = '';
+        if (sched && sched.type) {
+            let schedText = '';
+            if (sched.type === 'cron') schedText = 'Cron: ' + (sched.value || '');
+            else if (sched.type === 'interval') schedText = 'Every ' + formatInterval((sched.value && sched.value.interval_secs) || 0);
+            schedBadge = '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:var(--accent);color:#fff;white-space:nowrap" title="' + esc(schedText) + '">&#128339; ' + esc(schedText) + '</span>';
+        }
+
         // Pipeline header
         html += '<div style="margin-bottom:20px">';
         html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
         html += '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
         html += '<strong style="font-size:14px">' + esc(g) + '</strong>';
         html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
-        html += '<button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="event.stopPropagation();triggerPipeline(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#9654; Run Pipeline</button>';
+        html += schedBadge;
+        html += '<button class="btn btn-sm" style="margin-left:auto" onclick="event.stopPropagation();openPipelineHistory(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#128203; History</button>';
+        html += '<button class="btn btn-sm" onclick="event.stopPropagation();openPipelineSchedule(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#128339; Schedule</button>';
+        html += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();triggerPipeline(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#9654; Run Pipeline</button>';
         html += '</div>';
 
         // Build set of which jobs have a dependency arrow FROM the previous job in sorted order
@@ -198,16 +218,25 @@ function renderPipelineView(sortedGroups, jobsByGroup) {
         function stageCard(j) {
             const last = j.last_execution;
             const status = last ? last.status : 'idle';
-            let bg, border, statusIcon;
-            if (status === 'succeeded') { bg = 'rgba(46,204,113,0.12)'; border = '#2ecc71'; statusIcon = '\u2714'; }
-            else if (status === 'failed' || status === 'timed_out') { bg = 'rgba(224,82,82,0.12)'; border = '#e05252'; statusIcon = '\u2718'; }
-            else if (status === 'running') { bg = 'rgba(62,139,255,0.12)'; border = '#3e8bff'; statusIcon = '\u25B6'; }
-            else if (status === 'pending_approval') { bg = 'rgba(230,168,23,0.12)'; border = '#e6a817'; statusIcon = '\u23F3'; }
-            else { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u25CB'; }
+            // Determine if this job has ever succeeded (for showing green on pending re-runs)
+            const hasSucceeded = (j.execution_counts || {}).succeeded > 0;
+            let bg, border, statusIcon, label;
+            if (status === 'succeeded') { bg = 'rgba(46,204,113,0.12)'; border = '#2ecc71'; statusIcon = '\u2714'; label = 'succeeded'; }
+            else if (status === 'failed' || status === 'timed_out') { bg = 'rgba(224,82,82,0.12)'; border = '#e05252'; statusIcon = '\u2718'; label = status; }
+            else if (status === 'running') { bg = 'rgba(62,139,255,0.12)'; border = '#3e8bff'; statusIcon = '\u25B6'; label = 'running'; }
+            else if (status === 'pending') {
+                // Pending re-run: show green with a re-run indicator if previously succeeded
+                if (hasSucceeded) { bg = 'rgba(46,204,113,0.12)'; border = '#2ecc71'; statusIcon = '\u21BB'; label = 'queued'; }
+                else { bg = 'rgba(62,139,255,0.12)'; border = '#3e8bff'; statusIcon = '\u23F3'; label = 'pending'; }
+            }
+            else if (status === 'pending_approval') { bg = 'rgba(230,168,23,0.12)'; border = '#e6a817'; statusIcon = '\u23F3'; label = 'awaiting approval'; }
+            else if (status === 'cancelled') { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u2298'; label = 'cancelled'; }
+            else if (status === 'skipped') { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u23ED'; label = 'skipped'; }
+            else { bg = 'var(--bg-tertiary)'; border = 'var(--border)'; statusIcon = '\u25CB'; label = 'idle'; }
             let s = '<div style="background:' + bg + ';border:2px solid ' + border + ';border-radius:8px;padding:10px 14px;min-width:130px;cursor:pointer;flex-shrink:0;text-align:center" onclick="showJobDetail(\'' + j.id + '\')">';
             s += '<div style="font-size:18px;margin-bottom:4px">' + statusIcon + '</div>';
             s += '<div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap">' + esc(j.name) + '</div>';
-            s += '<div style="font-size:10px;color:var(--text-muted)">' + status + '</div>';
+            s += '<div style="font-size:10px;color:var(--text-muted)">' + label + '</div>';
             if (last && last.finished_at) s += '<div style="font-size:9px;color:var(--text-muted)">' + fmtDate(last.finished_at) + '</div>';
             s += '</div>';
             return s;
@@ -308,4 +337,286 @@ async function deleteGroup(name) {
     } catch (e) {
         toast('Error: ' + e.message, 'error');
     }
+}
+
+// --- Pipeline Schedule ---
+
+let pipelineScheduleGroup = '';
+
+async function openPipelineSchedule(group) {
+    pipelineScheduleGroup = group;
+    document.getElementById('pipeline-schedule-title').textContent = 'Pipeline Schedule — ' + group;
+    document.getElementById('ps-type').value = 'none';
+    document.getElementById('ps-cron').value = '';
+    document.getElementById('ps-interval-val').value = '60';
+    document.getElementById('ps-interval-unit').value = '60';
+    document.getElementById('ps-current').style.display = 'none';
+    document.getElementById('ps-remove-btn').style.display = 'none';
+    updatePipelineScheduleUI();
+
+    try {
+        const sched = await api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(group));
+        if (sched && sched.type) {
+            if (sched.type === 'cron') {
+                document.getElementById('ps-type').value = 'cron';
+                document.getElementById('ps-cron').value = sched.value || '';
+                document.getElementById('ps-current').style.display = '';
+                document.getElementById('ps-current-text').textContent = 'Cron: ' + (sched.value || '');
+                document.getElementById('ps-remove-btn').style.display = '';
+            } else if (sched.type === 'interval') {
+                document.getElementById('ps-type').value = 'interval';
+                const secs = (sched.value && sched.value.interval_secs) || 3600;
+                if (secs % 86400 === 0) {
+                    document.getElementById('ps-interval-val').value = secs / 86400;
+                    document.getElementById('ps-interval-unit').value = '86400';
+                } else if (secs % 3600 === 0) {
+                    document.getElementById('ps-interval-val').value = secs / 3600;
+                    document.getElementById('ps-interval-unit').value = '3600';
+                } else {
+                    document.getElementById('ps-interval-val').value = Math.round(secs / 60);
+                    document.getElementById('ps-interval-unit').value = '60';
+                }
+                document.getElementById('ps-current').style.display = '';
+                document.getElementById('ps-current-text').textContent = 'Every ' + formatInterval(secs);
+                document.getElementById('ps-remove-btn').style.display = '';
+            }
+            updatePipelineScheduleUI();
+        }
+    } catch (e) {
+        // No schedule set — that's fine
+    }
+
+    openModal('pipeline-schedule-modal');
+}
+
+function updatePipelineScheduleUI() {
+    const type = document.getElementById('ps-type').value;
+    document.getElementById('ps-cron-section').style.display = type === 'cron' ? '' : 'none';
+    document.getElementById('ps-interval-section').style.display = type === 'interval' ? '' : 'none';
+}
+
+function formatInterval(secs) {
+    if (secs >= 86400 && secs % 86400 === 0) return (secs / 86400) + ' day' + (secs / 86400 !== 1 ? 's' : '');
+    if (secs >= 3600 && secs % 3600 === 0) return (secs / 3600) + ' hour' + (secs / 3600 !== 1 ? 's' : '');
+    if (secs >= 60) return Math.round(secs / 60) + ' minute' + (Math.round(secs / 60) !== 1 ? 's' : '');
+    return secs + ' second' + (secs !== 1 ? 's' : '');
+}
+
+async function savePipelineSchedule() {
+    const type = document.getElementById('ps-type').value;
+    const group = pipelineScheduleGroup;
+
+    if (type === 'none') {
+        await removePipelineSchedule();
+        return;
+    }
+
+    let schedule;
+    if (type === 'cron') {
+        const expr = document.getElementById('ps-cron').value.trim();
+        if (!expr) { toast('Enter a cron expression', 'error'); return; }
+        schedule = { type: 'cron', value: expr };
+    } else if (type === 'interval') {
+        const val = parseInt(document.getElementById('ps-interval-val').value) || 1;
+        const unit = parseInt(document.getElementById('ps-interval-unit').value) || 60;
+        const secs = val * unit;
+        if (secs < 60) { toast('Interval must be at least 1 minute', 'error'); return; }
+        schedule = { type: 'interval', value: { interval_secs: secs } };
+    }
+
+    try {
+        await api('PUT', '/api/jobs/pipeline-schedule/' + encodeURIComponent(group), { schedule });
+        toast('Pipeline schedule saved for "' + group + '"', 'success');
+        closeModal('pipeline-schedule-modal');
+        fetchGroupsPage();
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
+}
+
+async function removePipelineSchedule() {
+    const group = pipelineScheduleGroup;
+    try {
+        await api('DELETE', '/api/jobs/pipeline-schedule/' + encodeURIComponent(group));
+        toast('Pipeline schedule removed for "' + group + '"', 'success');
+        closeModal('pipeline-schedule-modal');
+        fetchGroupsPage();
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
+}
+
+// --- Pipeline Run History ---
+
+async function openPipelineHistory(group) {
+    document.getElementById('pipeline-history-title').textContent = 'Run History — ' + group;
+    document.getElementById('pipeline-history-content').innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:24px">Loading...</div>';
+    openModal('pipeline-history-modal');
+
+    try {
+        // Fetch jobs in this group to build a name map
+        const jobsRes = await api('GET', '/api/jobs?per_page=1000&group=' + encodeURIComponent(group));
+        const jobs = jobsRes.data;
+        const jobMap = {};
+        for (const j of jobs) jobMap[j.id] = j;
+        const jobIds = new Set(jobs.map(j => j.id));
+
+        // Fetch recent executions for this group
+        const execsRes = await api('GET', '/api/executions?per_page=200&group=' + encodeURIComponent(group));
+        const execs = execsRes.data.filter(e => jobIds.has(e.job_id));
+
+        if (execs.length === 0) {
+            document.getElementById('pipeline-history-content').innerHTML =
+                '<div style="text-align:center;color:var(--text-muted);padding:24px">No executions found for this pipeline.</div>';
+            return;
+        }
+
+        // Cluster executions into pipeline "runs" by time proximity
+        // Sort by started_at descending
+        execs.sort((a, b) => new Date(b.started_at || b.finished_at || 0) - new Date(a.started_at || a.finished_at || 0));
+
+        const runs = clusterPipelineRuns(execs, jobs);
+        renderPipelineHistory(runs, jobMap, jobs);
+    } catch (e) {
+        document.getElementById('pipeline-history-content').innerHTML =
+            '<div style="text-align:center;color:var(--danger);padding:24px">Error loading history: ' + esc(e.message) + '</div>';
+    }
+}
+
+function clusterPipelineRuns(execs, jobs) {
+    // Group executions into runs: a run starts when a root job fires, and includes
+    // all executions that started within a time window (5 minutes per stage depth)
+    const inGroup = new Set(jobs.map(j => j.id));
+    const rootIds = new Set(jobs.filter(j => !(j.depends_on || []).some(d => inGroup.has(d.job_id))).map(j => j.id));
+    const maxWindow = Math.max(jobs.length * 300000, 600000); // 5 min per job, min 10 min
+
+    const runs = [];
+    const used = new Set();
+
+    for (const exec of execs) {
+        if (used.has(exec.id)) continue;
+        // Start a new run from this execution
+        const runStart = new Date(exec.started_at || exec.finished_at || Date.now());
+        const run = { started: runStart, executions: [] };
+
+        // Collect all executions within the time window
+        for (const e of execs) {
+            if (used.has(e.id)) continue;
+            const t = new Date(e.started_at || e.finished_at || Date.now());
+            if (Math.abs(t - runStart) <= maxWindow) {
+                run.executions.push(e);
+                used.add(e.id);
+            }
+        }
+
+        runs.push(run);
+    }
+
+    return runs;
+}
+
+function renderPipelineHistory(runs, jobMap, jobs) {
+    const container = document.getElementById('pipeline-history-content');
+
+    // Topological sort for consistent column order
+    const inGroup = new Set(jobs.map(j => j.id));
+    const depMap = {};
+    for (const j of jobs) depMap[j.id] = (j.depends_on || []).filter(d => inGroup.has(d.job_id)).map(d => d.job_id);
+    const sorted = [];
+    const visited = new Set();
+    function visit(id) {
+        if (visited.has(id)) return;
+        visited.add(id);
+        for (const pid of (depMap[id] || [])) visit(pid);
+        sorted.push(id);
+    }
+    for (const j of jobs) visit(j.id);
+
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    // Header
+    html += '<thead><tr>';
+    html += '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap">Run</th>';
+    html += '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid var(--border);white-space:nowrap">Status</th>';
+    for (const id of sorted) {
+        const j = jobMap[id];
+        if (!j) continue;
+        html += '<th style="padding:6px 8px;text-align:center;border-bottom:2px solid var(--border);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis" title="' + esc(j.name) + '">' + esc(j.name) + '</th>';
+    }
+    html += '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid var(--border);white-space:nowrap">Duration</th>';
+    html += '</tr></thead><tbody>';
+
+    for (let i = 0; i < runs.length; i++) {
+        const run = runs[i];
+        const execByJob = {};
+        for (const e of run.executions) {
+            // Keep latest execution per job within this run
+            if (!execByJob[e.job_id] || new Date(e.started_at || 0) > new Date(execByJob[e.job_id].started_at || 0)) {
+                execByJob[e.job_id] = e;
+            }
+        }
+
+        // Overall run status
+        const allExecs = Object.values(execByJob);
+        const hasRunning = allExecs.some(e => e.status === 'running' || e.status === 'pending');
+        const hasFailed = allExecs.some(e => e.status === 'failed' || e.status === 'timed_out');
+        const allSucceeded = allExecs.length === sorted.length && allExecs.every(e => e.status === 'succeeded');
+        let overallStatus, overallColor;
+        if (hasRunning) { overallStatus = 'running'; overallColor = '#3e8bff'; }
+        else if (allSucceeded) { overallStatus = 'succeeded'; overallColor = '#2ecc71'; }
+        else if (hasFailed) { overallStatus = 'failed'; overallColor = '#e05252'; }
+        else { overallStatus = 'partial'; overallColor = '#e6a817'; }
+
+        // Duration: from earliest start to latest finish
+        let earliest = null, latest = null;
+        for (const e of allExecs) {
+            const s = e.started_at ? new Date(e.started_at) : null;
+            const f = e.finished_at ? new Date(e.finished_at) : null;
+            if (s && (!earliest || s < earliest)) earliest = s;
+            if (f && (!latest || f > latest)) latest = f;
+        }
+        let duration = '';
+        if (earliest && latest) {
+            const secs = Math.round((latest - earliest) / 1000);
+            if (secs >= 3600) duration = Math.floor(secs / 3600) + 'h ' + Math.floor((secs % 3600) / 60) + 'm';
+            else if (secs >= 60) duration = Math.floor(secs / 60) + 'm ' + (secs % 60) + 's';
+            else duration = secs + 's';
+        } else if (hasRunning) {
+            duration = 'running...';
+        }
+
+        html += '<tr style="border-bottom:1px solid var(--border)">';
+        html += '<td style="padding:6px 8px;white-space:nowrap">' + fmtDate(run.started) + '</td>';
+        html += '<td style="padding:6px 8px"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;color:#fff;background:' + overallColor + '">' + overallStatus + '</span></td>';
+
+        for (const id of sorted) {
+            const e = execByJob[id];
+            html += '<td style="padding:6px 8px;text-align:center">';
+            if (e) {
+                let icon, color, title;
+                if (e.status === 'succeeded') { icon = '\u2714'; color = '#2ecc71'; title = 'succeeded'; }
+                else if (e.status === 'failed' || e.status === 'timed_out') { icon = '\u2718'; color = '#e05252'; title = e.status; }
+                else if (e.status === 'running') { icon = '\u25B6'; color = '#3e8bff'; title = 'running'; }
+                else if (e.status === 'pending') { icon = '\u23F3'; color = '#3e8bff'; title = 'pending'; }
+                else if (e.status === 'pending_approval') { icon = '\u23F3'; color = '#e6a817'; title = 'awaiting approval'; }
+                else if (e.status === 'cancelled') { icon = '\u2298'; color = 'var(--text-muted)'; title = 'cancelled'; }
+                else if (e.status === 'skipped') { icon = '\u23ED'; color = 'var(--text-muted)'; title = 'skipped'; }
+                else { icon = '\u25CB'; color = 'var(--text-muted)'; title = e.status; }
+                html += '<span style="cursor:pointer;color:' + color + ';font-size:16px" title="' + esc(title) + '" onclick="showExecDetail(\'' + e.id + '\')">' + icon + '</span>';
+            } else {
+                html += '<span style="color:var(--text-muted)" title="not executed">&mdash;</span>';
+            }
+            html += '</td>';
+        }
+
+        html += '<td style="padding:6px 8px;text-align:right;white-space:nowrap;color:var(--text-muted)">' + duration + '</td>';
+        html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+
+    if (runs.length === 0) {
+        html = '<div style="text-align:center;color:var(--text-muted);padding:24px">No pipeline runs found.</div>';
+    }
+
+    container.innerHTML = html;
 }

@@ -57,6 +57,7 @@ That's it. You have a running scheduler with a web dashboard.
 - **Live output streaming** — SSE endpoint streams stdout/stderr in real-time during execution with auto-scrolling in the UI
 - **Approval workflows** — require sign-off before critical jobs run
 - **Dependency chains** — jobs wait for upstream jobs to succeed, with automatic cascade for on-demand pipelines. "Run Group" triggers a whole pipeline. `group.completed` events fire when all jobs in a group succeed
+- **Pipeline scheduling** — set cron or interval schedules on pipeline groups to automatically trigger root jobs on a recurring basis, with full dependency cascade
 - **SLA deadlines** — set completion deadlines with early warning alerts
 - **Job version history** — full snapshot on every change for audit trail
 

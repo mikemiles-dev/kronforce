@@ -23,6 +23,7 @@ pub(crate) struct ListAllExecsQuery {
     status: Option<String>,
     search: Option<String>,
     since: Option<String>,
+    group: Option<String>,
     page: Option<u32>,
     per_page: Option<u32>,
 }
@@ -54,12 +55,14 @@ pub(crate) async fn list_all_executions(
     let status = query.status.clone();
     let search = query.search.clone();
     let since = query.since.clone();
+    let group = query.group.clone();
 
     let s2 = status.clone();
     let q2 = search.clone();
     let t2 = since.clone();
+    let g2 = group.clone();
     let total = db_call(&state.db, move |db| {
-        db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref())
+        db.count_all_executions(s2.as_deref(), q2.as_deref(), t2.as_deref(), g2.as_deref())
     })
     .await?;
 
@@ -68,6 +71,7 @@ pub(crate) async fn list_all_executions(
             status.as_deref(),
             search.as_deref(),
             since.as_deref(),
+            group.as_deref(),
             per_page,
             offset,
         )

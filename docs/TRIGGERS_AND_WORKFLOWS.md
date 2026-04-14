@@ -287,6 +287,15 @@ curl -X POST "http://localhost:8080/api/jobs/<transform-id>/trigger?skip_deps=tr
 
 Or click the "waiting" badge in the UI and use **Run Anyway**. This is a one-time override — future scheduled runs still check dependencies normally.
 
+**Alternative: Pipeline Scheduling** — instead of individual cron schedules per step, set a single pipeline schedule on the group. Put all three jobs in an "ETL" group with `on_demand` schedules and dependency chains. Then set a pipeline schedule:
+
+```bash
+curl -X PUT http://localhost:8080/api/jobs/pipeline-schedule/ETL \
+  -d '{"schedule": {"type": "cron", "value": "0 0 2 * * *"}}'
+```
+
+At 2am, the scheduler triggers the extract job (root). When it succeeds, transform cascades automatically, then load. One schedule drives the entire pipeline.
+
 ### Pattern 4: Fan-Out to Agents
 
 Deploy to all production servers simultaneously:

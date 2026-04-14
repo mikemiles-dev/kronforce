@@ -1127,3 +1127,106 @@ fn test_nth_weekday_schedule() {
         panic!("expected Calendar schedule");
     }
 }
+
+// --- Pipeline Schedules (settings-based) ---
+
+#[test]
+fn test_pipeline_schedule_crud() {
+    let db = test_db();
+    let group = "ETL";
+    let key = format!("pipeline_schedule_{}", group);
+
+    // Initially no schedule
+    assert!(db.get_setting(&key).unwrap().is_none());
+
+    // Set a cron schedule
+    let cron_sched = serde_json::json!({"type": "cron", "value": "0 0 * * * *"});
+    db.set_setting(&key, &cron_sched.to_string()).unwrap();
+
+    let val = db.get_setting(&key).unwrap().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&val).unwrap();
+    assert_eq!(parsed["type"], "cron");
+    assert_eq!(parsed["value"], "0 0 * * * *");
+
+    // Update to interval
+    let interval_sched = serde_json::json!({"type": "interval", "value": {"interval_secs": 3600}});
+    db.set_setting(&key, &interval_sched.to_string()).unwrap();
+
+    let val = db.get_setting(&key).unwrap().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&val).unwrap();
+    assert_eq!(parsed["type"], "interval");
+    assert_eq!(parsed["value"]["interval_secs"], 3600);
+
+    // Delete schedule
+    db.delete_setting(&key).unwrap();
+    assert!(db.get_setting(&key).unwrap().is_none());
+}
+
+#[test]
+fn test_pipeline_schedule_deserialization() {
+    let db = test_db();
+    let key = "pipeline_schedule_TestGroup";
+
+    // Store a cron schedule and verify it deserializes to ScheduleKind
+    let sched = serde_json::json!({"type": "cron", "value": "0 */5 * * * *"});
+    db.set_setting(key, &sched.to_string()).unwrap();
+
+    let val = db.get_setting(key).unwrap().unwrap();
+    let parsed: ScheduleKind = serde_json::from_str(&val).unwrap();
+    if let ScheduleKind::Cron(expr) = parsed {
+        assert_eq!(expr.0, "0 */5 * * * *");
+    } else {
+        panic!("expected Cron schedule kind");
+    }
+}
+
+#[test]
+fn test_pipeline_schedule_interval_deserialization() {
+    let db = test_db();
+    let key = "pipeline_schedule_Batch";
+
+    let sched = serde_json::json!({"type": "interval", "value": {"interval_secs": 1800}});
+    db.set_setting(key, &sched.to_string()).unwrap();
+
+    let val = db.get_setting(key).unwrap().unwrap();
+    let parsed: ScheduleKind = serde_json::from_str(&val).unwrap();
+    if let ScheduleKind::Interval { interval_secs } = parsed {
+        assert_eq!(interval_secs, 1800);
+    } else {
+        panic!("expected Interval schedule kind");
+    }
+}
+
+#[test]
+fn test_pipeline_schedules_enumeration() {
+    let db = test_db();
+
+    // Set schedules for two groups
+    db.set_setting(
+        "pipeline_schedule_ETL",
+        &serde_json::json!({"type": "cron", "value": "0 0 * * * *"}).to_string(),
+    )
+    .unwrap();
+    db.set_setting(
+        "pipeline_schedule_Batch",
+        &serde_json::json!({"type": "interval", "value": {"interval_secs": 600}}).to_string(),
+    )
+    .unwrap();
+
+    // Enumerate all pipeline schedules via get_all_settings
+    let all = db.get_all_settings().unwrap();
+    let pipeline_scheds: Vec<_> = all
+        .iter()
+        .filter(|(k, _)| k.starts_with("pipeline_schedule_"))
+        .collect();
+
+    assert!(pipeline_scheds.len() >= 2);
+
+    // Verify we can extract group names
+    let groups: Vec<String> = pipeline_scheds
+        .iter()
+        .filter_map(|(k, _)| k.strip_prefix("pipeline_schedule_").map(String::from))
+        .collect();
+    assert!(groups.contains(&"ETL".to_string()));
+    assert!(groups.contains(&"Batch".to_string()));
+}

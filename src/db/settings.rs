@@ -37,6 +37,17 @@ impl Db {
         Ok(())
     }
 
+    /// Deletes a setting by key.
+    pub fn delete_setting(&self, key: &str) -> Result<(), AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.execute("DELETE FROM settings WHERE key = ?1", params![key])
+            .map_err(AppError::Db)?;
+        Ok(())
+    }
+
     /// Returns all settings as a key-value map.
     pub fn get_all_settings(&self) -> Result<std::collections::HashMap<String, String>, AppError> {
         let conn = self

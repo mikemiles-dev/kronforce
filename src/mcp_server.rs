@@ -559,7 +559,7 @@ async fn tool_list_executions(args: &Value, state: &AppState) -> Result<String, 
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as u32;
 
     let execs = db_call(&state.db, move |db| {
-        db.list_all_executions(status.as_deref(), None, None, limit, 0)
+        db.list_all_executions(status.as_deref(), None, None, None, limit, 0)
     })
     .await
     .map_err(|e| format!("DB error: {e}"))?;

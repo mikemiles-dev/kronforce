@@ -1,7 +1,7 @@
-//! Group management handlers: list, create, bulk-assign, rename.
+//! Group management handlers: list, create, bulk-assign, rename, pipeline schedules.
 
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Path, State};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -119,4 +119,64 @@ pub(crate) async fn rename_group(
     .await;
 
     Ok(Json(serde_json::json!({"updated": count})))
+}
+
+/// Request body for setting a pipeline schedule on a group.
+#[derive(Deserialize)]
+pub(crate) struct PipelineScheduleRequest {
+    schedule: serde_json::Value,
+}
+
+/// Get the pipeline schedule for a group.
+pub(crate) async fn get_pipeline_schedule(
+    State(state): State<AppState>,
+    Path(group): Path<String>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let key = format!("pipeline_schedule_{}", group);
+    let sched = db_call(&state.db, move |db| db.get_setting(&key)).await?;
+    match sched {
+        Some(s) => Ok(Json(
+            serde_json::from_str(&s).unwrap_or(serde_json::json!(null)),
+        )),
+        None => Ok(Json(serde_json::json!(null))),
+    }
+}
+
+/// Set or clear the pipeline schedule for a group.
+pub(crate) async fn set_pipeline_schedule(
+    State(state): State<AppState>,
+    Path(group): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<PipelineScheduleRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    let key = format!("pipeline_schedule_{}", group);
+    let value = serde_json::to_string(&req.schedule)
+        .map_err(|e| AppError::BadRequest(format!("invalid schedule: {e}")))?;
+    db_call(&state.db, move |db| db.set_setting(&key, &value)).await?;
+    Ok(Json(serde_json::json!({"status": "ok", "group": group})))
+}
+
+/// Delete the pipeline schedule for a group.
+pub(crate) async fn delete_pipeline_schedule(
+    State(state): State<AppState>,
+    Path(group): Path<String>,
+    auth: AuthUser,
+) -> Result<axum::http::StatusCode, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_write()
+    {
+        return Err(AppError::Forbidden(
+            "write access required (admin or operator role)".into(),
+        ));
+    }
+    let key = format!("pipeline_schedule_{}", group);
+    db_call(&state.db, move |db| db.delete_setting(&key)).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }

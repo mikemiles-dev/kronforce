@@ -647,6 +647,28 @@ curl -X PUT http://localhost:8080/api/settings \                 # Update
   -d '{"retention_days": "14"}'
 ```
 
+## Pipeline Schedules
+
+Set recurring schedules on pipeline groups to automatically trigger root jobs. Dependencies cascade as usual.
+
+```bash
+# Get pipeline schedule for a group
+curl http://localhost:8080/api/jobs/pipeline-schedule/ETL
+
+# Set a cron schedule (triggers root jobs on schedule)
+curl -X PUT http://localhost:8080/api/jobs/pipeline-schedule/ETL \
+  -d '{"schedule": {"type": "cron", "value": "0 0 6 * * *"}}'
+
+# Set an interval schedule (every N seconds after last fire)
+curl -X PUT http://localhost:8080/api/jobs/pipeline-schedule/ETL \
+  -d '{"schedule": {"type": "interval", "value": {"interval_secs": 3600}}}'
+
+# Remove a pipeline schedule
+curl -X DELETE http://localhost:8080/api/jobs/pipeline-schedule/ETL
+```
+
+The schedule fires root jobs (jobs with no in-group dependencies). Dependent jobs then cascade automatically via the dependency engine.
+
 ## Chart Stats
 
 ```bash

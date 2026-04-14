@@ -17,7 +17,10 @@ use crate::scheduler::cron_parser::CronSchedule;
 
 // Re-export all handler functions so `src/api/mod.rs` can reference them as `jobs::*`.
 pub(crate) use crud::{create_job, delete_job, get_job_handler, list_jobs, update_job};
-pub(crate) use groups::{bulk_set_group, create_group, list_groups, rename_group};
+pub(crate) use groups::{
+    bulk_set_group, create_group, delete_pipeline_schedule, get_pipeline_schedule, list_groups,
+    rename_group, set_pipeline_schedule,
+};
 pub(crate) use triggers::{
     approve_execution, delete_webhook, generate_webhook, trigger_job, webhook_trigger,
 };

@@ -139,6 +139,12 @@ pub fn router(
         .route("/api/jobs/bulk-group", put(jobs::bulk_set_group))
         .route("/api/jobs/rename-group", put(jobs::rename_group))
         .route(
+            "/api/jobs/pipeline-schedule/{group}",
+            get(jobs::get_pipeline_schedule)
+                .put(jobs::set_pipeline_schedule)
+                .delete(jobs::delete_pipeline_schedule),
+        )
+        .route(
             "/api/jobs/{id}/executions",
             get(executions::list_executions),
         )

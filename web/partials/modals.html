@@ -803,3 +803,68 @@
         </div>
     </div>
 </div>
+
+<div id="pipeline-schedule-modal" class="modal-overlay" style="display:none" onmousedown="this._mdt=event.target" onclick="if(event.target===this&&this._mdt===this)closeModal('pipeline-schedule-modal')">
+    <div class="modal-card" style="max-width:480px">
+        <div class="modal-header">
+            <h3 id="pipeline-schedule-title">Pipeline Schedule</h3>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px;color:var(--text-muted);font-size:12px">
+                Automatically trigger this pipeline's root jobs on a schedule. Dependencies cascade as usual.
+            </p>
+            <div class="form-group">
+                <label>Schedule Type</label>
+                <select id="ps-type" onchange="updatePipelineScheduleUI()">
+                    <option value="none">None (manual only)</option>
+                    <option value="cron">Cron</option>
+                    <option value="interval">Interval</option>
+                </select>
+            </div>
+            <div id="ps-cron-section" style="display:none">
+                <div class="form-group">
+                    <label>Cron Expression</label>
+                    <input id="ps-cron" type="text" placeholder="0 0 * * * *" style="font-family:monospace">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+                        Format: sec min hour day month weekday (6 fields)
+                    </div>
+                </div>
+            </div>
+            <div id="ps-interval-section" style="display:none">
+                <div class="form-group">
+                    <label>Interval</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input id="ps-interval-val" type="number" min="1" value="60" style="width:100px">
+                        <select id="ps-interval-unit">
+                            <option value="60">minutes</option>
+                            <option value="3600">hours</option>
+                            <option value="86400">days</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="ps-current" style="display:none;margin-top:12px;padding:10px;border-radius:6px;background:var(--bg-tertiary);font-size:12px">
+                <strong>Current schedule:</strong> <span id="ps-current-text"></span>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-primary" onclick="savePipelineSchedule()">Save</button>
+            <button id="ps-remove-btn" class="btn btn-ghost" style="color:var(--danger);display:none" onclick="removePipelineSchedule()">Remove Schedule</button>
+            <button class="btn btn-ghost" onclick="closeModal('pipeline-schedule-modal')">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<div id="pipeline-history-modal" class="modal-overlay" style="display:none" onmousedown="this._mdt=event.target" onclick="if(event.target===this&&this._mdt===this)closeModal('pipeline-history-modal')">
+    <div class="modal-card" style="max-width:720px">
+        <div class="modal-header">
+            <h3 id="pipeline-history-title">Pipeline Run History</h3>
+        </div>
+        <div class="modal-body" id="pipeline-history-content" style="max-height:500px;overflow-y:auto">
+            <div style="text-align:center;color:var(--text-muted);padding:24px">Loading...</div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-ghost" onclick="closeModal('pipeline-history-modal')">Close</button>
+        </div>
+    </div>
+</div>

@@ -5,9 +5,10 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0-alpha] - 2026-04-03
+## [0.1.0-alpha] - 2026-04-07
 
 ### Added
+- **Pipeline scheduling** — set cron or interval schedules on entire pipeline groups. The scheduler automatically triggers root jobs on schedule, and dependencies cascade from there. Configure via the new "Schedule" button on the Stages/Pipeline view, or via the API (`PUT /api/jobs/pipeline-schedule/{group}`). Schedules persist in settings and survive job changes.
 - **Dependency cascade** — when a job succeeds, on-demand jobs that depend on it are automatically triggered if all their dependencies are now satisfied. Enables Jenkins-style pipeline execution: trigger the first job, the rest cascade automatically.
 - **Group completion events** — when all jobs in a group have succeeded, a `group.completed` event is emitted. Use event triggers to react (send notification, trigger next pipeline, etc.).
 - **Run Group button** — trigger all root jobs in a group with one click. Appears on the toolbar when a group is selected. Dependent jobs cascade from there.

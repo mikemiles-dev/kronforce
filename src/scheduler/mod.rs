@@ -58,6 +58,8 @@ pub struct Scheduler {
     next_fire_times: HashMap<Uuid, DateTime<Utc>>,
     last_fired: HashMap<Uuid, DateTime<Utc>>,
     jobs_cache: Option<Vec<Job>>,
+    pipeline_last_fired: HashMap<String, DateTime<Utc>>,
+    pipeline_next_fire: HashMap<String, DateTime<Utc>>,
 }
 
 impl Scheduler {
@@ -81,6 +83,8 @@ impl Scheduler {
             next_fire_times: HashMap::new(),
             last_fired: HashMap::new(),
             jobs_cache: None,
+            pipeline_last_fired: HashMap::new(),
+            pipeline_next_fire: HashMap::new(),
         }
     }
 

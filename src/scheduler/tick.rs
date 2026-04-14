@@ -78,6 +78,107 @@ impl super::Scheduler {
                 ScheduleKind::OnDemand | ScheduleKind::Event(_) => {}
             }
         }
+
+        // Evaluate pipeline schedules (group-level schedules that trigger root jobs)
+        self.check_pipeline_schedules(now).await;
+    }
+
+    async fn check_pipeline_schedules(&mut self, now: DateTime<Utc>) {
+        let db = self.db.clone();
+        let schedules: Vec<(String, ScheduleKind)> = tokio::task::spawn_blocking(move || {
+            let settings = db.get_all_settings()?;
+            let mut result = Vec::new();
+            for (key, value) in settings {
+                if let Some(group) = key.strip_prefix("pipeline_schedule_")
+                    && let Ok(sched) = serde_json::from_str::<ScheduleKind>(&value)
+                {
+                    result.push((group.to_string(), sched));
+                }
+            }
+            Ok::<_, crate::error::AppError>(result)
+        })
+        .await
+        .unwrap_or(Ok(vec![]))
+        .unwrap_or_default();
+
+        for (group, sched) in schedules {
+            let should_fire = match &sched {
+                ScheduleKind::Cron(expr) => {
+                    let next = self.pipeline_next_fire.get(&group).copied();
+                    let fire_time = match next {
+                        Some(t) => t,
+                        None => {
+                            let Ok(schedule) = CronSchedule::parse(&expr.0) else {
+                                continue;
+                            };
+                            let Some(t) = schedule.next_after(now - chrono::Duration::seconds(1))
+                            else {
+                                continue;
+                            };
+                            self.pipeline_next_fire.insert(group.clone(), t);
+                            t
+                        }
+                    };
+                    if now >= fire_time {
+                        let already_fired = self
+                            .pipeline_last_fired
+                            .get(&group)
+                            .is_some_and(|l| *l >= fire_time);
+
+                        if let Ok(schedule) = CronSchedule::parse(&expr.0)
+                            && let Some(next) = schedule.next_after(now)
+                        {
+                            self.pipeline_next_fire.insert(group.clone(), next);
+                        }
+
+                        !already_fired
+                    } else {
+                        false
+                    }
+                }
+                ScheduleKind::Interval { interval_secs } => {
+                    if let Some(last) = self.pipeline_last_fired.get(&group) {
+                        (now - *last).num_seconds() >= *interval_secs as i64
+                    } else {
+                        true
+                    }
+                }
+                _ => false,
+            };
+
+            if should_fire {
+                self.pipeline_last_fired.insert(group.clone(), now);
+                debug!("pipeline schedule firing for group '{}'", group);
+                self.trigger_pipeline_roots(&group).await;
+            }
+        }
+    }
+
+    async fn trigger_pipeline_roots(&self, group: &str) {
+        let db = self.db.clone();
+        let group_owned = group.to_string();
+        let jobs: Vec<Job> = tokio::task::spawn_blocking(move || {
+            db.list_jobs(None, None, Some(&group_owned), 1000, 0)
+        })
+        .await
+        .unwrap_or(Ok(vec![]))
+        .unwrap_or_default();
+
+        let group_ids: std::collections::HashSet<uuid::Uuid> = jobs.iter().map(|j| j.id).collect();
+        let roots: Vec<&Job> = jobs
+            .iter()
+            .filter(|j| !j.depends_on.iter().any(|d| group_ids.contains(&d.job_id)))
+            .collect();
+
+        for job in roots {
+            tracing::info!(
+                "pipeline schedule: triggering root job '{}' in group '{}'",
+                job.name,
+                group
+            );
+            self.fire_job(job, TriggerSource::Scheduler, false, None)
+                .await;
+        }
     }
 
     async fn check_cron_job(&mut self, job: &Job, cron_expr: &str, now: DateTime<Utc>) {

@@ -197,6 +197,7 @@ impl Db {
         status_filter: Option<&str>,
         search: Option<&str>,
         since: Option<&str>,
+        group: Option<&str>,
     ) -> QueryFilters {
         let mut f = QueryFilters::new();
         if let Some(s) = status_filter {
@@ -208,6 +209,14 @@ impl Db {
         if let Some(s) = since {
             f.add_gte("e.started_at", s);
         }
+        if let Some(g) = group {
+            if g == "Default" {
+                f.where_clauses
+                    .push("(j.group_name IS NULL OR j.group_name = 'Default')".to_string());
+            } else {
+                f.add_eq("j.group_name", g);
+            }
+        }
         f
     }
 
@@ -217,6 +226,7 @@ impl Db {
         status_filter: Option<&str>,
         search: Option<&str>,
         since: Option<&str>,
+        group: Option<&str>,
         limit: u32,
         offset: u32,
     ) -> Result<Vec<ExecutionRecord>, AppError> {
@@ -224,7 +234,7 @@ impl Db {
             .pool
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
-        let mut f = Self::build_exec_filters(status_filter, search, since);
+        let mut f = Self::build_exec_filters(status_filter, search, since, group);
         let (li, oi) = f.add_limit_offset(limit, offset);
         let sql = format!(
             "SELECT e.id, e.job_id, e.agent_id, e.task_snapshot_json, e.status, e.exit_code, e.stdout, e.stderr, e.stdout_truncated, e.stderr_truncated, e.started_at, e.finished_at, e.triggered_by_json, e.extracted_json, e.retry_of, e.attempt_number, e.params_json FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{} ORDER BY e.created_at DESC LIMIT ?{} OFFSET ?{}",
@@ -249,12 +259,13 @@ impl Db {
         status_filter: Option<&str>,
         search: Option<&str>,
         since: Option<&str>,
+        group: Option<&str>,
     ) -> Result<u32, AppError> {
         let conn = self
             .pool
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
-        let f = Self::build_exec_filters(status_filter, search, since);
+        let f = Self::build_exec_filters(status_filter, search, since, group);
         let sql = format!(
             "SELECT COUNT(*) FROM executions e LEFT JOIN jobs j ON e.job_id = j.id{}",
             f.where_sql()
