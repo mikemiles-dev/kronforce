@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Shared test fixtures — centralizes Job, ExecutionRecord, and Db construction
 /// so that adding a new field only requires updating this one file.
 use chrono::Utc;
