@@ -1,5 +1,5 @@
 {
-  "groups": ["ETL", "Monitoring", "Deploys", "Maintenance"],
+  "groups": ["ETL", "Monitoring", "Deploys", "Maintenance", "Reports", "Data-Sync"],
   "jobs": [
     {
       "name": "health-check",
@@ -25,10 +25,28 @@
       "group": "Monitoring"
     },
     {
+      "name": "ssl-cert-check",
+      "description": "Check SSL certificate expiry",
+      "task": {"type": "http", "method": "get", "url": "https://example.com", "expect_status": 200},
+      "schedule": {"type": "cron", "value": "0 0 9 * * 1"},
+      "group": "Monitoring",
+      "timeout_secs": 15,
+      "notifications": {"on_failure": true}
+    },
+    {
+      "name": "api-latency-test",
+      "description": "Measure API response time",
+      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/delay/1", "expect_status": 200},
+      "schedule": {"type": "interval", "value": {"interval_secs": 600}},
+      "group": "Monitoring",
+      "timeout_secs": 10,
+      "max_concurrent": 1
+    },
+    {
       "name": "etl-extract",
       "description": "Extract data from source system",
       "task": {"type": "shell", "command": "echo '{\"records\": 1523, \"status\": \"complete\"}' && echo 'Extracted 1523 records'"},
-      "schedule": {"type": "cron", "value": "0 0 2 * * *"},
+      "schedule": {"type": "on_demand"},
       "group": "ETL",
       "timeout_secs": 300,
       "output_rules": {
@@ -42,83 +60,35 @@
     },
     {
       "name": "etl-transform",
-      "description": "Transform extracted data",
-      "task": {"type": "shell", "command": "echo 'Transforming {{LAST_ETL_COUNT}} records...' && sleep 1 && echo 'Transform complete'"},
+      "description": "Transform extracted data using parallel workers",
+      "task": {"type": "shell", "command": "echo 'Transforming {{LAST_ETL_COUNT}} records with {{ETL_WORKERS}} workers...' && sleep 1 && echo 'Transform complete'"},
       "schedule": {"type": "on_demand"},
       "group": "ETL",
-      "timeout_secs": 600
+      "timeout_secs": 600,
+      "parameters": [
+        {"name": "ETL_WORKERS", "param_type": "select", "required": false, "default": "4", "options": ["1", "2", "4", "8"], "description": "Number of parallel workers"}
+      ]
     },
     {
-      "name": "etl-load",
-      "description": "Load transformed data into warehouse",
-      "task": {"type": "shell", "command": "echo 'Loading data into warehouse...' && echo 'Load complete: {{LAST_ETL_COUNT}} records'"},
+      "name": "etl-validate",
+      "description": "Run data quality checks on transformed data",
+      "task": {"type": "shell", "command": "echo 'Validating {{LAST_ETL_COUNT}} records...' && echo 'null_check: passed' && echo 'schema_check: passed' && echo 'Validation complete: 0 errors'"},
       "schedule": {"type": "on_demand"},
       "group": "ETL",
-      "timeout_secs": 600
-    },
-    {
-      "name": "deploy-staging",
-      "description": "Deploy latest build to staging",
-      "task": {"type": "shell", "command": "echo 'Deploying to staging...' && sleep 2 && echo 'version=2.4.1' && echo 'Deploy complete'"},
-      "schedule": {"type": "on_demand"},
-      "group": "Deploys",
-      "timeout_secs": 300,
-      "retry_max": 2,
-      "retry_delay_secs": 10,
-      "retry_backoff": 2.0,
+      "timeout_secs": 120,
       "output_rules": {
-        "extractions": [
-          {"name": "version", "pattern": "version=(.*)", "type": "regex", "write_to_variable": "DEPLOY_VERSION"}
+        "assertions": [
+          {"pattern": "0 errors", "message": "Data validation found errors"}
         ]
       }
     },
     {
-      "name": "deploy-production",
-      "description": "Deploy to production (requires staging success)",
-      "task": {"type": "shell", "command": "echo 'Deploying {{DEPLOY_VERSION}} to production...' && sleep 3 && echo 'Production deploy complete'"},
+      "name": "etl-load",
+      "description": "Load validated data into warehouse",
+      "task": {"type": "shell", "command": "echo 'Loading data into warehouse...' && echo 'Load complete: {{LAST_ETL_COUNT}} records'"},
       "schedule": {"type": "on_demand"},
-      "group": "Deploys",
-      "timeout_secs": 600,
-      "retry_max": 1,
-      "retry_delay_secs": 30
-    },
-    {
-      "name": "db-backup",
-      "description": "Backup the database",
-      "task": {"type": "shell", "command": "echo 'Starting backup...' && echo 'Backed up 42MB' && echo 'Backup complete'"},
-      "schedule": {"type": "cron", "value": "0 0 3 * * *"},
-      "group": "Maintenance",
-      "timeout_secs": 1800,
-      "notifications": {
-        "on_failure": true,
-        "on_success": false
-      }
-    },
-    {
-      "name": "log-rotate",
-      "description": "Rotate and compress old log files",
-      "task": {"type": "shell", "command": "echo 'Rotating logs...' && echo 'Compressed 5 files, freed 128MB'"},
-      "schedule": {"type": "cron", "value": "0 0 4 * * *"},
-      "group": "Maintenance"
-    },
-    {
-      "name": "ssl-cert-check",
-      "description": "Check SSL certificate expiry",
-      "task": {"type": "http", "method": "get", "url": "https://example.com", "expect_status": 200},
-      "schedule": {"type": "cron", "value": "0 0 9 * * 1"},
-      "group": "Monitoring",
-      "timeout_secs": 15,
-      "notifications": {
-        "on_failure": true
-      }
-    },
-    {
-      "name": "api-latency-test",
-      "description": "Measure API response time",
-      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/delay/1", "expect_status": 200},
-      "schedule": {"type": "cron", "value": "0 */10 * * * *"},
-      "group": "Monitoring",
-      "timeout_secs": 10
+      "group": "ETL",
+      "timeout_secs": 600
     },
     {
       "name": "etl-failure-alert",
@@ -128,11 +98,147 @@
       "group": "ETL"
     },
     {
+      "name": "deploy-staging",
+      "description": "Deploy latest build to staging environment",
+      "task": {"type": "shell", "command": "echo 'Deploying to staging...' && sleep 2 && echo 'version=2.4.1' && echo 'Deploy complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 300,
+      "retry_max": 2,
+      "retry_delay_secs": 10,
+      "retry_backoff": 2.0,
+      "parameters": [
+        {"name": "BRANCH", "param_type": "text", "required": false, "default": "main", "description": "Git branch to deploy"},
+        {"name": "ENVIRONMENT", "param_type": "select", "required": true, "default": "staging", "options": ["staging", "staging-2"], "description": "Target environment"}
+      ],
+      "output_rules": {
+        "extractions": [
+          {"name": "version", "pattern": "version=(.*)", "type": "regex", "write_to_variable": "DEPLOY_VERSION"}
+        ]
+      }
+    },
+    {
+      "name": "deploy-smoke-test",
+      "description": "Run smoke tests against staging deployment",
+      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/status/200", "expect_status": 200},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 120
+    },
+    {
+      "name": "deploy-production",
+      "description": "Deploy to production (requires staging success + approval)",
+      "task": {"type": "shell", "command": "echo 'Deploying {{DEPLOY_VERSION}} to production...' && sleep 3 && echo 'Production deploy complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 600,
+      "approval_required": true,
+      "priority": 10,
+      "sla_deadline": "06:00",
+      "sla_warning_mins": 15,
+      "notifications": {"on_failure": true, "on_success": true}
+    },
+    {
       "name": "deploy-notify",
       "description": "Notify team after production deploy",
       "task": {"type": "shell", "command": "echo 'DEPLOY NOTIFICATION: {{DEPLOY_VERSION}} deployed to production'"},
       "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "job_name_filter": "deploy-production"}},
       "group": "Deploys"
+    },
+    {
+      "name": "db-backup",
+      "description": "Full database backup with compression",
+      "task": {"type": "shell", "command": "echo 'Starting backup...' && sleep 1 && echo 'Backed up 42MB' && echo 'Backup complete'"},
+      "schedule": {"type": "cron", "value": "0 0 3 * * *"},
+      "group": "Maintenance",
+      "timeout_secs": 1800,
+      "max_concurrent": 1,
+      "notifications": {"on_failure": true}
+    },
+    {
+      "name": "log-rotate",
+      "description": "Rotate and compress old log files",
+      "task": {"type": "shell", "command": "echo 'Rotating logs...' && echo 'Compressed 5 files, freed 128MB'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Maintenance"
+    },
+    {
+      "name": "cache-purge",
+      "description": "Clear stale cache entries",
+      "task": {"type": "shell", "command": "echo 'Purging cache entries older than 24h...' && echo 'Removed 847 entries (12MB freed)'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Maintenance"
+    },
+    {
+      "name": "monthly-report",
+      "description": "Generate monthly business metrics report",
+      "task": {"type": "shell", "command": "echo 'Generating report for {{REPORT_MONTH}}...' && echo 'Revenue: $142,300' && echo 'Users: 8,421' && echo 'Report saved to /reports/{{REPORT_MONTH}}.pdf'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "day_1", "offset_days": 0, "hour": 8, "minute": 0, "months": [], "skip_weekends": true, "holidays": []}},
+      "group": "Reports",
+      "timeout_secs": 300,
+      "parameters": [
+        {"name": "REPORT_MONTH", "param_type": "text", "required": false, "default": "2026-04", "description": "Month to report on (YYYY-MM)"}
+      ]
+    },
+    {
+      "name": "quarterly-audit",
+      "description": "Run quarterly compliance audit",
+      "task": {"type": "shell", "command": "echo 'Running audit checks...' && echo 'Access logs: OK' && echo 'Data retention: OK' && echo 'Encryption: OK' && echo 'Audit passed: 3/3 checks'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "last_day", "offset_days": -2, "hour": 9, "minute": 0, "months": [3, 6, 9, 12], "skip_weekends": true, "holidays": []}},
+      "group": "Reports",
+      "timeout_secs": 600,
+      "notifications": {"on_failure": true, "on_success": true}
+    },
+    {
+      "name": "weekly-digest",
+      "description": "Compile weekly metrics digest for stakeholders",
+      "task": {"type": "shell", "command": "echo 'Compiling weekly digest...' && echo 'Jobs run: 342' && echo 'Success rate: 98.5%' && echo 'Avg duration: 12s' && echo 'Digest sent to team'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "first_monday", "offset_days": 0, "hour": 7, "minute": 30, "months": [], "skip_weekends": false, "holidays": []}},
+      "group": "Reports"
+    },
+    {
+      "name": "sync-users",
+      "description": "Sync user data from LDAP to local database",
+      "task": {"type": "shell", "command": "echo 'Connecting to LDAP...' && echo 'Fetched 234 users' && echo 'Updated: 12, Added: 3, Deactivated: 1' && echo 'Sync complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Data-Sync",
+      "timeout_secs": 120
+    },
+    {
+      "name": "sync-inventory",
+      "description": "Pull latest inventory from vendor API",
+      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/json", "expect_status": 200},
+      "schedule": {"type": "on_demand"},
+      "group": "Data-Sync",
+      "timeout_secs": 60,
+      "output_rules": {
+        "extractions": [
+          {"name": "payload", "pattern": "\\{.*\\}", "type": "regex"}
+        ]
+      }
+    },
+    {
+      "name": "sync-reconcile",
+      "description": "Reconcile local data against vendor source of truth",
+      "task": {"type": "shell", "command": "echo 'Reconciling inventory...' && echo 'Matched: 1,847 items' && echo 'Mismatched: 3 items' && echo 'Reconciliation complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Data-Sync",
+      "timeout_secs": 180,
+      "output_rules": {
+        "assertions": [
+          {"pattern": "Reconciliation complete", "message": "Reconciliation did not finish"}
+        ],
+        "triggers": [
+          {"pattern": "Mismatched: [1-9]", "severity": "warning"}
+        ]
+      }
+    },
+    {
+      "name": "sync-notify",
+      "description": "Send sync summary to data team",
+      "task": {"type": "shell", "command": "echo 'Data sync pipeline complete. Sending summary to data-team@example.com'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Data-Sync"
     }
   ],
   "variables": [
@@ -140,6 +246,8 @@
     {"name": "DEPLOY_VERSION", "value": "2.3.0"},
     {"name": "ENV", "value": "staging"},
     {"name": "API_HOST", "value": "https://api.example.com"},
-    {"name": "ALERT_EMAIL", "value": "ops@example.com"}
+    {"name": "ALERT_EMAIL", "value": "ops@example.com"},
+    {"name": "ETL_WORKERS", "value": "4"},
+    {"name": "REPORT_MONTH", "value": "2026-04"}
   ]
 }
