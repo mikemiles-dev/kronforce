@@ -1,32 +1,36 @@
 {
-  "groups": ["ETL", "Monitoring", "Deploys", "Maintenance", "Reports", "Data-Sync"],
+  "groups": ["ETL", "Monitoring", "Deploys", "Maintenance", "Reports", "Data-Sync", "Security", "Notifications"],
   "jobs": [
     {
       "name": "health-check",
-      "description": "Check if the API is responding",
+      "description": "Check if the primary API is responding with 200 OK",
       "task": {"type": "http", "method": "get", "url": "https://httpbin.org/get", "expect_status": 200},
-      "schedule": {"type": "cron", "value": "0 * * * * *"},
+      "schedule": {"type": "cron", "value": "0 */5 * * * *"},
       "group": "Monitoring",
-      "timeout_secs": 30
+      "timeout_secs": 30,
+      "notifications": {"on_failure": true},
+      "output_rules": {"triggers": [{"pattern": "error|timeout", "severity": "error"}]}
     },
     {
       "name": "disk-usage",
-      "description": "Check disk usage on the controller",
-      "task": {"type": "shell", "command": "df -h / | tail -1"},
-      "schedule": {"type": "cron", "value": "0 */5 * * * *"},
+      "description": "Check disk usage and alert if above 85%",
+      "task": {"type": "shell", "command": "echo 'Filesystem      Size  Used Avail Use%' && echo '/dev/sda1       50G   32G   18G  64%' && echo 'Disk usage: 64%'"},
+      "schedule": {"type": "cron", "value": "0 */10 * * * *"},
       "group": "Monitoring",
-      "timeout_secs": 10
+      "timeout_secs": 10,
+      "output_rules": {"extractions": [{"name": "usage_pct", "pattern": "Disk usage: (\\d+)%", "type": "regex"}], "triggers": [{"pattern": "[89][0-9]%|100%", "severity": "warning"}]}
     },
     {
       "name": "uptime-check",
-      "description": "Report system uptime",
-      "task": {"type": "shell", "command": "cat /proc/uptime 2>/dev/null || echo 'uptime not available'"},
+      "description": "Report system uptime and load average",
+      "task": {"type": "shell", "command": "echo 'System uptime: 42 days, 7:23' && echo 'Load average: 0.42 0.38 0.35' && echo 'Memory: 2048MB/4096MB (50%)' && echo 'Status: healthy'"},
       "schedule": {"type": "cron", "value": "0 0 * * * *"},
-      "group": "Monitoring"
+      "group": "Monitoring",
+      "output_rules": {"assertions": [{"pattern": "healthy", "message": "System is not in healthy state"}]}
     },
     {
       "name": "ssl-cert-check",
-      "description": "Check SSL certificate expiry",
+      "description": "Verify SSL certificates have not expired",
       "task": {"type": "http", "method": "get", "url": "https://example.com", "expect_status": 200},
       "schedule": {"type": "cron", "value": "0 0 9 * * 1"},
       "group": "Monitoring",
@@ -35,7 +39,7 @@
     },
     {
       "name": "api-latency-test",
-      "description": "Measure API response time",
+      "description": "Measure API response latency (must be < 2s)",
       "task": {"type": "http", "method": "get", "url": "https://httpbin.org/delay/1", "expect_status": 200},
       "schedule": {"type": "interval", "value": {"interval_secs": 600}},
       "group": "Monitoring",
@@ -43,31 +47,40 @@
       "max_concurrent": 1
     },
     {
+      "name": "dns-resolution",
+      "description": "Verify DNS resolves correctly for all production domains",
+      "task": {"type": "shell", "command": "echo 'Resolving api.example.com... 93.184.216.34 (OK)' && echo 'Resolving cdn.example.com... 93.184.216.35 (OK)' && echo 'All 2 domains resolved successfully'"},
+      "schedule": {"type": "cron", "value": "0 */30 * * * *"},
+      "group": "Monitoring",
+      "timeout_secs": 15,
+      "output_rules": {"assertions": [{"pattern": "resolved successfully", "message": "DNS resolution failed"}]}
+    },
+    {
+      "name": "cache-hit-rate",
+      "description": "Monitor cache hit rate and extract metrics",
+      "task": {"type": "shell", "command": "echo 'Cache stats:' && echo '  Hits: 14,823' && echo '  Misses: 912' && echo '  Hit rate: 94.2%' && echo '  Evictions: 47'"},
+      "schedule": {"type": "interval", "value": {"interval_secs": 1800}},
+      "group": "Monitoring",
+      "timeout_secs": 10,
+      "output_rules": {"extractions": [{"name": "hit_rate", "pattern": "Hit rate: ([\\d.]+)%", "type": "regex", "write_to_variable": "CACHE_HIT_RATE"}], "triggers": [{"pattern": "Hit rate: [0-7][0-9]", "severity": "warning"}]}
+    },
+    {
       "name": "etl-extract",
-      "description": "Extract data from source system",
-      "task": {"type": "shell", "command": "echo '{\"records\": 1523, \"status\": \"complete\"}' && echo 'Extracted 1523 records'"},
+      "description": "Extract raw data from source databases and APIs",
+      "task": {"type": "shell", "command": "echo 'Connecting to source DB...' && echo 'Extracted 1523 records from 4 tables'"},
       "schedule": {"type": "on_demand"},
       "group": "ETL",
       "timeout_secs": 300,
-      "output_rules": {
-        "extractions": [
-          {"name": "record_count", "pattern": "Extracted (\\d+) records", "type": "regex", "write_to_variable": "LAST_ETL_COUNT"}
-        ],
-        "assertions": [
-          {"pattern": "complete", "message": "ETL did not complete successfully"}
-        ]
-      }
+      "output_rules": {"extractions": [{"name": "record_count", "pattern": "Extracted (\\d+) records", "type": "regex", "write_to_variable": "LAST_ETL_COUNT"}], "assertions": [{"pattern": "Extracted", "message": "ETL extraction did not complete"}]}
     },
     {
       "name": "etl-transform",
-      "description": "Transform extracted data using parallel workers",
+      "description": "Transform and normalize extracted data using parallel workers",
       "task": {"type": "shell", "command": "echo 'Transforming {{LAST_ETL_COUNT}} records with {{ETL_WORKERS}} workers...' && sleep 1 && echo 'Transform complete'"},
       "schedule": {"type": "on_demand"},
       "group": "ETL",
       "timeout_secs": 600,
-      "parameters": [
-        {"name": "ETL_WORKERS", "param_type": "select", "required": false, "default": "4", "options": ["1", "2", "4", "8"], "description": "Number of parallel workers"}
-      ]
+      "parameters": [{"name": "ETL_WORKERS", "param_type": "select", "required": false, "default": "4", "options": ["1","2","4","8","16"], "description": "Number of parallel transform workers"}]
     },
     {
       "name": "etl-validate",
@@ -76,24 +89,28 @@
       "schedule": {"type": "on_demand"},
       "group": "ETL",
       "timeout_secs": 120,
-      "output_rules": {
-        "assertions": [
-          {"pattern": "0 errors", "message": "Data validation found errors"}
-        ]
-      }
+      "output_rules": {"assertions": [{"pattern": "0 errors", "message": "Data validation found errors"}]}
     },
     {
       "name": "etl-load",
-      "description": "Load validated data into warehouse",
+      "description": "Load validated data into the analytics warehouse",
       "task": {"type": "shell", "command": "echo 'Loading data into warehouse...' && echo 'Load complete: {{LAST_ETL_COUNT}} records'"},
       "schedule": {"type": "on_demand"},
       "group": "ETL",
       "timeout_secs": 600
     },
     {
+      "name": "etl-archive",
+      "description": "Archive raw source files to cold storage after successful load",
+      "task": {"type": "shell", "command": "echo 'Archiving source files...' && echo 'Compressed 4 files (23MB -> 8MB)' && echo 'Archive complete'"},
+      "schedule": {"type": "on_demand"},
+      "group": "ETL",
+      "timeout_secs": 300
+    },
+    {
       "name": "etl-failure-alert",
-      "description": "Send alert when ETL pipeline fails",
-      "task": {"type": "shell", "command": "echo 'ETL ALERT: Pipeline failure detected. Notifying on-call team.'"},
+      "description": "Send alert when any ETL stage fails",
+      "task": {"type": "shell", "command": "echo 'ETL ALERT: Pipeline failure detected'"},
       "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "severity": "error", "job_name_filter": "etl-"}},
       "group": "ETL"
     },
@@ -104,141 +121,213 @@
       "schedule": {"type": "on_demand"},
       "group": "Deploys",
       "timeout_secs": 300,
-      "retry_max": 2,
-      "retry_delay_secs": 10,
-      "retry_backoff": 2.0,
+      "retry_max": 2, "retry_delay_secs": 10, "retry_backoff": 2.0,
       "parameters": [
         {"name": "BRANCH", "param_type": "text", "required": false, "default": "main", "description": "Git branch to deploy"},
-        {"name": "ENVIRONMENT", "param_type": "select", "required": true, "default": "staging", "options": ["staging", "staging-2"], "description": "Target environment"}
+        {"name": "ENVIRONMENT", "param_type": "select", "required": true, "default": "staging", "options": ["staging","staging-2","staging-perf"], "description": "Target staging environment"}
       ],
-      "output_rules": {
-        "extractions": [
-          {"name": "version", "pattern": "version=(.*)", "type": "regex", "write_to_variable": "DEPLOY_VERSION"}
-        ]
-      }
+      "output_rules": {"extractions": [{"name": "version", "pattern": "version=(\\S+)", "type": "regex", "write_to_variable": "DEPLOY_VERSION"}]}
     },
     {
       "name": "deploy-smoke-test",
       "description": "Run smoke tests against staging deployment",
-      "task": {"type": "http", "method": "get", "url": "https://httpbin.org/status/200", "expect_status": 200},
+      "task": {"type": "shell", "command": "echo 'Running smoke tests...' && echo 'GET /health: 200 OK' && echo 'All smoke tests passed'"},
       "schedule": {"type": "on_demand"},
       "group": "Deploys",
-      "timeout_secs": 120
+      "timeout_secs": 120,
+      "output_rules": {"assertions": [{"pattern": "All.*passed", "message": "Smoke tests failed"}]}
     },
     {
       "name": "deploy-production",
-      "description": "Deploy to production (requires staging success + approval)",
+      "description": "Deploy to production (requires manual approval)",
       "task": {"type": "shell", "command": "echo 'Deploying {{DEPLOY_VERSION}} to production...' && sleep 3 && echo 'Production deploy complete'"},
       "schedule": {"type": "on_demand"},
       "group": "Deploys",
       "timeout_secs": 600,
-      "approval_required": true,
-      "priority": 10,
-      "sla_deadline": "06:00",
-      "sla_warning_mins": 15,
+      "approval_required": true, "priority": 10,
+      "sla_deadline": "06:00", "sla_warning_mins": 15,
       "notifications": {"on_failure": true, "on_success": true}
     },
     {
+      "name": "deploy-post-checks",
+      "description": "Run post-deployment health checks",
+      "task": {"type": "shell", "command": "echo 'Post-deploy verification...' && echo 'Error rate: 0.02%' && echo 'P99 latency: 245ms' && echo 'All post-deploy checks passed'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Deploys",
+      "timeout_secs": 120,
+      "output_rules": {"assertions": [{"pattern": "All post-deploy checks passed", "message": "Post-deploy checks failed"}]}
+    },
+    {
       "name": "deploy-notify",
-      "description": "Notify team after production deploy",
+      "description": "Notify team on Slack after production deploy",
       "task": {"type": "shell", "command": "echo 'DEPLOY NOTIFICATION: {{DEPLOY_VERSION}} deployed to production'"},
       "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "job_name_filter": "deploy-production"}},
       "group": "Deploys"
     },
     {
       "name": "db-backup",
-      "description": "Full database backup with compression",
-      "task": {"type": "shell", "command": "echo 'Starting backup...' && sleep 1 && echo 'Backed up 42MB' && echo 'Backup complete'"},
-      "schedule": {"type": "cron", "value": "0 0 3 * * *"},
+      "description": "Full database backup with compression and checksum",
+      "task": {"type": "shell", "command": "echo 'Starting backup...' && sleep 1 && echo 'Backed up 524MB -> 142MB' && echo 'Backup complete: 142MB'"},
+      "schedule": {"type": "on_demand"},
       "group": "Maintenance",
-      "timeout_secs": 1800,
-      "max_concurrent": 1,
-      "notifications": {"on_failure": true}
+      "timeout_secs": 1800, "max_concurrent": 1,
+      "notifications": {"on_failure": true},
+      "output_rules": {"extractions": [{"name": "backup_size", "pattern": "Backup complete: (\\S+)", "type": "regex"}]}
     },
     {
       "name": "log-rotate",
-      "description": "Rotate and compress old log files",
-      "task": {"type": "shell", "command": "echo 'Rotating logs...' && echo 'Compressed 5 files, freed 128MB'"},
+      "description": "Rotate, compress, and archive old log files",
+      "task": {"type": "shell", "command": "echo 'Rotating logs...' && echo 'Compressed 3 files, freed 694MB'"},
       "schedule": {"type": "on_demand"},
       "group": "Maintenance"
     },
     {
       "name": "cache-purge",
-      "description": "Clear stale cache entries",
-      "task": {"type": "shell", "command": "echo 'Purging cache entries older than 24h...' && echo 'Removed 847 entries (12MB freed)'"},
+      "description": "Clear stale cache entries and rebuild hot cache",
+      "task": {"type": "shell", "command": "echo 'Purging cache entries older than 24h...' && echo 'Removed 847 entries (12MB freed)' && echo 'New hit rate: 96.1%'"},
       "schedule": {"type": "on_demand"},
-      "group": "Maintenance"
+      "group": "Maintenance",
+      "output_rules": {"extractions": [{"name": "cache_hit_rate", "pattern": "hit rate: ([\\d.]+)%", "type": "regex", "write_to_variable": "CACHE_HIT_RATE"}]}
+    },
+    {
+      "name": "db-vacuum",
+      "description": "Run VACUUM and ANALYZE on database tables",
+      "task": {"type": "shell", "command": "echo 'Running VACUUM on 4 tables...' && echo 'Total space reclaimed: 146MB'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Maintenance",
+      "timeout_secs": 3600
     },
     {
       "name": "monthly-report",
-      "description": "Generate monthly business metrics report",
-      "task": {"type": "shell", "command": "echo 'Generating report for {{REPORT_MONTH}}...' && echo 'Revenue: $142,300' && echo 'Users: 8,421' && echo 'Report saved to /reports/{{REPORT_MONTH}}.pdf'"},
+      "description": "Generate monthly business metrics report on the 1st",
+      "task": {"type": "shell", "command": "echo 'Generating report for {{REPORT_MONTH}}...' && echo 'Revenue: $142,300' && echo 'Users: 8,421' && echo 'Report saved'"},
       "schedule": {"type": "calendar", "value": {"anchor": "day_1", "offset_days": 0, "hour": 8, "minute": 0, "months": [], "skip_weekends": true, "holidays": []}},
       "group": "Reports",
       "timeout_secs": 300,
       "parameters": [
-        {"name": "REPORT_MONTH", "param_type": "text", "required": false, "default": "2026-04", "description": "Month to report on (YYYY-MM)"}
+        {"name": "REPORT_MONTH", "param_type": "text", "required": false, "default": "2026-04", "description": "Month to report on (YYYY-MM)"},
+        {"name": "FORMAT", "param_type": "select", "required": false, "default": "pdf", "options": ["pdf","csv","html"], "description": "Report output format"}
       ]
     },
     {
       "name": "quarterly-audit",
-      "description": "Run quarterly compliance audit",
-      "task": {"type": "shell", "command": "echo 'Running audit checks...' && echo 'Access logs: OK' && echo 'Data retention: OK' && echo 'Encryption: OK' && echo 'Audit passed: 3/3 checks'"},
-      "schedule": {"type": "calendar", "value": {"anchor": "last_day", "offset_days": -2, "hour": 9, "minute": 0, "months": [3, 6, 9, 12], "skip_weekends": true, "holidays": []}},
+      "description": "Run quarterly compliance audit (2 days before quarter end)",
+      "task": {"type": "shell", "command": "echo 'Running compliance audit...' && echo 'Access control: PASSED' && echo 'Data retention: PASSED' && echo 'Encryption: PASSED' && echo 'Audit complete: 3/3 checks passed'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "last_day", "offset_days": -2, "hour": 9, "minute": 0, "months": [3,6,9,12], "skip_weekends": true, "holidays": []}},
       "group": "Reports",
       "timeout_secs": 600,
-      "notifications": {"on_failure": true, "on_success": true}
+      "notifications": {"on_failure": true, "on_success": true},
+      "output_rules": {"extractions": [{"name": "audit_result", "pattern": "Audit complete: (.*?)$", "type": "regex", "write_to_variable": "LAST_AUDIT_STATUS"}]}
     },
     {
       "name": "weekly-digest",
-      "description": "Compile weekly metrics digest for stakeholders",
-      "task": {"type": "shell", "command": "echo 'Compiling weekly digest...' && echo 'Jobs run: 342' && echo 'Success rate: 98.5%' && echo 'Avg duration: 12s' && echo 'Digest sent to team'"},
+      "description": "Compile weekly ops digest every Monday morning",
+      "task": {"type": "shell", "command": "echo 'Weekly digest: Jobs=342, Success=98.5%, Avg=12s'"},
       "schedule": {"type": "calendar", "value": {"anchor": "first_monday", "offset_days": 0, "hour": 7, "minute": 30, "months": [], "skip_weekends": false, "holidays": []}},
       "group": "Reports"
     },
     {
+      "name": "sla-report",
+      "description": "Generate SLA compliance report on the 15th",
+      "task": {"type": "shell", "command": "echo 'SLA Report: API uptime 99.97%, P99 312ms, Error rate 0.03%' && echo 'All SLA targets met'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "day_15", "offset_days": 0, "hour": 10, "minute": 0, "months": [], "skip_weekends": true, "holidays": []}},
+      "group": "Reports",
+      "notifications": {"on_success": true}
+    },
+    {
       "name": "sync-users",
-      "description": "Sync user data from LDAP to local database",
-      "task": {"type": "shell", "command": "echo 'Connecting to LDAP...' && echo 'Fetched 234 users' && echo 'Updated: 12, Added: 3, Deactivated: 1' && echo 'Sync complete'"},
+      "description": "Sync user directory from corporate LDAP",
+      "task": {"type": "shell", "command": "echo 'Fetched 234 users. Updated: 12, Added: 3, Deactivated: 1. User sync complete'"},
       "schedule": {"type": "on_demand"},
       "group": "Data-Sync",
       "timeout_secs": 120
     },
     {
       "name": "sync-inventory",
-      "description": "Pull latest inventory from vendor API",
+      "description": "Pull latest product inventory from vendor API",
       "task": {"type": "http", "method": "get", "url": "https://httpbin.org/json", "expect_status": 200},
       "schedule": {"type": "on_demand"},
       "group": "Data-Sync",
-      "timeout_secs": 60,
-      "output_rules": {
-        "extractions": [
-          {"name": "payload", "pattern": "\\{.*\\}", "type": "regex"}
-        ]
-      }
+      "timeout_secs": 60
     },
     {
       "name": "sync-reconcile",
-      "description": "Reconcile local data against vendor source of truth",
-      "task": {"type": "shell", "command": "echo 'Reconciling inventory...' && echo 'Matched: 1,847 items' && echo 'Mismatched: 3 items' && echo 'Reconciliation complete'"},
+      "description": "Reconcile local data against vendor source and flag mismatches",
+      "task": {"type": "shell", "command": "echo 'Matched: 1,847 items. Mismatched: 3 items. Reconciliation complete'"},
       "schedule": {"type": "on_demand"},
       "group": "Data-Sync",
       "timeout_secs": 180,
-      "output_rules": {
-        "assertions": [
-          {"pattern": "Reconciliation complete", "message": "Reconciliation did not finish"}
-        ],
-        "triggers": [
-          {"pattern": "Mismatched: [1-9]", "severity": "warning"}
-        ]
-      }
+      "output_rules": {"assertions": [{"pattern": "Reconciliation complete"}], "triggers": [{"pattern": "Mismatched: [1-9]", "severity": "warning"}]}
     },
     {
       "name": "sync-notify",
       "description": "Send sync summary to data team",
-      "task": {"type": "shell", "command": "echo 'Data sync pipeline complete. Sending summary to data-team@example.com'"},
+      "task": {"type": "shell", "command": "echo 'Data sync pipeline complete. Sent to data-team@example.com'"},
       "schedule": {"type": "on_demand"},
       "group": "Data-Sync"
+    },
+    {
+      "name": "sync-metrics",
+      "description": "Update sync metrics dashboard and detect drift trends",
+      "task": {"type": "shell", "command": "echo 'Sync latency: 23s (p50), 45s (p99). Drift rate: 0.16%. Metrics pushed to Grafana'"},
+      "schedule": {"type": "on_demand"},
+      "group": "Data-Sync"
+    },
+    {
+      "name": "vuln-scan",
+      "description": "Run vulnerability scan on container images",
+      "task": {"type": "shell", "command": "echo 'Scanning 12 images...' && echo 'Scan complete: 0 critical, 3 high, 12 medium'"},
+      "schedule": {"type": "cron", "value": "0 0 2 * * *"},
+      "group": "Security",
+      "timeout_secs": 600,
+      "notifications": {"on_failure": true},
+      "output_rules": {"triggers": [{"pattern": "[1-9]+ critical", "severity": "error"}], "assertions": [{"pattern": "0 critical", "message": "Critical vulnerabilities detected"}]}
+    },
+    {
+      "name": "secret-rotation",
+      "description": "Rotate API keys and database credentials monthly",
+      "task": {"type": "shell", "command": "echo '3 credentials rotated successfully'"},
+      "schedule": {"type": "calendar", "value": {"anchor": "day_1", "offset_days": 0, "hour": 3, "minute": 0, "months": [], "skip_weekends": false, "holidays": []}},
+      "group": "Security",
+      "timeout_secs": 120,
+      "notifications": {"on_failure": true, "on_success": true}
+    },
+    {
+      "name": "access-audit",
+      "description": "Audit active API keys and detect anomalous access patterns",
+      "task": {"type": "shell", "command": "echo 'Active keys: 14. Unused >30d: 2. Anomalous: 0. Access audit passed'"},
+      "schedule": {"type": "cron", "value": "0 0 8 * * *"},
+      "group": "Security",
+      "output_rules": {"triggers": [{"pattern": "Anomalous.*[1-9]", "severity": "warning"}]}
+    },
+    {
+      "name": "security-alert",
+      "description": "React to security events and escalate",
+      "task": {"type": "shell", "command": "echo 'SECURITY ALERT: Escalating to security team'"},
+      "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "severity": "error", "job_name_filter": "vuln-scan"}},
+      "group": "Security"
+    },
+    {
+      "name": "slack-on-failure",
+      "description": "Send Slack notification on any job failure",
+      "task": {"type": "shell", "command": "echo 'Sending failure notification to #alerts'"},
+      "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "severity": "error"}},
+      "group": "Notifications"
+    },
+    {
+      "name": "pagerduty-critical",
+      "description": "Page on-call when health-check fails",
+      "task": {"type": "shell", "command": "echo 'PAGING ON-CALL: Critical failure. PagerDuty incident INC-4821'"},
+      "schedule": {"type": "event", "value": {"kind_pattern": "execution.completed", "severity": "error", "job_name_filter": "health-check"}},
+      "group": "Notifications",
+      "priority": 10
+    },
+    {
+      "name": "daily-summary",
+      "description": "Send daily execution summary to management",
+      "task": {"type": "shell", "command": "echo 'Daily Summary: 87 executions, 96.6% success, avg 8.4s'"},
+      "schedule": {"type": "cron", "value": "0 0 18 * * 1-5"},
+      "group": "Notifications"
     }
   ],
   "variables": [
@@ -248,6 +337,10 @@
     {"name": "API_HOST", "value": "https://api.example.com"},
     {"name": "ALERT_EMAIL", "value": "ops@example.com"},
     {"name": "ETL_WORKERS", "value": "4"},
-    {"name": "REPORT_MONTH", "value": "2026-04"}
+    {"name": "REPORT_MONTH", "value": "2026-04"},
+    {"name": "DEPLOY_BRANCH", "value": "main"},
+    {"name": "LAST_AUDIT_STATUS", "value": "passed"},
+    {"name": "INVENTORY_COUNT", "value": "1847"},
+    {"name": "CACHE_HIT_RATE", "value": "94.2"}
   ]
 }
