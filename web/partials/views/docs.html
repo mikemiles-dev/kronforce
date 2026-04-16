@@ -12,6 +12,7 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-audit-log')">Audit Log</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-mcp-server')">MCP Server</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-migration')">Migration</button>
             </nav>
             <div class="docs-content" id="docs-content">
 
@@ -696,11 +697,9 @@ python3 examples/mcp_test_server.py</code></pre>
 
             </div>
         </div>
-    </section>
 
-    <section class="docs-section">
-        <h2>Migrating to Kronforce</h2>
-        <div class="docs-card">
+        <div class="docs-card" id="doc-migration">
+            <div class="docs-card-header" onclick="this.parentElement.classList.toggle('open')">Migrating to Kronforce</div>
             <div class="docs-card-content">
                 <h3>From Cron</h3>
                 <p>Use the built-in crontab importer to convert your cron entries automatically:</p>
@@ -740,4 +739,5 @@ kronforce-import-jenkins kf_your_key ./jenkins-jobs/ --pipeline --dry-run</code>
                 <p>See the full <a href="https://github.com/mikemiles-dev/kronforce/blob/main/docs/MIGRATION.md" target="_blank">Migration Guide</a> for detailed mapping tables and step-by-step instructions.</p>
             </div>
         </div>
+
     </section>
