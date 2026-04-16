@@ -217,6 +217,11 @@ async function api(method, path, body) {
         const err = await res.json().catch(() => ({ error: 'forbidden' }));
         throw new Error(err.error || 'Permission denied');
     }
+    if (res.status === 429) {
+        const retryAfter = res.headers.get('Retry-After') || '60';
+        toast('Rate limited — please wait ' + retryAfter + 's before retrying', 'error');
+        throw new Error('Rate limited, retry after ' + retryAfter + ' seconds');
+    }
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new Error(err.error || res.statusText);

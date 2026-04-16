@@ -69,11 +69,11 @@ impl ControllerConfig {
             rate_limit_public: std::env::var("KRONFORCE_RATE_LIMIT_PUBLIC")
                 .ok()
                 .and_then(|s| s.parse().ok())
-                .unwrap_or(30),
+                .unwrap_or(60),
             rate_limit_authenticated: std::env::var("KRONFORCE_RATE_LIMIT_AUTHENTICATED")
                 .ok()
                 .and_then(|s| s.parse().ok())
-                .unwrap_or(120),
+                .unwrap_or(300),
             rate_limit_agent: std::env::var("KRONFORCE_RATE_LIMIT_AGENT")
                 .ok()
                 .and_then(|s| s.parse().ok())

@@ -85,21 +85,88 @@ pub struct RateLimiters {
     pub agent: Option<RateLimiter>,
 }
 
-fn rate_limit_response(retry_after: u64, limit: u32) -> Response {
-    let body =
-        json!({"error": format!("rate limit exceeded, retry after {} seconds", retry_after)});
-    let mut resp = (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
-    let headers = resp.headers_mut();
-    headers.insert("Retry-After", HeaderValue::from(retry_after));
-    headers.insert("X-RateLimit-Limit", HeaderValue::from(limit));
-    headers.insert("X-RateLimit-Remaining", HeaderValue::from(0u32));
-    resp
+fn rate_limit_response(retry_after: u64, limit: u32, accepts_html: bool) -> Response {
+    if accepts_html {
+        let html = format!(
+            r#"<!DOCTYPE html>
+<html>
+<head><title>Rate Limited</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #0d1117; color: #e6edf3; }}
+  .card {{ text-align: center; padding: 48px; max-width: 420px; }}
+  h1 {{ font-size: 48px; margin: 0 0 16px; }}
+  h2 {{ font-size: 20px; margin: 0 0 12px; color: #e6a817; }}
+  p {{ color: #8b949e; line-height: 1.6; margin: 0 0 24px; }}
+  .retry {{ font-size: 14px; color: #58a6ff; font-weight: 500; }}
+  button {{ background: #238636; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-size: 14px; cursor: pointer; margin-top: 16px; }}
+  button:hover {{ background: #2ea043; }}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>&#9202;</h1>
+  <h2>Slow Down</h2>
+  <p>You're sending requests too quickly. Please wait a moment and try again.</p>
+  <p class="retry">Retry after <strong>{retry_after}</strong> second{plural}</p>
+  <button onclick="location.reload()">Try Again</button>
+</div>
+</body>
+</html>"#,
+            retry_after = retry_after,
+            plural = if retry_after == 1 { "" } else { "s" },
+        );
+        let mut resp = (
+            axum::http::StatusCode::TOO_MANY_REQUESTS,
+            [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            html,
+        )
+            .into_response();
+        let headers = resp.headers_mut();
+        headers.insert("Retry-After", HeaderValue::from(retry_after));
+        headers.insert("X-RateLimit-Limit", HeaderValue::from(limit));
+        headers.insert("X-RateLimit-Remaining", HeaderValue::from(0u32));
+        resp
+    } else {
+        let body =
+            json!({"error": format!("rate limit exceeded, retry after {} seconds", retry_after)});
+        let mut resp =
+            (axum::http::StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
+        let headers = resp.headers_mut();
+        headers.insert("Retry-After", HeaderValue::from(retry_after));
+        headers.insert("X-RateLimit-Limit", HeaderValue::from(limit));
+        headers.insert("X-RateLimit-Remaining", HeaderValue::from(0u32));
+        resp
+    }
 }
 
 fn add_rate_limit_headers(resp: &mut Response, limit: u32, remaining: u32) {
     let headers = resp.headers_mut();
     headers.insert("X-RateLimit-Limit", HeaderValue::from(limit));
     headers.insert("X-RateLimit-Remaining", HeaderValue::from(remaining));
+}
+
+/// Extract client IP from X-Forwarded-For header or direct connection.
+fn extract_client_ip(req: &Request) -> String {
+    req.headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.split(',').next())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| {
+            req.extensions()
+                .get::<axum::extract::connect_info::ConnectInfo<std::net::SocketAddr>>()
+                .map(|ci| ci.0.ip().to_string())
+                .unwrap_or_else(|| "unknown".to_string())
+        })
+}
+
+/// Check if the request prefers HTML (browser navigation vs API call).
+fn accepts_html(req: &Request) -> bool {
+    req.headers()
+        .get(axum::http::header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.contains("text/html"))
 }
 
 /// Rate limit middleware for public endpoints (keyed by client IP).
@@ -110,24 +177,12 @@ pub async fn rate_limit_public_middleware(req: Request, next: Next) -> Response 
         return next.run(req).await;
     };
 
-    // Extract client IP from X-Forwarded-For or ConnectInfo
-    let ip = req
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| {
-            req.extensions()
-                .get::<axum::extract::connect_info::ConnectInfo<std::net::SocketAddr>>()
-                .map(|ci| ci.0.ip().to_string())
-                .unwrap_or_else(|| "unknown".to_string())
-        });
-
+    let ip = extract_client_ip(&req);
+    let html = accepts_html(&req);
     let limit = limiter.max_requests();
     match limiter.check(&ip) {
         RateLimitResult::Limited { retry_after_secs } => {
-            rate_limit_response(retry_after_secs, limit)
+            rate_limit_response(retry_after_secs, limit, html)
         }
         RateLimitResult::Allowed { remaining } => {
             let mut resp = next.run(req).await;
@@ -137,7 +192,8 @@ pub async fn rate_limit_public_middleware(req: Request, next: Next) -> Response 
     }
 }
 
-/// Rate limit middleware for authenticated endpoints (keyed by API key UUID).
+/// Rate limit middleware for authenticated endpoints.
+/// Keyed by API key UUID when available, falls back to client IP (e.g. demo mode).
 pub async fn rate_limit_authed_middleware(req: Request, next: Next) -> Response {
     let limiters = req.extensions().get::<RateLimiters>().cloned();
     let limiter = limiters.as_ref().and_then(|l| l.authenticated.as_ref());
@@ -145,16 +201,18 @@ pub async fn rate_limit_authed_middleware(req: Request, next: Next) -> Response 
         return next.run(req).await;
     };
 
+    // Use API key UUID if present, otherwise fall back to IP
     let key = req
         .extensions()
         .get::<crate::db::models::ApiKey>()
         .map(|k| k.id.to_string())
-        .unwrap_or_else(|| "anonymous".to_string());
+        .unwrap_or_else(|| extract_client_ip(&req));
 
+    let html = accepts_html(&req);
     let limit = limiter.max_requests();
     match limiter.check(&key) {
         RateLimitResult::Limited { retry_after_secs } => {
-            rate_limit_response(retry_after_secs, limit)
+            rate_limit_response(retry_after_secs, limit, html)
         }
         RateLimitResult::Allowed { remaining } => {
             let mut resp = next.run(req).await;
@@ -176,12 +234,13 @@ pub async fn rate_limit_agent_middleware(req: Request, next: Next) -> Response {
         .extensions()
         .get::<crate::db::models::ApiKey>()
         .map(|k| k.id.to_string())
-        .unwrap_or_else(|| "anonymous".to_string());
+        .unwrap_or_else(|| extract_client_ip(&req));
 
+    let html = accepts_html(&req);
     let limit = limiter.max_requests();
     match limiter.check(&key) {
         RateLimitResult::Limited { retry_after_secs } => {
-            rate_limit_response(retry_after_secs, limit)
+            rate_limit_response(retry_after_secs, limit, html)
         }
         RateLimitResult::Allowed { remaining } => {
             let mut resp = next.run(req).await;
