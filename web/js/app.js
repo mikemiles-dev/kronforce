@@ -822,6 +822,18 @@ function showApp() {
     document.getElementById('app-layout').style.display = '';
 }
 
+function showDemoBanner() {
+    if (document.getElementById('demo-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'demo-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:var(--accent);color:#fff;text-align:center;padding:8px 16px;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:12px';
+    banner.innerHTML = 'You are viewing a <strong>read-only demo</strong> of Kronforce. Explore freely — nothing you do will break anything.' +
+        ' <a href="https://kronforce.dev" style="color:#fff;text-decoration:underline;font-weight:600" target="_blank">Learn more</a>' +
+        '<button onclick="this.parentElement.remove();document.getElementById(\'app-layout\').style.marginTop=\'\'" style="background:none;border:none;color:#fff;cursor:pointer;font-size:18px;margin-left:8px;padding:0 4px;opacity:0.7">&times;</button>';
+    document.body.prepend(banner);
+    document.getElementById('app-layout').style.marginTop = '38px';
+}
+
 async function checkOidcConfig() {
     try {
         const resp = await fetch('/api/auth/oidc/config');
@@ -1151,6 +1163,7 @@ fetchHealth();
         if (cfg.demo_mode) {
             currentUser = { authenticated: true, auth_type: 'demo', name: 'Demo', role: 'viewer' };
             showApp();
+            showDemoBanner();
             renderSidebarUser();
             await fetchAgents();
             for (const scope of ['jobs', 'execs', 'events']) {
