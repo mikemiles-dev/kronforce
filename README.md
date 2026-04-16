@@ -8,7 +8,19 @@
 
 **[Try the live demo](https://demo.kronforce.dev)** | [GitHub](https://github.com/mikemiles-dev/kronforce) | [Docs](docs/)
 
-![Kronforce Demo](demo.gif)
+![Kronforce Dashboard](docs/screenshots/dashboard-hero.png)
+
+<details>
+<summary>More screenshots</summary>
+
+| | |
+|---|---|
+| ![Pipeline Stages](docs/screenshots/pipeline-stages.png) **Pipeline stages with dependency arrows** | ![Pipeline History](docs/screenshots/pipeline-history.png) **Pipeline run history** |
+| ![Execution Detail](docs/screenshots/execution-detail.png) **Execution output and extracted values** | ![Dependency Map](docs/screenshots/dependency-map.png) **Interactive dependency graph** |
+| ![Cron Builder](docs/screenshots/cron-builder.png) **Visual cron schedule builder** | ![Data Sync Pipeline](docs/screenshots/data-sync-fanout.png) **Fan-out pipeline with parallel roots** |
+| ![Calendar Schedule](docs/screenshots/calendar-schedule.png) **Calendar business-day scheduling** | ![Variables](docs/screenshots/variables-page.png) **Global variables and secrets** |
+
+</details>
 
 Kronforce replaces scattered cron jobs, heavyweight platforms like Rundeck and Airflow, and stitched-together scripts with a single Rust binary that includes everything: scheduler, REST API, web dashboard, and SQLite database. No Postgres. No Redis. No Java. Download, run, automate.
 

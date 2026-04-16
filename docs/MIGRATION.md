@@ -155,6 +155,8 @@ pipeline {
 
 Trigger the pipeline: click "Run Pipeline" on the Stages view, or set a pipeline schedule.
 
+![Pipeline Stages View](screenshots/pipeline-stages.png)
+
 ### Concept Mapping
 
 | Jenkins | Kronforce | Notes |
