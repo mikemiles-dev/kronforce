@@ -1,12 +1,12 @@
 # Migration Guide
 
-Moving your existing scheduled tasks to Kronforce from cron, Rundeck, or Airflow.
+Moving your existing scheduled tasks to Kronforce from cron, Jenkins, Rundeck, or Airflow.
 
 ## From Cron
 
 ### Automatic Import
 
-Kronforce can import your crontab directly:
+Kronforce ships with a crontab importer that converts your cron entries directly:
 
 ```bash
 # Import from the current user's crontab
@@ -20,9 +20,17 @@ kronforce-import-crontab kf_your_admin_key --group Monitoring
 
 # Import to a remote Kronforce instance
 KRONFORCE_URL=http://kronforce:8080 kronforce-import-crontab kf_your_admin_key < mycrontab
+
+# Preview without creating (dry run)
+kronforce-import-crontab kf_your_admin_key --dry-run < mycrontab
 ```
 
-The importer creates a Kronforce job for each cron entry with the same schedule and command. Jobs are created in the "Default" group (or the group you specify) with status "Scheduled".
+The importer is at `scripts/kronforce-import-crontab` in the Kronforce repo. It:
+- Parses standard 5-field cron and converts to 6-field (adds seconds)
+- Handles `@daily`, `@hourly`, `@weekly`, `@monthly`, `@yearly` shortcuts
+- Skips comments, variable assignments, and `@reboot` entries
+- Generates sensible job names from the command path
+- Deduplicates names automatically
 
 ### Manual Migration
 
@@ -46,7 +54,6 @@ Each cron line maps directly to a Kronforce shell job:
 **Key differences:**
 - Kronforce uses **6-field cron** (seconds, minutes, hours, day-of-month, month, day-of-week)
 - Standard cron uses 5 fields (no seconds). Prepend `0` to keep the same schedule.
-- **Day-of-month / day-of-week** follows POSIX OR semantics: when both are set (not `*`), the job fires if either matches. `0 0 0 15 * 5` fires on the 15th OR any Friday.
 - Output is captured automatically — no need for `>> logfile 2>&1`
 - Environment variables use `{{VAR_NAME}}` syntax instead of shell `$VAR`
 
@@ -61,6 +68,134 @@ Each cron line maps directly to a Kronforce shell job:
 | No dependencies | Job dependency DAG with time windows |
 | Scattered across machines | Centralized with distributed agents |
 | No audit trail | Full audit log of all changes |
+
+## From Jenkins
+
+### Automatic Import
+
+Kronforce includes a Jenkins importer that parses Jenkinsfiles and config.xml:
+
+```bash
+# Import a Jenkinsfile (declarative pipeline)
+kronforce-import-jenkins kf_your_key Jenkinsfile
+
+# Import a Jenkins freestyle job (config.xml)
+kronforce-import-jenkins kf_your_key config.xml
+
+# Import as a pipeline (stages become dependent Kronforce jobs)
+kronforce-import-jenkins kf_your_key Jenkinsfile --pipeline
+
+# Bulk import from Jenkins export directory
+kronforce-import-jenkins kf_your_key ./jenkins-jobs/
+
+# Import to a specific group
+kronforce-import-jenkins kf_your_key Jenkinsfile --group CI-CD
+
+# Preview without creating
+kronforce-import-jenkins kf_your_key Jenkinsfile --dry-run
+```
+
+The importer is at `scripts/kronforce-import-jenkins` in the Kronforce repo. It:
+- Parses declarative Jenkinsfile: stages, `sh`/`bat` steps, cron triggers, agent labels, retry, timeout
+- Parses Jenkins XML: freestyle builders, pipeline scripts, timer triggers, environment injections
+- Bulk imports from `jobs/*/config.xml` directory structure
+- Converts Jenkins `H` (hash) cron syntax to standard cron
+- `--pipeline` flag wires stages as a Kronforce dependency chain with cascade
+- Extracts environment variables and creates them as Kronforce variables
+
+### Exporting from Jenkins
+
+To get your Jenkins configs for import:
+
+```bash
+# Single job — copy config.xml from Jenkins home
+cp $JENKINS_HOME/jobs/my-pipeline/config.xml .
+
+# Bulk export — copy entire jobs directory
+cp -r $JENKINS_HOME/jobs ./jenkins-export
+
+# Or use the Jenkins CLI
+java -jar jenkins-cli.jar -s http://jenkins:8080 get-job my-pipeline > config.xml
+
+# Or use the REST API
+curl -sf http://jenkins:8080/job/my-pipeline/config.xml > config.xml
+```
+
+### Pipeline Migration
+
+Jenkins pipelines map naturally to Kronforce pipeline groups:
+
+**Jenkinsfile:**
+```groovy
+pipeline {
+    agent { label 'linux' }
+    triggers { cron('0 6 * * *') }
+    stages {
+        stage('Build') {
+            steps { sh 'make build' }
+        }
+        stage('Test') {
+            steps { sh 'make test' }
+        }
+        stage('Deploy') {
+            steps { sh 'make deploy' }
+        }
+    }
+    post {
+        failure { mail to: 'team@example.com' }
+    }
+}
+```
+
+**Kronforce equivalent** (created automatically with `--pipeline`):
+
+1. Job `build` — Shell: `make build`, Cron: `0 0 6 * * *`, Group: Jenkins-Import
+2. Job `test` — Shell: `make test`, On Demand, depends on `build`
+3. Job `deploy` — Shell: `make deploy`, On Demand, depends on `test`, notifications on failure
+
+Trigger the pipeline: click "Run Pipeline" on the Stages view, or set a pipeline schedule.
+
+### Concept Mapping
+
+| Jenkins | Kronforce | Notes |
+|---|---|---|
+| Pipeline / Freestyle | Job group + dependency chain | Use `--pipeline` for automatic wiring |
+| Stage | Job | One Kronforce job per Jenkins stage |
+| `sh` / `bat` step | Shell task | Direct mapping |
+| Build trigger (cron) | Cron schedule | 6-field, add seconds |
+| `H` in cron | `0` | Jenkins hash randomizer → fixed value |
+| Pipeline trigger (SCM) | Webhook trigger | GitHub/GitLab webhook to Kronforce URL |
+| Agent label | Agent target tag | `{"type": "tagged", "tag": "linux"}` |
+| `retry(N)` | `retry_max` | With configurable backoff |
+| `timeout(time: N)` | `timeout_secs` | Convert minutes to seconds |
+| `input` step | `approval_required: true` | Manual approval gate |
+| Credentials | Secret variables | `{{DB_PASSWORD}}` with `secret: true` |
+| Shared libraries | Rhai scripts | Stored in Scripts page |
+| Email notification | Job notifications | Slack, email, webhook |
+| Parameters | Job parameters | UI form at trigger time |
+| Downstream/upstream | `depends_on` | With time window |
+| Multibranch | Parameterized + webhook | Pass branch as parameter |
+
+### What You Gain
+
+| Jenkins | Kronforce |
+|---|---|
+| Java + plugins + database | Single binary, zero dependencies |
+| Plugin compatibility issues | Built-in task types |
+| Groovy DSL required | Visual UI + REST API |
+| Resource-heavy (1GB+ RAM) | Lightweight (~50MB RAM) |
+| Complex distributed builds | Simple agent model |
+| Plugin-based scheduling | Built-in cron, calendar, interval, pipeline schedules |
+
+### What You Lose
+
+| Jenkins Advantage | Kronforce Alternative |
+|---|---|
+| Rich plugin ecosystem (1,800+) | 17 built-in task types + custom agents |
+| SCM integration (Git polling) | Webhook triggers from CI |
+| Build artifacts management | Output extraction + variables |
+| Blue Ocean visualization | Pipeline/Stages view with dependency maps |
+| Matrix/parallel builds | Fan-out dependencies (multiple jobs depend on one) |
 
 ## From Rundeck
 
@@ -142,21 +277,12 @@ with DAG('etl_pipeline', schedule_interval='0 6 * * *'):
 
 **Kronforce equivalent:**
 
-1. Create group "ETL"
-2. Create job `etl-extract`:
-   - Task: Shell, command: `python3 extract.py`
-   - Schedule: Cron `0 0 6 * * *`
-   - Group: ETL
-3. Create job `etl-transform`:
-   - Task: Shell, command: `python3 transform.py`
-   - Schedule: On Demand
-   - Dependencies: `etl-extract` (succeeded within 1 hour)
-   - Group: ETL
-4. Create job `etl-load`:
-   - Task: Shell, command: `python3 load.py`
-   - Schedule: On Demand
-   - Dependencies: `etl-transform` (succeeded within 1 hour)
-   - Group: ETL
+1. Create group "ETL" with a pipeline schedule: `0 0 6 * * *`
+2. Create job `etl-extract`: Shell, `python3 extract.py`, On Demand, Group: ETL
+3. Create job `etl-transform`: Shell, `python3 transform.py`, On Demand, depends on `etl-extract`
+4. Create job `etl-load`: Shell, `python3 load.py`, On Demand, depends on `etl-transform`
+
+The pipeline schedule triggers `etl-extract` daily at 6am. Dependencies cascade automatically.
 
 ### Passing Data Between Jobs (XCom Replacement)
 
@@ -189,7 +315,7 @@ def transform(**context):
 
 | Airflow Advantage | Kronforce Alternative |
 |---|---|
-| Rich Python operator ecosystem | 12 built-in task types + custom agents |
+| Rich Python operator ecosystem | 17 built-in task types + custom agents |
 | Built-in data lineage | Output extraction + event triggers |
 | Kubernetes executor | Agent-based distributed execution |
 | Complex DAG branching | Dependencies + event triggers |
@@ -199,8 +325,10 @@ def transform(**context):
 
 1. **Start small** — migrate a few non-critical jobs first
 2. **Run in parallel** — keep old scheduler running while you validate Kronforce
-3. **Use the seed script** — `./data/test/seed.sh` loads example jobs to learn the patterns
-4. **Check the Getting Started page** — in-app guide walks through every feature
-5. **Set up notifications first** — so you know immediately if a migrated job fails
-6. **Use groups** — organize migrated jobs by source system (e.g., "Migrated-Cron", "Migrated-Rundeck")
-7. **Enable audit log** — track all changes during migration for rollback reference
+3. **Use the import tools** — `kronforce-import-crontab` and `kronforce-import-jenkins` for automated conversion
+4. **Use `--dry-run`** — preview what will be created before committing
+5. **Use `--pipeline`** — for Jenkins, this wires stages as dependencies automatically
+6. **Set up notifications first** — so you know immediately if a migrated job fails
+7. **Use groups** — organize migrated jobs by source system (e.g., "Cron-Import", "Jenkins-Import")
+8. **Enable audit log** — track all changes during migration for rollback reference
+9. **Use the seed script** — `./data/test/seed.sh` loads example jobs to learn the patterns

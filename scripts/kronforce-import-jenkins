@@ -1,0 +1,504 @@
+#!/usr/bin/env python3
+"""
+Import Jenkins job configurations into Kronforce.
+
+Supports:
+  - Jenkinsfile (declarative pipeline) — parses stages, steps, cron triggers
+  - Jenkins freestyle XML (config.xml) — parses builders, triggers, descriptions
+  - Jenkins pipeline XML (config.xml with pipeline definition)
+  - Bulk import from Jenkins export directory (jobs/*/config.xml)
+
+Usage:
+    kronforce-import-jenkins kf_your_key Jenkinsfile
+    kronforce-import-jenkins kf_your_key config.xml
+    kronforce-import-jenkins kf_your_key jobs/           # bulk import directory
+    kronforce-import-jenkins kf_your_key Jenkinsfile --group CI-CD
+    kronforce-import-jenkins kf_your_key Jenkinsfile --dry-run
+    kronforce-import-jenkins kf_your_key Jenkinsfile --pipeline  # create as a pipeline group
+
+Options:
+    --group NAME    Assign imported jobs to this group (default: Jenkins-Import)
+    --dry-run       Show what would be created without making API calls
+    --pipeline      Wire stages as a dependency chain (Kronforce pipeline)
+    --prefix NAME   Prefix job names with this string
+"""
+
+import json
+import os
+import re
+import sys
+import xml.etree.ElementTree as ET
+
+URL = os.environ.get("KRONFORCE_URL", "http://localhost:8080")
+
+
+def parse_jenkinsfile(content):
+    """Parse a declarative Jenkinsfile into stages with commands."""
+    stages = []
+
+    # Extract pipeline trigger (cron)
+    cron_expr = None
+    cron_match = re.search(r"triggers\s*\{[^}]*cron\s*\(\s*['\"]([^'\"]+)['\"]", content, re.DOTALL)
+    if cron_match:
+        cron_5 = cron_match.group(1).strip()
+        # Convert H (Jenkins hash) to 0 for a reasonable default
+        cron_5 = re.sub(r'\bH\b', '0', cron_5)
+        cron_expr = "0 " + cron_5
+
+    # Extract environment block
+    env_vars = {}
+    env_match = re.search(r"environment\s*\{([^}]+)\}", content)
+    if env_match:
+        for line in env_match.group(1).strip().splitlines():
+            m = re.match(r"\s*(\w+)\s*=\s*['\"]?([^'\"}\n]+)['\"]?", line)
+            if m:
+                env_vars[m.group(1)] = m.group(2).strip()
+
+    # Extract agent
+    agent_label = None
+    agent_match = re.search(r"agent\s*\{\s*label\s+['\"]([^'\"]+)['\"]", content)
+    if agent_match:
+        agent_label = agent_match.group(1)
+
+    # Extract stages
+    stage_pattern = re.compile(
+        r"stage\s*\(\s*['\"]([^'\"]+)['\"]\s*\)\s*\{(.*?)\n\s{4,8}\}",
+        re.DOTALL,
+    )
+    for match in stage_pattern.finditer(content):
+        stage_name = match.group(1)
+        stage_body = match.group(2)
+
+        # Extract sh/bat steps
+        commands = []
+        for sh_match in re.finditer(r"(?:sh|bat)\s+['\"]([^'\"]+)['\"]", stage_body):
+            commands.append(sh_match.group(1))
+        for sh_match in re.finditer(r"(?:sh|bat)\s+'''(.*?)'''", stage_body, re.DOTALL):
+            commands.append(sh_match.group(1).strip())
+        for sh_match in re.finditer(r'(?:sh|bat)\s+"""(.*?)"""', stage_body, re.DOTALL):
+            commands.append(sh_match.group(1).strip())
+
+        # Check for script blocks
+        if not commands:
+            script_match = re.search(r"script\s*\{(.*?)\}", stage_body, re.DOTALL)
+            if script_match:
+                # Extract any sh commands from script block
+                for sh_match in re.finditer(r"sh\s+['\"]([^'\"]+)['\"]", script_match.group(1)):
+                    commands.append(sh_match.group(1))
+
+        # If no commands found, use the stage body as a comment
+        if not commands:
+            # Check for echo
+            for echo_match in re.finditer(r"echo\s+['\"]([^'\"]+)['\"]", stage_body):
+                commands.append(f"echo '{echo_match.group(1)}'")
+
+        if not commands:
+            commands = [f"echo 'Stage: {stage_name} (migrated from Jenkins — add commands)'"]
+
+        stage = {
+            "name": stage_name,
+            "commands": commands,
+            "cron": cron_expr,
+            "agent_label": agent_label,
+        }
+
+        # Check for stage-level agent
+        stage_agent = re.search(r"agent\s*\{\s*label\s+['\"]([^'\"]+)['\"]", stage_body)
+        if stage_agent:
+            stage["agent_label"] = stage_agent.group(1)
+
+        # Check for timeout
+        timeout_match = re.search(r"timeout\s*\(\s*time:\s*(\d+)", stage_body)
+        if timeout_match:
+            stage["timeout_secs"] = int(timeout_match.group(1)) * 60  # Jenkins default is minutes
+
+        # Check for retry
+        retry_match = re.search(r"retry\s*\(\s*(\d+)\s*\)", stage_body)
+        if retry_match:
+            stage["retry_max"] = int(retry_match.group(1))
+
+        stages.append(stage)
+
+    # Extract post-build actions
+    post_match = re.search(r"post\s*\{(.*?)\n\s{4}\}", content, re.DOTALL)
+    if post_match:
+        post_body = post_match.group(1)
+        # Check for failure/success blocks
+        has_failure_notify = bool(re.search(r"failure\s*\{", post_body))
+        has_success_notify = bool(re.search(r"success\s*\{", post_body))
+        if stages:
+            stages[-1]["notify_on_failure"] = has_failure_notify
+            stages[-1]["notify_on_success"] = has_success_notify
+
+    return stages, env_vars, cron_expr
+
+
+def parse_jenkins_xml(content, job_name=None):
+    """Parse a Jenkins config.xml (freestyle or pipeline) into job definitions."""
+    stages = []
+
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as e:
+        print(f"  ! XML parse error: {e}", file=sys.stderr)
+        return [], {}, None
+
+    # Detect job type
+    is_pipeline = root.tag == "flow-definition" or root.find(".//definition") is not None
+    description = (root.findtext("description") or "").strip()
+
+    # Extract cron trigger
+    cron_expr = None
+    for trigger in root.iter():
+        if "TimerTrigger" in trigger.tag or "SCMTrigger" in trigger.tag:
+            spec = trigger.findtext("spec")
+            if spec:
+                cron_5 = spec.strip().splitlines()[0].strip()
+                cron_5 = re.sub(r'\bH\b', '0', cron_5)
+                fields = cron_5.split()
+                if len(fields) == 5:
+                    cron_expr = "0 " + cron_5
+
+    if is_pipeline:
+        # Pipeline job — extract the Groovy script
+        script_el = root.find(".//script")
+        if script_el is not None and script_el.text:
+            return parse_jenkinsfile(script_el.text)
+
+        # If no embedded script, create a placeholder
+        name = job_name or "jenkins-pipeline"
+        stages.append({
+            "name": name,
+            "commands": [f"echo 'Pipeline: {name} (migrated from Jenkins — configure steps)'"],
+            "cron": cron_expr,
+            "description": description,
+        })
+    else:
+        # Freestyle job — extract builders
+        commands = []
+        for builder in root.iter():
+            if "Shell" in builder.tag:
+                cmd = builder.findtext("command")
+                if cmd:
+                    commands.append(cmd.strip())
+            elif "BatchFile" in builder.tag:
+                cmd = builder.findtext("command")
+                if cmd:
+                    commands.append(cmd.strip())
+
+        if not commands:
+            commands = [f"echo 'Freestyle job: {job_name or 'unknown'} (migrated — add commands)'"]
+
+        name = job_name or "jenkins-job"
+        stage = {
+            "name": name,
+            "commands": commands,
+            "cron": cron_expr,
+            "description": description,
+        }
+
+        # Check for retry
+        for wrapper in root.iter():
+            if "Retry" in wrapper.tag:
+                count = wrapper.findtext("retryCount")
+                if count:
+                    stage["retry_max"] = int(count)
+
+        # Check for timeout
+        for wrapper in root.iter():
+            if "Timeout" in wrapper.tag:
+                mins = wrapper.findtext("timeoutMinutes")
+                if mins:
+                    stage["timeout_secs"] = int(mins) * 60
+
+        stages.append(stage)
+
+    env_vars = {}
+    for prop in root.iter():
+        if "EnvInject" in prop.tag or "EnvironmentVariables" in prop.tag:
+            content_el = prop.findtext("propertiesContent") or prop.findtext("content")
+            if content_el:
+                for line in content_el.strip().splitlines():
+                    m = re.match(r"(\w+)\s*=\s*(.*)", line)
+                    if m:
+                        env_vars[m.group(1)] = m.group(2).strip()
+
+    return stages, env_vars, cron_expr
+
+
+def sanitize_name(name, prefix=""):
+    """Convert a stage/job name to a valid Kronforce job name."""
+    name = name.lower().strip()
+    name = re.sub(r"[^a-zA-Z0-9_\- .]", "", name)
+    name = re.sub(r"[\s]+", "-", name)
+    name = re.sub(r"-+", "-", name).strip("-")
+    if not name:
+        name = "imported-job"
+    if prefix:
+        name = f"{prefix}-{name}"
+    return name[:60]
+
+
+def create_job(api_key, job_data):
+    """Create a job via the Kronforce API."""
+    import urllib.request
+    import urllib.error
+
+    body = json.dumps(job_data).encode()
+    req = urllib.request.Request(
+        f"{URL}/api/jobs",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return True, json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode() if e.fp else str(e)
+        return False, error_body
+
+
+def set_dependency(api_key, job_id, depends_on_id, within_secs=7200):
+    """Set a dependency on a job via the API."""
+    import urllib.request
+    import urllib.error
+
+    body = json.dumps({
+        "depends_on": [{"job_id": depends_on_id, "within_secs": within_secs}]
+    }).encode()
+    req = urllib.request.Request(
+        f"{URL}/api/jobs/{job_id}",
+        data=body,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return True
+    except urllib.error.HTTPError:
+        return False
+
+
+def main():
+    args = sys.argv[1:]
+
+    group = "Jenkins-Import"
+    dry_run = False
+    pipeline_mode = False
+    prefix = ""
+    api_key = None
+    input_path = None
+
+    i = 0
+    while i < len(args):
+        if args[i] == "--group" and i + 1 < len(args):
+            group = args[i + 1]
+            i += 2
+        elif args[i] == "--dry-run":
+            dry_run = True
+            i += 1
+        elif args[i] == "--pipeline":
+            pipeline_mode = True
+            i += 1
+        elif args[i] == "--prefix" and i + 1 < len(args):
+            prefix = args[i + 1]
+            i += 2
+        elif args[i] in ("--help", "-h"):
+            print(__doc__.strip())
+            sys.exit(0)
+        elif not args[i].startswith("--"):
+            if api_key is None:
+                api_key = args[i]
+            elif input_path is None:
+                input_path = args[i]
+            i += 1
+        else:
+            print(f"Unknown argument: {args[i]}", file=sys.stderr)
+            sys.exit(1)
+
+    if not input_path:
+        print("Usage: kronforce-import-jenkins <api-key> <Jenkinsfile|config.xml|directory>")
+        print("       [--group NAME] [--dry-run] [--pipeline] [--prefix NAME]")
+        print()
+        print("Examples:")
+        print("  kronforce-import-jenkins kf_key Jenkinsfile")
+        print("  kronforce-import-jenkins kf_key config.xml --group CI-CD")
+        print("  kronforce-import-jenkins kf_key ./jenkins-export/ --pipeline")
+        sys.exit(1)
+
+    if not api_key and not dry_run:
+        print("Error: API key required (or use --dry-run)")
+        sys.exit(1)
+
+    # Collect files to process
+    files = []
+    if os.path.isdir(input_path):
+        # Bulk import: look for config.xml and Jenkinsfile in subdirs
+        for entry in sorted(os.listdir(input_path)):
+            subdir = os.path.join(input_path, entry)
+            if os.path.isdir(subdir):
+                config = os.path.join(subdir, "config.xml")
+                if os.path.isfile(config):
+                    files.append((entry, config))
+            elif entry.lower() in ("jenkinsfile", "jenkinsfile.groovy"):
+                files.append((os.path.basename(input_path), os.path.join(input_path, entry)))
+        if not files:
+            # Maybe it's a flat directory of XML files
+            for entry in sorted(os.listdir(input_path)):
+                if entry.endswith(".xml"):
+                    name = entry.replace(".xml", "").replace("config", "")
+                    name = name.strip("-_ ") or os.path.basename(input_path)
+                    files.append((name, os.path.join(input_path, entry)))
+    else:
+        name = os.path.basename(os.path.dirname(input_path)) or "jenkins-job"
+        if os.path.basename(input_path).lower() in ("jenkinsfile", "jenkinsfile.groovy"):
+            name = os.path.basename(os.path.dirname(input_path)) or "jenkins-pipeline"
+        files.append((name, input_path))
+
+    if not files:
+        print("No Jenkins files found.")
+        sys.exit(1)
+
+    print(f"Found {len(files)} Jenkins job(s) to import")
+    print(f"Target: {URL}")
+    print(f"Group: {group}")
+    if pipeline_mode:
+        print("Mode: Pipeline (stages will be wired as dependencies)")
+    print()
+
+    total_created = 0
+    total_failed = 0
+
+    for job_name, filepath in files:
+        with open(filepath) as f:
+            content = f.read()
+
+        # Detect format
+        is_xml = content.strip().startswith("<?xml") or content.strip().startswith("<")
+        if is_xml:
+            stages, env_vars, cron_expr = parse_jenkins_xml(content, job_name)
+            print(f"  [{job_name}] (XML config, {len(stages)} stage(s))")
+        else:
+            stages, env_vars, cron_expr = parse_jenkinsfile(content)
+            print(f"  [{job_name}] (Jenkinsfile, {len(stages)} stage(s))")
+
+        if not stages:
+            print(f"  ! No stages found in {filepath}")
+            continue
+
+        # Create variables from environment block
+        if env_vars and not dry_run:
+            import urllib.request
+            import urllib.error
+            for var_name, var_value in env_vars.items():
+                try:
+                    body = json.dumps({"name": var_name, "value": var_value}).encode()
+                    req = urllib.request.Request(
+                        f"{URL}/api/variables",
+                        data=body,
+                        headers={
+                            "Authorization": f"Bearer {api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        method="POST",
+                    )
+                    urllib.request.urlopen(req)
+                    print(f"    + Variable: {var_name}")
+                except urllib.error.HTTPError:
+                    pass  # May already exist
+
+        # Create jobs from stages
+        created_ids = []  # (name, id) for pipeline wiring
+
+        for idx, stage in enumerate(stages):
+            name = sanitize_name(stage["name"], prefix)
+            command = " && ".join(stage["commands"])
+            desc = stage.get("description", f"Imported from Jenkins: {stage['name']}")
+
+            # First stage gets the cron schedule (or all get it if not pipeline mode)
+            if pipeline_mode and len(stages) > 1:
+                schedule = {"type": "cron", "value": cron_expr} if idx == 0 and cron_expr else {"type": "on_demand"}
+            else:
+                schedule = {"type": "cron", "value": cron_expr} if cron_expr else {"type": "on_demand"}
+
+            job_data = {
+                "name": name,
+                "description": desc,
+                "task": {"type": "shell", "command": command},
+                "schedule": schedule,
+                "group": group,
+            }
+
+            if stage.get("timeout_secs"):
+                job_data["timeout_secs"] = stage["timeout_secs"]
+            if stage.get("retry_max"):
+                job_data["retry_max"] = stage["retry_max"]
+            if stage.get("notify_on_failure"):
+                job_data["notifications"] = {"on_failure": True}
+            if stage.get("notify_on_success"):
+                job_data.setdefault("notifications", {})["on_success"] = True
+
+            # Agent targeting
+            if stage.get("agent_label"):
+                job_data["target"] = {"type": "tagged", "tag": stage["agent_label"]}
+
+            if dry_run:
+                sched_str = schedule.get("value", schedule["type"])
+                print(f"    [dry-run] {name}")
+                print(f"              schedule: {sched_str}")
+                print(f"              command:  {command[:80]}{'...' if len(command) > 80 else ''}")
+                if stage.get("agent_label"):
+                    print(f"              target:   agent label '{stage['agent_label']}'")
+                total_created += 1
+                created_ids.append((name, None))
+            else:
+                ok, result = create_job(api_key, job_data)
+                if ok:
+                    job_id = result.get("id", "")
+                    print(f"    + {name} ({schedule.get('value', schedule['type'])})")
+                    total_created += 1
+                    created_ids.append((name, job_id))
+                else:
+                    print(f"    ! {name} — {result}")
+                    total_failed += 1
+                    created_ids.append((name, None))
+
+        # Wire pipeline dependencies
+        if pipeline_mode and len(created_ids) > 1 and not dry_run:
+            print("    Wiring pipeline dependencies...")
+            for idx in range(1, len(created_ids)):
+                prev_name, prev_id = created_ids[idx - 1]
+                curr_name, curr_id = created_ids[idx]
+                if prev_id and curr_id:
+                    ok = set_dependency(api_key, curr_id, prev_id)
+                    if ok:
+                        print(f"      {curr_name} depends on {prev_name}")
+                    else:
+                        print(f"      ! Failed to wire {curr_name} -> {prev_name}")
+        elif pipeline_mode and dry_run and len(created_ids) > 1:
+            print("    [dry-run] Pipeline dependencies:")
+            for idx in range(1, len(created_ids)):
+                print(f"      {created_ids[idx][0]} depends on {created_ids[idx-1][0]}")
+
+        print()
+
+    print(f"{'Would create' if dry_run else 'Created'}: {total_created} jobs")
+    if total_failed:
+        print(f"Failed: {total_failed}")
+    if not dry_run and total_created > 0:
+        print(f"\nOpen {URL} to see your imported jobs.")
+        if pipeline_mode:
+            print(f"View the pipeline: Jobs > Stages tab > select '{group}'")
+
+
+if __name__ == "__main__":
+    main()

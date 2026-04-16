@@ -697,3 +697,47 @@ python3 examples/mcp_test_server.py</code></pre>
             </div>
         </div>
     </section>
+
+    <section class="docs-section">
+        <h2>Migrating to Kronforce</h2>
+        <div class="docs-card">
+            <div class="docs-card-content">
+                <h3>From Cron</h3>
+                <p>Use the built-in crontab importer to convert your cron entries automatically:</p>
+                <pre><code>crontab -l | kronforce-import-crontab kf_your_key
+kronforce-import-crontab kf_your_key --group Monitoring &lt; /etc/cron.d/jobs
+kronforce-import-crontab kf_your_key --dry-run &lt; mycrontab</code></pre>
+                <p>The importer converts 5-field cron to 6-field (adds seconds), handles <code>@daily</code>/<code>@hourly</code> shortcuts, and generates job names from commands. Find it at <code>scripts/kronforce-import-crontab</code>.</p>
+                <p><strong>Manual conversion:</strong> prepend <code>0</code> for the seconds field. <code>*/5 * * * *</code> becomes <code>0 */5 * * * *</code>.</p>
+
+                <h3 style="margin-top:20px">From Jenkins</h3>
+                <p>Import Jenkinsfiles and Jenkins config.xml with the Jenkins importer:</p>
+                <pre><code>kronforce-import-jenkins kf_your_key Jenkinsfile --pipeline
+kronforce-import-jenkins kf_your_key config.xml --group CI-CD
+kronforce-import-jenkins kf_your_key ./jenkins-jobs/ --pipeline --dry-run</code></pre>
+                <p>The <code>--pipeline</code> flag wires stages as a Kronforce dependency chain — trigger the first stage and the rest cascade automatically. The importer handles:</p>
+                <ul>
+                    <li>Declarative pipeline stages with <code>sh</code>/<code>bat</code> steps</li>
+                    <li>Cron triggers (converts Jenkins <code>H</code> syntax)</li>
+                    <li>Agent labels &rarr; agent target tags</li>
+                    <li>Retry and timeout settings</li>
+                    <li>Freestyle job config.xml</li>
+                    <li>Bulk import from <code>jobs/*/config.xml</code> directories</li>
+                </ul>
+                <p>Find it at <code>scripts/kronforce-import-jenkins</code>.</p>
+
+                <h3 style="margin-top:20px">From Airflow / Rundeck</h3>
+                <p>No automated importer (too many format variants), but the mapping is straightforward:</p>
+                <table class="docs-table">
+                    <tr><th>Concept</th><th>Kronforce Equivalent</th></tr>
+                    <tr><td>DAG / Job Group</td><td>Group + dependency chain + pipeline schedule</td></tr>
+                    <tr><td>BashOperator / Script Step</td><td>Shell task</td></tr>
+                    <tr><td>HttpOperator / HTTP Step</td><td>HTTP task</td></tr>
+                    <tr><td>XCom / Key Storage</td><td>Variables + output extraction (<code>{{VAR}}</code>)</td></tr>
+                    <tr><td>Connections / Secrets</td><td>Secret variables</td></tr>
+                    <tr><td>RBAC / ACL</td><td>API key roles + OIDC SSO</td></tr>
+                </table>
+                <p>See the full <a href="https://github.com/mikemiles-dev/kronforce/blob/main/docs/MIGRATION.md" target="_blank">Migration Guide</a> for detailed mapping tables and step-by-step instructions.</p>
+            </div>
+        </div>
+    </section>
