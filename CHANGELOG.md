@@ -5,10 +5,17 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0-alpha] - 2026-04-07
+## [0.1.0-alpha] - 2026-04-15
 
 ### Added
 - **Pipeline scheduling** — set cron or interval schedules on entire pipeline groups. The scheduler automatically triggers root jobs on schedule, and dependencies cascade from there. Configure via the new "Schedule" button on the Stages/Pipeline view, or via the API (`PUT /api/jobs/pipeline-schedule/{group}`). Schedules persist in settings and survive job changes.
+- **Pipeline run history** — "History" button on the Stages view shows a modal with clustered pipeline runs, per-job status icons, overall status badge, and total duration. Click any status icon to view the execution detail.
+- **Jenkins importer** — `scripts/kronforce-import-jenkins` parses Jenkinsfiles and config.xml into Kronforce jobs. `--pipeline` flag wires stages as dependency chains. Supports bulk import from directories, agent label targeting, retry/timeout extraction, and environment variable import.
+- **Executions group filter** — `GET /api/executions?group=ETL` filters executions to only jobs in that group.
+- **Demo mode banner** — fixed top banner in demo mode: "You are viewing a read-only demo of Kronforce" with a link to kronforce.dev and a dismiss button.
+- **In-app migration docs** — "Migrating to Kronforce" section in the Docs page with crontab and Jenkins importer usage, and Airflow/Rundeck mapping tables.
+- **Screenshots** — README hero image with expandable gallery (8 screenshots), website feature gallery (6 screenshots), migration guide pipeline screenshot.
+- **Expanded demo seed data** — 35 jobs across 8 groups (ETL, Monitoring, Deploys, Maintenance, Reports, Data-Sync, Security, Notifications), 12 variables, 3 scripts, 5-stage ETL with archive, 4-stage deploys with post-checks and approval gate, 4-stage maintenance with fan-out/fan-in, 5-stage data-sync with parallel roots, calendar-scheduled reports, event-triggered alerts, and 7 rounds of pipeline runs for rich history.
 - **Dependency cascade** — when a job succeeds, on-demand jobs that depend on it are automatically triggered if all their dependencies are now satisfied. Enables Jenkins-style pipeline execution: trigger the first job, the rest cascade automatically.
 - **Group completion events** — when all jobs in a group have succeeded, a `group.completed` event is emitted. Use event triggers to react (send notification, trigger next pipeline, etc.).
 - **Run Group button** — trigger all root jobs in a group with one click. Appears on the toolbar when a group is selected. Dependent jobs cascade from there.
@@ -38,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **JS test framework** — CI now runs JavaScript unit tests for cron builder, formatting, and empty state logic
 
 ### Changed
+- **Stage card status improvements** — pipeline stage cards now handle all execution states: pending re-runs show green with a re-run icon (instead of flashing to idle), cancelled and skipped get distinct icons, and labels are more descriptive.
+- **Rate limiting defaults raised** — public limit 30 → 60/min, authenticated 120 → 300/min. Dashboard polling was too close to the old limit.
+- **Rate limiting keyed by IP in demo mode** — authenticated middleware falls back to client IP when no API key is present, so demo users get individual rate limit buckets instead of sharing one.
+- **Rate limit 429 page** — returns a styled HTML page when the browser requests HTML (with retry countdown and "Try Again" button), JSON for API calls. Frontend shows a toast on 429.
 - **Removed time filter from jobs page** — the time range picker hid jobs whose last run was outside the window, which was confusing. Time filters remain on Executions and Events pages.
 - **State column shows execution state** — Running and pending_approval executions now override the scheduling status in the jobs table State column
 
@@ -113,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sidebar user/health indicator** — restored username display and health dot
 
 ### Security
+- **rustls-webpki updated** to 0.103.12 fixing RUSTSEC-2026-0098 (URI name constraints) and RUSTSEC-2026-0099 (wildcard name constraints)
 - Native TLS support on controller and agent (rustls, no OpenSSL dependency)
 - Agent dispatch authentication (controller → agent requests now require Bearer token)
 - OIDC/OAuth2 SSO with server-side sessions
