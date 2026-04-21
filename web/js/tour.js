@@ -39,6 +39,12 @@ const TOUR_STEPS = [
         position: 'right'
     },
     {
+        target: '#tab-connections',
+        title: 'Connections',
+        text: 'Named credential profiles for databases, APIs, and services. Jobs reference a connection by name instead of embedding passwords. Supports 14 protocol types with encrypted storage and test button.',
+        position: 'right'
+    },
+    {
         target: '#tab-settings',
         title: 'Settings',
         text: 'API keys, notification channels (Slack, email, PagerDuty), data retention, and OIDC/SSO configuration.',

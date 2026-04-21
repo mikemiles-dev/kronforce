@@ -26,6 +26,7 @@ fn test_http_task_serde() {
         headers: None,
         body: Some("{\"key\":\"val\"}".to_string()),
         expect_status: Some(200),
+        connection: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     let back: TaskType = serde_json::from_str(&json).unwrap();
@@ -88,6 +89,7 @@ fn test_kafka_task_serde() {
         message: "{}".to_string(),
         key: Some("key1".to_string()),
         properties: None,
+        connection: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"kafka\""));
@@ -104,6 +106,7 @@ fn test_mqtt_task_serde() {
         username: None,
         password: None,
         client_id: None,
+        connection: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"mqtt\""));
@@ -124,6 +127,7 @@ fn test_rabbitmq_task_serde() {
         routing_key: "user.created".to_string(),
         message: "{}".to_string(),
         content_type: Some("application/json".to_string()),
+        connection: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"rabbitmq\""));
@@ -135,6 +139,7 @@ fn test_redis_task_serde() {
         url: "redis://localhost".to_string(),
         channel: "notifications".to_string(),
         message: "hello".to_string(),
+        connection: None,
     };
     let json = serde_json::to_string(&task).unwrap();
     assert!(json.contains("\"type\":\"redis\""));

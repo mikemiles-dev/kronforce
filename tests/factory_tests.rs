@@ -116,6 +116,7 @@ fn test_builder_chain_full() {
         headers: None,
         body: None,
         expect_status: Some(200),
+        connection: None,
     };
 
     let rec = ExecutionRecord::new(Uuid::new_v4(), Uuid::new_v4(), TriggerSource::Scheduler)

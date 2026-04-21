@@ -50,16 +50,10 @@ pub async fn run_task(
             driver,
             connection_string,
             query,
+            connection: _,
         } => {
-            tasks::run_sql_task(
-                driver,
-                connection_string,
-                query,
-                run_as,
-                timeout_secs,
-                cancel_rx,
-            )
-            .await
+            let conn_str = connection_string.as_deref().unwrap_or("");
+            tasks::run_sql_task(driver, conn_str, query, run_as, timeout_secs, cancel_rx).await
         }
         TaskType::Ftp {
             protocol,
@@ -70,13 +64,14 @@ pub async fn run_task(
             direction,
             remote_path,
             local_path,
+            connection: _,
         } => {
             tasks::run_ftp_task(
                 protocol,
-                host,
+                host.as_deref().unwrap_or(""),
                 *port,
-                username,
-                password,
+                username.as_deref().unwrap_or(""),
+                password.as_deref().unwrap_or(""),
                 direction,
                 remote_path,
                 local_path,
@@ -92,6 +87,7 @@ pub async fn run_task(
             headers,
             body,
             expect_status,
+            connection: _,
         } => {
             tasks::run_http_task(
                 method,
@@ -156,6 +152,7 @@ pub async fn run_task(
             message,
             key,
             properties,
+            connection: _,
         } => {
             tasks::run_kafka_task(
                 broker,
@@ -175,6 +172,7 @@ pub async fn run_task(
             routing_key,
             message,
             content_type,
+            connection: _,
         } => {
             tasks::run_rabbitmq_task(
                 url,
@@ -197,6 +195,7 @@ pub async fn run_task(
             username,
             password,
             client_id,
+            connection: _,
         } => {
             tasks::run_mqtt_task(
                 broker,
@@ -217,6 +216,7 @@ pub async fn run_task(
             url,
             channel,
             message,
+            connection: _,
         } => tasks::run_redis_task(url, channel, message, run_as, timeout_secs, cancel_rx).await,
         TaskType::Mcp {
             server_url,
@@ -238,6 +238,7 @@ pub async fn run_task(
             group_id,
             max_messages,
             offset,
+            connection: _,
         } => {
             tasks::run_kafka_consume_task(
                 broker,
@@ -260,6 +261,7 @@ pub async fn run_task(
             password,
             client_id,
             qos,
+            connection: _,
         } => {
             tasks::run_mqtt_subscribe_task(
                 broker,
@@ -280,6 +282,7 @@ pub async fn run_task(
             url,
             queue,
             max_messages,
+            connection: _,
         } => {
             tasks::run_rabbitmq_consume_task(
                 url,
@@ -296,6 +299,7 @@ pub async fn run_task(
             key,
             mode,
             count,
+            connection: _,
         } => {
             tasks::run_redis_read_task(
                 url,

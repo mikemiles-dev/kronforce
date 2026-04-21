@@ -7,6 +7,7 @@ mod agents;
 mod audit;
 pub mod auth;
 mod callbacks;
+mod connections;
 mod data;
 mod events;
 mod executions;
@@ -218,6 +219,20 @@ pub fn router(
             get(variables::get_variable)
                 .put(variables::update_variable)
                 .delete(variables::delete_variable),
+        )
+        .route(
+            "/api/connections",
+            get(connections::list_connections).post(connections::create_connection),
+        )
+        .route(
+            "/api/connections/{name}",
+            get(connections::get_connection)
+                .put(connections::update_connection)
+                .delete(connections::delete_connection),
+        )
+        .route(
+            "/api/connections/{name}/test",
+            post(connections::test_connection),
         )
         .route_layer(middleware::from_fn(
             rate_limit::rate_limit_authed_middleware,

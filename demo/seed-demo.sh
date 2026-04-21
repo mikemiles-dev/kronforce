@@ -57,6 +57,23 @@ done
 echo "  Variables created (12)"
 
 # =============================================
+# CONNECTIONS (example credential profiles)
+# =============================================
+for conn in \
+    '{"name":"prod-db","conn_type":"postgres","description":"Production PostgreSQL database","config":{"connection_string":"postgresql://app_user:s3cret@db.prod.internal:5432/kronforce_prod"}}' \
+    '{"name":"staging-db","conn_type":"postgres","description":"Staging PostgreSQL database","config":{"connection_string":"postgresql://app_user:staging_pw@db.staging.internal:5432/kronforce_staging"}}' \
+    '{"name":"vendor-api","conn_type":"http","description":"Vendor REST API with bearer auth","config":{"base_url":"https://api.vendor.example.com","auth_type":"bearer","token":"vnd_tok_abc123def456"}}' \
+    '{"name":"internal-api","conn_type":"http","description":"Internal microservice API","config":{"base_url":"https://internal.example.com","auth_type":"header","header_name":"X-API-Key","header_value":"int_key_789xyz"}}' \
+    '{"name":"backup-sftp","conn_type":"sftp","description":"Backup server SFTP","config":{"host":"backup.example.com","port":22,"username":"backup_svc","password":"backup_pw_demo"}}' \
+    '{"name":"event-kafka","conn_type":"kafka","description":"Event streaming Kafka cluster","config":{"broker":"kafka.example.com:9092","username":"kronforce","password":"kafka_pw_demo"}}' \
+    '{"name":"cache-redis","conn_type":"redis","description":"Application cache Redis","config":{"url":"redis://:redis_pw@cache.example.com:6379"}}' \
+    '{"name":"alerts-smtp","conn_type":"smtp","description":"Alert email SMTP server","config":{"host":"smtp.example.com","port":587,"username":"alerts@example.com","password":"smtp_pw_demo"}}' \
+; do
+    curl -sf -X POST "$URL/api/connections" -H "$AUTH" -H "$CT" -d "$conn" > /dev/null 2>&1 || true
+done
+echo "  Connections created (8)"
+
+# =============================================
 # SCRIPTS (Rhai + Dockerfile)
 # =============================================
 curl -sf -X PUT "$URL/api/scripts/etl-helper" -H "$AUTH" -H "$CT" -d '{

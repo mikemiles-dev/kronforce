@@ -4,6 +4,7 @@
 //! processing (output rules, notifications, event logging), and manages
 //! variable substitution in task fields.
 
+mod connections;
 mod dispatch;
 mod local;
 pub mod notifications;
@@ -97,6 +98,18 @@ impl Executor {
         .await
         .map_err(|e| AppError::Internal(e.to_string()))??;
         if let Some(new_task) = substituted {
+            job.task = new_task;
+        }
+
+        // Resolve connection references (merge named connection credentials into task)
+        let db2 = self.db.clone();
+        let task_for_conn = job.task.clone();
+        let resolved_conn = tokio::task::spawn_blocking(move || {
+            connections::resolve_connections(&task_for_conn, &db2)
+        })
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))??;
+        if let Some(new_task) = resolved_conn {
             job.task = new_task;
         }
 

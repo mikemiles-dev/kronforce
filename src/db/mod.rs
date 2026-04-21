@@ -5,6 +5,7 @@
 
 mod agents;
 pub mod audit;
+mod connections;
 mod events;
 mod executions;
 mod helpers;

@@ -669,6 +669,42 @@ curl -X DELETE http://localhost:8080/api/jobs/pipeline-schedule/ETL
 
 The schedule fires root jobs (jobs with no in-group dependencies). Dependent jobs then cascade automatically via the dependency engine.
 
+## Connections
+
+Named credential profiles for databases, APIs, and services. Configs are encrypted at rest.
+
+```bash
+# List all connections (sensitive fields masked)
+curl http://localhost:8080/api/connections
+
+# Create a PostgreSQL connection
+curl -X POST http://localhost:8080/api/connections \
+  -d '{"name":"prod-db","conn_type":"postgres","description":"Production DB","config":{"connection_string":"postgresql://user:pass@host:5432/db"}}'
+
+# Create an HTTP connection with bearer auth
+curl -X POST http://localhost:8080/api/connections \
+  -d '{"name":"vendor-api","conn_type":"http","config":{"base_url":"https://api.vendor.com","auth_type":"bearer","token":"my-token"}}'
+
+# Update (send ******** for sensitive fields to preserve existing values)
+curl -X PUT http://localhost:8080/api/connections/prod-db \
+  -d '{"description":"Updated description","config":{"connection_string":"********"}}'
+
+# Test connectivity
+curl -X POST http://localhost:8080/api/connections/prod-db/test
+
+# Delete
+curl -X DELETE http://localhost:8080/api/connections/prod-db
+
+# Use in a job — add "connection" field to any supported task type
+curl -X POST http://localhost:8080/api/jobs -d '{
+  "name": "daily-report",
+  "task": {"type": "sql", "driver": "postgres", "query": "SELECT count(*) FROM orders", "connection": "prod-db"},
+  "schedule": {"type": "cron", "value": "0 0 8 * * *"}
+}'
+```
+
+Supported types: `postgres`, `mysql`, `sqlite`, `ftp`, `sftp`, `http`, `kafka`, `mqtt`, `rabbitmq`, `redis`, `mongodb`, `ssh`, `smtp`, `s3`.
+
 ## Chart Stats
 
 ```bash

@@ -10,7 +10,7 @@ let pollTimer = null;
 let jobsPage = 1;
 
 // View registry for page management
-const ALL_VIEWS = ['dashboard','jobs','detail','agents','executions','scripts','events','variables','settings','docs','guide'];
+const ALL_VIEWS = ['dashboard','jobs','detail','agents','executions','scripts','events','variables','connections','settings','docs','guide'];
 const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
 
 // Time range state — persisted in localStorage
@@ -694,6 +694,8 @@ function showPage(page) {
         fetchEvents();
     } else if (page === 'variables') {
         fetchVariables();
+    } else if (page === 'connections') {
+        if (typeof fetchConnections === 'function') fetchConnections();
     } else if (page === 'settings') {
         updateThemeButtons();
         renderSettingsAuth();

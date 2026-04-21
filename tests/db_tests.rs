@@ -1230,3 +1230,96 @@ fn test_pipeline_schedules_enumeration() {
     assert!(groups.contains(&"ETL".to_string()));
     assert!(groups.contains(&"Batch".to_string()));
 }
+
+// --- Connections ---
+
+#[test]
+fn test_connection_crud() {
+    let db = test_db();
+    let conn = kronforce::db::models::Connection {
+        name: "test-postgres".to_string(),
+        conn_type: kronforce::db::models::ConnectionType::Postgres,
+        description: Some("Test DB".to_string()),
+        config: serde_json::json!({"connection_string": "postgresql://user:pass@localhost/test"}),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    db.insert_connection(&conn).unwrap();
+
+    let fetched = db.get_connection("test-postgres").unwrap().unwrap();
+    assert_eq!(fetched.name, "test-postgres");
+    assert_eq!(
+        fetched.conn_type,
+        kronforce::db::models::ConnectionType::Postgres
+    );
+    assert_eq!(fetched.description.as_deref(), Some("Test DB"));
+    assert_eq!(
+        fetched.config["connection_string"],
+        "postgresql://user:pass@localhost/test"
+    );
+}
+
+#[test]
+fn test_connection_list() {
+    let db = test_db();
+    for name in ["conn-a", "conn-b", "conn-c"] {
+        let conn = kronforce::db::models::Connection {
+            name: name.to_string(),
+            conn_type: kronforce::db::models::ConnectionType::Redis,
+            description: None,
+            config: serde_json::json!({"url": "redis://localhost"}),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        db.insert_connection(&conn).unwrap();
+    }
+    let all = db.list_connections().unwrap();
+    assert_eq!(all.len(), 3);
+}
+
+#[test]
+fn test_connection_update() {
+    let db = test_db();
+    let conn = kronforce::db::models::Connection {
+        name: "update-me".to_string(),
+        conn_type: kronforce::db::models::ConnectionType::Http,
+        description: Some("old".to_string()),
+        config: serde_json::json!({"base_url": "https://old.example.com"}),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    db.insert_connection(&conn).unwrap();
+
+    let mut updated = conn.clone();
+    updated.description = Some("new".to_string());
+    updated.config = serde_json::json!({"base_url": "https://new.example.com"});
+    db.update_connection("update-me", &updated).unwrap();
+
+    let fetched = db.get_connection("update-me").unwrap().unwrap();
+    assert_eq!(fetched.description.as_deref(), Some("new"));
+    assert_eq!(fetched.config["base_url"], "https://new.example.com");
+}
+
+#[test]
+fn test_connection_delete() {
+    let db = test_db();
+    let conn = kronforce::db::models::Connection {
+        name: "delete-me".to_string(),
+        conn_type: kronforce::db::models::ConnectionType::Kafka,
+        description: None,
+        config: serde_json::json!({"broker": "localhost:9092"}),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    db.insert_connection(&conn).unwrap();
+
+    assert!(db.delete_connection("delete-me").unwrap());
+    assert!(db.get_connection("delete-me").unwrap().is_none());
+    assert!(!db.delete_connection("delete-me").unwrap());
+}
+
+#[test]
+fn test_connection_not_found() {
+    let db = test_db();
+    assert!(db.get_connection("nonexistent").unwrap().is_none());
+}

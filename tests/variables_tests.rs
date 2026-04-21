@@ -226,6 +226,7 @@ fn test_substitute_http_task() {
         body: None,
         headers: None,
         expect_status: None,
+        connection: None,
     };
     let mut vars = HashMap::new();
     vars.insert(

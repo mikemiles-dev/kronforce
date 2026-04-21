@@ -6,6 +6,7 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-connections')">Connections</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-groups')">Job Groups</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-retry')">Execution Retry</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-rate-limiting')">Rate Limiting</button>
@@ -467,6 +468,59 @@ python3 examples/mcp_test_server.py</code></pre>
 
                     <h4>Unresolved Variables</h4>
                     <p>If a <code>{{VAR}}</code> reference doesn't match any defined variable, the placeholder is left as-is and a warning is logged. The job still runs.</p>
+                </div>
+
+                <div class="docs-section" id="doc-connections">
+                    <h2>Connections</h2>
+                    <p>Connections are named credential profiles for external systems. Instead of embedding passwords in task definitions, reference a connection by name. Credentials are encrypted at rest using AES-256-GCM.</p>
+
+                    <h3>Supported Types</h3>
+                    <table class="docs-table">
+                        <tr><th>Type</th><th>Config Fields</th><th>Used By</th></tr>
+                        <tr><td>PostgreSQL</td><td>connection_string</td><td>SQL task</td></tr>
+                        <tr><td>MySQL</td><td>connection_string</td><td>SQL task</td></tr>
+                        <tr><td>SQLite</td><td>connection_string (path)</td><td>SQL task</td></tr>
+                        <tr><td>FTP / SFTP</td><td>host, port, username, password, private_key</td><td>FTP task</td></tr>
+                        <tr><td>HTTP</td><td>base_url, auth_type, token/username/password/header</td><td>HTTP task</td></tr>
+                        <tr><td>Kafka</td><td>broker, SASL username/password</td><td>Kafka publish/consume</td></tr>
+                        <tr><td>MQTT</td><td>broker, port, username, password, client_id</td><td>MQTT publish/subscribe</td></tr>
+                        <tr><td>RabbitMQ</td><td>url</td><td>RabbitMQ publish/consume</td></tr>
+                        <tr><td>Redis</td><td>url, password</td><td>Redis publish/read</td></tr>
+                        <tr><td>MongoDB</td><td>connection_string</td><td>Future use</td></tr>
+                        <tr><td>SSH</td><td>host, port, username, password, private_key</td><td>Future use</td></tr>
+                        <tr><td>SMTP</td><td>host, port, username, password</td><td>Future use</td></tr>
+                        <tr><td>S3 / MinIO</td><td>endpoint, bucket, region, access_key, secret_key</td><td>Future use</td></tr>
+                    </table>
+
+                    <h3>Using a Connection in a Job</h3>
+                    <p>Add a <code>"connection": "my-conn-name"</code> field to any task that supports it. The connection's credentials are merged into the task at execution time. Inline fields take precedence.</p>
+                    <pre><code>{
+  "task": {
+    "type": "sql",
+    "driver": "postgres",
+    "query": "SELECT count(*) FROM orders",
+    "connection": "prod-db"
+  }
+}</code></pre>
+                    <p>The <code>connection_string</code> is resolved from the "prod-db" connection at runtime. You only configure the password once.</p>
+
+                    <h3>HTTP Auth Injection</h3>
+                    <p>HTTP connections support 4 auth types:</p>
+                    <ul>
+                        <li><strong>None</strong> &mdash; no auth headers injected</li>
+                        <li><strong>Bearer</strong> &mdash; adds <code>Authorization: Bearer &lt;token&gt;</code></li>
+                        <li><strong>Basic</strong> &mdash; adds <code>Authorization: Basic &lt;base64&gt;</code></li>
+                        <li><strong>Custom Header</strong> &mdash; adds a named header (e.g., <code>X-API-Key: value</code>)</li>
+                    </ul>
+
+                    <h3>API</h3>
+                    <pre><code>GET    /api/connections              # List all (masked)
+GET    /api/connections/{name}       # Get one (masked)
+POST   /api/connections              # Create
+PUT    /api/connections/{name}       # Update
+DELETE /api/connections/{name}       # Delete
+POST   /api/connections/{name}/test  # Test connectivity</code></pre>
+                    <p>Sensitive fields (password, token, secret_key, private_key) are masked as <code>********</code> in API responses. When updating, send <code>********</code> to preserve the existing value.</p>
                 </div>
 
                 <div class="docs-section" id="doc-groups">

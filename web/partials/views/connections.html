@@ -1,0 +1,53 @@
+    <section id="connections-view" style="display:none">
+        <div class="view-header">
+            <h2>Connections</h2>
+            <button class="btn btn-primary btn-sm" onclick="showAddConnectionForm()">+ New Connection</button>
+        </div>
+
+        <div id="connection-form" style="display:none;margin-bottom:20px">
+            <div class="card">
+                <div class="card-header"><h3 id="connection-form-title">New Connection</h3></div>
+                <div style="padding:16px">
+                    <div class="form-group" style="margin-bottom:10px">
+                        <label>Name</label>
+                        <input id="conn-name" type="text" placeholder="my-postgres-prod" style="max-width:300px">
+                        <div class="form-hint">Alphanumeric, underscores, and hyphens only. Referenced in job task definitions.</div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px">
+                        <label>Type</label>
+                        <select id="conn-type" onchange="onConnectionTypeChange()" style="max-width:300px">
+                            <option value="postgres">PostgreSQL</option>
+                            <option value="mysql">MySQL</option>
+                            <option value="sqlite">SQLite</option>
+                            <option value="ftp">FTP</option>
+                            <option value="sftp">SFTP</option>
+                            <option value="http">HTTP (API)</option>
+                            <option value="kafka">Kafka</option>
+                            <option value="mqtt">MQTT</option>
+                            <option value="rabbitmq">RabbitMQ</option>
+                            <option value="redis">Redis</option>
+                            <option value="mongodb">MongoDB</option>
+                            <option value="ssh">SSH</option>
+                            <option value="smtp">SMTP</option>
+                            <option value="s3">S3 / MinIO</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:10px">
+                        <label>Description</label>
+                        <input id="conn-description" type="text" placeholder="Production database" style="max-width:500px">
+                    </div>
+                    <div id="conn-config-fields" style="margin-bottom:12px"></div>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn btn-primary btn-sm" onclick="saveConnection()">Save</button>
+                        <button class="btn btn-sm" id="conn-test-btn" onclick="testConnectionFromForm()">Test Connection</button>
+                        <button class="btn btn-ghost btn-sm" onclick="hideAddConnectionForm()">Cancel</button>
+                        <span id="conn-test-result" style="font-size:12px;margin-left:8px"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="connections-list">
+            <div style="text-align:center;color:var(--text-muted);padding:24px">Loading...</div>
+        </div>
+    </section>

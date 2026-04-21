@@ -42,19 +42,30 @@ pub enum TaskType {
     /// Run a SQL query against a database.
     Sql {
         driver: SqlDriver,
-        connection_string: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection_string: Option<String>,
         query: String,
+        /// Named connection to use for credentials.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Transfer a file via FTP, FTPS, or SFTP.
     Ftp {
         protocol: FtpProtocol,
-        host: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        host: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         port: Option<u16>,
-        username: String,
-        password: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        username: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        password: Option<String>,
         direction: TransferDirection,
         remote_path: String,
         local_path: String,
+        /// Named connection to use for credentials.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Make an HTTP request.
     Http {
@@ -63,6 +74,9 @@ pub enum TaskType {
         headers: Option<HashMap<String, String>>,
         body: Option<String>,
         expect_status: Option<u16>,
+        /// Named connection to use for auth.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Run a stored Rhai script by name.
     Script { script_name: String },
@@ -97,6 +111,8 @@ pub enum TaskType {
         message: String,
         key: Option<String>,
         properties: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Publish a message to a RabbitMQ exchange.
     Rabbitmq {
@@ -105,6 +121,8 @@ pub enum TaskType {
         routing_key: String,
         message: String,
         content_type: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Publish a message to an MQTT topic.
     Mqtt {
@@ -116,12 +134,16 @@ pub enum TaskType {
         username: Option<String>,
         password: Option<String>,
         client_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Publish a message to a Redis channel.
     Redis {
         url: String,
         channel: String,
         message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Call a tool on an MCP (Model Context Protocol) server via HTTP.
     Mcp {
@@ -139,6 +161,8 @@ pub enum TaskType {
         max_messages: Option<u32>,
         /// Start from: "earliest" or "latest" (default "latest")
         offset: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Subscribe to an MQTT topic and receive messages.
     MqttSubscribe {
@@ -151,6 +175,8 @@ pub enum TaskType {
         password: Option<String>,
         client_id: Option<String>,
         qos: Option<u8>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Consume messages from a RabbitMQ queue.
     RabbitmqConsume {
@@ -158,6 +184,8 @@ pub enum TaskType {
         queue: String,
         /// Max number of messages (default 1)
         max_messages: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
     /// Read from a Redis list, stream, or subscribe to a channel.
     RedisRead {
@@ -168,6 +196,8 @@ pub enum TaskType {
         mode: Option<String>,
         /// Max number of items (default 1)
         count: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        connection: Option<String>,
     },
 }
 
