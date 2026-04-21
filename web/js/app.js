@@ -1170,7 +1170,6 @@ fetchHealth();
         if (cfg.demo_mode) {
             currentUser = { authenticated: true, auth_type: 'demo', name: 'Demo', role: 'viewer' };
             showApp();
-            showDemoBanner();
             renderSidebarUser();
             await fetchAgents();
             for (const scope of ['jobs', 'execs', 'events']) {

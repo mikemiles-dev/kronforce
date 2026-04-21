@@ -104,6 +104,8 @@ function showTourStep() {
 
     if (tourStep >= tourSteps.length) {
         localStorage.setItem('kf-tour-done', '1');
+        // Show demo banner after tour (not during)
+        if (typeof showDemoBanner === 'function') showDemoBanner();
         // Run the last step's onFinish callback (e.g., navigate to Getting Started)
         const lastStep = tourSteps[tourSteps.length - 1];
         if (lastStep && typeof lastStep.onFinish === 'function') lastStep.onFinish();
@@ -218,7 +220,7 @@ function showTourStep() {
     skip.className = 'btn btn-ghost btn-sm';
     skip.textContent = 'Skip tour';
     skip.style.color = 'var(--text-muted, #8b949e)';
-    skip.onclick = function() { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); if (typeof checkWizardNeeded === 'function') checkWizardNeeded(); };
+    skip.onclick = function() { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); if (typeof showDemoBanner === 'function') showDemoBanner(); };
     btns.appendChild(skip);
 
     const next = document.createElement('button');
@@ -257,5 +259,8 @@ function removeTourOverlay() {
 function maybeStartTour() {
     if (!localStorage.getItem('kf-tour-done')) {
         setTimeout(startTour, 800);
+    } else {
+        // Tour already done — show demo banner for returning visitors
+        if (typeof showDemoBanner === 'function') showDemoBanner();
     }
 }
