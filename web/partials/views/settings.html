@@ -49,6 +49,13 @@
                 </div>
             </div>
             <div class="card">
+                <div class="card-header"><h3>Product Tour</h3></div>
+                <div class="settings-group">
+                    <div class="form-hint" style="margin-bottom:8px">Replay the guided walkthrough that highlights navigation and key features.</div>
+                    <button class="btn btn-primary btn-sm" onclick="localStorage.removeItem('kf-tour-done');startTour()">Replay Tour</button>
+                </div>
+            </div>
+            <div class="card">
                 <div class="card-header"><h3>Browser Cache</h3></div>
                 <div class="settings-group">
                     <div class="form-hint" style="margin-bottom:8px">Clear all locally cached data for this site including localStorage, sessionStorage, and service workers. This can fix display issues after updates.</div>

@@ -1176,6 +1176,7 @@ fetchHealth();
             }
             handleRoute();
             startPolling();
+            if (typeof maybeStartTour === 'function') maybeStartTour();
             return;
         }
     } catch (e) { /* not demo mode */ }
@@ -1189,5 +1190,6 @@ fetchHealth();
         handleRoute();
         startPolling();
         checkWizardNeeded();
+        if (typeof maybeStartTour === 'function') maybeStartTour();
     }
 })();
