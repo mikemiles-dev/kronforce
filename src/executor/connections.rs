@@ -32,9 +32,9 @@ pub fn resolve_connections(task: &TaskType, db: &Db) -> Result<Option<TaskType>,
         return Ok(None);
     }
 
-    let conn = db.get_connection(&name)?.ok_or_else(|| {
-        AppError::BadRequest(format!("connection '{}' not found", name))
-    })?;
+    let conn = db
+        .get_connection(&name)?
+        .ok_or_else(|| AppError::BadRequest(format!("connection '{}' not found", name)))?;
 
     let config = &conn.config;
 
@@ -57,15 +57,9 @@ pub fn resolve_connections(task: &TaskType, db: &Db) -> Result<Option<TaskType>,
                     if let Some(existing_url) = task_obj.get("url").and_then(|v| v.as_str()) {
                         if existing_url.starts_with('/') {
                             if let Some(base) = conn_val.as_str() {
-                                let full = format!(
-                                    "{}{}",
-                                    base.trim_end_matches('/'),
-                                    existing_url
-                                );
-                                task_obj.insert(
-                                    "url".to_string(),
-                                    serde_json::Value::String(full),
-                                );
+                                let full =
+                                    format!("{}{}", base.trim_end_matches('/'), existing_url);
+                                task_obj.insert("url".to_string(), serde_json::Value::String(full));
                             }
                         }
                     }
@@ -153,8 +147,10 @@ fn inject_http_auth(
                 .get("password")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let encoded =
-                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, format!("{}:{}", user, pass));
+            let encoded = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                format!("{}:{}", user, pass),
+            );
             headers_obj.insert(
                 "Authorization".to_string(),
                 serde_json::Value::String(format!("Basic {}", encoded)),

@@ -12,8 +12,8 @@ fn parse_connection(row: &rusqlite::Row) -> rusqlite::Result<Connection> {
     let created_str: String = col(row, "created_at")?;
     let updated_str: String = col(row, "updated_at")?;
 
-    let conn_type: ConnectionType = serde_json::from_str(&format!("\"{}\"", conn_type_str))
-        .unwrap_or(ConnectionType::Postgres);
+    let conn_type: ConnectionType =
+        serde_json::from_str(&format!("\"{}\"", conn_type_str)).unwrap_or(ConnectionType::Postgres);
 
     // Decrypt config
     let config_json = crate::crypto::decrypt(&config_raw).unwrap_or(config_raw);
@@ -46,9 +46,7 @@ impl Db {
                 "SELECT name, conn_type, description, config, created_at, updated_at FROM connections ORDER BY name",
             )
             .map_err(AppError::Db)?;
-        let rows = stmt
-            .query_map([], parse_connection)
-            .map_err(AppError::Db)?;
+        let rows = stmt.query_map([], parse_connection).map_err(AppError::Db)?;
         let mut conns = Vec::new();
         for row in rows {
             conns.push(row.map_err(AppError::Db)?);

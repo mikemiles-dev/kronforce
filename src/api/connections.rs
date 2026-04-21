@@ -282,9 +282,7 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
                     } else {
                         TestResult {
                             success: false,
-                            message: String::from_utf8_lossy(&out.stderr)
-                                .trim()
-                                .to_string(),
+                            message: String::from_utf8_lossy(&out.stderr).trim().to_string(),
                         }
                     }
                 }
@@ -313,7 +311,11 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
             {
                 Ok(resp) => TestResult {
                     success: resp.status().is_success() || resp.status().is_redirection(),
-                    message: format!("HTTP {} {}", resp.status().as_u16(), resp.status().canonical_reason().unwrap_or("")),
+                    message: format!(
+                        "HTTP {} {}",
+                        resp.status().as_u16(),
+                        resp.status().canonical_reason().unwrap_or("")
+                    ),
                 },
                 Err(e) => TestResult {
                     success: false,
@@ -353,10 +355,7 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
                 .or_else(|| config.get("broker"))
                 .and_then(|v| v.as_str())
                 .unwrap_or("localhost");
-            let port = config
-                .get("port")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
+            let port = config.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
 
             if port == 0 {
                 return TestResult {
