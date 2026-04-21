@@ -1191,7 +1191,6 @@ fetchHealth();
         }
         handleRoute();
         startPolling();
-        checkWizardNeeded();
         if (typeof maybeStartTour === 'function') maybeStartTour();
     }
 })();

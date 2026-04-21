@@ -57,13 +57,16 @@ const TOUR_STEPS = [
         position: 'right'
     },
     {
-        target: '.main-content',
-        title: 'Ready to go!',
-        text: 'Create your first job with the + button on the Jobs page, or explore the demo data already loaded. You can replay this tour anytime from Settings.',
-        position: 'center',
+        target: '#tab-guide',
+        title: 'Getting Started',
+        text: 'This page walks you through setup step by step — create your first job, connect an agent, configure notifications. Head here when you\'re ready.',
+        position: 'right',
+        onFinish: function() { showPage('guide'); },
         // Replaced at runtime for demo mode
         demoText: 'This is a read-only demo for display purposes only — explore freely, nothing will break. All the data you see is sample data showcasing Kronforce features. To run your own instance, visit kronforce.dev.',
-        demoTitle: 'Welcome to the Demo!'
+        demoTitle: 'Welcome to the Demo!',
+        demoPosition: 'center',
+        demoTarget: '.main-content'
     }
 ];
 
@@ -84,10 +87,13 @@ function startTour() {
             text: 'This is a read-only demo for display purposes only. All the data you see is sample data showcasing Kronforce features. Explore freely — nothing you click will break anything.',
             position: 'center'
         });
-        // Swap the last step to demo-specific text
+        // Swap the last step to demo-specific text and positioning
         const last = tourSteps[tourSteps.length - 1];
         if (last.demoTitle) last.title = last.demoTitle;
         if (last.demoText) last.text = last.demoText;
+        if (last.demoPosition) last.position = last.demoPosition;
+        if (last.demoTarget) last.target = last.demoTarget;
+        delete last.onFinish; // Don't navigate to guide in demo mode
     }
 
     showTourStep();
@@ -98,6 +104,9 @@ function showTourStep() {
 
     if (tourStep >= tourSteps.length) {
         localStorage.setItem('kf-tour-done', '1');
+        // Run the last step's onFinish callback (e.g., navigate to Getting Started)
+        const lastStep = tourSteps[tourSteps.length - 1];
+        if (lastStep && typeof lastStep.onFinish === 'function') lastStep.onFinish();
         return;
     }
 
@@ -209,7 +218,7 @@ function showTourStep() {
     skip.className = 'btn btn-ghost btn-sm';
     skip.textContent = 'Skip tour';
     skip.style.color = 'var(--text-muted, #8b949e)';
-    skip.onclick = function() { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); };
+    skip.onclick = function() { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); if (typeof checkWizardNeeded === 'function') checkWizardNeeded(); };
     btns.appendChild(skip);
 
     const next = document.createElement('button');
