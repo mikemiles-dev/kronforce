@@ -280,6 +280,8 @@ curl -X POST "http://localhost:8080/api/jobs/{id}/trigger?skip_deps=true"  # Ski
 curl "http://localhost:8080/api/jobs/{id}/executions?page=1"          # History
 curl http://localhost:8080/api/executions/{id}                        # Details
 curl http://localhost:8080/api/executions/{id}/stream                 # Live output (SSE)
+curl "http://localhost:8080/api/executions?group=ETL"                 # Filter by group
+curl "http://localhost:8080/api/executions?status=failed&since=2026-04-01T00:00:00Z"  # Filter by status and time
 curl -X POST http://localhost:8080/api/executions/{id}/cancel         # Cancel
 curl -X POST http://localhost:8080/api/executions/{id}/approve        # Approve (for approval-gated jobs)
 curl http://localhost:8080/api/jobs/{id}/versions                     # Job version history

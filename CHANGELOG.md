@@ -5,9 +5,11 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0-alpha] - 2026-04-15
+## [0.1.0-alpha] - 2026-04-20
 
 ### Added
+- **Named connections** — credential profiles for databases, APIs, and services. 14 protocol types: PostgreSQL, MySQL, SQLite, FTP, SFTP, HTTP (bearer/basic/header auth), Kafka, MQTT, RabbitMQ, Redis, MongoDB, SSH, SMTP, S3/MinIO. Encrypted at rest (AES-256-GCM), masked in API responses, test connectivity from the UI. Jobs reference a connection by name (`"connection": "prod-db"`) instead of embedding passwords. Full Connections page in the dashboard with dynamic config forms per type.
+- **Product tour** — first-time user walkthrough with spotlight overlay highlighting each navigation element. Demo mode adds an intro explaining read-only access. Replayable from Settings.
 - **Pipeline scheduling** — set cron or interval schedules on entire pipeline groups. The scheduler automatically triggers root jobs on schedule, and dependencies cascade from there. Configure via the new "Schedule" button on the Stages/Pipeline view, or via the API (`PUT /api/jobs/pipeline-schedule/{group}`). Schedules persist in settings and survive job changes.
 - **Pipeline run history** — "History" button on the Stages view shows a modal with clustered pipeline runs, per-job status icons, overall status badge, and total duration. Click any status icon to view the execution detail.
 - **Jenkins importer** — `scripts/kronforce-import-jenkins` parses Jenkinsfiles and config.xml into Kronforce jobs. `--pipeline` flag wires stages as dependency chains. Supports bulk import from directories, agent label targeting, retry/timeout extraction, and environment variable import.

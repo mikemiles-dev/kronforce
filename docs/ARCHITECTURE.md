@@ -35,18 +35,21 @@
 
 ## Execution Flow
 
-1. **Scheduler** detects a due job (cron tick, one-shot time, or event match)
+1. **Scheduler** detects a due job (cron tick, one-shot time, event match, or pipeline schedule)
 2. **Dependency check** — if job has `depends_on`, verify all parents succeeded within their time windows
-3. **Executor** determines where to run based on target:
+3. **Variable substitution** — `{{VAR_NAME}}` and `{{params.NAME}}` placeholders resolved from global variables and trigger params
+4. **Connection resolution** — if task has a `connection` field, fetch the named connection's encrypted config and merge credentials into the task (inline fields take precedence)
+5. **Executor** determines where to run based on target:
    - **Local**: runs on the controller via `sh -c` (or `sudo -n -u` with `run_as`)
    - **Standard Agent**: dispatches via HTTP POST to the agent's `/execute` endpoint
    - **Custom Agent**: enqueues in `job_queue` table for the agent to poll
-4. **Output capture** — stdout/stderr captured (256KB cap per stream with truncation)
-5. **Output rules** — if the job has extraction rules or triggers, they run against stdout:
+6. **Output capture** — stdout/stderr captured (256KB cap per stream with truncation)
+7. **Output rules** — if the job has extraction rules or triggers, they run against stdout:
    - Extracted values stored on the execution record
    - Matched trigger patterns emit `output.matched` events
-6. **Result** — execution record updated in SQLite with status, output, extracted values
-7. **Events** — `execution.completed` event emitted, which can trigger other event-driven jobs
+8. **Result** — execution record updated in SQLite with status, output, extracted values
+9. **Events** — `execution.completed` event emitted, which can trigger other event-driven jobs
+10. **Cascade** — if the completed job has downstream on-demand dependents with all deps satisfied, they fire automatically
 
 ## Components
 
@@ -55,7 +58,7 @@
 | REST API | `src/api/` | Axum HTTP server — dashboard, job CRUD, agent management, callbacks, settings |
 | Scheduler | `src/scheduler.rs` | Tick-based cron evaluator with mpsc channel for reload/trigger/event commands |
 | Executor | `src/executor/` | Runs tasks locally or dispatches to agents. Handles timeouts, cancellation, output rules |
-| Database | `src/db/` | SQLite with WAL mode. 12 versioned migrations. Jobs, executions, agents, events, settings, queue |
+| Database | `src/db/` | SQLite with WAL mode. 18 versioned migrations. Jobs, executions, agents, events, settings, queue, connections, variables, templates, audit log |
 | Models | `src/models.rs` | All data types — TaskType, ScheduleKind, AgentTarget, OutputRules, Notifications, etc. |
 | Output Rules | `src/output_rules.rs` | Regex/jsonpath extraction, assertions, and trigger pattern matcher |
 | Notifications | `src/notifications.rs` | Email (SMTP) and SMS (webhook) notification dispatch |

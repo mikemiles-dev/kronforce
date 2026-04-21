@@ -98,12 +98,27 @@ That's it. You have a running scheduler with a web dashboard.
 - **SMS** — Twilio or any webhook-based SMS provider
 - **Per-job controls** — notify on failure, success, or assertion failure with recipient overrides
 
+### Connections (Credential Manager)
+
+- **Named connections** — store credentials for external systems once, reference by name in jobs
+- **14 protocol types** — PostgreSQL, MySQL, SQLite, FTP, SFTP, HTTP (bearer/basic/header auth), Kafka, MQTT, RabbitMQ, Redis, MongoDB, SSH, SMTP, S3/MinIO
+- **Encrypted at rest** — AES-256-GCM encryption, sensitive fields masked in API responses
+- **Test connectivity** — one-click connection test from the UI or API
+- **Auto-inject auth** — HTTP connections automatically inject Authorization headers; SQL connections provide the connection string
+
+### Migration Tools
+
+- **Crontab importer** — `crontab -l | kronforce-import-crontab kf_key` converts cron entries automatically
+- **Jenkins importer** — `kronforce-import-jenkins kf_key Jenkinsfile --pipeline` parses Jenkinsfiles and config.xml, wires stages as dependency chains
+- **Airflow/Rundeck guides** — detailed concept mapping tables in [Migration Guide](docs/MIGRATION.md)
+
 ### Security & Enterprise
 
 - **API key authentication** — 4 roles (admin, operator, viewer, agent) with group-scoped access
 - **OIDC/SSO** — Okta, Azure AD, Google, Keycloak with configurable role mapping from IdP claims
 - **Audit logging** — append-only trail for all state-changing operations
 - **Secret variables** — masked in API and UI, substituted at runtime
+- **Connections** — encrypted credential profiles with masked API responses
 - **Rate limiting** — 3-tier (public, authenticated, agent) with configurable limits
 - **SSRF protection** — HTTP tasks block private IPs and cloud metadata endpoints
 
