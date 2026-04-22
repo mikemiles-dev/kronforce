@@ -384,10 +384,10 @@ fn extract_host_port(config: &serde_json::Value, conn_type: ConnectionType) -> (
     }
 
     // Try host:port format (e.g., Kafka broker "localhost:9092")
-    if let Some((h, p)) = url_str.split_once(':') {
-        if let Ok(port) = p.parse::<u16>() {
-            return (h.to_string(), port);
-        }
+    if let Some((h, p)) = url_str.split_once(':')
+        && let Ok(port) = p.parse::<u16>()
+    {
+        return (h.to_string(), port);
     }
 
     (url_str.to_string(), default_port_for_type(conn_type))

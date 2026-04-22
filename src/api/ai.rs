@@ -195,12 +195,12 @@ fn extract_json(text: &str) -> Option<serde_json::Value> {
         }
     }
     // Try finding first { to last }
-    if let Some(start) = text.find('{') {
-        if let Some(end) = text.rfind('}') {
-            let json_str = &text[start..=end];
-            if let Ok(v) = serde_json::from_str(json_str) {
-                return Some(v);
-            }
+    if let Some(start) = text.find('{')
+        && let Some(end) = text.rfind('}')
+    {
+        let json_str = &text[start..=end];
+        if let Ok(v) = serde_json::from_str(json_str) {
+            return Some(v);
         }
     }
     None

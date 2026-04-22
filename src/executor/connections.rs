@@ -54,14 +54,12 @@ pub fn resolve_connections(task: &TaskType, db: &Db) -> Result<Option<TaskType>,
                 // HTTP
                 "base_url" => {
                     // Merge base_url into url if url looks like a path
-                    if let Some(existing_url) = task_obj.get("url").and_then(|v| v.as_str()) {
-                        if existing_url.starts_with('/') {
-                            if let Some(base) = conn_val.as_str() {
-                                let full =
-                                    format!("{}{}", base.trim_end_matches('/'), existing_url);
-                                task_obj.insert("url".to_string(), serde_json::Value::String(full));
-                            }
-                        }
+                    if let Some(existing_url) = task_obj.get("url").and_then(|v| v.as_str())
+                        && existing_url.starts_with('/')
+                        && let Some(base) = conn_val.as_str()
+                    {
+                        let full = format!("{}{}", base.trim_end_matches('/'), existing_url);
+                        task_obj.insert("url".to_string(), serde_json::Value::String(full));
                     }
                     continue;
                 }
