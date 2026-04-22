@@ -15,6 +15,28 @@ function populateGroupSelect(selectedGroup) {
     }
 }
 
+// Task types that support connection references
+const CONNECTION_TASK_TYPES = ['sql', 'http', 'ftp', 'kafka', 'rabbitmq', 'mqtt', 'redis', 'kafka_consume', 'mqtt_subscribe', 'rabbitmq_consume', 'redis_read'];
+
+function populateConnectionSelect(selectedConn) {
+    const sel = document.getElementById('f-task-connection');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">None — use inline credentials</option>';
+    if (typeof allConnections !== 'undefined' && allConnections.length > 0) {
+        for (const c of allConnections) {
+            const selected = c.name === selectedConn ? ' selected' : '';
+            sel.innerHTML += '<option value="' + esc(c.name) + '"' + selected + '>' + esc(c.name) + ' (' + esc(c.conn_type) + ')</option>';
+        }
+    }
+}
+
+function updateConnectionVisibility() {
+    const taskType = document.querySelector('input[name="task-type"]:checked');
+    const group = document.getElementById('task-connection-group');
+    if (!group || !taskType) return;
+    group.style.display = CONNECTION_TASK_TYPES.includes(taskType.value) ? '' : 'none';
+}
+
 // --- Create/Edit Modal ---
 function openCreateModal() {
     editingJobId = null;
@@ -59,6 +81,12 @@ function openCreateModal() {
     populateOutputRules(null);
     populateJobNotifications(null);
     if (typeof showAiPrompt === 'function') showAiPrompt();
+    // Load connections for the dropdown
+    if (typeof fetchConnections === 'function' && (typeof allConnections === 'undefined' || allConnections.length === 0)) {
+        api('GET', '/api/connections').then(c => { allConnections = c; populateConnectionSelect(''); }).catch(() => {});
+    } else {
+        populateConnectionSelect('');
+    }
     openModal('create-modal');
 }
 
@@ -290,6 +318,7 @@ function updateTaskFields() {
     }
     if (type === 'script') populateScriptDropdown();
     if (type === 'docker_build') populateDockerScriptDropdown();
+    updateConnectionVisibility();
 }
 
 var filePushBase64 = '';
@@ -342,9 +371,13 @@ function buildTaskFromForm() {
     }
     if (type === 'sql') {
         const query = document.getElementById('f-sql-query').value.trim();
-        const conn = document.getElementById('f-sql-conn').value.trim();
-        if (!query || !conn) return null;
-        return { type: 'sql', driver: document.getElementById('f-sql-driver').value, connection_string: conn, query };
+        const connStr = document.getElementById('f-sql-conn').value.trim();
+        const connRef = document.getElementById('f-task-connection').value;
+        if (!query) return null;
+        if (!connStr && !connRef) { toast('Provide a connection string or select a connection', 'error'); return null; }
+        const task = { type: 'sql', driver: document.getElementById('f-sql-driver').value, query };
+        if (connStr) task.connection_string = connStr;
+        return task;
     }
     if (type === 'ftp') {
         const host = document.getElementById('f-ftp-host').value.trim();
@@ -498,6 +531,18 @@ function buildTaskFromForm() {
     return null;
 }
 
+// Wrapper that injects the connection field into the built task
+const _origBuildTaskFromForm = buildTaskFromForm;
+buildTaskFromForm = function() {
+    const task = _origBuildTaskFromForm();
+    if (!task) return null;
+    const connEl = document.getElementById('f-task-connection');
+    if (connEl && connEl.value) {
+        task.connection = connEl.value;
+    }
+    return task;
+};
+
 function buildCustomTaskFromForm() {
     if (!selectedCustomAgentData) return null;
     const typeName = document.querySelector('input[name="custom-task-type"]:checked')?.value;
@@ -624,6 +669,9 @@ function populateTaskForm(task) {
         document.getElementById('f-redisr-mode').value = task.mode || 'lpop';
         document.getElementById('f-redisr-count').value = task.count || 1;
     }
+    // Populate connection dropdown
+    populateConnectionSelect(task.connection || '');
+    updateConnectionVisibility();
 }
 
 async function discoverMcpTools() {

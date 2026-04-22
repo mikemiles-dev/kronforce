@@ -250,46 +250,27 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
     let config = &conn.config;
 
     match conn.conn_type {
-        ConnectionType::Postgres | ConnectionType::Mysql => {
-            let conn_str = config
+        ConnectionType::Sqlite => {
+            let path = config
                 .get("connection_string")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            if conn_str.is_empty() {
+            if path.is_empty() {
                 return TestResult {
                     success: false,
-                    message: "connection_string is empty".into(),
+                    message: "database path is empty".into(),
                 };
             }
-            // Try a simple query via CLI
-            let cmd = if conn.conn_type == ConnectionType::Postgres {
-                format!("psql '{}' -c 'SELECT 1' 2>&1 | head -5", conn_str)
-            } else {
-                format!("mysql '{}' -e 'SELECT 1' 2>&1 | head -5", conn_str)
-            };
-            match tokio::process::Command::new("sh")
-                .arg("-c")
-                .arg(&cmd)
-                .output()
-                .await
-            {
-                Ok(out) => {
-                    if out.status.success() {
-                        TestResult {
-                            success: true,
-                            message: "Connection successful".into(),
-                        }
-                    } else {
-                        TestResult {
-                            success: false,
-                            message: String::from_utf8_lossy(&out.stderr).trim().to_string(),
-                        }
-                    }
+            if std::path::Path::new(path).exists() {
+                TestResult {
+                    success: true,
+                    message: format!("file exists: {}", path),
                 }
-                Err(e) => TestResult {
+            } else {
+                TestResult {
                     success: false,
-                    message: format!("failed to execute: {e}"),
-                },
+                    message: format!("file not found: {}", path),
+                }
             }
         }
         ConnectionType::Http => {
@@ -323,44 +304,21 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
                 },
             }
         }
-        ConnectionType::Redis => {
-            let url = config
-                .get("url")
-                .and_then(|v| v.as_str())
-                .unwrap_or("redis://localhost:6379");
-            let cmd = format!("redis-cli -u '{}' PING 2>&1 | head -1", url);
-            match tokio::process::Command::new("sh")
-                .arg("-c")
-                .arg(&cmd)
-                .output()
-                .await
-            {
-                Ok(out) => {
-                    let stdout = String::from_utf8_lossy(&out.stdout);
-                    TestResult {
-                        success: stdout.trim() == "PONG",
-                        message: stdout.trim().to_string(),
-                    }
-                }
-                Err(e) => TestResult {
-                    success: false,
-                    message: format!("failed to execute: {e}"),
-                },
-            }
-        }
         _ => {
-            // For types without a quick test, try TCP connect to host:port
-            let host = config
-                .get("host")
-                .or_else(|| config.get("broker"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("localhost");
-            let port = config.get("port").and_then(|v| v.as_u64()).unwrap_or(0);
+            // For all other types: extract host:port and do a TCP connect test.
+            // This works for Postgres, MySQL, Redis, Kafka, MQTT, RabbitMQ, FTP, SFTP, SSH, SMTP, S3.
+            let (host, port) = extract_host_port(config, conn.conn_type);
 
+            if host.is_empty() {
+                return TestResult {
+                    success: false,
+                    message: "no host configured — check connection settings".into(),
+                };
+            }
             if port == 0 {
                 return TestResult {
                     success: false,
-                    message: "no host/port configured for TCP test".into(),
+                    message: format!("no port configured for host '{}'", host),
                 };
             }
 
@@ -377,13 +335,70 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
                 },
                 Ok(Err(e)) => TestResult {
                     success: false,
-                    message: format!("TCP connection failed: {e}"),
+                    message: format!("connection to {} failed: {e}", addr),
                 },
                 Err(_) => TestResult {
                     success: false,
-                    message: format!("TCP connection to {} timed out", addr),
+                    message: format!("connection to {} timed out (5s)", addr),
                 },
             }
         }
     }
 }
+
+/// Extract host and port from connection config, parsing URLs when necessary.
+fn extract_host_port(config: &serde_json::Value, conn_type: ConnectionType) -> (String, u16) {
+    // Try explicit host/port fields first
+    let explicit_host = config.get("host").or_else(|| config.get("broker")).and_then(|v| v.as_str());
+    let explicit_port = config.get("port").and_then(|v| v.as_u64()).map(|p| p as u16);
+
+    if let Some(h) = explicit_host {
+        let default_port = default_port_for_type(conn_type);
+        return (h.to_string(), explicit_port.unwrap_or(default_port));
+    }
+
+    // Try parsing from connection_string or url fields
+    let url_str = config
+        .get("connection_string")
+        .or_else(|| config.get("url"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    if url_str.is_empty() {
+        return (String::new(), 0);
+    }
+
+    // Try parsing as a URL (handles postgres://, redis://, amqp://, etc.)
+    if let Ok(parsed) = url::Url::parse(url_str) {
+        let host = parsed.host_str().unwrap_or("").to_string();
+        let port = parsed.port().unwrap_or_else(|| default_port_for_type(conn_type));
+        return (host, port);
+    }
+
+    // Try host:port format (e.g., Kafka broker "localhost:9092")
+    if let Some((h, p)) = url_str.split_once(':') {
+        if let Ok(port) = p.parse::<u16>() {
+            return (h.to_string(), port);
+        }
+    }
+
+    (url_str.to_string(), default_port_for_type(conn_type))
+}
+
+fn default_port_for_type(conn_type: ConnectionType) -> u16 {
+    match conn_type {
+        ConnectionType::Postgres => 5432,
+        ConnectionType::Mysql => 3306,
+        ConnectionType::Redis => 6379,
+        ConnectionType::Kafka => 9092,
+        ConnectionType::Mqtt => 1883,
+        ConnectionType::Rabbitmq => 5672,
+        ConnectionType::Ftp => 21,
+        ConnectionType::Sftp | ConnectionType::Ssh => 22,
+        ConnectionType::Smtp => 587,
+        ConnectionType::Mongodb => 27017,
+        ConnectionType::S3 | ConnectionType::Http => 443,
+        ConnectionType::Sqlite => 0, // No network
+    }
+}
+

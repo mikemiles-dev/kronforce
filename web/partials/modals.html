@@ -87,6 +87,13 @@
                 <label class="pill-blue"><input type="radio" name="task-type" value="mcp" onchange="updateTaskFields()" onclick="updateTaskFields()"> &#129302; MCP Tool</label>
             </div>
         </div>
+        <div id="task-connection-group" class="form-group" style="display:none;margin-bottom:10px">
+            <label>Connection (optional)</label>
+            <select id="f-task-connection" style="max-width:300px">
+                <option value="">None — use inline credentials</option>
+            </select>
+            <div class="form-hint">Use a saved connection for credentials. Inline fields below become optional when a connection is selected.</div>
+        </div>
         <div id="task-shell-fields">
             <div class="form-group">
                 <label>Command</label>
