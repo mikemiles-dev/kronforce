@@ -12,13 +12,9 @@ fn parse_connection(row: &rusqlite::Row) -> rusqlite::Result<Connection> {
     let created_str: String = col(row, "created_at")?;
     let updated_str: String = col(row, "updated_at")?;
 
-    let conn_type: ConnectionType =
-        serde_json::from_str(&format!("\"{}\"", conn_type_str)).map_err(|e| {
-            rusqlite::Error::FromSqlConversionFailure(
-                0,
-                rusqlite::types::Type::Text,
-                Box::new(e),
-            )
+    let conn_type: ConnectionType = serde_json::from_str(&format!("\"{}\"", conn_type_str))
+        .map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
         })?;
 
     // Decrypt config — propagate errors instead of silently returning empty
@@ -30,11 +26,7 @@ fn parse_connection(row: &rusqlite::Row) -> rusqlite::Result<Connection> {
         )
     })?;
     let config: serde_json::Value = serde_json::from_str(&config_json).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            0,
-            rusqlite::types::Type::Text,
-            Box::new(e),
-        )
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
     })?;
 
     Ok(Connection {
