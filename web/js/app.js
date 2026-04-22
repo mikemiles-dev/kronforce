@@ -696,6 +696,8 @@ function showPage(page) {
         fetchVariables();
     } else if (page === 'connections') {
         if (typeof fetchConnections === 'function') fetchConnections();
+    } else if (page === 'docs') {
+        initDocsScrollSpy();
     } else if (page === 'settings') {
         updateThemeButtons();
         renderSettingsAuth();
@@ -706,6 +708,12 @@ function showPage(page) {
 }
 
 function scrollToDocTopic(topicId) {
+    // Clear search first so the section is visible
+    const searchDesktop = document.getElementById('docs-search');
+    const searchMobile = document.getElementById('docs-search-mobile');
+    if (searchDesktop && searchDesktop.value) { searchDesktop.value = ''; searchDocs(''); }
+    if (searchMobile && searchMobile.value) { searchMobile.value = ''; searchDocs(''); }
+
     const container = document.getElementById('docs-content');
     const el = document.getElementById(topicId);
     if (container && el) {
@@ -714,6 +722,95 @@ function scrollToDocTopic(topicId) {
     document.querySelectorAll('.docs-topic').forEach(t => t.classList.remove('active'));
     const btn = document.querySelector('.docs-topic[onclick*="' + topicId + '"]');
     if (btn) btn.classList.add('active');
+}
+
+let docsSearchTimeout = null;
+function searchDocs(query) {
+    clearTimeout(docsSearchTimeout);
+    docsSearchTimeout = setTimeout(function() { doSearchDocs(query); }, 150);
+}
+
+function doSearchDocs(query) {
+    const container = document.getElementById('docs-content');
+    if (!container) return;
+    const sections = container.querySelectorAll('.docs-section');
+    const cards = container.querySelectorAll('.docs-card');
+    const q = query.trim().toLowerCase();
+
+    // Remove previous highlights
+    container.querySelectorAll('.docs-search-highlight').forEach(function(el) {
+        el.replaceWith(el.textContent);
+    });
+
+    // Remove no-results message
+    const noResults = container.querySelector('.docs-no-results');
+    if (noResults) noResults.remove();
+
+    if (!q) {
+        // Show all sections
+        sections.forEach(function(s) { s.classList.remove('docs-hidden'); });
+        cards.forEach(function(c) { c.classList.remove('docs-hidden'); });
+        return;
+    }
+
+    let matchCount = 0;
+
+    // Filter sections by text content match
+    sections.forEach(function(s) {
+        const text = s.textContent.toLowerCase();
+        if (text.includes(q)) {
+            s.classList.remove('docs-hidden');
+            matchCount++;
+        } else {
+            s.classList.add('docs-hidden');
+        }
+    });
+
+    // Also check collapsible cards (like migration)
+    cards.forEach(function(c) {
+        const text = c.textContent.toLowerCase();
+        if (text.includes(q)) {
+            c.classList.remove('docs-hidden');
+            if (!c.classList.contains('open')) c.classList.add('open');
+            matchCount++;
+        } else {
+            c.classList.add('docs-hidden');
+        }
+    });
+
+    if (matchCount === 0) {
+        const msg = document.createElement('div');
+        msg.className = 'docs-no-results';
+        msg.textContent = 'No results for "' + query.trim() + '"';
+        container.appendChild(msg);
+    }
+
+    // Sync desktop search ↔ mobile search
+    const searchDesktop = document.getElementById('docs-search');
+    const searchMobile = document.getElementById('docs-search-mobile');
+    if (searchDesktop && document.activeElement !== searchDesktop) searchDesktop.value = query;
+    if (searchMobile && document.activeElement !== searchMobile) searchMobile.value = query;
+}
+
+// Scroll-spy: highlight sidebar nav based on scroll position
+function initDocsScrollSpy() {
+    const container = document.getElementById('docs-content');
+    if (!container) return;
+    container.addEventListener('scroll', function() {
+        const sections = container.querySelectorAll('.docs-section');
+        const scrollTop = container.scrollTop + 60;
+        let activeId = null;
+        for (const s of sections) {
+            if (s.offsetTop - container.offsetTop <= scrollTop) {
+                activeId = s.id;
+            }
+        }
+        if (activeId) {
+            document.querySelectorAll('.docs-topic').forEach(function(t) { t.classList.remove('active'); });
+            const btn = document.querySelector('.docs-topic[onclick*="' + activeId + '"]');
+            if (btn) btn.classList.add('active');
+        }
+    });
 }
 
 // --- Auto-Refresh ---

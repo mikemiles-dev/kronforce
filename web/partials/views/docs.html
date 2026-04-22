@@ -1,6 +1,9 @@
     <section id="docs-view" style="display:none">
         <div class="docs-layout">
             <nav class="docs-sidebar">
+                <div style="padding:8px 12px">
+                    <input id="docs-search" type="text" placeholder="Search docs..." oninput="searchDocs(this.value)" style="width:100%;font-size:12px;padding:6px 10px;border-radius:6px">
+                </div>
                 <button class="docs-topic active" onclick="scrollToDocTopic('doc-custom-agents')">Custom Agents</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-scripting')">Scripting</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-task-types')">Task Types</button>
@@ -17,6 +20,26 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-migration')">Migration</button>
             </nav>
             <div class="docs-content" id="docs-content">
+                <div id="docs-mobile-nav" class="docs-mobile-nav">
+                    <input id="docs-search-mobile" type="text" placeholder="Search docs..." oninput="searchDocs(this.value)" style="flex:1;font-size:13px;padding:8px 12px;border-radius:6px;min-width:0">
+                    <select id="docs-jump" onchange="if(this.value){scrollToDocTopic(this.value);this.value=''}" style="font-size:13px;padding:8px;border-radius:6px;max-width:140px">
+                        <option value="">Jump to...</option>
+                        <option value="doc-custom-agents">Custom Agents</option>
+                        <option value="doc-scripting">Scripting</option>
+                        <option value="doc-task-types">Task Types</option>
+                        <option value="doc-api">API Reference</option>
+                        <option value="doc-variables">Variables</option>
+                        <option value="doc-connections">Connections</option>
+                        <option value="doc-ai">AI Assistant</option>
+                        <option value="doc-groups">Job Groups</option>
+                        <option value="doc-retry">Execution Retry</option>
+                        <option value="doc-rate-limiting">Rate Limiting</option>
+                        <option value="doc-audit-log">Audit Log</option>
+                        <option value="doc-mcp-server">MCP Server</option>
+                        <option value="doc-cron">Cron Expressions</option>
+                        <option value="doc-migration">Migration</option>
+                    </select>
+                </div>
 
                 <div class="docs-section" id="doc-custom-agents">
                     <h2>Custom Agents</h2>

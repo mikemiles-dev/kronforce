@@ -1564,7 +1564,11 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .wizard-template-card:hover { border-color: var(--accent); }
 .wizard-template-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--text-primary); }
 .wizard-template-card p { margin: 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
-@media (max-width: 768px) { .docs-sidebar { display: none; } .docs-content { padding: 12px 16px; } }
+.docs-mobile-nav { display: none; gap: 8px; align-items: center; margin-bottom: 16px; position: sticky; top: 0; background: var(--bg-primary); z-index: 5; padding: 8px 0; }
+.docs-search-highlight { background: rgba(62,139,255,0.25); border-radius: 2px; padding: 0 1px; }
+.docs-section.docs-hidden { display: none; }
+.docs-no-results { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 14px; }
+@media (max-width: 768px) { .docs-sidebar { display: none; } .docs-content { padding: 12px 16px; } .docs-mobile-nav { display: flex; } }
 
 .agent-status-dot {
     width: 8px;
