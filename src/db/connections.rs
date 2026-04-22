@@ -13,12 +13,29 @@ fn parse_connection(row: &rusqlite::Row) -> rusqlite::Result<Connection> {
     let updated_str: String = col(row, "updated_at")?;
 
     let conn_type: ConnectionType =
-        serde_json::from_str(&format!("\"{}\"", conn_type_str)).unwrap_or(ConnectionType::Postgres);
+        serde_json::from_str(&format!("\"{}\"", conn_type_str)).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(
+                0,
+                rusqlite::types::Type::Text,
+                Box::new(e),
+            )
+        })?;
 
-    // Decrypt config
-    let config_json = crate::crypto::decrypt(&config_raw).unwrap_or(config_raw);
-    let config: serde_json::Value =
-        serde_json::from_str(&config_json).unwrap_or(serde_json::json!({}));
+    // Decrypt config — propagate errors instead of silently returning empty
+    let config_json = crate::crypto::decrypt(&config_raw).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Text,
+            Box::<dyn std::error::Error + Send + Sync>::from(e),
+        )
+    })?;
+    let config: serde_json::Value = serde_json::from_str(&config_json).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Text,
+            Box::new(e),
+        )
+    })?;
 
     Ok(Connection {
         name: col(row, "name")?,

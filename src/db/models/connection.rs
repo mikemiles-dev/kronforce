@@ -50,6 +50,8 @@ const SENSITIVE_FIELDS: &[&str] = &[
     "secret_key",
     "header_value",
     "access_key",
+    "connection_string",
+    "url",
 ];
 
 /// Mask sensitive fields in a connection config for API responses.
@@ -89,14 +91,14 @@ pub fn merge_config_preserving_secrets(
     match (existing, update) {
         (serde_json::Value::Object(old), serde_json::Value::Object(new)) => {
             let mut merged = serde_json::Map::new();
+            // Start with all existing fields
+            for (k, old_val) in old {
+                merged.insert(k.clone(), old_val.clone());
+            }
+            // Overlay update fields, preserving masked sentinels
             for (k, new_val) in new {
                 if new_val.as_str() == Some(MASK_SENTINEL) {
-                    // Preserve existing value
-                    if let Some(old_val) = old.get(k) {
-                        merged.insert(k.clone(), old_val.clone());
-                    } else {
-                        merged.insert(k.clone(), new_val.clone());
-                    }
+                    // Keep existing value (already in merged from above)
                 } else {
                     merged.insert(k.clone(), new_val.clone());
                 }

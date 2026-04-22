@@ -351,10 +351,17 @@ pub async fn run_task_streaming(
                             && std::fs::write(tmp.join("Dockerfile"), &code).is_ok()
                         {
                             let tmp_path = tmp.display().to_string();
+                            let escaped_build_args = build_args
+                                .as_deref()
+                                .unwrap_or("")
+                                .split_whitespace()
+                                .map(|a| shell_escape(a))
+                                .collect::<Vec<_>>()
+                                .join(" ");
                             let mut cmd = format!(
                                 "docker build --progress=plain -t {} {} -f {}/Dockerfile {}",
                                 shell_escape(tag),
-                                build_args.as_deref().unwrap_or(""),
+                                escaped_build_args,
                                 shell_escape(&tmp_path),
                                 shell_escape(&tmp_path),
                             );
@@ -506,6 +513,10 @@ async fn run_command_inner(
         let mut stdout_done = stdout_lines.is_none();
         let mut stderr_done = stderr_lines.is_none();
 
+        // Create timeout future once — not per iteration
+        let timeout_sleep = timeout_duration.map(tokio::time::sleep);
+        tokio::pin!(timeout_sleep);
+
         loop {
             // Break when both pipes are closed (process exited)
             if stdout_done && stderr_done {
@@ -536,8 +547,8 @@ async fn run_command_inner(
                     }
                 }
                 _ = async {
-                    match timeout_duration {
-                        Some(d) => tokio::time::sleep(d).await,
+                    match timeout_sleep.as_mut().as_pin_mut() {
+                        Some(s) => s.await,
                         None => std::future::pending().await,
                     }
                 } => {

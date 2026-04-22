@@ -57,9 +57,13 @@ pub fn encrypt(plaintext: &str) -> String {
     rand::rng().fill(&mut nonce_bytes);
     let nonce = Nonce::from_slice(&nonce_bytes);
 
-    let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_bytes())
-        .expect("encryption failed");
+    let ciphertext = match cipher.encrypt(nonce, plaintext.as_bytes()) {
+        Ok(ct) => ct,
+        Err(e) => {
+            tracing::error!("encryption failed: {e}");
+            return plaintext.to_string();
+        }
+    };
 
     // Prepend nonce to ciphertext and base64 encode
     let mut combined = Vec::with_capacity(12 + ciphertext.len());

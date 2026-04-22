@@ -84,10 +84,16 @@ pub async fn run_docker_build_task(
         };
     }
     let tmp_path = tmp.display().to_string();
+    let escaped_build_args = build_args
+        .unwrap_or("")
+        .split_whitespace()
+        .map(|arg| shell_escape(arg))
+        .collect::<Vec<_>>()
+        .join(" ");
     let mut cmd = format!(
         "docker build --progress=plain -t {} {} -f {}/Dockerfile {}",
         shell_escape(tag),
-        build_args.unwrap_or(""),
+        escaped_build_args,
         shell_escape(&tmp_path),
         shell_escape(&tmp_path),
     );

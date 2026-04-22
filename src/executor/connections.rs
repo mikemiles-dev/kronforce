@@ -63,12 +63,8 @@ pub fn resolve_connections(task: &TaskType, db: &Db) -> Result<Option<TaskType>,
                     }
                     continue;
                 }
-                // HTTP auth injection
-                "auth_type" | "token" | "header_name" | "header_value" => {
-                    // Handle HTTP auth by injecting headers
-                    inject_http_auth(task_obj, config_obj);
-                    continue;
-                }
+                // HTTP auth fields — handled after the loop
+                "auth_type" | "token" | "header_name" | "header_value" => continue,
                 // Kafka/MQTT/RabbitMQ/Redis
                 "broker" => "broker",
                 "url" => "url",
@@ -88,6 +84,10 @@ pub fn resolve_connections(task: &TaskType, db: &Db) -> Result<Option<TaskType>,
             if should_set {
                 task_obj.insert(task_key.to_string(), conn_val.clone());
             }
+        }
+        // Inject HTTP auth headers once after all fields are merged
+        if config_obj.contains_key("auth_type") {
+            inject_http_auth(task_obj, config_obj);
         }
     }
 
