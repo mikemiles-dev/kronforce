@@ -129,7 +129,7 @@ function renderCardsView(sortedGroups, jobsByGroup) {
         const count = groupJobs.length;
         const color = groupColor(g);
         html += '<div class="group-card">';
-        html += '<div class="group-card-header" style="cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
+        html += '<div class="group-card-header" style="cursor:pointer" onclick="navToGroupJobs(\'' + escAttr(g) + '\')">';
         html += '<span class="group-card-dot" style="background:' + color + '"></span>';
         html += '<span class="group-card-name">' + esc(g) + '</span>';
         html += '<span style="margin-left:auto;font-size:11px;color:var(--accent)">&rarr;</span>';
@@ -146,8 +146,8 @@ function renderCardsView(sortedGroups, jobsByGroup) {
             html += '</div>';
         }
         html += '<div class="group-card-actions">';
-        html += '<button class="btn btn-ghost btn-sm" onclick="renameGroup(\'' + esc(g) + '\')">Rename</button>';
-        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteGroup(\'' + esc(g) + '\')">Delete</button>';
+        html += '<button class="btn btn-ghost btn-sm" onclick="renameGroup(\'' + escAttr(g) + '\')">Rename</button>';
+        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteGroup(\'' + escAttr(g) + '\')">Delete</button>';
         html += '</div>';
         html += '</div>';
     }
@@ -196,14 +196,14 @@ function renderPipelineView(sortedGroups, jobsByGroup, scheduleMap) {
 
         // Pipeline header
         html += '<div style="margin-bottom:20px">';
-        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer" onclick="navToGroupJobs(\'' + esc(g) + '\')">';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer" onclick="navToGroupJobs(\'' + escAttr(g) + '\')">';
         html += '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
         html += '<strong style="font-size:14px">' + esc(g) + '</strong>';
         html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
         html += schedBadge;
-        html += '<button class="btn btn-sm" style="margin-left:auto" onclick="event.stopPropagation();openPipelineHistory(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#128203; History</button>';
-        html += '<button class="btn btn-sm" onclick="event.stopPropagation();openPipelineSchedule(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#128339; Schedule</button>';
-        html += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();triggerPipeline(\'' + esc(g).replace(/'/g, "\\'") + '\')">&#9654; Run Pipeline</button>';
+        html += '<button class="btn btn-sm" style="margin-left:auto" onclick="event.stopPropagation();openPipelineHistory(\'' + escAttr(g) + '\')">&#128203; History</button>';
+        html += '<button class="btn btn-sm" onclick="event.stopPropagation();openPipelineSchedule(\'' + escAttr(g) + '\')">&#128339; Schedule</button>';
+        html += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();triggerPipeline(\'' + escAttr(g) + '\')">&#9654; Run Pipeline</button>';
         html += '</div>';
 
         // Build set of which jobs have a dependency arrow FROM the previous job in sorted order

@@ -253,7 +253,7 @@ function showTourStep() {
     // Keyboard nav
     tourOverlay.tabIndex = 0;
     tourOverlay.onkeydown = function(e) {
-        if (e.key === 'Escape') { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); }
+        if (e.key === 'Escape') { removeTourOverlay(); localStorage.setItem('kf-tour-done', '1'); if (typeof showDemoBanner === 'function') showDemoBanner(); }
         else if (e.key === 'ArrowRight' || e.key === 'Enter') advanceTour();
         else if (e.key === 'ArrowLeft' && tourStep > 0) { tourStep--; showTourStep(); }
     };

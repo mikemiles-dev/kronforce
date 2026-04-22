@@ -244,8 +244,9 @@ async function openEditModal(id) {
             setEventJobFilter(job.schedule.value.job_name_filter || '');
         } else if (schedType === 'calendar' && job.schedule.value) {
             populateCalendarFields(job.schedule.value);
-        } else if (schedType === 'calendar' && job.schedule.value) {
-            populateCalendarFields(job.schedule.value);
+        } else if (schedType === 'interval' && job.schedule.value) {
+            const el = document.getElementById('f-interval-secs');
+            if (el) el.value = job.schedule.value.interval_secs || '';
         }
 
         // Set target
@@ -723,10 +724,7 @@ function setEventKindValue(val) {
     }
 }
 
-function toLocalDatetimeString(d) {
-    const pad = n => String(n).padStart(2, '0');
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-}
+// toLocalDatetimeString defined in app.js
 
 function updateSchedFields() {
     const type = document.querySelector('input[name="sched-type"]:checked').value;

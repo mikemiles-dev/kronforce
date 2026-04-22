@@ -589,6 +589,11 @@ function esc(s) {
     return d.innerHTML;
 }
 
+// Escape for use inside onclick="fn('...')" attributes — also escapes single quotes
+function escAttr(s) {
+    return esc(s).replace(/'/g, '&#39;');
+}
+
 // --- Pagination ---
 function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
     const el = document.getElementById(containerId);
@@ -1240,7 +1245,7 @@ function renderRichEmptyState(config) {
     let html = '<div class="rich-empty">';
     if (config.icon) html += '<div class="rich-empty-icon">' + config.icon + '</div>';
     html += '<div class="rich-empty-title">' + esc(config.title) + '</div>';
-    if (config.description) html += '<div class="rich-empty-desc">' + config.description + '</div>';
+    if (config.description) html += '<div class="rich-empty-desc">' + esc(config.description) + '</div>';
     if (config.actions && config.actions.length > 0) {
         html += '<div class="rich-empty-actions">';
         for (const a of config.actions) {
@@ -1249,7 +1254,7 @@ function renderRichEmptyState(config) {
         }
         html += '</div>';
     }
-    if (config.hint) html += '<div class="rich-empty-hint">' + config.hint + '</div>';
+    if (config.hint) html += '<div class="rich-empty-hint">' + esc(config.hint) + '</div>';
     html += '</div>';
     return html;
 }

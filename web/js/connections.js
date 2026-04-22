@@ -124,9 +124,9 @@ function renderConnections() {
         html += '<td style="color:var(--text-muted)">' + esc(c.description || '') + '</td>';
         html += '<td style="white-space:nowrap">' + fmtDate(c.updated_at) + '</td>';
         html += '<td style="white-space:nowrap">';
-        html += '<button class="btn btn-ghost btn-sm" onclick="testExistingConnection(\'' + esc(c.name) + '\')">Test</button>';
-        html += '<button class="btn btn-ghost btn-sm" onclick="editConnection(\'' + esc(c.name) + '\')">Edit</button>';
-        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteConnection(\'' + esc(c.name) + '\')">Delete</button>';
+        html += '<button class="btn btn-ghost btn-sm" onclick="testExistingConnection(\'' + escAttr(c.name) + '\')">Test</button>';
+        html += '<button class="btn btn-ghost btn-sm" onclick="editConnection(\'' + escAttr(c.name) + '\')">Edit</button>';
+        html += '<button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteConnection(\'' + escAttr(c.name) + '\')">Delete</button>';
         html += '</td>';
         html += '</tr>';
     }
