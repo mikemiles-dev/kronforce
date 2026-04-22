@@ -163,21 +163,39 @@ function showTourStep() {
     const tooltip = document.createElement('div');
     tooltip.style.cssText = 'position:absolute;background:var(--bg-secondary, #161b22);border:1px solid var(--border, #30363d);border-radius:10px;padding:16px 20px;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.5);pointer-events:auto;z-index:10001';
 
-    // Position tooltip
-    if (step.position === 'center' || !spotRect) {
+    // Position tooltip — detect mobile (sidebar is horizontal when viewport < 700px)
+    const isMobile = window.innerWidth < 700;
+    const pos = (step.position === 'center' || !spotRect) ? 'center' : (isMobile ? 'below' : step.position);
+
+    if (pos === 'center') {
         tooltip.style.top = '50%';
         tooltip.style.left = '50%';
         tooltip.style.transform = 'translate(-50%, -50%)';
-    } else if (step.position === 'right') {
-        tooltip.style.left = (spotRect.x + spotRect.w + 16) + 'px';
-        tooltip.style.top = Math.max(8, spotRect.y + spotRect.h / 2 - 50) + 'px';
-    } else if (step.position === 'bottom') {
+    } else if (pos === 'below') {
+        // Mobile: position below the element, centered horizontally
+        const tooltipWidth = 280;
+        let left = Math.max(8, spotRect.x + spotRect.w / 2 - tooltipWidth / 2);
+        left = Math.min(left, window.innerWidth - tooltipWidth - 8);
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = (spotRect.y + spotRect.h + 12) + 'px';
+        tooltip.style.maxWidth = (window.innerWidth - 16) + 'px';
+    } else if (pos === 'right') {
+        let tooltipLeft = spotRect.x + spotRect.w + 16;
+        let tooltipTop = Math.max(8, spotRect.y + spotRect.h / 2 - 50);
+        // Clamp to viewport
+        if (tooltipLeft + 300 > window.innerWidth) {
+            tooltipLeft = Math.max(8, spotRect.x - 316);
+        }
+        tooltipTop = Math.min(tooltipTop, window.innerHeight - 250);
+        tooltip.style.left = tooltipLeft + 'px';
+        tooltip.style.top = tooltipTop + 'px';
+    } else if (pos === 'bottom') {
         tooltip.style.left = spotRect.x + 'px';
         tooltip.style.top = (spotRect.y + spotRect.h + 12) + 'px';
     }
 
-    // Arrow for side-positioned tooltips
-    if (step.position === 'right' && spotRect) {
+    // Arrow for side-positioned tooltips (desktop only)
+    if (pos === 'right' && spotRect) {
         const arrow = document.createElement('div');
         arrow.style.cssText = 'position:absolute;left:-8px;top:20px;width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-right:8px solid var(--border, #30363d)';
         tooltip.appendChild(arrow);
