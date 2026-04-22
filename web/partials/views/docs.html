@@ -7,6 +7,7 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-api')">API Reference</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-variables')">Variables</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-connections')">Connections</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-ai')">AI Assistant</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-groups')">Job Groups</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-retry')">Execution Retry</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-rate-limiting')">Rate Limiting</button>
@@ -521,6 +522,37 @@ PUT    /api/connections/{name}       # Update
 DELETE /api/connections/{name}       # Delete
 POST   /api/connections/{name}/test  # Test connectivity</code></pre>
                     <p>Sensitive fields (password, token, secret_key, private_key) are masked as <code>********</code> in API responses. When updating, send <code>********</code> to preserve the existing value.</p>
+                </div>
+
+                <div class="docs-section" id="doc-ai">
+                    <h2>AI Assistant</h2>
+                    <p>When enabled, the Create Job modal shows a "Describe what this job should do" prompt. Type a natural language description and click <strong>Generate</strong> to have AI fill in all form fields &mdash; name, task type, schedule, timeout, notifications, and more.</p>
+
+                    <h3>Setup</h3>
+                    <p>Set these environment variables on the controller:</p>
+                    <pre><code>KRONFORCE_AI_API_KEY=sk-ant-...    # Anthropic or OpenAI API key
+KRONFORCE_AI_PROVIDER=anthropic    # "anthropic" (default) or "openai"
+KRONFORCE_AI_MODEL=claude-sonnet-4-20250514  # Optional model override</code></pre>
+                    <p>The AI prompt only appears when an API key is configured. No data is sent to the AI provider except the user's description text.</p>
+
+                    <h3>Examples</h3>
+                    <table class="docs-table">
+                        <tr><th>You type</th><th>AI generates</th></tr>
+                        <tr><td>"back up postgres every night at 3am"</td><td>Shell task with pg_dump, cron <code>0 0 3 * * *</code>, timeout 1h, notify on failure</td></tr>
+                        <tr><td>"check if our API is healthy every 5 minutes"</td><td>HTTP GET task, cron <code>0 */5 * * * *</code>, expect 200, Monitoring group</td></tr>
+                        <tr><td>"run ETL extract daily at 6am weekdays only"</td><td>Shell task, cron <code>0 0 6 * * 1-5</code>, ETL group</td></tr>
+                        <tr><td>"clean up temp files older than 7 days every Sunday"</td><td>Shell task with <code>find /tmp -mtime +7 -delete</code>, cron <code>0 0 0 * * 0</code></td></tr>
+                    </table>
+
+                    <h3>How It Works</h3>
+                    <p>The AI receives a system prompt describing all Kronforce task types, schedule formats, and configuration options. It returns a JSON job definition that is parsed and used to populate every field in the form. You review and edit before saving &mdash; the AI never creates jobs directly.</p>
+
+                    <h3>API</h3>
+                    <pre><code>POST /api/ai/generate-job
+{"prompt": "back up postgres every night at 3am"}
+
+# Returns:
+{"job": {"name": "postgres-backup", "task": {...}, "schedule": {...}, ...}}</code></pre>
                 </div>
 
                 <div class="docs-section" id="doc-groups">

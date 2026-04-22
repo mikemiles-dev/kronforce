@@ -1167,6 +1167,9 @@ fetchHealth();
     // Check demo mode — skip login if enabled
     try {
         const cfg = await (await fetch('/api/config')).json();
+        if (cfg.ai_enabled && typeof checkAiEnabled === 'function') {
+            aiEnabled = true;
+        }
         if (cfg.demo_mode) {
             currentUser = { authenticated: true, auth_type: 'demo', name: 'Demo', role: 'viewer' };
             showApp();

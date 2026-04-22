@@ -36,6 +36,12 @@ pub struct ControllerConfig {
     pub tls_key: Option<String>,
     /// Demo mode: disables auth, all requests are read-only (viewer role).
     pub demo_mode: bool,
+    /// AI assistant API key (Anthropic or OpenAI).
+    pub ai_api_key: Option<String>,
+    /// AI provider: "anthropic" (default) or "openai".
+    pub ai_provider: String,
+    /// AI model override (default: claude-sonnet-4-20250514 for anthropic, gpt-4o for openai).
+    pub ai_model: Option<String>,
 }
 
 impl ControllerConfig {
@@ -143,6 +149,14 @@ impl ControllerConfig {
             demo_mode: std::env::var("KRONFORCE_DEMO_MODE")
                 .map(|v| v == "true" || v == "1")
                 .unwrap_or(false),
+            ai_api_key: std::env::var("KRONFORCE_AI_API_KEY")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            ai_provider: std::env::var("KRONFORCE_AI_PROVIDER")
+                .unwrap_or_else(|_| "anthropic".to_string()),
+            ai_model: std::env::var("KRONFORCE_AI_MODEL")
+                .ok()
+                .filter(|s| !s.is_empty()),
         }
     }
 }

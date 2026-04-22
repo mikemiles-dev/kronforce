@@ -707,6 +707,21 @@ curl -X POST http://localhost:8080/api/jobs -d '{
 
 Supported types: `postgres`, `mysql`, `sqlite`, `ftp`, `sftp`, `http`, `kafka`, `mqtt`, `rabbitmq`, `redis`, `mongodb`, `ssh`, `smtp`, `s3`.
 
+## AI Assistant
+
+Generate job configurations from natural language descriptions. Requires `KRONFORCE_AI_API_KEY`.
+
+```bash
+# Generate a job from a description
+curl -X POST http://localhost:8080/api/ai/generate-job \
+  -d '{"prompt": "back up postgres every night at 3am with 1 hour timeout"}'
+
+# Returns a complete job configuration:
+# {"job": {"name": "postgres-backup", "task": {"type": "shell", "command": "pg_dump ..."}, "schedule": {"type": "cron", "value": "0 0 3 * * *"}, ...}}
+```
+
+The response is a JSON job definition that can be used directly with `POST /api/jobs` or previewed in the UI. Supports Anthropic (default) and OpenAI providers.
+
 ## Chart Stats
 
 ```bash

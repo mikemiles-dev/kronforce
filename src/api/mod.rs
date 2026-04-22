@@ -4,6 +4,7 @@
 //! and the shared application state used by handlers.
 
 mod agents;
+mod ai;
 mod audit;
 pub mod auth;
 mod callbacks;
@@ -54,6 +55,9 @@ pub struct AppState {
     pub oidc: Option<Arc<oidc::OidcState>>,
     pub demo_mode: bool,
     pub live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
+    pub ai_api_key: Option<String>,
+    pub ai_provider: String,
+    pub ai_model: Option<String>,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
@@ -200,6 +204,7 @@ pub fn router(
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
+        .route("/api/ai/generate-job", post(ai::ai_generate_job))
         .route("/api/data/export", get(data::export_data))
         .route("/api/data/delete", delete(data::delete_all_data))
         .route(
@@ -335,6 +340,7 @@ async fn dashboard() -> impl axum::response::IntoResponse {
 async fn public_config(State(state): State<AppState>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "demo_mode": state.demo_mode,
+        "ai_enabled": state.ai_api_key.is_some(),
     }))
 }
 

@@ -365,7 +365,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         oidc: oidc_state,
         demo_mode: config.demo_mode,
         live_output,
+        ai_api_key: config.ai_api_key.clone(),
+        ai_provider: config.ai_provider.clone(),
+        ai_model: config.ai_model.clone(),
     };
+    if config.ai_api_key.is_some() {
+        info!("AI assistant enabled (provider: {})", config.ai_provider);
+    }
     if config.demo_mode {
         info!("DEMO MODE: auth disabled, all requests are read-only (viewer)");
     }

@@ -58,6 +58,7 @@ function openCreateModal() {
     populateDeps(null);
     populateOutputRules(null);
     populateJobNotifications(null);
+    if (typeof showAiPrompt === 'function') showAiPrompt();
     openModal('create-modal');
 }
 
@@ -154,6 +155,7 @@ async function openEditModal(id) {
     try {
         const job = await api('GET', '/api/jobs/' + id);
         editingJobId = id;
+        if (typeof hideAiPrompt === 'function') hideAiPrompt();
         document.getElementById('modal-title').textContent = 'Edit Job';
         document.getElementById('f-name').value = job.name;
 
