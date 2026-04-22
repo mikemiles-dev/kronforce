@@ -349,8 +349,14 @@ async fn test_connectivity(conn: &Connection) -> TestResult {
 /// Extract host and port from connection config, parsing URLs when necessary.
 fn extract_host_port(config: &serde_json::Value, conn_type: ConnectionType) -> (String, u16) {
     // Try explicit host/port fields first
-    let explicit_host = config.get("host").or_else(|| config.get("broker")).and_then(|v| v.as_str());
-    let explicit_port = config.get("port").and_then(|v| v.as_u64()).map(|p| p as u16);
+    let explicit_host = config
+        .get("host")
+        .or_else(|| config.get("broker"))
+        .and_then(|v| v.as_str());
+    let explicit_port = config
+        .get("port")
+        .and_then(|v| v.as_u64())
+        .map(|p| p as u16);
 
     if let Some(h) = explicit_host {
         let default_port = default_port_for_type(conn_type);
@@ -371,7 +377,9 @@ fn extract_host_port(config: &serde_json::Value, conn_type: ConnectionType) -> (
     // Try parsing as a URL (handles postgres://, redis://, amqp://, etc.)
     if let Ok(parsed) = url::Url::parse(url_str) {
         let host = parsed.host_str().unwrap_or("").to_string();
-        let port = parsed.port().unwrap_or_else(|| default_port_for_type(conn_type));
+        let port = parsed
+            .port()
+            .unwrap_or_else(|| default_port_for_type(conn_type));
         return (host, port);
     }
 
@@ -401,4 +409,3 @@ fn default_port_for_type(conn_type: ConnectionType) -> u16 {
         ConnectionType::Sqlite => 0, // No network
     }
 }
-

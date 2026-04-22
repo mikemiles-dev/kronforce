@@ -52,17 +52,18 @@ pub(crate) async fn ai_generate_job(
     _auth: AuthUser,
     Json(req): Json<AiRequest>,
 ) -> Result<Json<AiResponse>, AppError> {
-    let api_key = state
-        .ai_api_key
-        .as_ref()
-        .ok_or_else(|| AppError::BadRequest("AI not configured (set KRONFORCE_AI_API_KEY)".into()))?;
+    let api_key = state.ai_api_key.as_ref().ok_or_else(|| {
+        AppError::BadRequest("AI not configured (set KRONFORCE_AI_API_KEY)".into())
+    })?;
 
     let prompt = req.prompt.trim().to_string();
     if prompt.is_empty() {
         return Err(AppError::BadRequest("prompt cannot be empty".into()));
     }
     if prompt.len() > 2000 {
-        return Err(AppError::BadRequest("prompt too long (max 2000 chars)".into()));
+        return Err(AppError::BadRequest(
+            "prompt too long (max 2000 chars)".into(),
+        ));
     }
 
     let model = state.ai_model.clone().unwrap_or_else(|| {
@@ -81,11 +82,13 @@ pub(crate) async fn ai_generate_job(
     };
 
     // Parse the response as JSON
-    let job: serde_json::Value = serde_json::from_str(&response_text).map_err(|_| {
-        // Try to extract JSON from the response if it has surrounding text
-        extract_json(&response_text)
-            .ok_or_else(|| AppError::Internal("AI returned invalid JSON".into()))
-    }).or_else(|r| r)?;
+    let job: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|_| {
+            // Try to extract JSON from the response if it has surrounding text
+            extract_json(&response_text)
+                .ok_or_else(|| AppError::Internal("AI returned invalid JSON".into()))
+        })
+        .or_else(|r| r)?;
 
     Ok(Json(AiResponse { job }))
 }
@@ -117,7 +120,10 @@ async fn call_anthropic(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        return Err(AppError::Internal(format!("AI API error {}: {}", status, body)));
+        return Err(AppError::Internal(format!(
+            "AI API error {}: {}",
+            status, body
+        )));
     }
 
     let data: serde_json::Value = resp
@@ -159,7 +165,10 @@ async fn call_openai(
     if !resp.status().is_success() {
         let status = resp.status();
         let body = resp.text().await.unwrap_or_default();
-        return Err(AppError::Internal(format!("AI API error {}: {}", status, body)));
+        return Err(AppError::Internal(format!(
+            "AI API error {}: {}",
+            status, body
+        )));
     }
 
     let data: serde_json::Value = resp
