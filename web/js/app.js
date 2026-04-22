@@ -830,6 +830,7 @@ function showApp() {
 }
 
 function showDemoBanner() {
+    if (!currentUser || currentUser.auth_type !== 'demo') return;
     if (document.getElementById('demo-banner')) return;
     const banner = document.createElement('div');
     banner.id = 'demo-banner';
