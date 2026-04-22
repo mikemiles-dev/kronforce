@@ -87,7 +87,7 @@ pub async fn run_docker_build_task(
     let escaped_build_args = build_args
         .unwrap_or("")
         .split_whitespace()
-        .map(|arg| shell_escape(arg))
+        .map(shell_escape)
         .collect::<Vec<_>>()
         .join(" ");
     let mut cmd = format!(

@@ -355,7 +355,7 @@ pub async fn run_task_streaming(
                                 .as_deref()
                                 .unwrap_or("")
                                 .split_whitespace()
-                                .map(|a| shell_escape(a))
+                                .map(shell_escape)
                                 .collect::<Vec<_>>()
                                 .join(" ");
                             let mut cmd = format!(

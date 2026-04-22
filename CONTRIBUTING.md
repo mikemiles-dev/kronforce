@@ -112,9 +112,18 @@ conn.execute(sql, params)
 
 All code must pass `cargo clippy --all-targets` with zero warnings. CI enforces this.
 
+```bash
+cargo clippy --all-targets  # must produce zero warnings
+```
+
 ### Formatting
 
-Run `cargo fmt` before committing. CI checks this.
+All code must pass `cargo fmt --all -- --check`. Run `cargo fmt` before committing. CI checks this.
+
+```bash
+cargo fmt --all -- --check  # CI check (fails on unformatted code)
+cargo fmt                   # auto-format before committing
+```
 
 ## Pull Request Guidelines
 
