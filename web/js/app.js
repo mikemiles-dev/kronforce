@@ -9,9 +9,17 @@ let currentExecId = null;
 let pollTimer = null;
 let jobsPage = 1;
 
-// View registry for page management
-const ALL_VIEWS = ['dashboard','jobs','detail','agents','executions','scripts','events','variables','connections','settings','docs','guide'];
-const VIEW_ACTION_BARS = { jobs: 'jobs-action-bar', agents: 'agents-action-bar', executions: 'executions-action-bar', events: 'events-action-bar' };
+// View registry for page management (6-page layout)
+const ALL_VIEWS = ['dashboard','monitor','pipelines','designer','toolbox','settings','docs','detail'];
+
+// Sub-tab definitions per page
+const PAGE_SUBTABS = {
+    monitor:   { tabs: ['jobs','runs','events'], default: 'jobs' },
+    pipelines: { tabs: ['stages','map'], default: 'stages' },
+    toolbox:   { tabs: ['scripts','variables','connections'], default: 'scripts' },
+};
+const currentSubTab = { monitor: 'jobs', pipelines: 'stages', toolbox: 'scripts' };
+let currentPage = 'dashboard';
 
 // Time range state — persisted in localStorage
 const timeRanges = JSON.parse(localStorage.getItem('kf-timeRanges') || '{"jobs":"","execs":"","events":""}');
@@ -143,32 +151,8 @@ function refreshForScope(scope) {
 }
 
 function shareCurrentPage() {
-    let hash = '#/' + currentPage;
-    if (currentPage === 'jobs') {
-        if (currentJobId) {
-            hash = '#/jobs/' + currentJobId;
-        } else if (jobsTab !== 'list') {
-            hash = '#/jobs/' + jobsTab;
-        }
-        // Append filter state as query params
-        var params = [];
-        if (typeof jobSearch !== 'undefined' && jobSearch.statusFilter) params.push('filter=' + encodeURIComponent(jobSearch.statusFilter));
-        if (typeof groupFilter !== 'undefined' && groupFilter) params.push('group=' + encodeURIComponent(groupFilter));
-        if (typeof jobSearch !== 'undefined' && jobSearch.searchTerm) params.push('search=' + encodeURIComponent(jobSearch.searchTerm));
-        if (params.length > 0) hash += '?' + params.join('&');
-    } else if (currentPage === 'executions') {
-        if (currentExecId) hash = '#/executions/' + currentExecId;
-        var ep = [];
-        if (typeof execSearch !== 'undefined' && execSearch.statusFilter) ep.push('filter=' + encodeURIComponent(execSearch.statusFilter));
-        if (typeof execSearch !== 'undefined' && execSearch.searchTerm) ep.push('search=' + encodeURIComponent(execSearch.searchTerm));
-        if (typeof timeRanges !== 'undefined' && timeRanges.execs) ep.push('time=' + timeRanges.execs);
-        if (ep.length > 0) hash += '?' + ep.join('&');
-    } else if (currentPage === 'events') {
-        var evp = [];
-        if (typeof eventSearch !== 'undefined' && eventSearch.statusFilter) evp.push('filter=' + encodeURIComponent(eventSearch.statusFilter));
-        if (typeof eventSearch !== 'undefined' && eventSearch.searchTerm) evp.push('search=' + encodeURIComponent(eventSearch.searchTerm));
-        if (typeof timeRanges !== 'undefined' && timeRanges.events) evp.push('time=' + timeRanges.events);
-        if (evp.length > 0) hash += '?' + evp.join('&');
+    let hash = location.hash || '#/' + currentPage;
+    // Use current hash which already encodes the full route
     } else if (currentPage === 'agents') {
         var ap = [];
         if (typeof agentSearch !== 'undefined' && agentSearch.statusFilter) ap.push('filter=' + encodeURIComponent(agentSearch.statusFilter));
@@ -621,7 +605,6 @@ function renderPagination(containerId, currentPage, totalPages, total, goToFn) {
 }
 
 // --- Page Navigation ---
-let currentPage = 'jobs';
 
 function toggleWorkMenu() {
     const menu = document.getElementById('work-submenu');
@@ -638,69 +621,86 @@ function toggleManageMenu() {
     menu.classList.toggle('open');
 }
 
+function setSubTab(page, tab) {
+    if (!PAGE_SUBTABS[page]) return;
+    currentSubTab[page] = tab;
+
+    // Toggle sub-tab button active states
+    const tabs = PAGE_SUBTABS[page].tabs;
+    for (const t of tabs) {
+        const btn = document.getElementById('st-' + page + '-' + t);
+        if (btn) btn.classList.toggle('active', t === tab);
+        const panel = document.getElementById(page + '-' + t + '-panel');
+        if (panel) panel.style.display = t === tab ? '' : 'none';
+    }
+
+    // Trigger data fetch for the active sub-tab
+    if (page === 'monitor') {
+        if (tab === 'jobs') {
+            currentJobId = null;
+            fetchGroups();
+            document.querySelectorAll('#status-filters .status-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.status === jobSearch.statusFilter || (!jobSearch.statusFilter && b.dataset.status === ''));
+            });
+            var gpLabel = document.getElementById('group-picker-label');
+            if (gpLabel) gpLabel.textContent = groupFilter || 'All Groups';
+            var gpBtn = document.getElementById('group-picker-btn');
+            if (gpBtn) gpBtn.classList.toggle('group-picker-active', !!groupFilter);
+            fetchJobs();
+        } else if (tab === 'runs') {
+            document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
+                const onclick = b.getAttribute('onclick') || '';
+                const isMatch = execSearch.statusFilter ? onclick.includes("'" + execSearch.statusFilter + "'") : onclick.includes("''");
+                b.classList.toggle('active', isMatch);
+            });
+            fetchAllExecutions();
+        } else if (tab === 'events') {
+            fetchEvents();
+        }
+    } else if (page === 'pipelines') {
+        if (tab === 'stages') {
+            groupsViewMode = 'pipeline';
+            fetchGroupsPage();
+        } else if (tab === 'map') {
+            renderMap();
+        }
+    } else if (page === 'toolbox') {
+        if (tab === 'scripts') fetchScripts();
+        else if (tab === 'variables') fetchVariables();
+        else if (tab === 'connections' && typeof fetchConnections === 'function') fetchConnections();
+    }
+
+    updateHash();
+}
+
 function showPage(page) {
     currentPage = page;
     document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.nav-submenu-item').forEach(t => t.classList.remove('active'));
 
     const tab = document.getElementById('tab-' + page);
-    if (tab) {
-        tab.classList.add('active');
-        if (tab.classList.contains('nav-submenu-item')) {
-            // Submenu item — also highlight parent button
-            const group = tab.closest('.nav-tab-group');
-            if (group) {
-                const parentBtn = group.querySelector('.nav-tab');
-                if (parentBtn) parentBtn.classList.add('active');
-            }
-        }
-    }
+    if (tab) tab.classList.add('active');
 
     for (const v of ALL_VIEWS) {
-        document.getElementById(v + '-view').style.display = v === page ? '' : 'none';
-    }
-    for (const [p, barId] of Object.entries(VIEW_ACTION_BARS)) {
-        document.getElementById(barId).style.display = p === page ? '' : 'none';
+        const el = document.getElementById(v + '-view');
+        if (el) el.style.display = v === page ? '' : 'none';
     }
 
+    // Page-specific init
     if (page === 'dashboard') {
         renderDashboard();
-    } else if (page === 'agents') {
-        fetchAgents();
-    } else if (page === 'groups' || page === 'map') {
-        // Redirect old URLs to jobs with map tab
-        jobsTab = 'map';
-        showPage('jobs');
-        return;
-    } else if (page === 'jobs') {
-        currentJobId = null;
-        fetchGroups();
-        // Sync filter button state with current filter value
-        document.querySelectorAll('#status-filters .status-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.status === jobSearch.statusFilter || (!jobSearch.statusFilter && b.dataset.status === ''));
-        });
-        // Sync group picker label
-        var gpLabel = document.getElementById('group-picker-label');
-        if (gpLabel) gpLabel.textContent = groupFilter || 'All Groups';
-        var gpBtn = document.getElementById('group-picker-btn');
-        if (gpBtn) gpBtn.classList.toggle('group-picker-active', !!groupFilter);
-        setJobsTab(jobsTab);
-    } else if (page === 'executions') {
-        // Sync exec filter button state
-        document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
-            const onclick = b.getAttribute('onclick') || '';
-            const isMatch = execSearch.statusFilter ? onclick.includes("'" + execSearch.statusFilter + "'") : onclick.includes("''");
-            b.classList.toggle('active', isMatch);
-        });
-        fetchAllExecutions();
-    } else if (page === 'scripts') {
-        fetchScripts();
-    } else if (page === 'events') {
-        fetchEvents();
-    } else if (page === 'variables') {
-        fetchVariables();
-    } else if (page === 'connections') {
-        if (typeof fetchConnections === 'function') fetchConnections();
+    } else if (page === 'monitor') {
+        setSubTab('monitor', currentSubTab.monitor);
+    } else if (page === 'pipelines') {
+        setSubTab('pipelines', currentSubTab.pipelines);
+    } else if (page === 'designer') {
+        // Designer opens the job creation/edit modal
+        if (!editingJobId) {
+            openCreateModal();
+        } else {
+            openEditModal(editingJobId);
+        }
+    } else if (page === 'toolbox') {
+        setSubTab('toolbox', currentSubTab.toolbox);
     } else if (page === 'docs') {
         initDocsScrollSpy();
     } else if (page === 'settings') {
@@ -887,24 +887,20 @@ function startPolling() {
 
 async function doRefreshTick() {
     const btn = document.getElementById('refresh-toggle');
-    btn.classList.add('spinning');
+    if (btn) btn.classList.add('spinning');
     fetchHealth();
-    // Always refresh agent names cache
     try { const a = await api('GET', '/api/agents'); allAgents = a; cacheAgentNames(); } catch(e) {}
     if (currentPage === 'dashboard') {
         await renderDashboard();
-    } else if (currentPage === 'agents') {
-        renderAgents();
-    } else if (currentPage === 'executions') {
-        await fetchAllExecutions();
-    } else if (currentPage === 'events') {
-        await fetchEvents();
-    } else if (currentJobId) {
-        await fetchExecutions(currentJobId);
-    } else {
-        await fetchJobs();
+    } else if (currentPage === 'monitor') {
+        if (currentJobId) { await fetchExecutions(currentJobId); }
+        else if (currentSubTab.monitor === 'jobs') { await fetchJobs(); }
+        else if (currentSubTab.monitor === 'runs') { await fetchAllExecutions(); }
+        else if (currentSubTab.monitor === 'events') { await fetchEvents(); }
+    } else if (currentPage === 'pipelines') {
+        fetchGroupsPage();
     }
-    setTimeout(() => btn.classList.remove('spinning'), 600);
+    if (btn) setTimeout(() => btn.classList.remove('spinning'), 600);
 }
 
 function stopPolling() {
@@ -1087,23 +1083,25 @@ applyTheme();
 
 function updateHash() {
     let newHash;
-    if (currentJobId) {
-        newHash = '#/jobs/' + currentJobId;
-    } else if (currentExecId && currentPage === 'executions') {
-        newHash = '#/executions/' + currentExecId;
-    } else {
-        newHash = '#/' + currentPage;
-        // Persist filter state in the hash for jobs page
-        if (currentPage === 'jobs') {
-            if (typeof jobsTab !== 'undefined' && jobsTab !== 'list') {
-                newHash = '#/jobs/' + jobsTab;
-            }
+    if (currentPage === 'monitor' && currentJobId) {
+        newHash = '#/monitor/jobs/' + currentJobId;
+    } else if (currentPage === 'monitor') {
+        newHash = '#/monitor/' + currentSubTab.monitor;
+        if (currentSubTab.monitor === 'jobs') {
             var params = [];
             if (typeof jobSearch !== 'undefined' && jobSearch.statusFilter) params.push('filter=' + encodeURIComponent(jobSearch.statusFilter));
             if (typeof groupFilter !== 'undefined' && groupFilter) params.push('group=' + encodeURIComponent(groupFilter));
             if (typeof jobSearch !== 'undefined' && jobSearch.searchTerm) params.push('search=' + encodeURIComponent(jobSearch.searchTerm));
             if (params.length > 0) newHash += '?' + params.join('&');
         }
+    } else if (currentPage === 'pipelines') {
+        newHash = '#/pipelines/' + currentSubTab.pipelines;
+    } else if (currentPage === 'designer') {
+        newHash = editingJobId ? '#/designer/' + editingJobId : '#/designer';
+    } else if (currentPage === 'toolbox') {
+        newHash = '#/toolbox/' + currentSubTab.toolbox;
+    } else {
+        newHash = '#/' + currentPage;
     }
     if (location.hash !== newHash) {
         history.replaceState(null, '', newHash);
@@ -1127,93 +1125,83 @@ function handleRoute() {
     const params = parseHashParams(hash);
     const parts = cleanHash.replace('#/', '').split('/');
 
-    // Apply shared filter state from URL params (set variables only, don't trigger renders)
+    // --- Legacy route redirects ---
     if (parts[0] === 'jobs') {
         if (params.filter) jobSearch.statusFilter = params.filter;
         if (params.group) groupFilter = params.group;
-        if (params.search) {
-            // Will be applied after DOM renders via setTimeout below
-        }
+        if (!parts[1]) { showPage('monitor'); setSubTab('monitor', 'jobs'); }
+        else if (parts[1] === 'stages') { showPage('pipelines'); setSubTab('pipelines', 'stages'); }
+        else if (parts[1] === 'map' || parts[1] === 'groups') { showPage('pipelines'); setSubTab('pipelines', 'map'); }
+        else { showPage('monitor'); setSubTab('monitor', 'jobs'); showJobDetail(parts[1]); }
+        syncFiltersAfterRender(params, 'jobs');
+        return;
     }
-    if (parts[0] === 'executions' && typeof execSearch !== 'undefined') {
-        if (params.filter) execSearch.statusFilter = params.filter;
-        if (params.search) {
-            var esi = document.getElementById('exec-search-input');
-            if (esi) esi.value = params.search;
-        }
-        if (params.time && typeof timeRanges !== 'undefined') timeRanges.execs = params.time;
+    if (parts[0] === 'executions') {
+        if (typeof execSearch !== 'undefined' && params.filter) execSearch.statusFilter = params.filter;
+        if (!parts[1]) { showPage('monitor'); setSubTab('monitor', 'runs'); }
+        else { showPage('monitor'); setSubTab('monitor', 'runs'); showExecDetail(parts[1]); }
+        return;
     }
-    if (parts[0] === 'events' && typeof eventSearch !== 'undefined') {
-        if (params.filter) eventSearch.statusFilter = params.filter;
-        if (params.search) {
-            var evi = document.getElementById('event-search-input');
-            if (evi) evi.value = params.search;
-        }
-        if (params.time && typeof timeRanges !== 'undefined') timeRanges.events = params.time;
+    if (parts[0] === 'events') {
+        if (typeof eventSearch !== 'undefined' && params.filter) eventSearch.statusFilter = params.filter;
+        showPage('monitor'); setSubTab('monitor', 'events');
+        return;
     }
-    if (parts[0] === 'agents' && typeof agentSearch !== 'undefined') {
-        if (params.filter) agentSearch.statusFilter = params.filter;
-        if (params.search) {
-            var asi = document.getElementById('agent-search-input');
-            if (asi) asi.value = params.search;
-        }
-    }
+    if (parts[0] === 'scripts') { showPage('toolbox'); setSubTab('toolbox', 'scripts'); return; }
+    if (parts[0] === 'variables') { showPage('toolbox'); setSubTab('toolbox', 'variables'); return; }
+    if (parts[0] === 'connections') { showPage('toolbox'); setSubTab('toolbox', 'connections'); return; }
+    if (parts[0] === 'agents') { showPage('settings'); return; }
+    if (parts[0] === 'guide') { showPage('dashboard'); return; }
+    if (parts[0] === 'groups' || parts[0] === 'map') { showPage('pipelines'); return; }
 
-    if (parts[0] === 'jobs' && parts[1]) {
-        // Jobs tab: #/jobs/stages, #/jobs/map
-        if (['groups', 'stages', 'map'].includes(parts[1])) {
-            jobsTab = parts[1];
-            showPage('jobs');
-            return;
-        }
-        // Job detail: #/jobs/{id}
-        currentPage = 'jobs';
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-jobs').classList.add('active');
-        showJobDetail(parts[1]);
+    // --- New routes ---
+    if (parts[0] === 'monitor') {
+        if (params.filter) jobSearch.statusFilter = params.filter;
+        if (params.group) groupFilter = params.group;
+        showPage('monitor');
+        if (parts[1] === 'runs') { setSubTab('monitor', 'runs'); }
+        else if (parts[1] === 'events') { setSubTab('monitor', 'events'); }
+        else if (parts[1] === 'jobs' && parts[2]) { setSubTab('monitor', 'jobs'); showJobDetail(parts[2]); }
+        else { setSubTab('monitor', parts[1] || 'jobs'); }
+        syncFiltersAfterRender(params, 'monitor');
+        return;
+    }
+    if (parts[0] === 'pipelines') {
+        showPage('pipelines');
+        setSubTab('pipelines', parts[1] || 'stages');
+        return;
+    }
+    if (parts[0] === 'designer') {
+        if (parts[1]) { editingJobId = parts[1]; }
+        showPage('designer');
+        if (parts[1]) { openEditModal(parts[1]); }
+        return;
+    }
+    if (parts[0] === 'toolbox') {
+        showPage('toolbox');
+        setSubTab('toolbox', parts[1] || 'scripts');
         return;
     }
 
-    if (parts[0] === 'executions' && parts[1]) {
-        // Execution detail: #/executions/{id}
-        currentPage = 'executions';
-        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-        document.getElementById('tab-executions').classList.add('active');
-        showPage('executions');
-        showExecDetail(parts[1]);
-        return;
-    }
-
-    const page = parts[0] || 'jobs';
-    if (['dashboard', 'jobs', 'groups', 'map', 'agents', 'executions', 'scripts', 'events', 'variables', 'docs', 'guide', 'settings'].includes(page)) {
+    const page = parts[0] || 'dashboard';
+    if (['dashboard', 'settings', 'docs'].includes(page)) {
         showPage(page);
     } else {
-        showPage('jobs');
+        showPage('dashboard');
     }
+}
 
-    // Sync UI elements after page renders
+function syncFiltersAfterRender(params, context) {
     setTimeout(function() {
-        if (params.group && parts[0] === 'jobs') {
+        if (params.group) {
             var label = document.getElementById('group-picker-label');
             if (label) label.textContent = params.group;
             var btn = document.getElementById('group-picker-btn');
             if (btn) btn.classList.toggle('group-picker-active', true);
         }
-        if (params.search && parts[0] === 'jobs') {
+        if (params.search) {
             var si = document.getElementById('search-input');
             if (si) si.value = params.search;
-        }
-        if (params.search && parts[0] === 'executions') {
-            var esi = document.getElementById('exec-search-input');
-            if (esi) esi.value = params.search;
-        }
-        if (params.search && parts[0] === 'events') {
-            var evi = document.getElementById('event-search-input');
-            if (evi) evi.value = params.search;
-        }
-        if (params.search && parts[0] === 'agents') {
-            var asi = document.getElementById('agent-search-input');
-            if (asi) asi.value = params.search;
         }
     }, 100);
 }
@@ -1227,6 +1215,11 @@ showPage = function(page) {
 
 const _origShowJobDetail = showJobDetail;
 showJobDetail = async function(id) {
+    // Show detail view within monitor context
+    currentPage = 'monitor';
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    const tab = document.getElementById('tab-monitor');
+    if (tab) tab.classList.add('active');
     await _origShowJobDetail(id);
     updateHash();
 };
@@ -1234,6 +1227,7 @@ showJobDetail = async function(id) {
 const _origShowJobsList = showJobsList;
 showJobsList = function() {
     _origShowJobsList();
+    currentPage = 'monitor';
     updateHash();
 };
 

@@ -1564,6 +1564,21 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .wizard-template-card:hover { border-color: var(--accent); }
 .wizard-template-card h4 { margin: 0 0 4px; font-size: 13px; color: var(--text-primary); }
 .wizard-template-card p { margin: 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+/* Page sub-tabs (Monitor, Pipelines, Toolbox) */
+.page-sub-tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 2px solid var(--border); padding-bottom: 0; }
+.sub-tab { padding: 8px 16px; border: none; background: none; color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+.sub-tab:hover { color: var(--text-primary); }
+.sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* Inline action bar (inside sub-tab panels instead of global) */
+.inline-action-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.inline-action-bar .action-bar-left { display: flex; align-items: center; gap: 10px; flex: 1; flex-wrap: wrap; }
+.inline-action-bar .action-bar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+
+/* Sidebar help button */
+.sidebar-help-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; transition: all 0.15s; }
+.sidebar-help-btn:hover { color: var(--accent); border-color: var(--accent); }
+
 .docs-mobile-nav { display: none; gap: 8px; align-items: center; margin-bottom: 16px; position: sticky; top: 0; background: var(--bg-primary); z-index: 5; padding: 8px 0; }
 .docs-search-highlight { background: rgba(62,139,255,0.25); border-radius: 2px; padding: 0 1px; }
 .docs-section.docs-hidden { display: none; }

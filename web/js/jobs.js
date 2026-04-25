@@ -434,7 +434,7 @@ function renderJobsTable() {
 }
 
 // --- Job Detail ---
-let detailReturnTo = 'jobs';
+let detailReturnTo = 'monitor';
 
 function setDetailTab(tab) {
     document.querySelectorAll('#detail-view .groups-tab').forEach(b => {

@@ -9,60 +9,46 @@ const TOUR_STEPS = [
         position: 'right'
     },
     {
-        target: '#tab-jobs',
-        title: 'Jobs',
-        text: 'Create, edit, and manage all your scheduled tasks. Switch between List, Stages (pipeline view), and Map (dependency graph) tabs.',
+        target: '#tab-monitor',
+        title: 'Monitor',
+        text: 'Watch everything in one place. Switch between Jobs (status and management), Runs (execution history), and Events (system log). Filter, search, and drill into details.',
         position: 'right'
     },
     {
-        target: '#tab-executions',
-        title: 'Runs',
-        text: 'View execution history across all jobs. Filter by status, search output, and click into any run for full stdout/stderr.',
+        target: '#tab-pipelines',
+        title: 'Pipelines',
+        text: 'Visualize your pipeline groups. See dependency chains in the Stages view, explore the full dependency Map, set pipeline schedules, and view run history.',
         position: 'right'
     },
     {
-        target: '#tab-events',
-        title: 'Events',
-        text: 'System event log — job triggers, failures, completions, and alerts. Event-triggered jobs react to patterns here.',
+        target: '#tab-designer',
+        title: 'Designer',
+        text: 'Create and edit jobs with a full-page editor. Describe what you want in plain English and let AI fill in the form, or configure every detail manually.',
         position: 'right'
     },
     {
-        target: '#tab-scripts',
-        title: 'Scripts',
-        text: 'Store reusable Rhai scripts and Dockerfiles. Reference them from jobs by name instead of inlining commands.',
-        position: 'right'
-    },
-    {
-        target: '#tab-variables',
-        title: 'Variables',
-        text: 'Global key-value store. Use {{VAR_NAME}} in any job field. Output extractions can write here automatically. Supports secrets.',
-        position: 'right'
-    },
-    {
-        target: '#tab-connections',
-        title: 'Connections',
-        text: 'Named credential profiles for databases, APIs, and services. Jobs reference a connection by name instead of embedding passwords. Supports 14 protocol types with encrypted storage and test button.',
+        target: '#tab-toolbox',
+        title: 'Toolbox',
+        text: 'Shared resources: Scripts (Rhai and Dockerfiles), Variables (global key-value store with secrets), and Connections (encrypted credential profiles for 14 protocol types).',
         position: 'right'
     },
     {
         target: '#tab-settings',
         title: 'Settings',
-        text: 'API keys, notification channels (Slack, email, PagerDuty), data retention, and OIDC/SSO configuration.',
+        text: 'API keys, agents, notification channels, data retention, OIDC/SSO, and system configuration.',
         position: 'right'
     },
     {
-        target: '#tab-docs',
-        title: 'Docs',
-        text: 'In-app reference for task types, custom agents, scripting, API, migration guides, and more.',
+        target: '.sidebar-help-btn',
+        title: 'Documentation',
+        text: 'Searchable in-app reference for task types, API, scripting, connections, migration guides, and more.',
         position: 'right'
     },
     {
-        target: '#tab-guide',
-        title: 'Getting Started',
-        text: 'This page walks you through setup step by step — create your first job, connect an agent, configure notifications. Head here when you\'re ready.',
-        position: 'right',
-        onFinish: function() { showPage('guide'); },
-        // Replaced at runtime for demo mode
+        target: '.main-content',
+        title: 'Ready to go!',
+        text: 'Head to the Designer to create your first job, or explore the Monitor to see what\'s running. You can replay this tour anytime from Settings.',
+        position: 'center',
         demoText: 'This is a read-only demo for display purposes only — explore freely, nothing will break. All the data you see is sample data showcasing Kronforce features. To run your own instance, visit kronforce.dev.',
         demoTitle: 'Welcome to the Demo!',
         demoPosition: 'center',

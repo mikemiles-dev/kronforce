@@ -1,0 +1,165 @@
+    <section id="toolbox-view" style="display:none">
+        <div class="page-sub-tabs">
+            <button class="sub-tab active" id="st-toolbox-scripts" onclick="setSubTab('toolbox','scripts')">Scripts</button>
+            <button class="sub-tab" id="st-toolbox-variables" onclick="setSubTab('toolbox','variables')">Variables</button>
+            <button class="sub-tab" id="st-toolbox-connections" onclick="setSubTab('toolbox','connections')">Connections</button>
+        </div>
+
+        <!-- Scripts sub-tab -->
+        <div id="toolbox-scripts-panel">
+            <div style="display:flex;gap:12px;margin-bottom:16px;justify-content:space-between">
+                <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
+            </div>
+            <div id="scripts-list-wrap"></div>
+            <div id="script-editor" style="display:none">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 id="script-editor-title">New Script</h3>
+                        <div style="display:flex;gap:6px">
+                            <button class="btn btn-primary btn-sm" onclick="saveCurrentScript()">Save</button>
+                            <button class="btn btn-ghost btn-sm" onclick="closeScriptEditor()">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="form-group" id="script-name-group">
+                        <div style="display:flex;gap:12px;align-items:end">
+                            <div style="flex:1">
+                                <label>Name</label>
+                                <input id="script-name" type="text" placeholder="my-health-check">
+                            </div>
+                            <div style="width:140px">
+                                <label>Type</label>
+                                <select id="script-type" onchange="onScriptTypeChange()">
+                                    <option value="rhai">Rhai Script</option>
+                                    <option value="dockerfile">Dockerfile</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-hint">Alphanumeric, dashes, and underscores only.</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Code</label>
+                        <div class="script-editor-wrap">
+                            <div class="script-highlight" id="script-highlight"></div>
+                            <textarea id="script-code" class="script-textarea" spellcheck="false" oninput="highlightScript()" onscroll="syncScriptScroll()"></textarea>
+                        </div>
+                    </div>
+                    <div class="script-reference" id="ref-rhai">
+                        <label>Rhai Functions Reference</label>
+                        <ul>
+                            <li><code>print(msg)</code> — append to job output</li>
+                            <li><code>http_get(url)</code> — returns <code>#{status, body}</code></li>
+                            <li><code>http_post(url, body)</code> — returns <code>#{status, body}</code></li>
+                            <li><code>shell_exec(cmd)</code> — returns <code>#{exit_code, stdout, stderr}</code></li>
+                            <li><code>env_var(name)</code> — read environment variable</li>
+                            <li><code>sleep_ms(ms)</code> — pause execution</li>
+                            <li><code>fail(msg)</code> — mark execution as failed</li>
+                            <li><code>udp_send(addr, data)</code> / <code>tcp_send(addr, data)</code></li>
+                            <li><code>hex_encode(string)</code> / <code>hex_decode(hex)</code></li>
+                        </ul>
+                    </div>
+                    <div class="script-reference" id="ref-dockerfile" style="display:none">
+                        <label>Dockerfile Reference</label>
+                        <ul>
+                            <li><code>FROM</code> — base image</li>
+                            <li><code>RUN</code> — execute command during build</li>
+                            <li><code>COPY</code> / <code>ADD</code> — add files to image</li>
+                            <li><code>WORKDIR</code> — set working directory</li>
+                            <li><code>ENV</code> — set environment variable</li>
+                            <li><code>EXPOSE</code> — document port</li>
+                            <li><code>CMD</code> — default command</li>
+                            <li><code>ENTRYPOINT</code> — container entry command</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Variables sub-tab -->
+        <div id="toolbox-variables-panel" style="display:none">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Global Variables</h3>
+                    <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
+                </div>
+                <div id="add-variable-form" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px">
+                    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                        <div>
+                            <label class="settings-label" style="margin-bottom:4px">Name</label>
+                            <input type="text" id="new-var-name" placeholder="MY_VARIABLE" style="width:200px" pattern="[A-Za-z0-9_]+" title="Alphanumeric and underscores only">
+                        </div>
+                        <div style="flex:1;min-width:200px">
+                            <label class="settings-label" style="margin-bottom:4px">Value</label>
+                            <input type="text" id="new-var-value" placeholder="value" style="width:100%">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px">
+                            <label style="font-size:12px;display:flex;align-items:center;gap:4px;white-space:nowrap" title="Secret variables are masked in the UI and API responses"><input type="checkbox" id="new-var-secret"> Secret</label>
+                        </div>
+                        <div style="display:flex;gap:4px">
+                            <button class="btn btn-primary btn-sm" onclick="createVariable()">Save</button>
+                            <button class="btn btn-ghost btn-sm" onclick="hideAddVariableForm()">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="variables-empty" style="display:none;padding:24px;text-align:center;color:var(--text-muted)">
+                    No variables defined. Click "+ Add Variable" to create one.
+                </div>
+                <table id="variables-table" class="exec-table" style="display:none">
+                    <thead><tr><th>Name</th><th>Value</th><th>Updated</th><th style="width:80px"></th></tr></thead>
+                    <tbody id="variables-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Connections sub-tab -->
+        <div id="toolbox-connections-panel" style="display:none">
+            <div class="view-header">
+                <h2>Connections</h2>
+                <button class="btn btn-primary btn-sm" onclick="showAddConnectionForm()">+ New Connection</button>
+            </div>
+            <div id="connection-form" style="display:none;margin-bottom:20px">
+                <div class="card">
+                    <div class="card-header"><h3 id="connection-form-title">New Connection</h3></div>
+                    <div style="padding:16px">
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Name</label>
+                            <input id="conn-name" type="text" placeholder="my-postgres-prod" style="max-width:300px">
+                            <div class="form-hint">Alphanumeric, underscores, and hyphens only.</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Type</label>
+                            <select id="conn-type" onchange="onConnectionTypeChange()" style="max-width:300px">
+                                <option value="postgres">PostgreSQL</option>
+                                <option value="mysql">MySQL</option>
+                                <option value="sqlite">SQLite</option>
+                                <option value="ftp">FTP</option>
+                                <option value="sftp">SFTP</option>
+                                <option value="http">HTTP (API)</option>
+                                <option value="kafka">Kafka</option>
+                                <option value="mqtt">MQTT</option>
+                                <option value="rabbitmq">RabbitMQ</option>
+                                <option value="redis">Redis</option>
+                                <option value="mongodb">MongoDB</option>
+                                <option value="ssh">SSH</option>
+                                <option value="smtp">SMTP</option>
+                                <option value="s3">S3 / MinIO</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:10px">
+                            <label>Description</label>
+                            <input id="conn-description" type="text" placeholder="Production database" style="max-width:500px">
+                        </div>
+                        <div id="conn-config-fields" style="margin-bottom:12px"></div>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <button class="btn btn-primary btn-sm" onclick="saveConnection()">Save</button>
+                            <button class="btn btn-sm" id="conn-test-btn" onclick="testConnectionFromForm()">Test Connection</button>
+                            <button class="btn btn-ghost btn-sm" onclick="hideAddConnectionForm()">Cancel</button>
+                            <span id="conn-test-result" style="font-size:12px;margin-left:8px"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="connections-list">
+                <div style="text-align:center;color:var(--text-muted);padding:24px">Loading...</div>
+            </div>
+        </div>
+    </section>
