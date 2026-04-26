@@ -1346,10 +1346,12 @@ async function createKey() {
     const role = document.getElementById('new-key-role').value;
     const groupsStr = document.getElementById('new-key-groups').value.trim();
     const allowed_groups = groupsStr ? groupsStr.split(',').map(s => s.trim()).filter(Boolean) : null;
+    const expiresVal = document.getElementById('new-key-expires').value;
     if (!name) { toast('Key name is required', 'error'); return; }
     try {
         const body = { name, role };
         if (allowed_groups && allowed_groups.length > 0) body.allowed_groups = allowed_groups;
+        if (expiresVal) body.expires_at = new Date(expiresVal).toISOString();
         const res = await api('POST', '/api/keys', body);
         document.getElementById('new-key-display').style.display = '';
         const rawKey = res.raw_key;
@@ -1358,6 +1360,7 @@ async function createKey() {
             '<code id="new-key-value">' + esc(rawKey) + '</code>' +
             '<button class="btn btn-ghost btn-sm" onclick="copyKey()" style="margin-top:4px">&#128203; Copy to Clipboard</button>';
         document.getElementById('new-key-name').value = '';
+        document.getElementById('new-key-expires').value = '';
         fetchKeys();
     } catch (e) {
         toast(e.message, 'error');
@@ -1391,6 +1394,10 @@ function renderKeys(keys) {
             html += '<span style="font-size:10px;color:var(--text-muted)">' + k.allowed_groups.map(esc).join(', ') + '</span>';
         }
         html += '<span class="time-text">' + (k.last_used_at ? 'used ' + fmtDate(k.last_used_at) : 'never used') + '</span>';
+        if (k.expires_at) {
+            const expired = new Date(k.expires_at) < new Date();
+            html += '<span style="font-size:10px;color:' + (expired ? 'var(--danger)' : 'var(--text-muted)') + '">' + (expired ? 'expired ' : 'expires ') + fmtDate(k.expires_at) + '</span>';
+        }
         html += '</div>';
         if (k.active) {
             html += '<button class="btn btn-danger btn-sm" onclick="revokeKey(\'' + k.id + '\',\'' + esc(k.name) + '\')">Revoke</button>';
