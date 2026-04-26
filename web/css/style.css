@@ -833,17 +833,17 @@ th .job-checkbox { margin: 0; }
 .actions { display: flex; gap: 4px; }
 
 .card {
-    background: linear-gradient(160deg, var(--bg-secondary) 0%, rgba(18,21,28,0.95) 100%);
-    border: 1px solid rgba(62,139,255,0.06);
+    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
+    border: 1px solid rgba(62,139,255,0.08);
     border-radius: 10px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
 }
 .card:hover {
-    border-color: rgba(62,139,255,0.12);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    border-color: rgba(62,139,255,0.15);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
     transform: translateY(-1px);
 }
 
@@ -1935,8 +1935,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .stat-card {
-    background: linear-gradient(160deg, var(--bg-secondary) 0%, rgba(18,21,28,0.95) 100%);
-    border: 1px solid rgba(62,139,255,0.06);
+    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
+    border: 1px solid rgba(62,139,255,0.08);
     border-radius: 10px;
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
@@ -2292,8 +2292,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .group-card {
-    background: linear-gradient(160deg, var(--bg-secondary) 0%, rgba(18,21,28,0.95) 100%);
-    border: 1px solid rgba(62,139,255,0.06);
+    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
+    border: 1px solid rgba(62,139,255,0.08);
     border-radius: 10px;
     padding: 16px;
     cursor: pointer;
