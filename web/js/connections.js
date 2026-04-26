@@ -118,15 +118,16 @@ function toggleConnConfigVis(name) {
         el.dataset.revealed = 'true';
         return;
     }
-    // The list API returns masked values. Show what we have from allConnections config.
+    // Show all config fields — masked values shown as ●●●●
     const conn = allConnections.find(c => c.name === name);
     if (conn && conn.config) {
         const summary = Object.entries(conn.config)
-            .filter(([k, v]) => v && v !== '********')
-            .map(([k, v]) => k + '=' + v)
-            .join(', ');
-        const display = summary || '(all fields masked)';
+            .filter(([k, v]) => v !== null && v !== undefined && v !== '')
+            .map(([k, v]) => k + ': ' + (v === '********' ? '●●●●' : v))
+            .join('\n');
+        const display = summary || '(empty config)';
         revealedConfigs[name] = display;
+        el.style.whiteSpace = 'pre-wrap';
         el.textContent = display;
         el.dataset.revealed = 'true';
     }
