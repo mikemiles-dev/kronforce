@@ -1571,20 +1571,20 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 
 /* Designer full-page layout */
-.designer-outer { display: flex; gap: 20px; align-items: flex-start; }
-.designer-form-col { flex: 1; min-width: 0; }
-.designer-layout { max-width: 960px; }
+.designer-outer { display: flex; gap: 20px; align-items: stretch; min-height: calc(100vh - 80px); }
+.designer-form-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.designer-layout { max-width: 960px; flex: 1; display: flex; flex-direction: column; }
 .designer-ai-col { width: 280px; flex-shrink: 0; position: sticky; top: 24px; }
 .designer-ai-inner { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
 .designer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .designer-header-actions { display: flex; gap: 8px; }
 .designer-meta { display: flex; gap: 16px; margin-bottom: 16px; }
-.designer-main { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; min-height: 400px; }
+.designer-main { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex: 1; }
 .designer-steps { width: 140px; flex-shrink: 0; background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 8px 0; display: flex; flex-direction: column; gap: 2px; }
 .designer-step { display: block; padding: 10px 16px; border: none; background: none; color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; border-left: 3px solid transparent; transition: all 0.15s; }
 .designer-step:hover { color: var(--text-primary); background: var(--bg-tertiary); }
 .designer-step.active { color: var(--accent); border-left-color: var(--accent); background: var(--bg-tertiary); font-weight: 600; }
-.designer-content { flex: 1; padding: 16px 20px; overflow-y: auto; max-height: calc(100vh - 340px); }
+.designer-content { flex: 1; padding: 16px 20px; overflow-y: auto; }
 .designer-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 0; margin-top: 16px; border-top: 1px solid var(--border); }
 @media (max-width: 900px) {
     .designer-outer { flex-direction: column; }
