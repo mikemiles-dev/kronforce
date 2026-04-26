@@ -99,13 +99,14 @@ That's it. You have a running scheduler with a web dashboard.
 - **SMS** — Twilio or any webhook-based SMS provider
 - **Per-job controls** — notify on failure, success, or assertion failure with recipient overrides
 
-### Connections (Credential Manager)
+### Secrets & Credentials
 
-- **Named connections** — store credentials for external systems once, reference by name in jobs
-- **14 protocol types** — PostgreSQL, MySQL, SQLite, FTP, SFTP, HTTP (bearer/basic/header auth), Kafka, MQTT, RabbitMQ, Redis, MongoDB, SSH, SMTP, S3/MinIO
+- **Secret variables** — values masked in API/UI, substituted at runtime. Optional expiration (30/90/180/365 days) with visual badges for expired secrets
+- **Named connections** — store credentials for external systems once, reference by name in jobs. 14 protocol types: PostgreSQL, MySQL, SQLite, FTP, SFTP, HTTP (bearer/basic/header auth), Kafka, MQTT, RabbitMQ, Redis, MongoDB, SSH, SMTP, S3/MinIO
 - **Encrypted at rest** — AES-256-GCM encryption, sensitive fields masked in API responses
 - **Test connectivity** — one-click connection test from the UI or API
-- **Auto-inject auth** — HTTP connections automatically inject Authorization headers; SQL connections provide the connection string
+- **Exportable** — full backup with `GET /api/data/export?include_secrets=true` includes decrypted secrets, connections, and API key metadata for migration
+- **API key expiration** — keys can expire after 30/90/180/365 days with visual status in the key list
 
 ### Migration Tools
 

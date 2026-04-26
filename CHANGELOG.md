@@ -5,11 +5,15 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0-alpha] - 2026-04-25
+## [0.1.0-alpha] - 2026-04-26
 
 ### Added
 - **UI redesign: 7-tab navigation** — consolidated from 10+ tabs to 7 focused pages: Dashboard, Monitor (Jobs/Runs/Events sub-tabs), Pipelines (Stages/Map), Builder (full-page job editor with sidebar steps), Toolbox (Scripts/Variables/Connections), Settings, and Docs. Color-coded sub-tabs and step navigation. Legacy URL routes redirect automatically.
 - **Full-page Builder** — replaces the cramped 620px modal with a full-page job editor. Left sidebar with color-coded steps (Task, Schedule, Target, Rules, Alerts, Advanced), AI assistant panel on the right, sticky Save/Cancel. After save, navigates directly to the job detail page.
+- **Variable expiration** — optional TTL on variables (30/90/180/365 days). Expired variables show a red badge in the UI. Useful for rotating secrets and temporary config.
+- **API key expiration UI** — dropdown to set key expiry (30/90/180/365 days or never). Expired keys shown in red in the key list.
+- **Data export with secrets** — `GET /api/data/export?include_secrets=true` exports decrypted secret variables, connection configs, and API key metadata for backup and migration.
+- **Toolbox search** — search/filter for Variables and Connections in the Toolbox page.
 - **AI job creation** — describe what you want in natural language, AI generates the full job configuration (name, task, schedule, timeout, notifications). Supports Anthropic Claude and OpenAI GPT. Set `KRONFORCE_AI_API_KEY` to enable. The AI panel sits beside the Builder form; AI never creates jobs directly — you review and save.
 - **Named connections** — credential profiles for databases, APIs, and services. 14 protocol types: PostgreSQL, MySQL, SQLite, FTP, SFTP, HTTP (bearer/basic/header auth), Kafka, MQTT, RabbitMQ, Redis, MongoDB, SSH, SMTP, S3/MinIO. Encrypted at rest (AES-256-GCM), masked in API responses, test connectivity from the UI. Jobs reference a connection by name (`"connection": "prod-db"`) instead of embedding passwords. Connection dropdown in job create/edit form. Managed in Toolbox → Connections.
 - **Product tour** — first-time user walkthrough with spotlight overlay highlighting each navigation element. Demo mode adds an intro explaining read-only access. Replayable from Settings. Responsive mobile positioning.
