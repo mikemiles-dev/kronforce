@@ -14,6 +14,11 @@
     --info: #4a9eff;
     --radius: 5px;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
+    /* Dark mode card gradients */
+    --card-bg: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
+    --card-border: rgba(62,139,255,0.08);
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    --card-shadow-hover: 0 4px 16px rgba(0,0,0,0.22);
 }
 
 [data-theme="light"] {
@@ -30,23 +35,18 @@
     --warning: #c48a0a;
     --danger: #cc3a3a;
     --info: #2970e6;
+    /* Light mode cards: white to barely-gray */
+    --card-bg: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    --card-border: #e2e5ea;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --card-shadow-hover: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 [data-theme="light"] .sidebar {
     background: linear-gradient(180deg, #ffffff 0%, #f0f2f8 100%);
     box-shadow: 2px 0 12px rgba(41,112,230,0.06), 1px 0 0 rgba(41,112,230,0.08);
 }
-[data-theme="light"] .card {
-    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
-    border: 1px solid #e2e5ea;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-}
-[data-theme="light"] .card:hover {
-    border-color: #d0d4dc;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    transform: translateY(-1px);
-}
+/* card styles handled by CSS variables above */
 [data-theme="light"] .btn-primary {
     background: linear-gradient(135deg, #2970e6 0%, #4a5ce6 100%);
     box-shadow: 0 2px 8px rgba(41,112,230,0.25);
@@ -833,17 +833,16 @@ th .job-checkbox { margin: 0; }
 .actions { display: flex; gap: 4px; }
 
 .card {
-    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
-    border: 1px solid rgba(62,139,255,0.08);
+    background: var(--card-bg, var(--bg-secondary));
+    border: 1px solid var(--card-border, var(--border));
     border-radius: 10px;
     padding: 20px;
     margin-bottom: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: var(--card-shadow, 0 2px 8px rgba(0,0,0,0.12));
     transition: box-shadow 0.2s, border-color 0.2s, transform 0.2s;
 }
 .card:hover {
-    border-color: rgba(62,139,255,0.15);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.22);
+    box-shadow: var(--card-shadow-hover, 0 4px 16px rgba(0,0,0,0.18));
     transform: translateY(-1px);
 }
 
@@ -1935,8 +1934,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .stat-card {
-    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
-    border: 1px solid rgba(62,139,255,0.08);
+    background: var(--card-bg, var(--bg-secondary));
+    border: 1px solid var(--card-border, var(--border));
     border-radius: 10px;
     padding: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
@@ -2292,8 +2291,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .group-card {
-    background: linear-gradient(160deg, #1c2030 0%, #12151c 100%);
-    border: 1px solid rgba(62,139,255,0.08);
+    background: var(--card-bg, var(--bg-secondary));
+    border: 1px solid var(--card-border, var(--border));
     border-radius: 10px;
     padding: 16px;
     cursor: pointer;
