@@ -39,9 +39,9 @@
 [data-theme="light"] .card,
 [data-theme="light"] .stat-card,
 [data-theme="light"] .group-card {
-    background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
-    border: 1px solid #e2e5ea;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    background: linear-gradient(160deg, #ffffff 0%, #eef0f5 100%);
+    border: 1px solid #dce0e8;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 [data-theme="light"] .card:hover,
 [data-theme="light"] .stat-card:hover,
