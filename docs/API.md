@@ -743,6 +743,23 @@ Append-only audit trail of sensitive operations. Admin role required. Returns pa
 
 **Audited operations:** `key.created`, `key.revoked`, `job.created`, `job.updated`, `job.deleted`, `job.triggered`, `script.saved`, `script.deleted`, `settings.updated`, `variable.created`, `variable.updated`, `variable.deleted`, `agent.deregistered`
 
+## Data Export
+
+```bash
+# Export all data (secrets masked)
+curl http://localhost:8080/api/data/export
+
+# Export with decrypted secrets, connections, and API key metadata (admin only)
+curl "http://localhost:8080/api/data/export?include_secrets=true"
+```
+
+The standard export includes jobs, variables (secrets masked), templates, agents, groups, and settings. With `?include_secrets=true`, the export also includes:
+- **Variables** with decrypted secret values
+- **Connections** with decrypted configs (passwords, tokens, connection strings)
+- **API keys** metadata (name, role, permissions, expiry — not raw keys or hashes)
+
+Use this for backup and migration between Kronforce instances. Admin role required.
+
 ## API Keys
 
 ```bash

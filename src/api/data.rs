@@ -1,15 +1,25 @@
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Query, State};
+use serde::Deserialize;
 
 use super::AppState;
 use super::auth::AuthUser;
 use crate::db::db_call;
 use crate::error::AppError;
 
-/// Exports all data for the current tenant (jobs, executions, variables, templates, events).
+#[derive(Deserialize)]
+pub(crate) struct ExportQuery {
+    /// When true, includes decrypted secret variable values, connection configs,
+    /// and API key metadata (name, role, permissions — not raw keys or hashes).
+    include_secrets: Option<bool>,
+}
+
+/// Exports all data for backup/migration. Admin only.
+/// With `?include_secrets=true`, includes decrypted secrets and connections.
 pub(crate) async fn export_data(
     State(state): State<AppState>,
     auth: AuthUser,
+    Query(query): Query<ExportQuery>,
 ) -> Result<Json<serde_json::Value>, AppError> {
     if let Some(ref key) = auth.0
         && !key.role.can_manage_keys()
@@ -19,6 +29,8 @@ pub(crate) async fn export_data(
         ));
     }
 
+    let include_secrets = query.include_secrets.unwrap_or(false);
+
     let db = state.db.clone();
     let data = tokio::task::spawn_blocking(move || {
         let jobs = db.list_jobs(None, None, None, 10000, 0)?;
@@ -26,16 +38,66 @@ pub(crate) async fn export_data(
         let templates = db.list_templates()?;
         let agents = db.list_agents()?;
         let groups = db.get_distinct_groups()?;
+        let settings = db.get_all_settings()?;
 
-        Ok::<_, AppError>(serde_json::json!({
-            "export_version": 1,
+        let mut export = serde_json::json!({
+            "export_version": 2,
             "exported_at": chrono::Utc::now().to_rfc3339(),
             "jobs": jobs,
-            "variables": variables,
             "templates": templates,
             "agents": agents,
             "groups": groups,
-        }))
+            "settings": settings,
+        });
+
+        if include_secrets {
+            // Variables with decrypted secret values
+            export["variables"] = serde_json::to_value(&variables)
+                .unwrap_or(serde_json::json!([]));
+
+            // Connections with decrypted configs
+            let connections = db.list_connections()?;
+            export["connections"] = serde_json::to_value(&connections)
+                .unwrap_or(serde_json::json!([]));
+
+            // API keys (metadata only — name, role, permissions, NOT hashes)
+            let keys = db.list_api_keys()?;
+            let key_meta: Vec<serde_json::Value> = keys
+                .iter()
+                .map(|k| {
+                    serde_json::json!({
+                        "name": k.name,
+                        "role": k.role,
+                        "active": k.active,
+                        "allowed_groups": k.allowed_groups,
+                        "ip_allowlist": k.ip_allowlist,
+                        "expires_at": k.expires_at,
+                        "created_at": k.created_at,
+                    })
+                })
+                .collect();
+            export["api_keys"] = serde_json::json!(key_meta);
+        } else {
+            // Mask secret variable values
+            let masked: Vec<serde_json::Value> = variables
+                .iter()
+                .map(|v| {
+                    if v.secret {
+                        serde_json::json!({
+                            "name": v.name,
+                            "value": "********",
+                            "secret": true,
+                            "updated_at": v.updated_at,
+                        })
+                    } else {
+                        serde_json::to_value(v).unwrap_or(serde_json::json!({}))
+                    }
+                })
+                .collect();
+            export["variables"] = serde_json::json!(masked);
+        }
+
+        Ok::<_, AppError>(export)
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))??;
