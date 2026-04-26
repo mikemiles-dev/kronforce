@@ -37,15 +37,14 @@
     box-shadow: 2px 0 12px rgba(41,112,230,0.06), 1px 0 0 rgba(41,112,230,0.08);
 }
 [data-theme="light"] .card {
-    background: linear-gradient(160deg, #ffffff 0%, #f7f8fc 100%);
-    border: 1px solid rgba(41,112,230,0.1);
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 0 0 1px rgba(41,112,230,0.03);
+    background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+    border: 1px solid #e2e5ea;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 [data-theme="light"] .card:hover {
-    background: linear-gradient(160deg, #ffffff 0%, #f2f4fb 100%);
-    border-color: rgba(41,112,230,0.25);
-    box-shadow: 0 4px 16px rgba(41,112,230,0.08), 0 0 0 1px rgba(41,112,230,0.06);
+    border-color: #d0d4dc;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     transform: translateY(-1px);
 }
 [data-theme="light"] .btn-primary {
