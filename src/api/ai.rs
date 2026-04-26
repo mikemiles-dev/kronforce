@@ -93,7 +93,7 @@ pub(crate) async fn ai_generate_job(
             if provider == "openai" {
                 "gpt-4o".to_string()
             } else {
-                "claude-3-5-sonnet-20241022".to_string()
+                "claude-3-5-sonnet-latest".to_string()
             }
         });
 
@@ -132,7 +132,7 @@ async fn call_anthropic(
     let resp = client
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
-        .header("anthropic-version", "2023-06-01")
+        .header("anthropic-version", "2024-10-22")
         .header("content-type", "application/json")
         .json(&body)
         .timeout(std::time::Duration::from_secs(30))
