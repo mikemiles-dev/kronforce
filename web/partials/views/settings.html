@@ -103,9 +103,15 @@
                             <label style="font-size:11px;color:var(--text-muted)">Allowed groups (comma-separated, leave empty for all)</label>
                             <input id="new-key-groups" type="text" placeholder="ETL, Monitoring, Deploys" style="width:100%;font-size:12px">
                         </div>
-                        <div style="width:200px">
-                            <label style="font-size:11px;color:var(--text-muted)">Expires (optional)</label>
-                            <input id="new-key-expires" type="datetime-local" style="width:100%;font-size:12px">
+                        <div style="width:160px">
+                            <label style="font-size:11px;color:var(--text-muted)">Expires</label>
+                            <select id="new-key-expires" style="width:100%;font-size:12px">
+                                <option value="">Never</option>
+                                <option value="30">30 days</option>
+                                <option value="90" selected>90 days</option>
+                                <option value="180">180 days</option>
+                                <option value="365">1 year</option>
+                            </select>
                         </div>
                     </div>
                 </div>

@@ -1346,12 +1346,16 @@ async function createKey() {
     const role = document.getElementById('new-key-role').value;
     const groupsStr = document.getElementById('new-key-groups').value.trim();
     const allowed_groups = groupsStr ? groupsStr.split(',').map(s => s.trim()).filter(Boolean) : null;
-    const expiresVal = document.getElementById('new-key-expires').value;
+    const expiresDays = document.getElementById('new-key-expires').value;
     if (!name) { toast('Key name is required', 'error'); return; }
     try {
         const body = { name, role };
         if (allowed_groups && allowed_groups.length > 0) body.allowed_groups = allowed_groups;
-        if (expiresVal) body.expires_at = new Date(expiresVal).toISOString();
+        if (expiresDays) {
+            const d = new Date();
+            d.setDate(d.getDate() + parseInt(expiresDays));
+            body.expires_at = d.toISOString();
+        }
         const res = await api('POST', '/api/keys', body);
         document.getElementById('new-key-display').style.display = '';
         const rawKey = res.raw_key;
