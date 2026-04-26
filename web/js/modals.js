@@ -45,7 +45,8 @@ function openCreateModal() {
     filePushFilename = '';
     filePushSize = 0;
     selectedCustomAgentData = null;
-    document.getElementById('modal-title').textContent = 'Create Job';
+    const titleEl = document.getElementById('modal-title') || document.getElementById('designer-title');
+    if (titleEl) titleEl.textContent = 'Create Job';
     document.getElementById('f-name').value = '';
     document.getElementById('f-command').value = '';
     document.getElementById('f-working-dir').value = '';
@@ -96,7 +97,7 @@ async function copyJob(id) {
         const job = await api('GET', '/api/jobs/' + id);
         // Open as a new job with copied data
         openCreateModal();
-        document.getElementById('modal-title').textContent = 'Copy Job';
+        (document.getElementById('modal-title') || document.getElementById('designer-title')).textContent = 'Copy Job';
         document.getElementById('f-name').value = job.name + '-copy';
 
         // Populate task
@@ -185,7 +186,7 @@ async function openEditModal(id) {
         const job = await api('GET', '/api/jobs/' + id);
         editingJobId = id;
         if (typeof hideAiPrompt === 'function') hideAiPrompt();
-        document.getElementById('modal-title').textContent = 'Edit Job';
+        (document.getElementById('modal-title') || document.getElementById('designer-title')).textContent = 'Edit Job';
         document.getElementById('f-name').value = job.name;
 
         // Determine execution mode from task type
