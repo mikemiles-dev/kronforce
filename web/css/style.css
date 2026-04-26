@@ -497,8 +497,8 @@ body {
 .status-btn {
     padding: 4px 12px;
     border-radius: 14px;
-    border: 1px solid var(--border);
-    background: transparent;
+    border: 1px solid rgba(62,139,255,0.08);
+    background: linear-gradient(180deg, rgba(30,34,45,0.6) 0%, rgba(21,24,32,0.8) 100%);
     color: var(--text-muted);
     font-size: 12px;
     font-weight: 500;
@@ -517,9 +517,10 @@ body {
 
 /* Selected states */
 .status-btn.active {
-    background: rgba(139,143,163,0.15);
+    background: linear-gradient(135deg, rgba(62,139,255,0.2) 0%, rgba(91,108,255,0.15) 100%);
     color: var(--text-primary);
-    border-color: var(--text-secondary);
+    border-color: rgba(62,139,255,0.3);
+    box-shadow: 0 0 8px rgba(62,139,255,0.1);
 }
 
 .status-btn.s-active.active {
@@ -582,9 +583,10 @@ main {
 .btn-primary { background: linear-gradient(135deg, var(--accent) 0%, #5b6cff 100%); color: white; box-shadow: 0 2px 8px rgba(62,139,255,0.2); transition: all 0.15s; }
 .btn-primary:hover { box-shadow: 0 4px 16px rgba(62,139,255,0.35); transform: translateY(-1px); }
 .btn-primary:hover { background: var(--accent-hover); }
-.btn-danger { background: var(--danger); color: white; }
-.btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
-.btn-ghost:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.btn-danger { background: linear-gradient(135deg, var(--danger) 0%, #c73e3e 100%); color: white; box-shadow: 0 2px 6px rgba(224,82,82,0.2); }
+.btn-danger:hover { box-shadow: 0 4px 12px rgba(224,82,82,0.3); }
+.btn-ghost { background: linear-gradient(180deg, rgba(30,34,45,0.6) 0%, rgba(21,24,32,0.8) 100%); color: var(--text-secondary); border: 1px solid rgba(62,139,255,0.08); }
+.btn-ghost:hover { color: var(--text-primary); border-color: rgba(62,139,255,0.2); background: linear-gradient(180deg, rgba(30,34,45,0.8) 0%, rgba(21,24,32,0.9) 100%); }
 .btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-icon { padding: 4px 8px; font-size: 14px; background: transparent; color: var(--text-secondary); border: none; cursor: pointer; border-radius: var(--radius); }
@@ -640,19 +642,20 @@ main {
 }
 
 select, input, textarea {
-    background: var(--bg-tertiary);
+    background: linear-gradient(180deg, var(--bg-tertiary) 0%, rgba(21,24,32,0.9) 100%);
     color: var(--text-primary);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(62,139,255,0.08);
     border-radius: var(--radius);
     padding: 6px 10px;
     font-size: 13px;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 select:focus, input:focus, textarea:focus {
     border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(62,139,255,0.1);
 }
 
 textarea { resize: vertical; min-height: 60px; }
