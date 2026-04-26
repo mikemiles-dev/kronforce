@@ -1278,20 +1278,22 @@ async function submitJobForm() {
     if (expiresAt) body.expires_at = new Date(expiresAt).toISOString();
 
     try {
+        let jobId;
         if (editingJobId) {
             await api('PUT', '/api/jobs/' + editingJobId, body);
             toast('Job updated');
+            jobId = editingJobId;
         } else {
-            await api('POST', '/api/jobs', body);
+            const result = await api('POST', '/api/jobs', body);
             toast('Job created');
+            jobId = result.id;
         }
         closeCreateModal();
-        if (currentJobId) {
-            showJobDetail(currentJobId);
-        } else if (currentPage !== 'jobs') {
-            showPage('jobs');
+        if (jobId) {
+            showPage('monitor');
+            showJobDetail(jobId);
         } else {
-            fetchJobs();
+            showPage('monitor');
         }
     } catch (e) {
         toast(e.message, 'error');
