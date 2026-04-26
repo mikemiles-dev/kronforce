@@ -52,6 +52,19 @@
 [data-theme="light"] .timeline-bar.succeeded { background: linear-gradient(180deg, #2ecc71 0%, #1ea85a 100%); }
 [data-theme="light"] .timeline-bar.failed { background: linear-gradient(180deg, #e05252 0%, #cc3a3a 100%); }
 [data-theme="light"] .timeline-bar.other { background: linear-gradient(180deg, #3e8bff 0%, #2970e6 100%); }
+[data-theme="light"] select,
+[data-theme="light"] input,
+[data-theme="light"] textarea {
+    background: #ffffff;
+    border-color: #d1d5de;
+}
+[data-theme="light"] select:focus,
+[data-theme="light"] input:focus,
+[data-theme="light"] textarea:focus {
+    background: #ffffff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(41,112,230,0.08);
+}
 [data-theme="light"] .btn-primary {
     background: linear-gradient(135deg, #2970e6 0%, #4a5ce6 100%);
     box-shadow: 0 2px 8px rgba(41,112,230,0.25);
@@ -646,9 +659,9 @@ main {
 }
 
 select, input, textarea {
-    background: linear-gradient(180deg, var(--bg-tertiary) 0%, rgba(18,21,28,0.95) 100%);
+    background: var(--bg-tertiary);
     color: var(--text-primary);
-    border: 1px solid rgba(62,139,255,0.06);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 6px 10px;
     font-size: 13px;
