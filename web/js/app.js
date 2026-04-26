@@ -691,6 +691,7 @@ function showPage(page) {
         if (!editingJobId) {
             document.getElementById('designer-title').textContent = 'Create Job';
         }
+        if (typeof showAiPrompt === 'function') showAiPrompt();
     } else if (page === 'toolbox') {
         setSubTab('toolbox', currentSubTab.toolbox);
     } else if (page === 'docs') {
