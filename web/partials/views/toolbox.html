@@ -79,7 +79,13 @@
             <div class="card">
                 <div class="card-header">
                     <h3>Global Variables</h3>
-                    <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <div class="search-wrap" style="min-width:180px">
+                            <span class="search-icon">&#128269;</span>
+                            <input id="var-search-input" type="text" placeholder="Search variables..." oninput="filterVariables(this.value)" style="font-size:12px">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
+                    </div>
                 </div>
                 <div id="add-variable-form" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px">
                     <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
@@ -114,7 +120,13 @@
         <div id="toolbox-connections-panel" style="display:none">
             <div class="view-header">
                 <h2>Connections</h2>
-                <button class="btn btn-primary btn-sm" onclick="showAddConnectionForm()">+ New Connection</button>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <div class="search-wrap" style="min-width:180px">
+                        <span class="search-icon">&#128269;</span>
+                        <input id="conn-search-input" type="text" placeholder="Search connections..." oninput="filterConnections(this.value)" style="font-size:12px">
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="showAddConnectionForm()">+ New Connection</button>
+                </div>
             </div>
             <div id="connection-form" style="display:none;margin-bottom:20px">
                 <div class="card">

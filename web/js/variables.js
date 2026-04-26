@@ -35,6 +35,16 @@ function renderVariables() {
     }).join('');
 }
 
+function filterVariables(query) {
+    const q = query.trim().toLowerCase();
+    const rows = document.querySelectorAll('#variables-tbody tr');
+    rows.forEach(function(row) {
+        const name = row.querySelector('code');
+        const text = name ? name.textContent.toLowerCase() : '';
+        row.style.display = text.includes(q) || !q ? '' : 'none';
+    });
+}
+
 function showAddVariableForm() {
     document.getElementById('add-variable-form').style.display = '';
     document.getElementById('new-var-name').value = '';

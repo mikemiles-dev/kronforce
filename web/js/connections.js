@@ -101,6 +101,15 @@ async function fetchConnections() {
     }
 }
 
+function filterConnections(query) {
+    const q = query.trim().toLowerCase();
+    const rows = document.querySelectorAll('#connections-list table tbody tr');
+    rows.forEach(function(row) {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) || !q ? '' : 'none';
+    });
+}
+
 function renderConnections() {
     const container = document.getElementById('connections-list');
     if (allConnections.length === 0) {
