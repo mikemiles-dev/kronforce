@@ -52,7 +52,7 @@ if [ -z "$KEY" ]; then
     exit 1
 fi
 
-echo "Using key: ${KEY:0:15}..."
+echo "Using key: $(echo "$KEY" | cut -c1-15)..."
 
 # Verify the key works
 STATUS=$(curl -sf -o /dev/null -w '%{http_code}' "http://localhost:8080/api/jobs?per_page=1" -H "Authorization: Bearer $KEY" 2>/dev/null || echo "000")
