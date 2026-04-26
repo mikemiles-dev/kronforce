@@ -600,10 +600,10 @@ function renderJobDetail(job) {
         '<span style="color:var(--danger)">' + (counts.failed || 0) + ' failed</span> / ' +
         (counts.total || 0) + ' total';
 
-    // Last execution
+    // Last execution (clickable to execution detail)
     const last = job.last_execution;
     const lastHtml = last
-        ? badge(last.status) + (last.finished_at ? ' ' + fmtDate(last.finished_at) : '')
+        ? '<span style="cursor:pointer" onclick="showExecDetail(\'' + last.id + '\')" title="View execution">' + badge(last.status) + (last.finished_at ? ' ' + fmtDate(last.finished_at) : '') + '</span>'
         : '<span style="color:var(--text-muted)">never run</span>';
 
     // Retry config
