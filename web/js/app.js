@@ -151,14 +151,7 @@ function refreshForScope(scope) {
 }
 
 function shareCurrentPage() {
-    let hash = location.hash || '#/' + currentPage;
-    // Use current hash which already encodes the full route
-    } else if (currentPage === 'agents') {
-        var ap = [];
-        if (typeof agentSearch !== 'undefined' && agentSearch.statusFilter) ap.push('filter=' + encodeURIComponent(agentSearch.statusFilter));
-        if (typeof agentSearch !== 'undefined' && agentSearch.searchTerm) ap.push('search=' + encodeURIComponent(agentSearch.searchTerm));
-        if (ap.length > 0) hash += '?' + ap.join('&');
-    }
+    var hash = location.hash || '#/' + currentPage;
     var url = window.location.origin + window.location.pathname + hash;
     copyToClipboard(url, 'Link copied to clipboard');
 }
