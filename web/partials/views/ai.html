@@ -1,0 +1,48 @@
+    <section id="ai-view" style="display:none">
+        <div style="max-width:700px;margin:0 auto">
+            <div style="text-align:center;margin-bottom:24px">
+                <div style="font-size:36px;margin-bottom:8px">&#129302;</div>
+                <h2 style="margin:0 0 6px;font-size:20px">AI Job Builder</h2>
+                <p style="color:var(--text-muted);font-size:13px;margin:0">Describe what you want in plain English. AI generates the full job configuration — you review and save.</p>
+            </div>
+
+            <div id="ai-page-disabled" style="display:none;text-align:center;padding:24px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;margin-bottom:20px">
+                <p style="color:var(--text-muted);margin:0 0 8px;font-size:13px">AI is not configured. Set <code>KRONFORCE_AI_API_KEY</code> on the controller to enable.</p>
+                <p style="color:var(--text-muted);margin:0;font-size:12px">Supports Anthropic Claude and OpenAI GPT.</p>
+            </div>
+
+            <div id="ai-page-form">
+                <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px">
+                    <label class="label-accent" style="font-size:13px;margin-bottom:8px;display:block">What should this job do?</label>
+                    <textarea id="ai-page-prompt" rows="5" placeholder="e.g. Back up my postgres database every night at 3am with a 1 hour timeout, retry twice on failure, and notify ops@example.com when it fails" style="font-size:14px;line-height:1.6;resize:vertical;min-height:100px;margin-bottom:12px;width:100%;box-sizing:border-box"></textarea>
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <button id="ai-page-btn" class="btn btn-primary" onclick="aiPageGenerate()" style="padding:8px 24px">Generate Job</button>
+                        <div id="ai-page-status" style="font-size:12px;color:var(--text-muted);flex:1"></div>
+                    </div>
+                </div>
+
+                <div id="ai-page-result" style="display:none">
+                    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:20px">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+                            <h3 style="margin:0;font-size:15px">Generated Job</h3>
+                            <div style="display:flex;gap:8px">
+                                <button class="btn btn-primary btn-sm" onclick="aiPageUseResult()">Use This &rarr;</button>
+                                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ai-page-result').style.display='none'">Dismiss</button>
+                            </div>
+                        </div>
+                        <div id="ai-page-preview" style="font-size:12px"></div>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px;color:var(--text-muted);font-size:12px;line-height:1.6">
+                    <strong>Examples to try:</strong>
+                    <ul style="margin:6px 0;padding-left:20px">
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Check if our API at https://api.example.com/health is responding every 5 minutes';return false" style="color:var(--accent)">Health check every 5 minutes</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Back up postgres every night at 3am with 1 hour timeout and notify on failure';return false" style="color:var(--accent)">Nightly database backup</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Run ETL extract on weekdays at 6am, retry 3 times with exponential backoff';return false" style="color:var(--accent)">Weekday ETL with retry</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Clean up temp files older than 7 days every Sunday at midnight';return false" style="color:var(--accent)">Weekly cleanup task</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>

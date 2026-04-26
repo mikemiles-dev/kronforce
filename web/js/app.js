@@ -10,7 +10,7 @@ let pollTimer = null;
 let jobsPage = 1;
 
 // View registry for page management (6-page layout)
-const ALL_VIEWS = ['dashboard','monitor','pipelines','designer','toolbox','settings','docs','detail'];
+const ALL_VIEWS = ['dashboard','monitor','pipelines','designer','toolbox','ai','settings','docs','detail'];
 const VIEW_ACTION_BARS = {}; // Action bars are now inline in sub-tab panels
 
 // Sub-tab definitions per page
@@ -691,9 +691,10 @@ function showPage(page) {
         if (!editingJobId) {
             document.getElementById('designer-title').textContent = 'Create Job';
         }
-        if (typeof showAiPrompt === 'function') showAiPrompt();
     } else if (page === 'toolbox') {
         setSubTab('toolbox', currentSubTab.toolbox);
+    } else if (page === 'ai') {
+        if (typeof initAiPage === 'function') initAiPage();
     } else if (page === 'docs') {
         initDocsScrollSpy();
     } else if (page === 'settings') {
@@ -1177,7 +1178,7 @@ function handleRoute() {
     }
 
     const page = parts[0] || 'dashboard';
-    if (['dashboard', 'settings', 'docs'].includes(page)) {
+    if (['dashboard', 'ai', 'settings', 'docs'].includes(page)) {
         showPage(page);
     } else {
         showPage('dashboard');

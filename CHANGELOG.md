@@ -145,6 +145,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Secret variable masking in API and UI
 - Approval workflow gates on job execution
 
-## [0.1.0] - Initial Release
-
 See [README.md](README.md) for the full feature set.

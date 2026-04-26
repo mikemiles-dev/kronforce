@@ -33,6 +33,12 @@ const TOUR_STEPS = [
         position: 'right'
     },
     {
+        target: '#tab-ai',
+        title: 'AI',
+        text: 'Describe what you want in plain English and AI generates the full job configuration. Works with Anthropic Claude and OpenAI GPT. Even without AI configured, you can see example prompts.',
+        position: 'right'
+    },
+    {
         target: '#tab-settings',
         title: 'Settings',
         text: 'API keys, agents, notification channels, data retention, OIDC/SSO, and system configuration.',

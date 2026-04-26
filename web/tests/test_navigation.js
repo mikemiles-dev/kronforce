@@ -85,9 +85,9 @@ assert(viewContents['toolbox.html'].includes('id="scripts-list-wrap"'), 'scripts
 assert(viewContents['toolbox.html'].includes('id="variables-table"'), 'variables-table preserved in toolbox');
 assert(viewContents['toolbox.html'].includes('id="connections-list"'), 'connections-list preserved in toolbox');
 
-// --- Test: Sidebar has 7 nav tabs (6 pages + docs) ---
+// --- Test: Sidebar has 8 nav tabs ---
 const navTabs = sidebar.match(/id="tab-\w+"/g) || [];
-assert(navTabs.length === 7, '7 nav tabs in sidebar (got ' + navTabs.length + ')');
+assert(navTabs.length === 8, '8 nav tabs in sidebar (got ' + navTabs.length + ')');
 assert(sidebar.includes('id="tab-dashboard"'), 'sidebar has dashboard tab');
 assert(sidebar.includes('id="tab-monitor"'), 'sidebar has monitor tab');
 assert(sidebar.includes('id="tab-pipelines"'), 'sidebar has pipelines tab');
@@ -124,7 +124,7 @@ assert(!index.includes('guide.html'), 'index does not include old guide.html');
 assert(!index.includes('agents.html'), 'index does not include old agents.html');
 
 // --- Test: ALL_VIEWS in app.js matches new structure ---
-assert(appJs.includes("'dashboard','monitor','pipelines','designer','toolbox','settings','docs','detail'"), 'ALL_VIEWS has correct 8 entries');
+assert(appJs.includes("'dashboard','monitor','pipelines','designer','toolbox','ai','settings','docs','detail'"), 'ALL_VIEWS has correct 9 entries');
 
 // --- Test: PAGE_SUBTABS defined ---
 assert(appJs.includes('PAGE_SUBTABS'), 'PAGE_SUBTABS defined in app.js');
