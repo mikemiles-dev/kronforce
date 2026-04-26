@@ -175,8 +175,7 @@ function renderConnections() {
         html += '<td><strong>' + esc(c.name) + '</strong></td>';
         html += '<td><span class="badge">' + esc(TYPE_LABELS[c.conn_type] || c.conn_type) + '</span></td>';
         html += '<td style="color:var(--text-muted)">' + esc(c.description || '') + '</td>';
-        html += '<td><span id="conn-config-' + esc(c.name) + '" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">********</span> ';
-        html += '<button class="btn btn-ghost btn-sm" onclick="toggleConnConfigVis(\'' + escAttr(c.name) + '\')" style="padding:2px 6px;font-size:12px" title="Show/hide config">&#128065;</button></td>';
+        html += '<td style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">********</td>';
         html += '<td style="white-space:nowrap">' + fmtDate(c.updated_at) + '</td>';
         html += '<td style="white-space:nowrap">';
         html += '<button class="btn btn-ghost btn-sm" onclick="testExistingConnection(\'' + escAttr(c.name) + '\')">Test</button>';
