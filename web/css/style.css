@@ -1577,7 +1577,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 
 /* Designer full-page layout */
 #designer-view { margin: -24px; padding: 16px; min-height: calc(100vh - 32px); display: flex; flex-direction: column; }
-.designer-layout { max-width: 960px; flex: 1; display: flex; flex-direction: column; }
+.designer-layout { flex: 1; display: flex; flex-direction: column; }
 .designer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .designer-header-actions { display: flex; gap: 8px; }
 .designer-meta { display: flex; gap: 16px; margin-bottom: 16px; }
