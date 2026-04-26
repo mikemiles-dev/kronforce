@@ -11,6 +11,7 @@ let jobsPage = 1;
 
 // View registry for page management (6-page layout)
 const ALL_VIEWS = ['dashboard','monitor','pipelines','designer','toolbox','settings','docs','detail'];
+const VIEW_ACTION_BARS = {}; // Action bars are now inline in sub-tab panels
 
 // Sub-tab definitions per page
 const PAGE_SUBTABS = {
