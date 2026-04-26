@@ -1323,3 +1323,116 @@ fn test_connection_not_found() {
     let db = test_db();
     assert!(db.get_connection("nonexistent").unwrap().is_none());
 }
+
+// --- Data Export ---
+
+#[test]
+fn test_export_includes_jobs_and_variables() {
+    let db = test_db();
+    let job = make_job("export-job");
+    db.insert_job(&job).unwrap();
+
+    let var = kronforce::db::models::Variable {
+        name: "EXPORT_VAR".to_string(),
+        value: "test-value".to_string(),
+        updated_at: Utc::now(),
+        secret: false,
+    };
+    db.insert_variable(&var).unwrap();
+
+    let jobs = db.list_jobs(None, None, None, 100, 0).unwrap();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(jobs[0].name, "export-job");
+
+    let vars = db.list_variables().unwrap();
+    assert!(vars.iter().any(|v| v.name == "EXPORT_VAR" && v.value == "test-value"));
+}
+
+#[test]
+fn test_export_secret_variable_decrypted() {
+    let db = test_db();
+    let var = kronforce::db::models::Variable {
+        name: "SECRET_KEY".to_string(),
+        value: "super-secret-123".to_string(),
+        updated_at: Utc::now(),
+        secret: true,
+    };
+    db.insert_variable(&var).unwrap();
+
+    // list_variables returns decrypted values (encryption not enabled in tests)
+    let vars = db.list_variables().unwrap();
+    let secret = vars.iter().find(|v| v.name == "SECRET_KEY").unwrap();
+    assert_eq!(secret.value, "super-secret-123");
+    assert!(secret.secret);
+}
+
+#[test]
+fn test_export_connections_decrypted() {
+    let db = test_db();
+    let conn = kronforce::db::models::Connection {
+        name: "export-db".to_string(),
+        conn_type: kronforce::db::models::ConnectionType::Postgres,
+        description: Some("Export test".to_string()),
+        config: serde_json::json!({"connection_string": "postgresql://user:secret_pw@host/db"}),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    };
+    db.insert_connection(&conn).unwrap();
+
+    let conns = db.list_connections().unwrap();
+    assert_eq!(conns.len(), 1);
+    assert_eq!(conns[0].config["connection_string"], "postgresql://user:secret_pw@host/db");
+}
+
+#[test]
+fn test_export_api_keys_metadata() {
+    let db = test_db();
+    let (raw, prefix) = kronforce::api::generate_api_key();
+    let hash = kronforce::api::hash_api_key(&raw);
+
+    let key = kronforce::db::models::ApiKey {
+        id: Uuid::new_v4(),
+        key_prefix: prefix,
+        key_hash: hash,
+        name: "export-key".to_string(),
+        role: kronforce::db::models::ApiKeyRole::Operator,
+        created_at: Utc::now(),
+        last_used_at: None,
+        active: true,
+        allowed_groups: Some(vec!["ETL".to_string()]),
+        ip_allowlist: None,
+        expires_at: None,
+    };
+    db.insert_api_key(&key).unwrap();
+
+    let keys = db.list_api_keys().unwrap();
+    assert_eq!(keys.len(), 1);
+    assert_eq!(keys[0].name, "export-key");
+    assert_eq!(keys[0].role, kronforce::db::models::ApiKeyRole::Operator);
+    assert_eq!(keys[0].allowed_groups, Some(vec!["ETL".to_string()]));
+}
+
+#[test]
+fn test_export_settings_included() {
+    let db = test_db();
+    db.set_setting("retention_days", "30").unwrap();
+    db.set_setting("pipeline_schedule_ETL", r#"{"type":"cron","value":"0 0 6 * * *"}"#).unwrap();
+
+    let settings = db.get_all_settings().unwrap();
+    assert_eq!(settings.get("retention_days").unwrap(), "30");
+    assert!(settings.contains_key("pipeline_schedule_ETL"));
+}
+
+#[test]
+fn test_export_groups_included() {
+    let db = test_db();
+    db.add_custom_group("ExportGroup").unwrap();
+    let mut job = make_job("grouped-export");
+    job.group = Some("ETL".to_string());
+    db.insert_job(&job).unwrap();
+
+    let groups = db.get_distinct_groups().unwrap();
+    assert!(groups.contains(&"Default".to_string()));
+    assert!(groups.contains(&"ETL".to_string()));
+    assert!(groups.contains(&"ExportGroup".to_string()));
+}
