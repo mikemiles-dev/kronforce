@@ -9,8 +9,31 @@ async function loadAiSettings() {
         const modelEl = document.getElementById('settings-ai-model');
         if (keyEl && settings.ai_api_key) keyEl.value = settings.ai_api_key;
         if (provEl && settings.ai_provider) provEl.value = settings.ai_provider;
-        if (modelEl && settings.ai_model) modelEl.value = settings.ai_model;
+        // Fetch models if key exists
+        if (settings.ai_api_key) {
+            await populateAiModelDropdown(settings.ai_model || '');
+        }
     } catch (e) { /* ignore */ }
+}
+
+async function populateAiModelDropdown(selectedModel) {
+    const modelEl = document.getElementById('settings-ai-model');
+    if (!modelEl) return;
+    try {
+        const models = await api('GET', '/api/ai/models');
+        const modelList = models.data || models.models || [];
+        const names = modelList.map(function(m) { return m.id || m.name || ''; }).filter(Boolean).sort();
+        modelEl.innerHTML = '<option value="">Auto-detect (' + (names[0] || 'default') + ')</option>';
+        for (const name of names) {
+            const selected = name === selectedModel ? ' selected' : '';
+            modelEl.innerHTML += '<option value="' + esc(name) + '"' + selected + '>' + esc(name) + '</option>';
+        }
+    } catch (e) {
+        modelEl.innerHTML = '<option value="">Auto-detect</option>';
+        if (selectedModel) {
+            modelEl.innerHTML += '<option value="' + esc(selectedModel) + '" selected>' + esc(selectedModel) + '</option>';
+        }
+    }
 }
 
 async function saveAiSettings() {
@@ -28,27 +51,12 @@ async function saveAiSettings() {
         aiEnabled = !!key;
         if (typeof initAiPage === 'function') initAiPage();
 
-        // Auto-detect available models
-        if (key && !model) {
-            statusEl.textContent = 'Saved. Detecting models...';
+        if (key) {
+            statusEl.textContent = 'Saved. Loading models...';
             statusEl.style.color = 'var(--text-muted)';
-            try {
-                const models = await api('GET', '/api/ai/models');
-                const modelList = models.data || models.models || [];
-                if (modelList.length > 0) {
-                    const names = modelList.map(function(m) { return m.id || m.name || ''; }).filter(Boolean).sort();
-                    const modelEl = document.getElementById('settings-ai-model');
-                    if (modelEl) modelEl.placeholder = names[0] + ' (auto)';
-                    statusEl.textContent = 'Saved. ' + names.length + ' models available (using ' + names[0] + ')';
-                    statusEl.style.color = 'var(--success)';
-                } else {
-                    statusEl.textContent = 'Saved.';
-                    statusEl.style.color = 'var(--success)';
-                }
-            } catch (e) {
-                statusEl.textContent = 'Saved. Could not list models: ' + e.message;
-                statusEl.style.color = 'var(--accent)';
-            }
+            await populateAiModelDropdown(model);
+            statusEl.textContent = 'Saved';
+            statusEl.style.color = 'var(--success)';
         } else {
             statusEl.textContent = 'Saved';
             statusEl.style.color = 'var(--success)';

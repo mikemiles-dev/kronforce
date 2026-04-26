@@ -67,9 +67,11 @@
                                 <option value="openai">OpenAI</option>
                             </select>
                         </div>
-                        <div style="width:200px">
-                            <label class="settings-label">Model (optional)</label>
-                            <input id="settings-ai-model" type="text" placeholder="auto" style="width:100%;font-size:12px">
+                        <div style="width:250px">
+                            <label class="settings-label">Model</label>
+                            <select id="settings-ai-model" style="width:100%;font-size:12px">
+                                <option value="">Auto-detect</option>
+                            </select>
                         </div>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">Save AI Settings</button>
