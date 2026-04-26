@@ -1984,10 +1984,6 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .stat-card.info .stat-value { color: var(--info); }
 .stat-card.warning .stat-value { color: var(--warning); }
 .stat-card.neutral .stat-value { color: var(--text-primary); }
-.stat-card.success { border-color: rgba(46,204,113,0.08); }
-.stat-card.danger { border-color: rgba(224,82,82,0.08); }
-.stat-card.info { border-color: rgba(62,139,255,0.08); }
-.stat-card.warning { border-color: rgba(230,168,23,0.08); }
 .stat-card:hover { border-color: rgba(62,139,255,0.15); box-shadow: 0 4px 16px rgba(0,0,0,0.2); transform: translateY(-1px); }
 
 .timeline-chart {
