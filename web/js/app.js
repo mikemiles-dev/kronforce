@@ -702,6 +702,7 @@ function showPage(page) {
         renderSettingsAuth();
         loadRetention();
         loadNotificationSettings();
+        if (typeof loadAiSettings === 'function') loadAiSettings();
         showSettingsTab(currentSettingsTab || 'general');
     }
 }

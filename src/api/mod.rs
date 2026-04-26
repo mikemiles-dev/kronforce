@@ -338,9 +338,18 @@ async fn dashboard() -> impl axum::response::IntoResponse {
 }
 
 async fn public_config(State(state): State<AppState>) -> Json<serde_json::Value> {
+    // Check if AI key is configured via DB settings or env var
+    let db = state.db.clone();
+    let db_ai_key = tokio::task::spawn_blocking(move || {
+        db.get_setting("ai_api_key").unwrap_or(None)
+    })
+    .await
+    .unwrap_or(None);
+    let ai_enabled = db_ai_key.filter(|k| !k.is_empty()).is_some() || state.ai_api_key.is_some();
+
     Json(serde_json::json!({
         "demo_mode": state.demo_mode,
-        "ai_enabled": state.ai_api_key.is_some(),
+        "ai_enabled": ai_enabled,
     }))
 }
 

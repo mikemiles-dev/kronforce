@@ -1,5 +1,46 @@
 // Kronforce - Settings, keys, notification configuration
 let currentSettingsTab = 'general';
+
+async function loadAiSettings() {
+    try {
+        const settings = await api('GET', '/api/settings');
+        const keyEl = document.getElementById('settings-ai-key');
+        const provEl = document.getElementById('settings-ai-provider');
+        const modelEl = document.getElementById('settings-ai-model');
+        if (keyEl && settings.ai_api_key) keyEl.value = settings.ai_api_key;
+        if (provEl && settings.ai_provider) provEl.value = settings.ai_provider;
+        if (modelEl && settings.ai_model) modelEl.value = settings.ai_model;
+    } catch (e) { /* ignore */ }
+}
+
+async function saveAiSettings() {
+    const key = document.getElementById('settings-ai-key').value.trim();
+    const provider = document.getElementById('settings-ai-provider').value;
+    const model = document.getElementById('settings-ai-model').value.trim();
+    const statusEl = document.getElementById('ai-settings-status');
+    try {
+        const body = {};
+        body.ai_api_key = key;
+        body.ai_provider = provider;
+        if (model) body.ai_model = model;
+        else body.ai_model = '';
+        await api('PUT', '/api/settings', body);
+        statusEl.textContent = 'Saved';
+        statusEl.style.color = 'var(--success)';
+        // Update global flag
+        aiEnabled = !!key;
+        if (typeof initAiPage === 'function') initAiPage();
+        setTimeout(function() { statusEl.textContent = ''; }, 3000);
+    } catch (e) {
+        statusEl.textContent = 'Error: ' + e.message;
+        statusEl.style.color = 'var(--danger)';
+    }
+}
+
+function toggleSettingsAiKeyVis() {
+    const el = document.getElementById('settings-ai-key');
+    if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
 const SETTINGS_TABS = ['general', 'auth', 'notifications', 'agents'];
 
 function showSettingsTab(tab) {

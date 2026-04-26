@@ -49,6 +49,34 @@
                 </div>
             </div>
             <div class="card">
+                <div class="card-header"><h3>AI Assistant</h3></div>
+                <div class="settings-group">
+                    <div class="form-hint" style="margin-bottom:8px">Configure the AI provider for the AI Job Builder page. Supports Anthropic Claude and OpenAI GPT.</div>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+                        <div style="flex:1;min-width:200px">
+                            <label class="settings-label">API Key</label>
+                            <div style="display:flex;gap:6px">
+                                <input id="settings-ai-key" type="password" placeholder="sk-ant-... or sk-..." style="flex:1;font-size:12px">
+                                <button class="btn btn-ghost btn-sm" onclick="toggleSettingsAiKeyVis()" style="padding:4px 8px">&#128065;</button>
+                            </div>
+                        </div>
+                        <div style="width:150px">
+                            <label class="settings-label">Provider</label>
+                            <select id="settings-ai-provider" style="width:100%;font-size:12px">
+                                <option value="anthropic">Anthropic</option>
+                                <option value="openai">OpenAI</option>
+                            </select>
+                        </div>
+                        <div style="width:200px">
+                            <label class="settings-label">Model (optional)</label>
+                            <input id="settings-ai-model" type="text" placeholder="auto" style="width:100%;font-size:12px">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">Save AI Settings</button>
+                    <span id="ai-settings-status" style="font-size:12px;margin-left:8px"></span>
+                </div>
+            </div>
+            <div class="card">
                 <div class="card-header"><h3>Product Tour</h3></div>
                 <div class="settings-group">
                     <div class="form-hint" style="margin-bottom:8px">Replay the guided walkthrough that highlights navigation and key features.</div>

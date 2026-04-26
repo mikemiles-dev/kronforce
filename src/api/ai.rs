@@ -52,9 +52,29 @@ pub(crate) async fn ai_generate_job(
     _auth: AuthUser,
     Json(req): Json<AiRequest>,
 ) -> Result<Json<AiResponse>, AppError> {
-    let api_key = state.ai_api_key.as_ref().ok_or_else(|| {
-        AppError::BadRequest("AI not configured (set KRONFORCE_AI_API_KEY)".into())
-    })?;
+    // Check DB settings first, then fall back to env var config
+    let db = state.db.clone();
+    let (db_key, db_provider, db_model) = tokio::task::spawn_blocking(move || {
+        let key = db.get_setting("ai_api_key").unwrap_or(None);
+        let provider = db.get_setting("ai_provider").unwrap_or(None);
+        let model = db.get_setting("ai_model").unwrap_or(None);
+        (key, provider, model)
+    })
+    .await
+    .unwrap_or((None, None, None));
+
+    let api_key = db_key
+        .filter(|k| !k.is_empty())
+        .or_else(|| state.ai_api_key.clone())
+        .ok_or_else(|| {
+            AppError::BadRequest(
+                "AI not configured — set an API key in Settings or KRONFORCE_AI_API_KEY".into(),
+            )
+        })?;
+
+    let provider = db_provider
+        .filter(|p| !p.is_empty())
+        .unwrap_or_else(|| state.ai_provider.clone());
 
     let prompt = req.prompt.trim().to_string();
     if prompt.is_empty() {
@@ -66,8 +86,8 @@ pub(crate) async fn ai_generate_job(
         ));
     }
 
-    let model = state.ai_model.clone().unwrap_or_else(|| {
-        if state.ai_provider == "openai" {
+    let model = db_model.filter(|m| !m.is_empty()).or_else(|| state.ai_model.clone()).unwrap_or_else(|| {
+        if provider == "openai" {
             "gpt-4o".to_string()
         } else {
             "claude-sonnet-4-20250514".to_string()
@@ -75,10 +95,10 @@ pub(crate) async fn ai_generate_job(
     });
 
     let client = reqwest::Client::new();
-    let response_text = if state.ai_provider == "openai" {
-        call_openai(&client, api_key, &model, &prompt).await?
+    let response_text = if provider == "openai" {
+        call_openai(&client, &api_key, &model, &prompt).await?
     } else {
-        call_anthropic(&client, api_key, &model, &prompt).await?
+        call_anthropic(&client, &api_key, &model, &prompt).await?
     };
 
     // Parse the response as JSON
