@@ -93,7 +93,7 @@ pub(crate) async fn ai_generate_job(
             if provider == "openai" {
                 "gpt-4o".to_string()
             } else {
-                "claude-sonnet-4-5-20250514".to_string()
+                "claude-3-5-sonnet-20241022".to_string()
             }
         });
 
