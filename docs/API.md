@@ -491,7 +491,7 @@ curl -X POST http://localhost:8080/api/jobs \
   }'
 ```
 
-Create Dockerfile scripts in the Scripts page (select type "Dockerfile"). The build writes the Dockerfile to a temp directory and runs `docker build`. Set `run_after_build: true` to also run the container.
+Create Dockerfile scripts in Toolbox → Scripts (select type "Dockerfile"). The build writes the Dockerfile to a temp directory and runs `docker build`. Set `run_after_build: true` to also run the container.
 
 ### Schedule Window
 

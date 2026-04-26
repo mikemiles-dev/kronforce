@@ -53,7 +53,7 @@ Let's start simple — a job that pings a URL every minute.
 
 **In the dashboard:**
 
-1. Go to **Jobs** → click **+ Create**
+1. Go to **Builder** (or click **+ Create** on the Monitor → Jobs tab)
 2. Fill in:
    - **Name**: `health-check`
    - **Task type**: HTTP
@@ -107,7 +107,7 @@ registered with controller as worker-1 (agent_id: ...)
 heartbeat: ok
 ```
 
-Back in the dashboard, go to the **Agents** page — you'll see `worker-1` show up as online. The agent is now polling for work.
+Back in the dashboard, go to **Settings** → **Agents** tab — you'll see `worker-1` show up as online. The agent is now polling for work.
 
 **Docker option for the agent:**
 
@@ -204,13 +204,13 @@ curl -X POST http://localhost:8080/api/jobs \
 
 ### See It in Action
 
-Go to **Jobs** → **Map** tab. You'll see the three jobs connected as a chain: extract → transform → load.
+Go to **Pipelines** → **Map** tab. You'll see the three jobs connected as a chain: extract → transform → load.
 
-Switch to the **Groups** tab and select the "ETL" group to see them organized together.
+Switch to the **Stages** tab and select the "ETL" group to see them organized together.
 
 **Test the pipeline now** — don't wait for the cron schedule:
 
-1. Go to the **Jobs** tab, find `etl-extract`, click the play button to trigger it
+1. Go to **Monitor** → **Jobs** tab, find `etl-extract`, click the play button to trigger it
 2. Watch it execute on `worker-1` (check the execution detail — the Agent field shows your remote agent)
 3. Once extract succeeds, trigger `etl-transform` — it runs because its dependency is satisfied
 4. Trigger `etl-load` — same thing, it chains through
@@ -251,8 +251,8 @@ Here's what to look at:
 
 - **Dashboard → Overview**: Donut charts show execution outcomes, task types, and schedule distribution
 - **Dashboard → Activity**: Timeline of all events — triggers, completions, failures, agent heartbeats
-- **Jobs → Map**: Visual dependency graph of your entire system
-- **Jobs → Stages**: Pipeline view grouped by job group — see the ETL pipeline as a stage progression
+- **Pipelines → Map**: Visual dependency graph of your entire system
+- **Pipelines → Stages**: Pipeline view grouped by job group — see the ETL pipeline as a stage progression
 
 ### Prometheus Integration
 
