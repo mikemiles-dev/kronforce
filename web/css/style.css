@@ -36,19 +36,6 @@
     background: linear-gradient(180deg, #ffffff 0%, #f0f2f8 100%);
     box-shadow: 2px 0 12px rgba(41,112,230,0.06), 1px 0 0 rgba(41,112,230,0.08);
 }
-[data-theme="light"] .card,
-[data-theme="light"] .stat-card,
-[data-theme="light"] .group-card {
-    background: linear-gradient(160deg, #ffffff 0%, #eef0f5 100%);
-    border: 1px solid #bcc2cc;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-[data-theme="light"] .card:hover,
-[data-theme="light"] .stat-card:hover,
-[data-theme="light"] .group-card:hover {
-    border-color: #a0a8b8;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
 [data-theme="light"] .timeline-bar.succeeded { background: linear-gradient(180deg, #2ecc71 0%, #1ea85a 100%); }
 [data-theme="light"] .timeline-bar.failed { background: linear-gradient(180deg, #e05252 0%, #cc3a3a 100%); }
 [data-theme="light"] .timeline-bar.other { background: linear-gradient(180deg, #3e8bff 0%, #2970e6 100%); }
@@ -867,6 +854,20 @@ th .job-checkbox { margin: 0; }
     border-color: rgba(62,139,255,0.15);
     box-shadow: 0 4px 16px rgba(0,0,0,0.22);
     transform: translateY(-1px);
+}
+
+[data-theme="light"] .card,
+[data-theme="light"] .stat-card,
+[data-theme="light"] .group-card {
+    background: linear-gradient(160deg, #ffffff 0%, #eef0f5 100%);
+    border: 1px solid #bcc2cc;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+[data-theme="light"] .card:hover,
+[data-theme="light"] .stat-card:hover,
+[data-theme="light"] .group-card:hover {
+    border-color: #a0a8b8;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
 .card-header {
