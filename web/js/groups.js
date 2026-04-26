@@ -88,7 +88,7 @@ async function fetchGroupsPage() {
         const stagesFilter = document.getElementById('stages-group-filter');
         if (stagesFilter) {
             const currentSel = stagesFilter.value;
-            stagesFilter.innerHTML = '<option value="">Select a group...</option>';
+            stagesFilter.innerHTML = '<option value="">All Groups</option>';
             for (const g of sortedGroups) {
                 stagesFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === currentSel ? ' selected' : '') + '>' + esc(g) + '</option>';
             }
@@ -100,17 +100,19 @@ async function fetchGroupsPage() {
 
         if (groupsViewMode === 'pipeline') {
             const selectedGroup = stagesFilter ? stagesFilter.value : '';
-            if (selectedGroup) {
-                const filtered = [selectedGroup];
-                // Fetch pipeline schedule for this group
-                let scheduleMap = {};
+            // Show selected group, or all groups if none selected
+            const groupsToShow = selectedGroup ? [selectedGroup] : sortedGroups.filter(g => (jobsByGroup[g] || []).length > 0);
+            let scheduleMap = {};
+            for (const g of groupsToShow) {
                 try {
-                    const sched = await api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(selectedGroup));
-                    if (sched && sched.type) scheduleMap[selectedGroup] = sched;
+                    const sched = await api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(g));
+                    if (sched && sched.type) scheduleMap[g] = sched;
                 } catch (e) { /* no schedule */ }
-                renderPipelineView(filtered, jobsByGroup, scheduleMap);
+            }
+            if (groupsToShow.length > 0) {
+                renderPipelineView(groupsToShow, jobsByGroup, scheduleMap);
             } else {
-                document.getElementById('groups-grid').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">Select a group above to see its pipeline.</div>';
+                document.getElementById('groups-grid').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted)">No groups with jobs found.</div>';
             }
         } else {
             renderCardsView(sortedGroups, jobsByGroup);
