@@ -92,10 +92,8 @@ async function fetchGroupsPage() {
             for (const g of sortedGroups) {
                 stagesFilter.innerHTML += '<option value="' + esc(g) + '"' + (g === currentSel ? ' selected' : '') + '>' + esc(g) + '</option>';
             }
-            // Auto-select first real group if nothing selected
-            if (!stagesFilter.value && sortedGroups.length > 0) {
-                stagesFilter.value = sortedGroups[0];
-            }
+            // Restore previous selection (or stay on All Groups)
+            if (currentSel) stagesFilter.value = currentSel;
         }
 
         if (groupsViewMode === 'pipeline') {
