@@ -101,6 +101,49 @@ async function fetchConnections() {
     }
 }
 
+let revealedConfigs = {};
+
+function toggleConnConfigVis(name) {
+    const el = document.getElementById('conn-config-' + name);
+    if (!el) return;
+    if (el.dataset.revealed === 'true') {
+        // Hide
+        el.textContent = '********';
+        el.dataset.revealed = 'false';
+        return;
+    }
+    // Show — use cached or fetch
+    if (revealedConfigs[name]) {
+        el.textContent = revealedConfigs[name];
+        el.dataset.revealed = 'true';
+        return;
+    }
+    // The list API returns masked values. Show what we have from allConnections config.
+    const conn = allConnections.find(c => c.name === name);
+    if (conn && conn.config) {
+        const summary = Object.entries(conn.config)
+            .filter(([k, v]) => v && v !== '********')
+            .map(([k, v]) => k + '=' + v)
+            .join(', ');
+        const display = summary || '(all fields masked)';
+        revealedConfigs[name] = display;
+        el.textContent = display;
+        el.dataset.revealed = 'true';
+    }
+}
+
+function toggleConnFieldVis(inputId, btn) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    if (el.type === 'password') {
+        el.type = 'text';
+        btn.style.opacity = '1';
+    } else {
+        el.type = 'password';
+        btn.style.opacity = '0.5';
+    }
+}
+
 function filterConnections(query) {
     const q = query.trim().toLowerCase();
     const rows = document.querySelectorAll('#connections-list table tbody tr');
@@ -123,7 +166,7 @@ function renderConnections() {
     }
 
     let html = '<table class="data-table"><thead><tr>';
-    html += '<th>Name</th><th>Type</th><th>Description</th><th>Updated</th><th>Actions</th>';
+    html += '<th>Name</th><th>Type</th><th>Description</th><th>Config</th><th>Updated</th><th>Actions</th>';
     html += '</tr></thead><tbody>';
 
     for (const c of allConnections) {
@@ -131,6 +174,8 @@ function renderConnections() {
         html += '<td><strong>' + esc(c.name) + '</strong></td>';
         html += '<td><span class="badge">' + esc(TYPE_LABELS[c.conn_type] || c.conn_type) + '</span></td>';
         html += '<td style="color:var(--text-muted)">' + esc(c.description || '') + '</td>';
+        html += '<td><span id="conn-config-' + esc(c.name) + '" style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">********</span> ';
+        html += '<button class="btn btn-ghost btn-sm" onclick="toggleConnConfigVis(\'' + escAttr(c.name) + '\')" style="padding:2px 6px;font-size:12px" title="Show/hide config">&#128065;</button></td>';
         html += '<td style="white-space:nowrap">' + fmtDate(c.updated_at) + '</td>';
         html += '<td style="white-space:nowrap">';
         html += '<button class="btn btn-ghost btn-sm" onclick="testExistingConnection(\'' + escAttr(c.name) + '\')">Test</button>';
@@ -203,6 +248,11 @@ function onConnectionTypeChange() {
             html += '</select>';
         } else if (f.type === 'textarea') {
             html += '<textarea id="' + id + '" rows="3" placeholder="' + esc(f.placeholder || '') + '" style="font-family:monospace;font-size:12px;max-width:500px"></textarea>';
+        } else if (f.type === 'password') {
+            html += '<div style="display:flex;gap:6px;align-items:center;max-width:500px">';
+            html += '<input id="' + id + '" type="password" placeholder="' + esc(f.placeholder || '') + '" style="flex:1">';
+            html += '<button type="button" class="btn btn-ghost btn-sm conn-toggle-vis" onclick="toggleConnFieldVis(\'' + id + '\',this)" title="Show/hide" style="padding:4px 8px;font-size:14px">&#128065;</button>';
+            html += '</div>';
         } else {
             html += '<input id="' + id + '" type="' + f.type + '" placeholder="' + esc(f.placeholder || '') + '" style="max-width:500px">';
         }
