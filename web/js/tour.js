@@ -22,8 +22,8 @@ const TOUR_STEPS = [
     },
     {
         target: '#tab-designer',
-        title: 'Designer',
-        text: 'Create and edit jobs with a full-page editor. Describe what you want in plain English and let AI fill in the form, or configure every detail manually.',
+        title: 'Builder',
+        text: 'Create and edit jobs step by step. Describe what you want in plain English and let AI fill in the form, or configure every detail manually.',
         position: 'right'
     },
     {
@@ -47,7 +47,7 @@ const TOUR_STEPS = [
     {
         target: '.main-content',
         title: 'Ready to go!',
-        text: 'Head to the Designer to create your first job, or explore the Monitor to see what\'s running. You can replay this tour anytime from Settings.',
+        text: 'Head to the Builder to create your first job, or explore the Monitor to see what\'s running. You can replay this tour anytime from Settings.',
         position: 'center',
         demoText: 'This is a read-only demo for display purposes only — explore freely, nothing will break. All the data you see is sample data showcasing Kronforce features. To run your own instance, visit kronforce.dev.',
         demoTitle: 'Welcome to the Demo!',
