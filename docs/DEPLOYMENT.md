@@ -287,9 +287,9 @@ KRONFORCE_CONTROLLER_URL=http://controller:8080 \
 | `KRONFORCE_OIDC_OPERATOR_VALUES` | (none) | Claim values → operator role |
 | `KRONFORCE_OIDC_DEFAULT_ROLE` | `viewer` | Fallback role |
 | `KRONFORCE_OIDC_SESSION_TTL_SECS` | `86400` | SSO session lifetime |
-| `KRONFORCE_AI_API_KEY` | (none) | Anthropic or OpenAI API key — enables AI job creation |
-| `KRONFORCE_AI_PROVIDER` | `anthropic` | AI provider: `anthropic` or `openai` |
-| `KRONFORCE_AI_MODEL` | auto | Model override (default: `claude-sonnet-4-20250514` / `gpt-4o`) |
+| `KRONFORCE_AI_API_KEY` | (none) | Anthropic or OpenAI API key — enables AI job creation. Can also be set from Settings UI without restart. |
+| `KRONFORCE_AI_PROVIDER` | `anthropic` | AI provider: `anthropic` or `openai`. Can also be set from Settings UI. |
+| `KRONFORCE_AI_MODEL` | auto | Model override (default: `claude-sonnet-4-20250514` / `gpt-4o`). Can also be set from Settings UI. |
 | `KRONFORCE_ENCRYPTION_KEY` | (none) | AES-256 key for encrypting connection credentials at rest |
 | `KRONFORCE_DEMO_MODE` | `false` | Read-only demo mode — disables auth |
 | `KRONFORCE_MCP_ENABLED` | `true` | Enable MCP server endpoint at `POST /mcp` |

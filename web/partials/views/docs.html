@@ -490,6 +490,9 @@ python3 examples/mcp_test_server.py</code></pre>
                     <h4>Variable Name Rules</h4>
                     <p>Names must match <code>[A-Za-z0-9_]+</code> (letters, numbers, underscores only).</p>
 
+                    <h4>Variable Expiration</h4>
+                    <p>Variables can have an optional expiration (30, 90, 180, or 365 days). Set this when creating a variable in Toolbox &rarr; Variables. Expired variables show a red "expired" badge in the UI. Useful for rotating secrets and temporary configuration that should be reviewed periodically.</p>
+
                     <h4>Unresolved Variables</h4>
                     <p>If a <code>{{VAR}}</code> reference doesn't match any defined variable, the placeholder is left as-is and a warning is logged. The job still runs.</p>
                 </div>
@@ -552,11 +555,11 @@ POST   /api/connections/{name}/test  # Test connectivity</code></pre>
                     <p>When enabled, the Create Job modal shows a "Describe what this job should do" prompt. Type a natural language description and click <strong>Generate</strong> to have AI fill in all form fields &mdash; name, task type, schedule, timeout, notifications, and more.</p>
 
                     <h3>Setup</h3>
-                    <p>Set these environment variables on the controller:</p>
+                    <p>Configure AI from <strong>Settings &rarr; AI Assistant</strong> (no restart needed), or via environment variables:</p>
                     <pre><code>KRONFORCE_AI_API_KEY=sk-ant-...    # Anthropic or OpenAI API key
 KRONFORCE_AI_PROVIDER=anthropic    # "anthropic" (default) or "openai"
 KRONFORCE_AI_MODEL=claude-sonnet-4-20250514  # Optional model override</code></pre>
-                    <p>The AI prompt only appears when an API key is configured. No data is sent to the AI provider except the user's description text.</p>
+                    <p>The AI page is always visible in the sidebar. When no key is configured, it shows setup instructions with disabled controls. No data is sent to the AI provider except the user's description text.</p>
 
                     <h3>Examples</h3>
                     <table class="docs-table">

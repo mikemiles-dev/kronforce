@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0-alpha] - 2026-04-26
 
 ### Added
-- **UI redesign: 7-tab navigation** — consolidated from 10+ tabs to 7 focused pages: Dashboard, Monitor (Jobs/Runs/Events sub-tabs), Pipelines (Stages/Map), Builder (full-page job editor with sidebar steps), Toolbox (Scripts/Variables/Connections), Settings, and Docs. Color-coded sub-tabs and step navigation. Legacy URL routes redirect automatically.
+- **UI redesign: 8-tab navigation** — consolidated from 10+ tabs to 8 focused pages: Dashboard, Monitor (Jobs/Runs/Events), Pipelines (Stages/Map), Builder (full-page job editor), Toolbox (Scripts/Variables/Connections), AI (dedicated job generation page), Settings, and Docs. Color-coded sub-tabs and step navigation. Legacy URL routes redirect automatically.
+- **Dedicated AI page** — always visible in the sidebar even without AI configured (shows setup instructions when disabled). Full prompt textarea, example prompts, preview of generated config, "Use This" button to pre-fill the Builder.
+- **AI settings in UI** — configure API key, provider (Anthropic/OpenAI), and model from Settings → AI Assistant card. No restart needed — saved to DB and takes effect immediately.
 - **Full-page Builder** — replaces the cramped 620px modal with a full-page job editor. Left sidebar with color-coded steps (Task, Schedule, Target, Rules, Alerts, Advanced), AI assistant panel on the right, sticky Save/Cancel. After save, navigates directly to the job detail page.
 - **Variable expiration** — optional TTL on variables (30/90/180/365 days). Expired variables show a red badge in the UI. Useful for rotating secrets and temporary config.
 - **API key expiration UI** — dropdown to set key expiry (30/90/180/365 days or never). Expired keys shown in red in the key list.
