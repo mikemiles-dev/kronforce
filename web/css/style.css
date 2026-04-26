@@ -49,6 +49,9 @@
     border-color: #d0d4dc;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+[data-theme="light"] .timeline-bar.succeeded { background: linear-gradient(180deg, #2ecc71 0%, #1ea85a 100%); }
+[data-theme="light"] .timeline-bar.failed { background: linear-gradient(180deg, #e05252 0%, #cc3a3a 100%); }
+[data-theme="light"] .timeline-bar.other { background: linear-gradient(180deg, #3e8bff 0%, #2970e6 100%); }
 [data-theme="light"] .btn-primary {
     background: linear-gradient(135deg, #2970e6 0%, #4a5ce6 100%);
     box-shadow: 0 2px 8px rgba(41,112,230,0.25);
