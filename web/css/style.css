@@ -694,6 +694,10 @@ th {
     border-bottom: 1px solid var(--border);
     background: linear-gradient(180deg, rgba(30,34,45,0.4) 0%, rgba(21,24,32,0.3) 100%);
 }
+[data-theme="light"] th {
+    background: linear-gradient(180deg, #f5f7fa 0%, #edf0f4 100%);
+    border-bottom-color: #c0c5d0;
+}
 td { transition: background 0.1s; }
 tr:hover td { background: rgba(62,139,255,0.03); }
 
