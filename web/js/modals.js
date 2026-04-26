@@ -87,7 +87,8 @@ function openCreateModal() {
     } else {
         populateConnectionSelect('');
     }
-    openModal('create-modal');
+    // Navigate to designer page (full-page editor)
+    showPage('designer');
 }
 
 async function copyJob(id) {
@@ -273,14 +274,16 @@ async function openEditModal(id) {
         populateDeps(id, job.depends_on);
         populateOutputRules(job.output_rules);
         populateJobNotifications(job.notifications);
-        openModal('create-modal');
+        document.getElementById('designer-title').textContent = 'Edit Job';
+        showPage('designer');
     } catch (e) {
         toast(e.message, 'error');
     }
 }
 
 function closeCreateModal() {
-    closeModal('create-modal');
+    editingJobId = null;
+    showPage('monitor');
 }
 
 function toggleMqSection() {
@@ -808,12 +811,16 @@ function switchJobTab(tabId, btn) {
         if (el.id.startsWith('job-tab-')) el.classList.remove('active');
     });
     document.querySelectorAll('.modal-tabs .modal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.designer-steps .designer-step').forEach(t => t.classList.remove('active'));
     document.getElementById('job-tab-' + tabId).classList.add('active');
     if (btn) btn.classList.add('active');
 }
 
 function resetJobTabs() {
     document.querySelectorAll('.modal-tabs .modal-tab').forEach((t, i) => {
+        t.classList.toggle('active', i === 0);
+    });
+    document.querySelectorAll('.designer-steps .designer-step').forEach((t, i) => {
         t.classList.toggle('active', i === 0);
     });
     document.querySelectorAll('.modal-tab-content').forEach(el => {

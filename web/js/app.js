@@ -687,11 +687,9 @@ function showPage(page) {
     } else if (page === 'pipelines') {
         setSubTab('pipelines', currentSubTab.pipelines);
     } else if (page === 'designer') {
-        // Designer opens the job creation/edit modal
+        // Full-page job editor — form is inline in designer.html
         if (!editingJobId) {
-            openCreateModal();
-        } else {
-            openEditModal(editingJobId);
+            document.getElementById('designer-title').textContent = 'Create Job';
         }
     } else if (page === 'toolbox') {
         setSubTab('toolbox', currentSubTab.toolbox);

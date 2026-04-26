@@ -17,10 +17,12 @@ function assert(condition, msg) {
 const webDir = path.join(__dirname, '..');
 const htmlFiles = [
     'partials/views/dashboard.html',
-    'partials/views/jobs.html',
+    'partials/views/monitor.html',
+    'partials/views/pipelines.html',
+    'partials/views/designer.html',
+    'partials/views/toolbox.html',
     'partials/views/settings.html',
     'partials/modals.html',
-    'partials/action-bars.html',
     'partials/sidebar.html',
 ];
 
@@ -57,13 +59,13 @@ const criticalIds = [
     'dash-agents', 'dash-running-section', 'dash-failed-section',
     'dash-stages', 'dash-map-container', 'dash-map-controls',
     // Jobs
-    'jobs-table-wrap', 'jobs-pagination', 'stages-content',
+    'jobs-table-wrap', 'jobs-pagination',
     'map-container', 'map-controls',
     // Group picker
     'group-picker-wrap', 'group-picker-popover', 'group-picker-list',
     'group-picker-search', 'group-picker-btn', 'group-picker-label',
     // Modals
-    'create-modal', 'exec-modal', 'exec-detail-content',
+    'exec-modal', 'exec-detail-content',
     'trigger-params-modal', 'trigger-params-content',
     'waiting-modal', 'waiting-detail-content', 'waiting-run-anyway-btn',
     // Job form fields

@@ -85,9 +85,9 @@ assert(viewContents['toolbox.html'].includes('id="scripts-list-wrap"'), 'scripts
 assert(viewContents['toolbox.html'].includes('id="variables-table"'), 'variables-table preserved in toolbox');
 assert(viewContents['toolbox.html'].includes('id="connections-list"'), 'connections-list preserved in toolbox');
 
-// --- Test: Sidebar has exactly 6 nav tabs ---
+// --- Test: Sidebar has 7 nav tabs (6 pages + docs) ---
 const navTabs = sidebar.match(/id="tab-\w+"/g) || [];
-assert(navTabs.length === 6, '6 nav tabs in sidebar (got ' + navTabs.length + ')');
+assert(navTabs.length === 7, '7 nav tabs in sidebar (got ' + navTabs.length + ')');
 assert(sidebar.includes('id="tab-dashboard"'), 'sidebar has dashboard tab');
 assert(sidebar.includes('id="tab-monitor"'), 'sidebar has monitor tab');
 assert(sidebar.includes('id="tab-pipelines"'), 'sidebar has pipelines tab');
@@ -96,7 +96,7 @@ assert(sidebar.includes('id="tab-toolbox"'), 'sidebar has toolbox tab');
 assert(sidebar.includes('id="tab-settings"'), 'sidebar has settings tab');
 
 // --- Test: Sidebar has docs ? button ---
-assert(sidebar.includes('sidebar-help-btn'), 'sidebar has help/docs button');
+assert(sidebar.includes('id="tab-docs"'), 'sidebar has docs tab');
 
 // --- Test: Old tabs removed ---
 assert(!sidebar.includes('id="tab-jobs"'), 'no tab-jobs in sidebar');
