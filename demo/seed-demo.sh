@@ -78,22 +78,22 @@ echo "  Connections created (9)"
 # SCRIPTS (Rhai + Dockerfile)
 # =============================================
 curl -sf -X PUT "$URL/api/scripts/etl-helper" -H "$AUTH" -H "$CT" -d '{
-    "content": "// ETL helper script\nlet count = 1523;\nlet status = \"complete\";\nprint(`Extracted ${count} records: ${status}`);\ncount",
+    "code": "// ETL helper script\nlet count = 1523;\nlet status = \"complete\";\nprint(`Extracted ${count} records: ${status}`);\ncount",
     "script_type": "rhai"
 }' > /dev/null 2>&1 || true
 
 curl -sf -X PUT "$URL/api/scripts/report-generator" -H "$AUTH" -H "$CT" -d '{
-    "content": "FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas jinja2\nCOPY generate_report.py /app/\nWORKDIR /app\nCMD [\"python\", \"generate_report.py\"]",
+    "code": "FROM python:3.11-slim\nRUN pip install --no-cache-dir pandas jinja2\nCOPY generate_report.py /app/\nWORKDIR /app\nCMD [\"python\", \"generate_report.py\"]",
     "script_type": "dockerfile"
 }' > /dev/null 2>&1 || true
 
 curl -sf -X PUT "$URL/api/scripts/healthcheck" -H "$AUTH" -H "$CT" -d '{
-    "content": "// Health check helper\nlet endpoints = [\"api\", \"web\", \"worker\"];\nfor ep in endpoints {\n    print(`Checking ${ep}... OK`);\n}\nprint(\"All services healthy\");\ntrue",
+    "code": "// Health check helper\nlet endpoints = [\"api\", \"web\", \"worker\"];\nfor ep in endpoints {\n    print(`Checking ${ep}... OK`);\n}\nprint(\"All services healthy\");\ntrue",
     "script_type": "rhai"
 }' > /dev/null 2>&1 || true
 
 curl -sf -X PUT "$URL/api/scripts/system-stats" -H "$AUTH" -H "$CT" -d '{
-    "content": "// System stats collector\nlet ts = timestamp();\nlet load = (ts % 100) / 100.0;\nlet mem_used = 2048 + (ts % 512);\nlet mem_total = 4096;\nlet disk_pct = 45 + (ts % 30);\n\nprint(`Timestamp: ${ts}`);\nprint(`Load average: ${load}`);\nprint(`Memory: ${mem_used}MB / ${mem_total}MB (${(mem_used * 100) / mem_total}%)`);\nprint(`Disk usage: ${disk_pct}%`);\n\nif disk_pct > 85 {\n    print(\"WARNING: Disk usage above 85%\");\n}\n\nprint(\"Stats collection complete\");\ntrue",
+    "code": "// System stats collector\nlet ts = timestamp();\nlet load = (ts % 100) / 100.0;\nlet mem_used = 2048 + (ts % 512);\nlet mem_total = 4096;\nlet disk_pct = 45 + (ts % 30);\n\nprint(`Timestamp: ${ts}`);\nprint(`Load average: ${load}`);\nprint(`Memory: ${mem_used}MB / ${mem_total}MB (${(mem_used * 100) / mem_total}%)`);\nprint(`Disk usage: ${disk_pct}%`);\n\nif disk_pct > 85 {\n    print(\"WARNING: Disk usage above 85%\");\n}\n\nprint(\"Stats collection complete\");\ntrue",
     "script_type": "rhai"
 }' > /dev/null 2>&1 || true
 echo "  Scripts created (4)"
