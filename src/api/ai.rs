@@ -132,7 +132,7 @@ async fn call_anthropic(
     let resp = client
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
-        .header("anthropic-version", "2024-10-22")
+        .header("anthropic-version", "2023-06-01")
         .header("content-type", "application/json")
         .json(&body)
         .timeout(std::time::Duration::from_secs(30))
@@ -247,7 +247,7 @@ pub(crate) async fn ai_list_models(
         let resp = client
             .get("https://api.anthropic.com/v1/models")
             .header("x-api-key", &api_key)
-            .header("anthropic-version", "2024-10-22")
+            .header("anthropic-version", "2023-06-01")
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await
