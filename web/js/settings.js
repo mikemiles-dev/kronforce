@@ -25,12 +25,35 @@ async function saveAiSettings() {
         if (model) body.ai_model = model;
         else body.ai_model = '';
         await api('PUT', '/api/settings', body);
-        statusEl.textContent = 'Saved';
-        statusEl.style.color = 'var(--success)';
-        // Update global flag
         aiEnabled = !!key;
         if (typeof initAiPage === 'function') initAiPage();
-        setTimeout(function() { statusEl.textContent = ''; }, 3000);
+
+        // Auto-detect available models
+        if (key && !model) {
+            statusEl.textContent = 'Saved. Detecting models...';
+            statusEl.style.color = 'var(--text-muted)';
+            try {
+                const models = await api('GET', '/api/ai/models');
+                const modelList = models.data || models.models || [];
+                if (modelList.length > 0) {
+                    const names = modelList.map(function(m) { return m.id || m.name || ''; }).filter(Boolean).sort();
+                    const modelEl = document.getElementById('settings-ai-model');
+                    if (modelEl) modelEl.placeholder = names[0] + ' (auto)';
+                    statusEl.textContent = 'Saved. ' + names.length + ' models available (using ' + names[0] + ')';
+                    statusEl.style.color = 'var(--success)';
+                } else {
+                    statusEl.textContent = 'Saved.';
+                    statusEl.style.color = 'var(--success)';
+                }
+            } catch (e) {
+                statusEl.textContent = 'Saved. Could not list models: ' + e.message;
+                statusEl.style.color = 'var(--accent)';
+            }
+        } else {
+            statusEl.textContent = 'Saved';
+            statusEl.style.color = 'var(--success)';
+        }
+        setTimeout(function() { statusEl.textContent = ''; }, 5000);
     } catch (e) {
         statusEl.textContent = 'Error: ' + e.message;
         statusEl.style.color = 'var(--danger)';

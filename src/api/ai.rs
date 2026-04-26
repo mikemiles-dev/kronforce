@@ -205,6 +205,61 @@ async fn call_openai(
         .ok_or_else(|| AppError::Internal("unexpected AI response format".into()))
 }
 
+/// List available models for the configured AI provider.
+pub(crate) async fn ai_list_models(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    let (db_key, db_provider) = tokio::task::spawn_blocking(move || {
+        let key = db.get_setting("ai_api_key").unwrap_or(None);
+        let provider = db.get_setting("ai_provider").unwrap_or(None);
+        (key, provider)
+    })
+    .await
+    .unwrap_or((None, None));
+
+    let api_key = db_key
+        .filter(|k| !k.is_empty())
+        .or_else(|| state.ai_api_key.clone())
+        .ok_or_else(|| AppError::BadRequest("no AI API key configured".into()))?;
+
+    let provider = db_provider
+        .filter(|p| !p.is_empty())
+        .unwrap_or_else(|| state.ai_provider.clone());
+
+    let client = reqwest::Client::new();
+
+    if provider == "openai" {
+        let resp = client
+            .get("https://api.openai.com/v1/models")
+            .header("authorization", format!("Bearer {}", api_key))
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("request failed: {e}")))?;
+        let data: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(format!("parse error: {e}")))?;
+        Ok(Json(data))
+    } else {
+        let resp = client
+            .get("https://api.anthropic.com/v1/models")
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", "2024-10-22")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("request failed: {e}")))?;
+        let data: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| AppError::Internal(format!("parse error: {e}")))?;
+        Ok(Json(data))
+    }
+}
+
 /// Try to extract a JSON object from text that may have surrounding markdown/explanation.
 fn extract_json(text: &str) -> Option<serde_json::Value> {
     // Try extracting from ```json ... ```

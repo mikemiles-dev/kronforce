@@ -205,6 +205,7 @@ pub fn router(
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
         .route("/api/ai/generate-job", post(ai::ai_generate_job))
+        .route("/api/ai/models", get(ai::ai_list_models))
         .route("/api/data/export", get(data::export_data))
         .route("/api/data/delete", delete(data::delete_all_data))
         .route(
