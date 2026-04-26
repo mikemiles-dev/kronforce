@@ -25,7 +25,11 @@ fn parse_variable(row: &rusqlite::Row) -> rusqlite::Result<Variable> {
             .map(|d| d.with_timezone(&Utc))
             .unwrap_or_else(|_| Utc::now()),
         secret: is_secret,
-        expires_at: expires_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|d| d.with_timezone(&Utc))),
+        expires_at: expires_at.and_then(|s| {
+            DateTime::parse_from_rfc3339(&s)
+                .ok()
+                .map(|d| d.with_timezone(&Utc))
+        }),
     })
 }
 
@@ -37,7 +41,9 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let mut stmt = conn
-            .prepare("SELECT name, value, updated_at, secret, expires_at FROM variables ORDER BY name")
+            .prepare(
+                "SELECT name, value, updated_at, secret, expires_at FROM variables ORDER BY name",
+            )
             .map_err(AppError::Db)?;
         let rows = stmt.query_map([], parse_variable).map_err(AppError::Db)?;
         let mut vars = Vec::new();

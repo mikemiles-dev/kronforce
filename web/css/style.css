@@ -1574,6 +1574,9 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .sub-tab-events.active { color: #e6a817; border-bottom-color: #e6a817; }
 .sub-tab-stages.active { color: #9b59b6; border-bottom-color: #9b59b6; }
 .sub-tab-map.active { color: #e67e22; border-bottom-color: #e67e22; }
+.sub-tab-scripts.active { color: #2ecc71; border-bottom-color: #2ecc71; }
+.sub-tab-variables.active { color: #3e8bff; border-bottom-color: #3e8bff; }
+.sub-tab-connections.active { color: #9b59b6; border-bottom-color: #9b59b6; }
 
 /* Designer full-page layout */
 #designer-view { margin: -24px; padding: 16px; min-height: calc(100vh - 32px); display: flex; flex-direction: column; }

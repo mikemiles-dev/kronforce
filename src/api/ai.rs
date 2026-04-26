@@ -86,13 +86,16 @@ pub(crate) async fn ai_generate_job(
         ));
     }
 
-    let model = db_model.filter(|m| !m.is_empty()).or_else(|| state.ai_model.clone()).unwrap_or_else(|| {
-        if provider == "openai" {
-            "gpt-4o".to_string()
-        } else {
-            "claude-sonnet-4-20250514".to_string()
-        }
-    });
+    let model = db_model
+        .filter(|m| !m.is_empty())
+        .or_else(|| state.ai_model.clone())
+        .unwrap_or_else(|| {
+            if provider == "openai" {
+                "gpt-4o".to_string()
+            } else {
+                "claude-sonnet-4-20250514".to_string()
+            }
+        });
 
     let client = reqwest::Client::new();
     let response_text = if provider == "openai" {

@@ -1345,7 +1345,10 @@ fn test_export_includes_jobs_and_variables() {
     assert_eq!(jobs[0].name, "export-job");
 
     let vars = db.list_variables().unwrap();
-    assert!(vars.iter().any(|v| v.name == "EXPORT_VAR" && v.value == "test-value"));
+    assert!(
+        vars.iter()
+            .any(|v| v.name == "EXPORT_VAR" && v.value == "test-value")
+    );
 }
 
 #[test]
@@ -1381,7 +1384,10 @@ fn test_export_connections_decrypted() {
 
     let conns = db.list_connections().unwrap();
     assert_eq!(conns.len(), 1);
-    assert_eq!(conns[0].config["connection_string"], "postgresql://user:secret_pw@host/db");
+    assert_eq!(
+        conns[0].config["connection_string"],
+        "postgresql://user:secret_pw@host/db"
+    );
 }
 
 #[test]
@@ -1416,7 +1422,11 @@ fn test_export_api_keys_metadata() {
 fn test_export_settings_included() {
     let db = test_db();
     db.set_setting("retention_days", "30").unwrap();
-    db.set_setting("pipeline_schedule_ETL", r#"{"type":"cron","value":"0 0 6 * * *"}"#).unwrap();
+    db.set_setting(
+        "pipeline_schedule_ETL",
+        r#"{"type":"cron","value":"0 0 6 * * *"}"#,
+    )
+    .unwrap();
 
     let settings = db.get_all_settings().unwrap();
     assert_eq!(settings.get("retention_days").unwrap(), "30");

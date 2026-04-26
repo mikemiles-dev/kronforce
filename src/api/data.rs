@@ -52,13 +52,12 @@ pub(crate) async fn export_data(
 
         if include_secrets {
             // Variables with decrypted secret values
-            export["variables"] = serde_json::to_value(&variables)
-                .unwrap_or(serde_json::json!([]));
+            export["variables"] = serde_json::to_value(&variables).unwrap_or(serde_json::json!([]));
 
             // Connections with decrypted configs
             let connections = db.list_connections()?;
-            export["connections"] = serde_json::to_value(&connections)
-                .unwrap_or(serde_json::json!([]));
+            export["connections"] =
+                serde_json::to_value(&connections).unwrap_or(serde_json::json!([]));
 
             // API keys (metadata only — name, role, permissions, NOT hashes)
             let keys = db.list_api_keys()?;
