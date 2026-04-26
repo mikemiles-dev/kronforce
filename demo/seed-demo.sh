@@ -68,10 +68,11 @@ for conn in \
     '{"name":"event-kafka","conn_type":"kafka","description":"Event streaming Kafka cluster","config":{"broker":"kafka.example.com:9092","username":"kronforce","password":"kafka_pw_demo"}}' \
     '{"name":"cache-redis","conn_type":"redis","description":"Application cache Redis","config":{"url":"redis://:redis_pw@cache.example.com:6379"}}' \
     '{"name":"alerts-smtp","conn_type":"smtp","description":"Alert email SMTP server","config":{"host":"smtp.example.com","port":587,"username":"alerts@example.com","password":"smtp_pw_demo"}}' \
+    '{"name":"demo-http","conn_type":"http","description":"Demo HTTP connection (httpbin.org — public test API)","config":{"base_url":"https://httpbin.org","auth_type":"none"}}' \
 ; do
     curl -sf -X POST "$URL/api/connections" -H "$AUTH" -H "$CT" -d "$conn" > /dev/null 2>&1 || true
 done
-echo "  Connections created (8)"
+echo "  Connections created (9)"
 
 # =============================================
 # SCRIPTS (Rhai + Dockerfile)
@@ -90,11 +91,24 @@ curl -sf -X PUT "$URL/api/scripts/healthcheck" -H "$AUTH" -H "$CT" -d '{
     "content": "// Health check helper\nlet endpoints = [\"api\", \"web\", \"worker\"];\nfor ep in endpoints {\n    print(`Checking ${ep}... OK`);\n}\nprint(\"All services healthy\");\ntrue",
     "script_type": "rhai"
 }' > /dev/null 2>&1 || true
-echo "  Scripts created (3)"
+
+curl -sf -X PUT "$URL/api/scripts/system-stats" -H "$AUTH" -H "$CT" -d '{
+    "content": "// System stats collector\nlet ts = timestamp();\nlet load = (ts % 100) / 100.0;\nlet mem_used = 2048 + (ts % 512);\nlet mem_total = 4096;\nlet disk_pct = 45 + (ts % 30);\n\nprint(`Timestamp: ${ts}`);\nprint(`Load average: ${load}`);\nprint(`Memory: ${mem_used}MB / ${mem_total}MB (${(mem_used * 100) / mem_total}%)`);\nprint(`Disk usage: ${disk_pct}%`);\n\nif disk_pct > 85 {\n    print(\"WARNING: Disk usage above 85%\");\n}\n\nprint(\"Stats collection complete\");\ntrue",
+    "script_type": "rhai"
+}' > /dev/null 2>&1 || true
+echo "  Scripts created (4)"
 
 # =============================================
-# MONITORING GROUP (7 jobs)
+# MONITORING GROUP (8 jobs — includes a fast-running demo job)
 # =============================================
+curl -sf -X POST "$URL/api/jobs" -H "$AUTH" -H "$CT" -d '{
+    "name":"system-pulse","description":"Collects system stats every 15 seconds — demonstrates live execution and output extraction",
+    "task":{"type":"shell","command":"echo \"$(date -u +%H:%M:%S) | CPU: $((RANDOM % 40 + 10))% | Mem: $((RANDOM % 2048 + 1024))MB/4096MB | Requests: $((RANDOM % 500 + 100))/s | Errors: $((RANDOM % 3))\" && echo \"pulse_ok\""},
+    "schedule":{"type":"cron","value":"*/15 * * * * *"},"group":"Monitoring",
+    "timeout_secs":10,"max_concurrent":1,
+    "output_rules":{"extractions":[{"name":"pulse","pattern":"pulse_ok","type":"regex"}],"assertions":[{"pattern":"pulse_ok","message":"System pulse failed"}]}
+}' > /dev/null 2>&1 || true
+
 curl -sf -X POST "$URL/api/jobs" -H "$AUTH" -H "$CT" -d '{
     "name":"health-check","description":"Check if the primary API is responding with 200 OK",
     "task":{"type":"http","method":"GET","url":"https://httpbin.org/get","expect_status":200},
