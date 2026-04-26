@@ -61,6 +61,8 @@ pub(crate) struct CreateVariableRequest {
     value: String,
     #[serde(default)]
     secret: bool,
+    #[serde(default)]
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Checks that the authenticated user has write access.
@@ -89,6 +91,7 @@ pub(crate) async fn create_variable(
         value: req.value,
         updated_at: Utc::now(),
         secret: req.secret,
+        expires_at: req.expires_at,
     };
     let var_clone = var.clone();
     db_call(&state.db, move |db| db.insert_variable(&var_clone)).await?;

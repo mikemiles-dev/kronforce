@@ -26,8 +26,13 @@ function renderVariables() {
         const isSecret = v.secret;
         const inputType = isSecret ? 'password' : 'text';
         const badge = isSecret ? ' <span style="font-size:10px;color:var(--accent);background:rgba(62,139,255,0.1);padding:1px 5px;border-radius:8px;margin-left:4px">secret</span>' : '';
+        let expiryBadge = '';
+        if (v.expires_at) {
+            const expired = new Date(v.expires_at) < new Date();
+            expiryBadge = ' <span style="font-size:10px;color:' + (expired ? 'var(--danger)' : 'var(--text-muted)') + ';background:' + (expired ? 'rgba(224,82,82,0.1)' : 'rgba(139,148,158,0.1)') + ';padding:1px 5px;border-radius:8px;margin-left:4px">' + (expired ? 'expired' : 'expires ' + fmtDate(v.expires_at)) + '</span>';
+        }
         return `<tr>
-        <td><code>${esc(v.name)}</code>${badge}</td>
+        <td><code>${esc(v.name)}</code>${badge}${expiryBadge}</td>
         <td><input type="${inputType}" class="var-edit-value" data-name="${esc(v.name)}" value="${esc(v.value)}" style="width:100%;font-family:var(--font-mono);font-size:12px" ${isSecret ? 'placeholder="••••••••" ' : ''}onchange="updateVariable('${esc(v.name)}', this.value)"></td>
         <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(v.updated_at)}</td>
         <td><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteVariable('${esc(v.name)}')">Delete</button></td>
@@ -61,13 +66,20 @@ async function createVariable() {
     const name = document.getElementById('new-var-name').value.trim();
     const value = document.getElementById('new-var-value').value;
     const secret = document.getElementById('new-var-secret').checked;
+    const expiresDays = document.getElementById('new-var-expires').value;
     if (!name) return;
     if (!/^[A-Za-z0-9_]+$/.test(name)) {
         toast('Variable name must contain only letters, numbers, and underscores.', 'error');
         return;
     }
+    const body = { name, value, secret };
+    if (expiresDays) {
+        const d = new Date();
+        d.setDate(d.getDate() + parseInt(expiresDays));
+        body.expires_at = d.toISOString();
+    }
     try {
-        await api('POST', '/api/variables', { name, value, secret });
+        await api('POST', '/api/variables', body);
         hideAddVariableForm();
         fetchVariables();
     } catch (e) {

@@ -10,4 +10,7 @@ pub struct Variable {
     /// If true, the value is masked in API responses and the UI.
     #[serde(default)]
     pub secret: bool,
+    /// Optional expiration date. Expired variables are still stored but flagged in the UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<Utc>>,
 }
