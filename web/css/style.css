@@ -40,13 +40,13 @@
 [data-theme="light"] .stat-card,
 [data-theme="light"] .group-card {
     background: linear-gradient(160deg, #ffffff 0%, #eef0f5 100%);
-    border: 1px solid #dce0e8;
+    border: 1px solid #bcc2cc;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 [data-theme="light"] .card:hover,
 [data-theme="light"] .stat-card:hover,
 [data-theme="light"] .group-card:hover {
-    border-color: #d0d4dc;
+    border-color: #a0a8b8;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 [data-theme="light"] .timeline-bar.succeeded { background: linear-gradient(180deg, #2ecc71 0%, #1ea85a 100%); }
