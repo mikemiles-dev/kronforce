@@ -65,7 +65,7 @@
     box-shadow: 0 2px 10px rgba(41,112,230,0.3);
     color: #fff;
 }
-[data-theme="light"] .nav-tab:hover {
+[data-theme="light"] .nav-tab:hover:not(.active) {
     background: rgba(41,112,230,0.06);
 }
 [data-theme="light"] .designer-steps {
@@ -128,9 +128,6 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-[data-theme="light"] .nav-tab.active {
-    box-shadow: 0 1px 6px rgba(41,112,230,0.2);
-}
 
 [data-theme="light"] .output-pre {
     background: var(--bg-tertiary);
