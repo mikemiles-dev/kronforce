@@ -40,7 +40,19 @@ function populatePipelineGroupList() {
     for (const g of groups) {
         html += '<div class="group-picker-item" onclick="selectPipelineGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
     }
+    if (!groups.length && search) {
+        html += '<div class="group-picker-item" onclick="createAndSelectPipelineGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
+    }
     list.innerHTML = html;
+}
+
+async function createAndSelectPipelineGroup(name) {
+    try {
+        await api('POST', '/api/jobs/groups', { name: name });
+        if (typeof fetchGroups === 'function') await fetchGroups();
+        selectPipelineGroup(name);
+        toast('Group "' + name + '" created');
+    } catch (e) { toast(e.message, 'error'); }
 }
 
 function filterPipelineGroupPicker() {
@@ -86,7 +98,7 @@ function populateDesignerGroupList() {
         html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
     }
     if (!groups.length && search) {
-        html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">Create "' + esc(search) + '"</div>';
+        html += '<div class="group-picker-item" onclick="createAndSelectDesignerGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
     }
     list.innerHTML = html;
 }
@@ -101,6 +113,15 @@ function selectDesignerGroup(group) {
     dsGroupPickerOpen = false;
     document.getElementById('ds-group-picker-popover').style.display = 'none';
     document.removeEventListener('click', closeDesignerGroupPickerOutside);
+}
+
+async function createAndSelectDesignerGroup(name) {
+    try {
+        await api('POST', '/api/jobs/groups', { name: name });
+        if (typeof fetchGroups === 'function') await fetchGroups();
+        selectDesignerGroup(name);
+        toast('Group "' + name + '" created');
+    } catch (e) { toast(e.message, 'error'); }
 }
 
 function selectPipelineGroup(group) {
