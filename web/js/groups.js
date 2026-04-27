@@ -32,16 +32,21 @@ function closePipelineGroupPickerOutside(e) {
 function populatePipelineGroupList() {
     const list = document.getElementById('pl-group-picker-list');
     if (!list) return;
-    const search = (document.getElementById('pl-group-picker-search').value || '').toLowerCase();
+    const search = (document.getElementById('pl-group-picker-search').value || '').trim();
+    const searchLower = search.toLowerCase();
     const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
-        return !search || g.toLowerCase().includes(search);
+        return !searchLower || g.toLowerCase().includes(searchLower);
     });
     let html = '<div class="group-picker-item" onclick="selectPipelineGroup(\'\')" style="font-style:italic">All Groups</div>';
     for (const g of groups) {
         html += '<div class="group-picker-item" onclick="selectPipelineGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
     }
-    if (!groups.length && search) {
+    var exactMatch = search && groups.some(function(g) { return g.toLowerCase() === searchLower; });
+    if (search && !exactMatch) {
         html += '<div class="group-picker-item" onclick="createAndSelectPipelineGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
+    }
+    if (!search && groups.length > 0) {
+        html += '<div style="padding:6px 12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">Type a new name to create a group</div>';
     }
     list.innerHTML = html;
 }
@@ -89,16 +94,23 @@ function closeDesignerGroupPickerOutside(e) {
 function populateDesignerGroupList() {
     const list = document.getElementById('ds-group-picker-list');
     if (!list) return;
-    const search = (document.getElementById('ds-group-picker-search').value || '').toLowerCase();
+    const search = (document.getElementById('ds-group-picker-search').value || '').trim();
+    const searchLower = search.toLowerCase();
     const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
-        return !search || g.toLowerCase().includes(search);
+        return !searchLower || g.toLowerCase().includes(searchLower);
     });
     let html = '';
     for (const g of groups) {
         html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
     }
-    if (!groups.length && search) {
+    // Show create option if user typed something that doesn't exactly match an existing group
+    var exactMatch = search && groups.some(function(g) { return g.toLowerCase() === searchLower; });
+    if (search && !exactMatch) {
         html += '<div class="group-picker-item" onclick="createAndSelectDesignerGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
+    }
+    // Always show a hint if no search text
+    if (!search && groups.length > 0) {
+        html += '<div style="padding:6px 12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">Type a new name to create a group</div>';
     }
     list.innerHTML = html;
 }
