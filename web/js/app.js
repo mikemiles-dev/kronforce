@@ -685,9 +685,11 @@ function showPage(page) {
     } else if (page === 'monitor') {
         setSubTab('monitor', currentSubTab.monitor);
     } else if (page === 'pipelines') {
+        fetchGroups();
         setSubTab('pipelines', currentSubTab.pipelines);
     } else if (page === 'designer') {
         // Full-page job editor — form is inline in designer.html
+        fetchGroups();
         if (!editingJobId) {
             document.getElementById('designer-title').textContent = 'Create Job';
         }

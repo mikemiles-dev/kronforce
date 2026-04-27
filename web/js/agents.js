@@ -15,6 +15,7 @@ async function fetchAgents() {
 
 function renderAgents() {
     const wrap = document.getElementById('agents-table-wrap');
+    if (!wrap) return;
 
     let html = '<div id="pair-command-box"></div>';
 
