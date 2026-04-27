@@ -3,148 +3,138 @@
 
 let groupsPageJobs = [];
 let groupsViewMode = localStorage.getItem('kf-groupsView') || 'cards';
-let plGroupPickerOpen = false;
+// --- Generic Group Picker ---
+// Shared by Monitor, Pipelines, and Builder pages
 
-function togglePipelineGroupPicker() {
-    const pop = document.getElementById('pl-group-picker-popover');
-    if (!pop) return;
-    plGroupPickerOpen = !plGroupPickerOpen;
-    pop.style.display = plGroupPickerOpen ? '' : 'none';
-    if (plGroupPickerOpen) {
-        document.getElementById('pl-group-picker-search').value = '';
-        populatePipelineGroupList();
-        document.getElementById('pl-group-picker-search').focus();
-        setTimeout(function() { document.addEventListener('click', closePipelineGroupPickerOutside); }, 10);
-    } else {
-        document.removeEventListener('click', closePipelineGroupPickerOutside);
+function genericGroupPicker(prefix, opts) {
+    // opts: { showAll: bool, onSelect: fn(group), currentValue: fn() }
+    var isOpen = false;
+    var outsideHandler = null;
+
+    function toggle() {
+        var pop = document.getElementById(prefix + '-group-picker-popover');
+        if (!pop) return;
+        isOpen = !isOpen;
+        pop.style.display = isOpen ? '' : 'none';
+        if (isOpen) {
+            var s = document.getElementById(prefix + '-group-picker-search');
+            if (s) { s.value = ''; s.focus(); }
+            render();
+            outsideHandler = function(e) {
+                var wrap = document.getElementById(prefix + '-group-picker-wrap');
+                if (wrap && !wrap.contains(e.target)) { close(); }
+            };
+            setTimeout(function() { document.addEventListener('click', outsideHandler); }, 10);
+        } else {
+            close();
+        }
     }
-}
 
-function closePipelineGroupPickerOutside(e) {
-    const wrap = document.getElementById('pl-group-picker-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-        plGroupPickerOpen = false;
-        document.getElementById('pl-group-picker-popover').style.display = 'none';
-        document.removeEventListener('click', closePipelineGroupPickerOutside);
+    function close() {
+        isOpen = false;
+        var pop = document.getElementById(prefix + '-group-picker-popover');
+        if (pop) pop.style.display = 'none';
+        if (outsideHandler) { document.removeEventListener('click', outsideHandler); outsideHandler = null; }
     }
-}
 
-function populatePipelineGroupList() {
-    const list = document.getElementById('pl-group-picker-list');
-    if (!list) return;
-    const search = (document.getElementById('pl-group-picker-search').value || '').trim();
-    const searchLower = search.toLowerCase();
-    const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
-        return !searchLower || g.toLowerCase().includes(searchLower);
-    });
-    let html = '<div class="group-picker-item" onclick="selectPipelineGroup(\'\')" style="font-style:italic">All Groups</div>';
-    for (const g of groups) {
-        html += '<div class="group-picker-item" onclick="selectPipelineGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
+    function render() {
+        var list = document.getElementById(prefix + '-group-picker-list');
+        if (!list) return;
+        var search = (document.getElementById(prefix + '-group-picker-search').value || '').trim();
+        var searchLower = search.toLowerCase();
+        var groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
+            return !searchLower || g.toLowerCase().includes(searchLower);
+        });
+        var current = opts.currentValue ? opts.currentValue() : '';
+        var html = '';
+
+        // + New Group at top
+        html += '<div class="group-picker-item group-picker-create" onclick="' + prefix + 'GroupPicker.create()" style="color:var(--accent)">+ New Group</div>';
+
+        // All Groups option
+        if (opts.showAll) {
+            html += '<div class="group-picker-item' + (!current ? ' active' : '') + '" onclick="' + prefix + 'GroupPicker.select(\'\')">';
+            html += '<span style="flex:1;font-style:italic">All Groups</span></div>';
+        }
+
+        // Group list with colored dots
+        for (var i = 0; i < groups.length; i++) {
+            var g = groups[i];
+            var color = typeof groupColor === 'function' ? groupColor(g) : 'var(--accent)';
+            var active = current === g;
+            html += '<div class="group-picker-item' + (active ? ' active' : '') + '" onclick="' + prefix + 'GroupPicker.select(\'' + escAttr(g) + '\')">';
+            html += '<span class="group-picker-dot" style="background:' + color + '"></span>';
+            html += '<span style="flex:1">' + esc(g) + '</span>';
+            if (g !== 'Default') {
+                html += '<button class="group-picker-delete" onclick="event.stopPropagation();' + prefix + 'GroupPicker.del(\'' + escAttr(g) + '\')" title="Delete group">&times;</button>';
+            }
+            html += '</div>';
+        }
+
+        // Create option when typing new name
+        var exactMatch = search && groups.some(function(g) { return g.toLowerCase() === searchLower; });
+        if (search && !exactMatch) {
+            html += '<div class="group-picker-item" onclick="' + prefix + 'GroupPicker.createNamed(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
+        }
+
+        list.innerHTML = html;
     }
-    var exactMatch = search && groups.some(function(g) { return g.toLowerCase() === searchLower; });
-    if (search && !exactMatch) {
-        html += '<div class="group-picker-item" onclick="createAndSelectPipelineGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
+
+    function select(group) {
+        var label = document.getElementById(prefix + '-group-picker-label');
+        if (label) label.textContent = group || (opts.showAll ? 'All Groups' : 'Default');
+        close();
+        if (opts.onSelect) opts.onSelect(group);
     }
-    if (!search && groups.length > 0) {
-        html += '<div style="padding:6px 12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">Type a new name to create a group</div>';
+
+    async function createNew() {
+        var name = prompt('Enter new group name:');
+        if (!name || !name.trim()) return;
+        await createNamed(name.trim());
     }
-    list.innerHTML = html;
-}
 
-async function createAndSelectPipelineGroup(name) {
-    try {
-        await api('POST', '/api/jobs/groups', { name: name });
-        if (typeof fetchGroups === 'function') await fetchGroups();
-        selectPipelineGroup(name);
-        toast('Group "' + name + '" created');
-    } catch (e) { toast(e.message, 'error'); }
-}
-
-function filterPipelineGroupPicker() {
-    populatePipelineGroupList();
-}
-
-// --- Designer Group Picker ---
-let dsGroupPickerOpen = false;
-
-function toggleDesignerGroupPicker() {
-    const pop = document.getElementById('ds-group-picker-popover');
-    if (!pop) return;
-    dsGroupPickerOpen = !dsGroupPickerOpen;
-    pop.style.display = dsGroupPickerOpen ? '' : 'none';
-    if (dsGroupPickerOpen) {
-        document.getElementById('ds-group-picker-search').value = '';
-        populateDesignerGroupList();
-        document.getElementById('ds-group-picker-search').focus();
-        setTimeout(function() { document.addEventListener('click', closeDesignerGroupPickerOutside); }, 10);
-    } else {
-        document.removeEventListener('click', closeDesignerGroupPickerOutside);
+    async function createNamed(name) {
+        try {
+            await api('POST', '/api/jobs/groups', { name: name });
+            if (typeof fetchGroups === 'function') await fetchGroups();
+            select(name);
+            toast('Group "' + name + '" created');
+        } catch (e) { toast(e.message, 'error'); }
     }
-}
 
-function closeDesignerGroupPickerOutside(e) {
-    const wrap = document.getElementById('ds-group-picker-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-        dsGroupPickerOpen = false;
-        document.getElementById('ds-group-picker-popover').style.display = 'none';
-        document.removeEventListener('click', closeDesignerGroupPickerOutside);
+    async function del(name) {
+        if (!confirm('Delete group "' + name + '"? Jobs will be moved to Default.')) return;
+        try {
+            await api('PUT', '/api/jobs/rename-group', { old_name: name, new_name: 'Default' });
+            if (typeof fetchGroups === 'function') await fetchGroups();
+            toast('Group "' + name + '" deleted');
+            render();
+        } catch (e) { toast(e.message, 'error'); }
     }
+
+    return { toggle: toggle, filter: render, select: select, create: createNew, createNamed: createNamed, del: del };
 }
 
-function populateDesignerGroupList() {
-    const list = document.getElementById('ds-group-picker-list');
-    if (!list) return;
-    const search = (document.getElementById('ds-group-picker-search').value || '').trim();
-    const searchLower = search.toLowerCase();
-    const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
-        return !searchLower || g.toLowerCase().includes(searchLower);
-    });
-    let html = '';
-    for (const g of groups) {
-        html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
+// Pipeline group picker
+var plGroupPicker = genericGroupPicker('pl', {
+    showAll: true,
+    currentValue: function() { var s = document.getElementById('stages-group-filter'); return s ? s.value : ''; },
+    onSelect: function(g) {
+        var s = document.getElementById('stages-group-filter'); if (s) s.value = g;
+        fetchGroupsPage();
     }
-    // Show create option if user typed something that doesn't exactly match an existing group
-    var exactMatch = search && groups.some(function(g) { return g.toLowerCase() === searchLower; });
-    if (search && !exactMatch) {
-        html += '<div class="group-picker-item" onclick="createAndSelectDesignerGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">+ Create "' + esc(search) + '"</div>';
-    }
-    // Always show a hint if no search text
-    if (!search && groups.length > 0) {
-        html += '<div style="padding:6px 12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)">Type a new name to create a group</div>';
-    }
-    list.innerHTML = html;
-}
+});
+function togglePipelineGroupPicker() { plGroupPicker.toggle(); }
+function filterPipelineGroupPicker() { plGroupPicker.filter(); }
 
-function filterDesignerGroupPicker() { populateDesignerGroupList(); }
-
-function selectDesignerGroup(group) {
-    const label = document.getElementById('ds-group-picker-label');
-    const select = document.getElementById('f-group');
-    if (label) label.textContent = group || 'Default';
-    if (select) select.value = group;
-    dsGroupPickerOpen = false;
-    document.getElementById('ds-group-picker-popover').style.display = 'none';
-    document.removeEventListener('click', closeDesignerGroupPickerOutside);
-}
-
-async function createAndSelectDesignerGroup(name) {
-    try {
-        await api('POST', '/api/jobs/groups', { name: name });
-        if (typeof fetchGroups === 'function') await fetchGroups();
-        selectDesignerGroup(name);
-        toast('Group "' + name + '" created');
-    } catch (e) { toast(e.message, 'error'); }
-}
-
-function selectPipelineGroup(group) {
-    const label = document.getElementById('pl-group-picker-label');
-    const select = document.getElementById('stages-group-filter');
-    if (label) label.textContent = group || 'All Groups';
-    if (select) { select.value = group; fetchGroupsPage(); }
-    plGroupPickerOpen = false;
-    document.getElementById('pl-group-picker-popover').style.display = 'none';
-    document.removeEventListener('click', closePipelineGroupPickerOutside);
-}
+// Designer group picker
+var dsGroupPicker = genericGroupPicker('ds', {
+    showAll: false,
+    currentValue: function() { var s = document.getElementById('f-group'); return s ? s.value : ''; },
+    onSelect: function(g) { var s = document.getElementById('f-group'); if (s) s.value = g; }
+});
+function toggleDesignerGroupPicker() { dsGroupPicker.toggle(); }
+function filterDesignerGroupPicker() { dsGroupPicker.filter(); }
 
 function setGroupsView(mode) {
     groupsViewMode = mode;
