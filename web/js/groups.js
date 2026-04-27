@@ -128,7 +128,12 @@ var plGroupPicker = genericGroupPicker('pl', {
     currentValue: function() { var s = document.getElementById('stages-group-filter'); return s ? s.value : ''; },
     onSelect: function(g) {
         var s = document.getElementById('stages-group-filter'); if (s) s.value = g;
-        fetchGroupsPage();
+        if (typeof groupFilter !== 'undefined') groupFilter = g;
+        if (currentSubTab && currentSubTab.pipelines === 'map') {
+            renderMap();
+        } else {
+            fetchGroupsPage();
+        }
     }
 });
 function togglePipelineGroupPicker() { plGroupPicker.toggle(); }
