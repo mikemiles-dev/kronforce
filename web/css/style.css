@@ -859,7 +859,7 @@ th .job-checkbox { margin: 0; }
 [data-theme="light"] .card,
 [data-theme="light"] .stat-card,
 [data-theme="light"] .group-card {
-    background: linear-gradient(160deg, #ffffff 0%, #eef0f5 100%);
+    background: linear-gradient(160deg, #ffffff 0%, #f4f5f8 100%);
     border: 1px solid #bcc2cc;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
