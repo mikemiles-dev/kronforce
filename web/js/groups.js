@@ -3,6 +3,115 @@
 
 let groupsPageJobs = [];
 let groupsViewMode = localStorage.getItem('kf-groupsView') || 'cards';
+let plGroupPickerOpen = false;
+
+function togglePipelineGroupPicker() {
+    const pop = document.getElementById('pl-group-picker-popover');
+    if (!pop) return;
+    plGroupPickerOpen = !plGroupPickerOpen;
+    pop.style.display = plGroupPickerOpen ? '' : 'none';
+    if (plGroupPickerOpen) {
+        document.getElementById('pl-group-picker-search').value = '';
+        populatePipelineGroupList();
+        document.getElementById('pl-group-picker-search').focus();
+        setTimeout(function() { document.addEventListener('click', closePipelineGroupPickerOutside); }, 10);
+    } else {
+        document.removeEventListener('click', closePipelineGroupPickerOutside);
+    }
+}
+
+function closePipelineGroupPickerOutside(e) {
+    const wrap = document.getElementById('pl-group-picker-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+        plGroupPickerOpen = false;
+        document.getElementById('pl-group-picker-popover').style.display = 'none';
+        document.removeEventListener('click', closePipelineGroupPickerOutside);
+    }
+}
+
+function populatePipelineGroupList() {
+    const list = document.getElementById('pl-group-picker-list');
+    if (!list) return;
+    const search = (document.getElementById('pl-group-picker-search').value || '').toLowerCase();
+    const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
+        return !search || g.toLowerCase().includes(search);
+    });
+    let html = '<div class="group-picker-item" onclick="selectPipelineGroup(\'\')" style="font-style:italic">All Groups</div>';
+    for (const g of groups) {
+        html += '<div class="group-picker-item" onclick="selectPipelineGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
+    }
+    list.innerHTML = html;
+}
+
+function filterPipelineGroupPicker() {
+    populatePipelineGroupList();
+}
+
+// --- Designer Group Picker ---
+let dsGroupPickerOpen = false;
+
+function toggleDesignerGroupPicker() {
+    const pop = document.getElementById('ds-group-picker-popover');
+    if (!pop) return;
+    dsGroupPickerOpen = !dsGroupPickerOpen;
+    pop.style.display = dsGroupPickerOpen ? '' : 'none';
+    if (dsGroupPickerOpen) {
+        document.getElementById('ds-group-picker-search').value = '';
+        populateDesignerGroupList();
+        document.getElementById('ds-group-picker-search').focus();
+        setTimeout(function() { document.addEventListener('click', closeDesignerGroupPickerOutside); }, 10);
+    } else {
+        document.removeEventListener('click', closeDesignerGroupPickerOutside);
+    }
+}
+
+function closeDesignerGroupPickerOutside(e) {
+    const wrap = document.getElementById('ds-group-picker-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+        dsGroupPickerOpen = false;
+        document.getElementById('ds-group-picker-popover').style.display = 'none';
+        document.removeEventListener('click', closeDesignerGroupPickerOutside);
+    }
+}
+
+function populateDesignerGroupList() {
+    const list = document.getElementById('ds-group-picker-list');
+    if (!list) return;
+    const search = (document.getElementById('ds-group-picker-search').value || '').toLowerCase();
+    const groups = (typeof cachedGroups !== 'undefined' ? cachedGroups : []).filter(function(g) {
+        return !search || g.toLowerCase().includes(search);
+    });
+    let html = '';
+    for (const g of groups) {
+        html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(g) + '\')">' + esc(g) + '</div>';
+    }
+    if (!groups.length && search) {
+        html += '<div class="group-picker-item" onclick="selectDesignerGroup(\'' + escAttr(search) + '\')" style="color:var(--accent)">Create "' + esc(search) + '"</div>';
+    }
+    list.innerHTML = html;
+}
+
+function filterDesignerGroupPicker() { populateDesignerGroupList(); }
+
+function selectDesignerGroup(group) {
+    const label = document.getElementById('ds-group-picker-label');
+    const select = document.getElementById('f-group');
+    if (label) label.textContent = group || 'Default';
+    if (select) select.value = group;
+    dsGroupPickerOpen = false;
+    document.getElementById('ds-group-picker-popover').style.display = 'none';
+    document.removeEventListener('click', closeDesignerGroupPickerOutside);
+}
+
+function selectPipelineGroup(group) {
+    const label = document.getElementById('pl-group-picker-label');
+    const select = document.getElementById('stages-group-filter');
+    if (label) label.textContent = group || 'All Groups';
+    if (select) { select.value = group; fetchGroupsPage(); }
+    plGroupPickerOpen = false;
+    document.getElementById('pl-group-picker-popover').style.display = 'none';
+    document.removeEventListener('click', closePipelineGroupPickerOutside);
+}
 
 function setGroupsView(mode) {
     groupsViewMode = mode;
