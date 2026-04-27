@@ -2207,10 +2207,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 }
 
 .group-picker-popover {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
+    position: fixed;
     width: 240px;
     max-height: 320px;
     background: var(--bg-secondary);

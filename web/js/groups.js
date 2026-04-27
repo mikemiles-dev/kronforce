@@ -17,6 +17,13 @@ function genericGroupPicker(prefix, opts) {
         isOpen = !isOpen;
         pop.style.display = isOpen ? '' : 'none';
         if (isOpen) {
+            // Position fixed popover below the button
+            var btn = document.getElementById(prefix + '-group-picker-btn');
+            if (btn) {
+                var rect = btn.getBoundingClientRect();
+                pop.style.top = (rect.bottom + 4) + 'px';
+                pop.style.left = rect.left + 'px';
+            }
             var s = document.getElementById(prefix + '-group-picker-search');
             if (s) { s.value = ''; s.focus(); }
             render();

@@ -176,6 +176,13 @@ function toggleGroupPicker() {
     const showing = pop.style.display !== 'none';
     pop.style.display = showing ? 'none' : '';
     if (!showing) {
+        // Position fixed popover below the button
+        const btn = document.getElementById('group-picker-btn');
+        if (btn) {
+            const rect = btn.getBoundingClientRect();
+            pop.style.top = (rect.bottom + 4) + 'px';
+            pop.style.left = rect.left + 'px';
+        }
         const search = document.getElementById('group-picker-search');
         if (search) { search.value = ''; search.focus(); }
         renderGroupPickerList();
