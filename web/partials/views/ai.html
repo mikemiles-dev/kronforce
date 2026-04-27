@@ -37,10 +37,12 @@
                 <div style="margin-top:20px;color:var(--text-muted);font-size:12px;line-height:1.6">
                     <strong>Examples to try:</strong>
                     <ul style="margin:6px 0;padding-left:20px">
-                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Check if our API at https://api.example.com/health is responding every 5 minutes';return false" style="color:var(--accent)">Health check every 5 minutes</a></li>
-                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Back up postgres every night at 3am with 1 hour timeout and notify on failure';return false" style="color:var(--accent)">Nightly database backup</a></li>
-                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Run ETL extract on weekdays at 6am, retry 3 times with exponential backoff';return false" style="color:var(--accent)">Weekday ETL with retry</a></li>
-                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Clean up temp files older than 7 days every Sunday at midnight';return false" style="color:var(--accent)">Weekly cleanup task</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Check if our API at https://api.example.com/health is responding every 5 minutes, alert on failure';return false" style="color:var(--accent)">Health check with alerts</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Back up postgres every night at 3am with 1 hour timeout, retry twice with exponential backoff, notify on failure, extract the backup size from output';return false" style="color:var(--accent)">Database backup with extraction</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Run ETL extract on weekdays at 6am, extract record count from output into LAST_ETL_COUNT variable, assert output contains complete, trigger error event if output contains FAILED';return false" style="color:var(--accent)">ETL with output rules</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Deploy to staging with parameters for branch and environment, use the staging-db connection, max 1 concurrent run, require approval before production';return false" style="color:var(--accent)">Parameterized deploy</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Clean up temp files older than 7 days every Sunday at midnight, forward output to https://hooks.slack.com/webhook';return false" style="color:var(--accent)">Cleanup with webhook</a></li>
+                        <li><a href="#" onclick="document.getElementById('ai-page-prompt').value='Monitor disk usage every 30 minutes, extract usage percentage, trigger warning if above 85%, trigger error if above 95%';return false" style="color:var(--accent)">Disk monitor with triggers</a></li>
                     </ul>
                 </div>
             </div>

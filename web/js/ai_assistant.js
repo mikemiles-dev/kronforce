@@ -72,13 +72,48 @@ function renderAiPagePreview(job) {
         else html += row('Schedule', esc(job.schedule.type));
     }
     if (job.timeout_secs) html += row('Timeout', job.timeout_secs + 's');
-    if (job.retry_max) html += row('Retry', job.retry_max + ' times');
+    if (job.retry_max) {
+        let retryText = job.retry_max + ' times';
+        if (job.retry_delay_secs) retryText += ', ' + job.retry_delay_secs + 's delay';
+        if (job.retry_backoff > 1) retryText += ', ' + job.retry_backoff + 'x backoff';
+        html += row('Retry', retryText);
+    }
+    if (job.max_concurrent) html += row('Concurrency', 'max ' + job.max_concurrent);
+    if (job.priority) html += row('Priority', String(job.priority));
+    if (job.approval_required) html += row('Approval', 'Required before execution');
     if (job.notifications) {
         const parts = [];
         if (job.notifications.on_failure) parts.push('on failure');
         if (job.notifications.on_success) parts.push('on success');
+        if (job.notifications.on_assertion_failure) parts.push('on assertion failure');
         if (parts.length) html += row('Notifications', parts.join(', '));
     }
+    if (job.output_rules) {
+        const ruleParts = [];
+        if (job.output_rules.extractions && job.output_rules.extractions.length) {
+            ruleParts.push(job.output_rules.extractions.length + ' extraction' + (job.output_rules.extractions.length > 1 ? 's' : ''));
+            for (const e of job.output_rules.extractions) {
+                ruleParts.push('&nbsp;&nbsp;<code>' + esc(e.name) + '</code>: ' + esc(e.pattern) + (e.write_to_variable ? ' &rarr; <code>' + esc(e.write_to_variable) + '</code>' : ''));
+            }
+        }
+        if (job.output_rules.assertions && job.output_rules.assertions.length) {
+            ruleParts.push(job.output_rules.assertions.length + ' assertion' + (job.output_rules.assertions.length > 1 ? 's' : ''));
+        }
+        if (job.output_rules.triggers && job.output_rules.triggers.length) {
+            ruleParts.push(job.output_rules.triggers.length + ' trigger' + (job.output_rules.triggers.length > 1 ? 's' : ''));
+        }
+        if (job.output_rules.forward_url) {
+            ruleParts.push('Forward to: ' + esc(job.output_rules.forward_url));
+        }
+        if (ruleParts.length) html += row('Output Rules', ruleParts.join('<br>'));
+    }
+    if (job.parameters && job.parameters.length) {
+        const paramText = job.parameters.map(function(p) {
+            return '<code>' + esc(p.name) + '</code>' + (p.required ? ' *' : '') + (p.default ? ' = ' + esc(p.default) : '');
+        }).join(', ');
+        html += row('Parameters', paramText);
+    }
+    if (job.sla_deadline) html += row('SLA', job.sla_deadline + ' UTC' + (job.sla_warning_mins ? ' (warn ' + job.sla_warning_mins + 'm before)' : ''));
     html += '</table>';
     el.innerHTML = html;
 }
