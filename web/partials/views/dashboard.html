@@ -7,7 +7,7 @@
         </div>
         <div class="dash-tab-panel active" data-tab="overview">
             <div class="card" style="margin-bottom:16px">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Execution Timeline (15 min) <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('monitor');setSubTab('monitor','runs')"><h3>Execution Timeline (15 min) <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-timeline"></div>
             </div>
             <div class="dash-charts">
@@ -31,17 +31,17 @@
             <div class="dash-activity-grid">
                 <div class="dash-activity-main">
                     <div class="card" style="margin-bottom:16px">
-                        <div class="card-header" style="cursor:pointer" onclick="showPage('executions')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('monitor');setSubTab('monitor','runs')"><h3>Recent Executions <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                         <div id="dash-recent-execs"></div>
                     </div>
                     <div class="card">
-                        <div class="card-header" style="cursor:pointer" onclick="showPage('events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('monitor');setSubTab('monitor','events')"><h3>Recent Events <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                         <div id="dash-recent-events"></div>
                     </div>
                 </div>
                 <div class="dash-activity-side">
                     <div class="card">
-                        <div class="card-header" style="cursor:pointer" onclick="showPage('jobs')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                        <div class="card-header" style="cursor:pointer" onclick="showPage('monitor');setSubTab('monitor','jobs')"><h3>Top Groups <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                         <div id="dash-top-groups"></div>
                     </div>
                 </div>
@@ -49,15 +49,15 @@
         </div>
         <div class="dash-tab-panel" data-tab="infrastructure">
             <div class="card" style="margin-bottom:16px">
-                <div class="card-header" style="cursor:pointer" onclick="showPage('agents')"><h3>Agents <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('settings')"><h3>Agents <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-agents"></div>
             </div>
             <div class="card" style="margin-bottom:16px">
-                <div class="card-header" style="cursor:pointer" onclick="jobsTab='stages';showPage('jobs')"><h3>Pipeline Stages <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('pipelines');setSubTab('pipelines','stages')"><h3>Pipeline Stages <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div id="dash-stages"></div>
             </div>
             <div class="card">
-                <div class="card-header" style="cursor:pointer" onclick="jobsTab='map';showPage('jobs')"><h3>Dependency Map <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
+                <div class="card-header" style="cursor:pointer" onclick="showPage('pipelines');setSubTab('pipelines','map')"><h3>Dependency Map <span style="font-size:11px;color:var(--accent)">&rarr;</span></h3></div>
                 <div class="map-container" id="dash-map-container" style="width:100%;height:400px;border-radius:var(--radius)"></div>
                 <div class="map-controls" id="dash-map-controls" style="display:none">
                     <button onclick="dashCyInstance&&dashCyInstance.fit(undefined,30)" title="Fit all" class="map-fit-btn"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6V3a1 1 0 011-1h3M10 2h3a1 1 0 011 1v3M14 10v3a1 1 0 01-1 1h-3M6 14H3a1 1 0 01-1-1v-3"/><circle cx="8" cy="8" r="2.5"/></svg></button>

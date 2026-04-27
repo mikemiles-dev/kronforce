@@ -192,7 +192,7 @@ function renderDashGroupSummary(jobs) {
     let html = '<div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">';
     for (const [name, count] of sorted) {
         const color = groupColor(name);
-        html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:4px" onclick="groupFilter=\'' + esc(name) + '\';showPage(\'jobs\')">';
+        html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;padding:4px 8px;border-radius:4px" onclick="groupFilter=\'' + esc(name) + '\';showPage(\'monitor\');setSubTab(\'monitor\',\'jobs\')">';
         html += '<span style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>';
         html += '<span style="flex:1">' + esc(name) + '</span>';
         html += '<span style="color:var(--text-secondary);font-size:12px">' + count + ' job' + (count !== 1 ? 's' : '') + '</span>';
@@ -247,16 +247,16 @@ async function renderDashboard() {
 
         // Render stats cards
         document.getElementById('dash-stats').innerHTML =
-            statCard(totalJobs, 'Total Jobs', 'neutral', "showPage('jobs')") +
+            statCard(totalJobs, 'Total Jobs', 'neutral', "showPage('monitor');setSubTab('monitor','jobs')") +
             (running > 0 ? statCard(running, 'Running', 'info', "navJobsFiltered('running')") : '') +
             statCard(scheduled, 'Scheduled', 'info', "navJobsFiltered('scheduled')") +
             statCard(totalFailed, 'Failed', 'danger', "navExecsFiltered('failed')") +
             statCard(waiting, 'Waiting', 'warning', "navJobsFiltered('blocked')") +
             statCard(paused, 'Paused', 'neutral', "navJobsFiltered('paused')") +
             statCard(totalSucceeded, 'Succeeded', 'success', "navExecsFiltered('succeeded')") +
-            statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral', "showPage('agents')") +
-            statCard(totalGroups, 'Groups', 'neutral', "showPage('jobs')") +
-            statCard(totalExecs, 'Total Runs', 'neutral', "showPage('executions')");
+            statCard(onlineAgents + '/' + totalAgents, 'Agents Online', onlineAgents > 0 ? 'success' : 'neutral', "showPage('settings')") +
+            statCard(totalGroups, 'Groups', 'neutral', "showPage('pipelines')") +
+            statCard(totalExecs, 'Total Runs', 'neutral', "showPage('monitor');setSubTab('monitor','runs')");
 
         // Recent executions - collect from all jobs
         let recentExecs = [];
@@ -383,9 +383,9 @@ async function renderDashboard() {
 }
 
 function navJobsFiltered(filter) {
-    jobsTab = 'list';
     jobSearch.statusFilter = filter;
-    showPage('jobs');
+    showPage('monitor');
+    setSubTab('monitor', 'jobs');
     // Sync filter button state after page renders
     setTimeout(function() {
         document.querySelectorAll('#status-filters .status-btn').forEach(b => {
@@ -396,7 +396,8 @@ function navJobsFiltered(filter) {
 
 function navExecsFiltered(status) {
     execSearch.statusFilter = status;
-    showPage('executions');
+    showPage('monitor');
+    setSubTab('monitor', 'runs');
     // Sync button state — match by the onclick attribute containing the status value
     setTimeout(function() {
         document.querySelectorAll('#exec-status-filters .status-btn').forEach(b => {
