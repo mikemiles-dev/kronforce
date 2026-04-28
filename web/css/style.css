@@ -2917,6 +2917,47 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     table { font-size: 12px; }
     th, td { padding: 8px 6px; }
 
+    /* Main content padding */
+    main { padding: 12px; }
+
+    /* Sub-tabs scroll horizontally */
+    .page-sub-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+    .page-sub-tabs::-webkit-scrollbar { display: none; }
+    .sub-tab { white-space: nowrap; flex-shrink: 0; padding: 8px 12px; font-size: 12px; }
+
+    /* Inline action bar stacks */
+    .inline-action-bar { flex-direction: column; align-items: stretch; }
+    .inline-action-bar .action-bar-left { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .inline-action-bar .action-bar-left::-webkit-scrollbar { display: none; }
+    .inline-action-bar .action-bar-right { justify-content: flex-end; }
+
+    /* Status filters scroll */
+    .status-filters { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+    .status-filters::-webkit-scrollbar { display: none; }
+    .status-btn { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 3px 8px; }
+
+    /* Pipeline stages scroll */
+    .groups-grid { overflow-x: visible; }
+
+    /* Builder header stacks */
+    .designer-header { flex-direction: column; gap: 8px; align-items: flex-start; }
+    .designer-header-actions { width: 100%; display: flex; justify-content: flex-end; }
+
+    /* Designer full bleed */
+    #designer-view { margin: -12px; padding: 12px; }
+
+    /* Cards tighter padding */
+    .card { padding: 14px; }
+    .stat-card { padding: 12px; }
+    .stat-value { font-size: 22px; }
+
+    /* Group picker wider on mobile */
+    .group-picker-popover { width: calc(100vw - 120px); max-width: 280px; }
+
+    /* Toolbar buttons smaller */
+    .jobs-sub-toolbar .btn { font-size: 11px; padding: 4px 8px; }
+    .bulk-count-text { font-size: 11px; }
+
     /* Jobs page mobile */
     .jobs-tab-bar {
         padding: 0;
@@ -2952,6 +2993,22 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     .jobs-tab-right .btn { font-size: 10px; padding: 3px 6px; }
     .jobs-tab-right #jobs-template-btn,
     .jobs-tab-right #jobs-newgroup-btn { display: none !important; }
+
+    /* Extra small: sidebar icons even smaller */
+    .sidebar-nav .nav-tab { min-width: 32px; height: 32px; padding: 4px 6px; }
+    .sidebar-nav .nav-tab .tab-icon { font-size: 14px; }
+
+    /* Reduce padding everywhere */
+    main { padding: 8px; }
+    .card { padding: 10px; }
+    #designer-view { margin: -8px; padding: 8px; }
+
+    /* Stack designer meta fully */
+    .designer-meta .form-group { width: 100% !important; }
+
+    /* Refresh controls hide countdown */
+    .refresh-countdown { display: none; }
+    .refresh-interval-select { display: none; }
 }
 
 /* Jobs page tab bar */
