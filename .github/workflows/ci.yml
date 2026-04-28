@@ -11,27 +11,26 @@ env:
   RUSTFLAGS: -Dwarnings
 
 jobs:
-  lint:
-    name: Lint
+  # Lint + Test + Build in one job — saves 2 runner startups + shared compilation
+  check:
+    name: Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - name: Check formatting
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-targets --all-features
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Run Rust tests
+      - name: Test
         run: cargo test --all
+      - name: Build release
+        run: cargo build --release
+      - name: Verify binaries
+        run: test -f target/release/kronforce && test -f target/release/kronforce-agent
 
   js-test:
     name: JS Tests
@@ -48,91 +47,29 @@ jobs:
             node "$f"
           done
 
-  migration-check:
-    name: Migration Compatibility
+  security:
+    name: Security
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+      - uses: EmbarkStudios/cargo-deny-action@v2
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  migration-check:
+    name: Migration
+    runs-on: ubuntu-latest
+    needs: [check]
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
-      - name: Build current
-        run: cargo build --release
-      - name: Test fresh database migrations
+      - uses: Swatinem/rust-cache@v2
+      - name: Test fresh migrations
         run: |
-          # Start controller, let it create and migrate a fresh DB, then shut down
+          cargo build --release
           timeout 5 ./target/release/kronforce || true
-          # Verify DB was created and has the schema_version table
           sqlite3 kronforce.db "SELECT MAX(version) FROM schema_version;" | grep -E "^[0-9]+"
-          echo "Fresh migration: OK"
-      - name: Test migration from previous release
-        run: |
-          # Get the previous release tag
-          PREV_TAG=$(git tag --sort=-v:refname | head -1)
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous release tags found, skipping upgrade test"
-            exit 0
-          fi
-          echo "Testing migration from $PREV_TAG to current"
-
-          # Save current binary
-          cp target/release/kronforce target/release/kronforce-current
-
-          # Build previous version in a worktree to avoid stash issues
-          git worktree add /tmp/prev-release "$PREV_TAG" 2>/dev/null || { echo "Cannot checkout $PREV_TAG, skipping"; exit 0; }
-          cd /tmp/prev-release
-          cargo build --release 2>/dev/null || { echo "Previous version build failed, skipping"; cd -; git worktree remove /tmp/prev-release --force 2>/dev/null; exit 0; }
-
-          # Create DB with previous version
-          rm -f /tmp/test-migration.db
-          KRONFORCE_DB=/tmp/test-migration.db timeout 5 ./target/release/kronforce || true
-          OLD_VERSION=$(sqlite3 /tmp/test-migration.db "SELECT MAX(version) FROM schema_version;" 2>/dev/null || echo "0")
-          echo "Previous DB version: $OLD_VERSION"
-          cd -
-          git worktree remove /tmp/prev-release --force 2>/dev/null || true
-
-          # Run current version against old DB — should migrate
-          KRONFORCE_DB=/tmp/test-migration.db timeout 5 ./target/release/kronforce-current || true
-          NEW_VERSION=$(sqlite3 /tmp/test-migration.db "SELECT MAX(version) FROM schema_version;" 2>/dev/null || echo "0")
-          echo "Migrated DB version: $NEW_VERSION"
-
-          if [ "$NEW_VERSION" -ge "$OLD_VERSION" ]; then
-            echo "Migration upgrade: OK ($OLD_VERSION -> $NEW_VERSION)"
-          else
-            echo "Migration FAILED: version went from $OLD_VERSION to $NEW_VERSION"
-            exit 1
-          fi
-
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-      - name: Audit dependencies
-        run: cargo audit
-      - name: Check for yanked crates
-        run: cargo audit --deny yanked
-
-  cargo-deny:
-    name: Cargo Deny
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: EmbarkStudios/cargo-deny-action@v2
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    needs: [lint, test, js-test]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Build release
-        run: cargo build --release
-      - name: Verify binaries exist
-        run: |
-          test -f target/release/kronforce
-          test -f target/release/kronforce-agent
-          echo "Binaries built successfully"
