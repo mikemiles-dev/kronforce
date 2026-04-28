@@ -84,6 +84,9 @@ pub(crate) struct UpdateJobRequest {
     max_concurrent: Option<u32>,
     parameters: Option<Vec<JobParameter>>,
     timezone: Option<String>,
+    /// Optimistic concurrency: if set, the update is rejected with 409 Conflict
+    /// when the job's `updated_at` doesn't match this value (another user modified it).
+    pub(crate) if_unmodified_since: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Query parameters for the trigger endpoint.

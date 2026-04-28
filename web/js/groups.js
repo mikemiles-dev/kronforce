@@ -251,6 +251,10 @@ async function fetchGroupsPage() {
                     if (sched && sched.type) scheduleMap[g] = sched;
                 } catch (e) { /* no schedule */ }
             }
+            // Fetch recent execution statuses for sparklines
+            try {
+                _recentStatuses = await api('GET', '/api/executions/recent-statuses');
+            } catch (e) { _recentStatuses = {}; }
             if (groupsToShow.length > 0) {
                 renderPipelineView(groupsToShow, jobsByGroup, scheduleMap);
             } else {
@@ -346,8 +350,10 @@ function renderPipelineView(sortedGroups, jobsByGroup, scheduleMap) {
         html += '<span style="font-size:12px;color:var(--text-muted)">' + groupJobs.length + ' stage' + (groupJobs.length !== 1 ? 's' : '') + '</span>';
         html += schedBadge;
         html += '<button class="btn btn-sm" style="margin-left:auto" onclick="event.stopPropagation();openPipelineHistory(\'' + escAttr(g) + '\')">&#128203; History</button>';
-        html += '<button class="btn btn-sm" onclick="event.stopPropagation();openPipelineSchedule(\'' + escAttr(g) + '\')">&#128339; Schedule</button>';
-        html += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();triggerPipeline(\'' + escAttr(g) + '\')">&#9654; Run Pipeline</button>';
+        if (canWrite()) {
+            html += '<button class="btn btn-sm" onclick="event.stopPropagation();openPipelineSchedule(\'' + escAttr(g) + '\')">&#128339; Schedule</button>';
+            html += '<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();triggerPipeline(\'' + escAttr(g) + '\')">&#9654; Run Pipeline</button>';
+        }
         html += '</div>';
 
         // Build set of which jobs have a dependency arrow FROM the previous job in sorted order
@@ -382,6 +388,21 @@ function renderPipelineView(sortedGroups, jobsByGroup, scheduleMap) {
             s += '<div style="font-size:12px;font-weight:600;margin-bottom:2px;white-space:nowrap">' + esc(j.name) + '</div>';
             s += '<div style="font-size:10px;color:var(--text-muted)">' + label + '</div>';
             if (last && last.finished_at) s += '<div style="font-size:9px;color:var(--text-muted)">' + fmtDate(last.finished_at) + '</div>';
+            // Mini execution history bar
+            var runs = (_recentStatuses || {})[j.id];
+            if (runs && runs.length > 1) {
+                var recent = runs.slice(0, 8).reverse();
+                s += '<div style="display:flex;gap:2px;justify-content:center;margin-top:4px">';
+                for (var ri = 0; ri < recent.length; ri++) {
+                    var rs = recent[ri].status;
+                    var rc = '#7c8298';
+                    if (rs === 'succeeded') rc = '#2ecc71';
+                    else if (rs === 'failed' || rs === 'timed_out') rc = '#e05252';
+                    else if (rs === 'running') rc = '#3e8bff';
+                    s += '<div style="width:6px;height:6px;border-radius:1px;background:' + rc + '" title="' + esc(rs) + '"></div>';
+                }
+                s += '</div>';
+            }
             s += '</div>';
             return s;
         }

@@ -214,6 +214,12 @@ impl super::Executor {
             "queued job {} for custom agent {} -> execution {}",
             job.name, agent.name, exec_id
         );
+
+        // Wake any long-polling agent waiting for work
+        if let Some(notify) = self.agent_notify.get(&agent.id) {
+            notify.notify_waiters();
+        }
+
         Ok(exec_id)
     }
 

@@ -53,6 +53,7 @@ pub struct Executor {
     script_store: ScriptStore,
     running: Arc<Mutex<HashMap<Uuid, RunningJob>>>,
     pub(crate) live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
+    agent_notify: Arc<dashmap::DashMap<Uuid, Arc<tokio::sync::Notify>>>,
 }
 
 impl Executor {
@@ -63,6 +64,7 @@ impl Executor {
         scheduler_tx: tokio::sync::mpsc::Sender<SchedulerCommand>,
         script_store: ScriptStore,
         live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
+        agent_notify: Arc<dashmap::DashMap<Uuid, Arc<tokio::sync::Notify>>>,
     ) -> Self {
         Self {
             db,
@@ -71,6 +73,7 @@ impl Executor {
             script_store,
             running: Arc::new(Mutex::new(HashMap::new())),
             live_output,
+            agent_notify,
         }
     }
 

@@ -2,11 +2,17 @@
 
 var cyInstance = null;
 
+var _recentStatuses = {};
+
 async function renderMap() {
     let jobs;
     try {
-        const res = await api('GET', '/api/jobs?per_page=1000');
+        var [res, statuses] = await Promise.all([
+            api('GET', '/api/jobs?per_page=1000'),
+            api('GET', '/api/executions/recent-statuses').catch(function() { return {}; }),
+        ]);
         jobs = typeof applyJobFilters === 'function' ? applyJobFilters(res.data) : res.data;
+        _recentStatuses = statuses || {};
     } catch (e) {
         console.error('renderMap:', e);
         return;
@@ -100,6 +106,27 @@ async function renderMap() {
         return pal[Math.abs(h) % pal.length];
     }
 
+    // Build execution history sparkline SVG for a node
+    function historySparkline(jobId) {
+        var runs = _recentStatuses[jobId];
+        if (!runs || runs.length === 0) return null;
+        // Show last 10, oldest first (API returns newest first)
+        var recent = runs.slice(0, 10).reverse();
+        var w = recent.length * 10;
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="8" viewBox="0 0 ' + w + ' 8">';
+        for (var i = 0; i < recent.length; i++) {
+            var s = recent[i].status;
+            var c = '#7c8298';
+            if (s === 'succeeded') c = '#2ecc71';
+            else if (s === 'failed' || s === 'timed_out') c = '#e05252';
+            else if (s === 'running') c = '#3e8bff';
+            else if (s === 'cancelled' || s === 'skipped') c = '#a0a8c0';
+            svg += '<rect x="' + (i * 10 + 1) + '" y="1" width="7" height="6" rx="1.5" fill="' + c + '"/>';
+        }
+        svg += '</svg>';
+        return 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+
     // Task type SVG icons (16x16, white fill for contrast)
     function taskIcon(type) {
         const icons = {
@@ -140,8 +167,9 @@ async function renderMap() {
                 selector: 'node',
                 style: {
                     'label': 'data(label)',
-                    'text-valign': 'center',
+                    'text-valign': 'top',
                     'text-halign': 'center',
+                    'text-margin-y': 6,
                     'font-size': 13,
                     'font-family': '-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif',
                     'color': textColor,
@@ -151,9 +179,19 @@ async function renderMap() {
                     'border-color': function(ele) { return statusColor(ele.data('lastStatus')); },
                     'shape': 'round-rectangle',
                     'width': function(ele) { return Math.max(120, ele.data('label').length * 9 + 30); },
-                    'height': 40,
+                    'height': function(ele) { return _recentStatuses[ele.id()] ? 52 : 40; },
                     'text-wrap': 'ellipsis',
                     'text-max-width': function(ele) { return Math.max(100, ele.data('label').length * 9 + 10); },
+                    'background-image': function(ele) { return historySparkline(ele.id()) || 'none'; },
+                    'background-image-opacity': 1,
+                    'background-width': function(ele) {
+                        var runs = _recentStatuses[ele.id()];
+                        return runs ? Math.min(runs.length * 10, 100) + 'px' : '0px';
+                    },
+                    'background-height': '8px',
+                    'background-position-y': '80%',
+                    'background-clip': 'none',
+                    'background-image-containment': 'over',
                 }
             },
             {
@@ -245,6 +283,56 @@ async function renderMap() {
     // Click node → job detail
     cyInstance.on('tap', 'node', function(evt) {
         showJobDetail(evt.target.id());
+    });
+
+    // Hover tooltip with execution history
+    var mapTooltip = document.getElementById('map-tooltip');
+    if (!mapTooltip) {
+        mapTooltip = document.createElement('div');
+        mapTooltip.id = 'map-tooltip';
+        mapTooltip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;display:none;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2);max-width:280px';
+        document.body.appendChild(mapTooltip);
+    }
+
+    cyInstance.on('mouseover', 'node', function(evt) {
+        var node = evt.target;
+        var id = node.id();
+        var runs = _recentStatuses[id] || [];
+        var data = node.data();
+        var html = '<div style="font-weight:600;margin-bottom:4px">' + esc(data.label) + '</div>';
+        html += '<div style="color:var(--text-muted);margin-bottom:6px">' + esc(data.group || 'Default') + ' &middot; ' + esc(data.taskType) + '</div>';
+        if (runs.length > 0) {
+            html += '<div style="margin-bottom:4px;font-size:11px;color:var(--text-secondary)">Last ' + runs.length + ' runs:</div>';
+            html += '<div style="display:flex;gap:3px;flex-wrap:wrap">';
+            var recent = runs.slice(0, 10).reverse();
+            for (var i = 0; i < recent.length; i++) {
+                var s = recent[i].status;
+                var c = '#7c8298';
+                if (s === 'succeeded') c = '#2ecc71';
+                else if (s === 'failed' || s === 'timed_out') c = '#e05252';
+                else if (s === 'running') c = '#3e8bff';
+                else if (s === 'cancelled' || s === 'skipped') c = '#a0a8c0';
+                var ago = typeof fmtDateRelative === 'function' ? fmtDateRelative(recent[i].started_at) : fmtDate(recent[i].started_at);
+                html += '<div title="' + esc(s) + ' — ' + esc(ago) + '" style="width:18px;height:14px;border-radius:3px;background:' + c + ';opacity:0.9"></div>';
+            }
+            html += '</div>';
+        } else {
+            html += '<div style="color:var(--text-muted);font-size:11px">No executions yet</div>';
+        }
+        mapTooltip.innerHTML = html;
+        mapTooltip.style.display = '';
+        var r = evt.renderedPosition || evt.position;
+        var containerRect = container.getBoundingClientRect();
+        mapTooltip.style.left = (containerRect.left + r.x + 15) + 'px';
+        mapTooltip.style.top = (containerRect.top + r.y - 10) + 'px';
+    });
+
+    cyInstance.on('mouseout', 'node', function() {
+        mapTooltip.style.display = 'none';
+    });
+
+    cyInstance.on('viewport', function() {
+        mapTooltip.style.display = 'none';
     });
 
     // Save positions when nodes are dragged

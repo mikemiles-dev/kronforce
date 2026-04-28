@@ -421,17 +421,19 @@ function renderJobsTable() {
         html += '<td><span class="schedule-text">' + fmtSchedule(j.schedule) + '</span></td>';
         html += '<td><span class="time-text">' + (j.next_fire_time ? fmtDate(j.next_fire_time) : '-') + '</span></td>';
         html += '<td><div class="actions">';
-        html += '<button class="btn-icon" title="Edit" onclick="openEditModal(\'' + j.id + '\')">&#9998;</button>';
-        html += '<button class="btn-icon trigger" title="Trigger" id="trigger-' + j.id + '" onclick="triggerJob(\'' + j.id + '\')">&#9654;</button>';
-        if (j.last_execution && j.last_execution.status === 'running') {
-            html += '<button class="btn-icon danger" title="Stop" onclick="cancelLatestExecution(\'' + j.id + '\')">&#9632;</button>';
+        if (canWrite()) {
+            html += '<button class="btn-icon" title="Edit" onclick="openEditModal(\'' + j.id + '\')">&#9998;</button>';
+            html += '<button class="btn-icon trigger" title="Trigger" id="trigger-' + j.id + '" onclick="triggerJob(\'' + j.id + '\')">&#9654;</button>';
+            if (j.last_execution && j.last_execution.status === 'running') {
+                html += '<button class="btn-icon danger" title="Stop" onclick="cancelLatestExecution(\'' + j.id + '\')">&#9632;</button>';
+            }
+            if (j.status === 'scheduled') {
+                html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'scheduled\')">&#10074;&#10074;</button>';
+            } else if (j.status === 'paused') {
+                html += '<button class="btn-icon trigger" title="Resume" onclick="togglePause(\'' + j.id + '\',\'paused\')">&#9654;</button>';
+            }
+            html += '<button class="btn-icon danger" title="Delete" onclick="deleteJob(\'' + j.id + '\',\'' + esc(j.name) + '\')">&#128465;</button>';
         }
-        if (j.status === 'scheduled') {
-            html += '<button class="btn-icon" title="Pause" onclick="togglePause(\'' + j.id + '\',\'scheduled\')">&#10074;&#10074;</button>';
-        } else if (j.status === 'paused') {
-            html += '<button class="btn-icon trigger" title="Resume" onclick="togglePause(\'' + j.id + '\',\'paused\')">&#9654;</button>';
-        }
-        html += '<button class="btn-icon danger" title="Delete" onclick="deleteJob(\'' + j.id + '\',\'' + esc(j.name) + '\')">&#128465;</button>';
         html += '</div></td>';
         html += '</tr>';
     }
@@ -671,14 +673,16 @@ function renderJobDetail(job) {
     document.getElementById('detail-card').innerHTML =
         '<div class="card"><div class="card-header"><h3>' + esc(job.name) + ' ' + badge(job.status) +
         ' <span style="font-size:12px;font-weight:400;color:var(--accent)">' + esc(job.group || 'Default') + '</span></h3>' +
-        '<div><button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' +
-        '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' +
+        '<div>' +
+        (canWrite() ? '<button class="btn btn-ghost btn-sm" onclick="openEditModal(\'' + job.id + '\')">Edit</button> ' : '') +
+        (canWrite() ? '<button class="btn btn-ghost btn-sm" onclick="copyJob(\'' + job.id + '\')">Copy</button> ' : '') +
         '<button class="btn btn-ghost btn-sm" onclick="showJobVersions(\'' + job.id + '\')">History</button> ' +
-        '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Template</button> ' +
-        (job.status === 'scheduled' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'scheduled\')">Pause</button> ' : '') +
-        (job.status === 'paused' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'paused\')">Resume</button> ' : '') +
-        '<button class="btn btn-primary btn-sm" id="trigger-' + job.id + '" onclick="triggerJob(\'' + job.id + '\')">Trigger</button> ' +
-        '<button class="btn btn-danger btn-sm" onclick="deleteJob(\'' + job.id + '\',\'' + esc(job.name) + '\')">Delete</button></div></div>' +
+        (canWrite() ? '<button class="btn btn-ghost btn-sm" onclick="saveAsTemplate(\'' + job.id + '\')">Template</button> ' : '') +
+        (canWrite() && job.status === 'scheduled' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'scheduled\')">Pause</button> ' : '') +
+        (canWrite() && job.status === 'paused' ? '<button class="btn btn-ghost btn-sm" onclick="togglePause(\'' + job.id + '\',\'paused\')">Resume</button> ' : '') +
+        (canWrite() ? '<button class="btn btn-primary btn-sm" id="trigger-' + job.id + '" onclick="triggerJob(\'' + job.id + '\')">Trigger</button> ' : '') +
+        (canWrite() ? '<button class="btn btn-danger btn-sm" onclick="deleteJob(\'' + job.id + '\',\'' + esc(job.name) + '\')">Delete</button>' : '') +
+        '</div></div>' +
         (job.description ? '<div style="padding:0 16px 8px;color:var(--text-secondary);font-size:13px">' + esc(job.description) + '</div>' : '') +
         '<div class="detail-grid">' +
         field('Task', fmtTaskDetail(job.task)) +

@@ -17,6 +17,7 @@
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-audit-log')">Audit Log</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-mcp-server')">MCP Server</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-cron')">Cron Expressions</button>
+                <button class="docs-topic" onclick="scrollToDocTopic('doc-extending')">Extending</button>
                 <button class="docs-topic" onclick="scrollToDocTopic('doc-migration')">Migration</button>
             </nav>
             <div class="docs-content" id="docs-content">
@@ -37,6 +38,7 @@
                         <option value="doc-audit-log">Audit Log</option>
                         <option value="doc-mcp-server">MCP Server</option>
                         <option value="doc-cron">Cron Expressions</option>
+                        <option value="doc-extending">Extending</option>
                         <option value="doc-migration">Migration</option>
                     </select>
                 </div>
@@ -805,6 +807,72 @@ KRONFORCE_AI_MODEL=claude-sonnet-4-5-20250514  # Optional model override</code><
                         <li><strong>Job B</strong> ("cleanup"): Set schedule to <strong>Event</strong>, pick <code>execution.completed</code>, set severity to <code>error</code>, set Source Job to <code>etl-pipeline</code></li>
                         <li>Whenever "etl-pipeline" fails, "cleanup" fires automatically</li>
                     </ol>
+                </div>
+
+                <div class="docs-section" id="doc-extending">
+                    <h2>Extending Kronforce</h2>
+                    <p>Kronforce doesn't use a plugin system. Instead, it provides composable primitives that cover most use cases. Here's how common Jenkins plugins map to Kronforce patterns:</p>
+
+                    <h3>Jenkins Plugin Equivalents</h3>
+                    <table class="docs-table">
+                        <tr><th>Jenkins Plugin</th><th>Kronforce Equivalent</th><th>How</th></tr>
+                        <tr><td>Git / SCM</td><td>Shell task</td><td><code>git clone</code>, <code>git pull</code> in a shell command</td></tr>
+                        <tr><td>Slack Notification</td><td>Built-in Slack</td><td>Settings &rarr; Notifications &rarr; Slack webhook URL</td></tr>
+                        <tr><td>Email Extension</td><td>Built-in SMTP</td><td>Settings &rarr; Notifications &rarr; SMTP config</td></tr>
+                        <tr><td>PagerDuty</td><td>Built-in PagerDuty</td><td>Settings &rarr; Notifications &rarr; routing key</td></tr>
+                        <tr><td>Docker Pipeline</td><td>Shell + Dockerfile scripts</td><td>Shell task with <code>docker build/run</code>, or Dockerfile script type</td></tr>
+                        <tr><td>HTTP Request</td><td>HTTP task</td><td>GET/POST/PUT/DELETE with headers, body, auth, assertions</td></tr>
+                        <tr><td>Database plugins</td><td>SQL task + Connections</td><td>Named connection (Postgres/MySQL/SQLite) + SQL query</td></tr>
+                        <tr><td>SSH / SSH Agent</td><td>SSH connection + Shell</td><td>Named SSH connection, or shell task with target agent</td></tr>
+                        <tr><td>Credentials Binding</td><td>Secret variables + Connections</td><td><code>{{MY_SECRET}}</code> substituted at runtime, encrypted at rest</td></tr>
+                        <tr><td>Pipeline DSL</td><td>Dependencies + Events</td><td>Job B depends on Job A; event triggers react to completions</td></tr>
+                        <tr><td>Parameterized Build</td><td>Job parameters</td><td>Define parameters in job config, pass at trigger time</td></tr>
+                        <tr><td>Cron Trigger</td><td>Cron schedule</td><td>6-field cron expression on any job</td></tr>
+                        <tr><td>Webhook Trigger</td><td>Built-in webhooks</td><td>Enable webhook on a job, trigger via unique URL</td></tr>
+                        <tr><td>Approval Gate</td><td>Built-in approval</td><td>Set <code>approval_required: true</code> on any job</td></tr>
+                        <tr><td>Retry / Naginator</td><td>Built-in retry</td><td><code>retry_max</code> + <code>retry_delay_secs</code> on any job</td></tr>
+                        <tr><td>Build Timeout</td><td>Built-in timeout</td><td><code>timeout_secs</code> on any job</td></tr>
+                        <tr><td>Prometheus Metrics</td><td>Built-in <code>/metrics</code></td><td>Scrape endpoint with job/execution counters</td></tr>
+                        <tr><td>LDAP / SAML / OIDC</td><td>Built-in OIDC</td><td>Okta, Azure AD, Google via OIDC config</td></tr>
+                        <tr><td>Custom Build Step</td><td>Custom agent</td><td>Write a Python/Go/Node agent for any task type</td></tr>
+                        <tr><td>gRPC / Protobuf</td><td>Custom agent</td><td>gRPC agent example in docs</td></tr>
+                        <tr><td>ML / GPU Workloads</td><td>Custom agent</td><td>Run agent on GPU machine, define <code>train-model</code> task type</td></tr>
+                        <tr><td>Kubernetes</td><td>Shell task or custom agent</td><td><code>kubectl apply</code> in shell, or K8s-native custom agent</td></tr>
+                        <tr><td>Terraform / Ansible</td><td>Shell task</td><td><code>terraform apply</code>, <code>ansible-playbook</code> as shell commands</td></tr>
+                        <tr><td>S3 / Artifact Upload</td><td>S3 connection + Shell</td><td>Named S3/MinIO connection + <code>aws s3 cp</code></td></tr>
+                    </table>
+
+                    <h3 style="margin-top:20px">Custom Agents: The Extension Point</h3>
+                    <p>When built-in task types aren't enough, write a <strong>custom agent</strong> in any language. A custom agent is just an HTTP client that:</p>
+                    <ol>
+                        <li>Registers with the controller (<code>POST /api/agents/register</code>)</li>
+                        <li>Long-polls for work (<code>GET /api/agent-queue/{id}/next?wait=30</code>)</li>
+                        <li>Executes the task however it wants</li>
+                        <li>Posts the result back (<code>POST {callback_url}</code>)</li>
+                    </ol>
+                    <p>Custom agents define their own <strong>task types</strong> with UI-configurable fields. For example, a Python ML agent might define a <code>train-model</code> task type with fields for dataset URL, model architecture, and hyperparameters. These appear as form fields in the Builder when creating a job targeting that agent.</p>
+                    <p>See the <a href="javascript:scrollToDocTopic('doc-custom-agents')">Custom Agents</a> section for the full protocol and examples.</p>
+
+                    <h3 style="margin-top:20px">Rhai Scripts: Inline Logic</h3>
+                    <p>For lightweight automation that doesn't need an external agent, use <strong>Rhai scripts</strong>. Rhai is a sandboxed scripting language with built-in HTTP, JSON, math, and string functions. Scripts run on the controller &mdash; no agent needed.</p>
+                    <p>Use cases: health checks, API polling, data validation, conditional logic, multi-step HTTP workflows.</p>
+                    <p>See the <a href="javascript:scrollToDocTopic('doc-scripting')">Scripting</a> section for the API and examples.</p>
+
+                    <h3 style="margin-top:20px">Output Rules: Reactive Workflows</h3>
+                    <p>Jobs can extract values from their output and trigger downstream actions:</p>
+                    <ul>
+                        <li><strong>Extraction</strong> &mdash; capture regex matches or JSON paths from stdout into variables</li>
+                        <li><strong>Assertions</strong> &mdash; fail a job if output doesn't match expected patterns</li>
+                        <li><strong>Triggers</strong> &mdash; fire other jobs based on output content</li>
+                        <li><strong>Forward</strong> &mdash; POST output to an external URL (webhook relay)</li>
+                    </ul>
+                    <p>Combined with event triggers and dependencies, these compose into arbitrarily complex workflows without plugins.</p>
+
+                    <h3 style="margin-top:20px">MCP Server: AI Tool Integration</h3>
+                    <p>Kronforce includes a built-in <a href="javascript:scrollToDocTopic('doc-mcp-server')">MCP server</a> that exposes jobs, executions, and agents as tools for AI assistants (Claude, etc.). This lets AI agents trigger jobs, check statuses, and read output programmatically.</p>
+
+                    <h3 style="margin-top:20px">API: Build Anything</h3>
+                    <p>Every feature in Kronforce is accessible via the <a href="javascript:scrollToDocTopic('doc-api')">REST API</a>. Build custom dashboards, CLI tools, Slack bots, or integrations with any system that speaks HTTP. The API supports pagination, filtering, and real-time streaming (SSE).</p>
                 </div>
 
                 <div class="docs-card" id="doc-migration">

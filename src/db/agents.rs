@@ -23,14 +23,20 @@ impl Db {
                     .map_err(|e| AppError::Internal(format!("serialize: {e}")))?,
             )
         };
+        let system_info_json = agent
+            .system_info
+            .as_ref()
+            .map(|si| serde_json::to_string(si))
+            .transpose()
+            .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
         conn.execute(
-            "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            "INSERT INTO agents (id, name, tags_json, hostname, address, port, agent_type, status, last_heartbeat, registered_at, task_types_json, system_info_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
              ON CONFLICT(name) DO UPDATE SET
                tags_json=excluded.tags_json, hostname=excluded.hostname, address=excluded.address,
                port=excluded.port, agent_type=excluded.agent_type, status=excluded.status,
                last_heartbeat=excluded.last_heartbeat, registered_at=excluded.registered_at,
-               task_types_json=excluded.task_types_json",
+               task_types_json=excluded.task_types_json, system_info_json=excluded.system_info_json",
             params![
                 agent.id.to_string(),
                 agent.name,
@@ -43,6 +49,7 @@ impl Db {
                 agent.last_heartbeat.map(|t| t.to_rfc3339()),
                 agent.registered_at.to_rfc3339(),
                 task_types_json,
+                system_info_json,
             ],
         )
         .map_err(AppError::Db)?;

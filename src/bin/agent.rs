@@ -7,7 +7,9 @@ use uuid::Uuid;
 use tracing::{debug, error, info, warn};
 
 use kronforce::agent;
-use kronforce::agent::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
+use kronforce::agent::protocol::{
+    AgentHeartbeat, AgentRegistration, AgentRegistrationResponse, AgentSystemInfo,
+};
 use kronforce::config::AgentConfig;
 
 #[tokio::main]
@@ -30,6 +32,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|h| h.to_string_lossy().to_string())
         .unwrap_or_else(|_| "unknown".to_string());
 
+    // Collect system info for node inventory
+    let system_info = AgentSystemInfo {
+        os: Some(std::env::consts::OS.to_string()),
+        arch: Some(std::env::consts::ARCH.to_string()),
+        cpus: std::thread::available_parallelism()
+            .ok()
+            .map(|n| n.get() as u32),
+        memory_mb: None, // platform-specific, filled below
+        os_version: None,
+        agent_version: Some(env!("CARGO_PKG_VERSION").to_string()),
+    };
+
     // Register with controller
     let reg = AgentRegistration {
         name: config.name.clone(),
@@ -39,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         port: config.port,
         agent_type: Some("standard".to_string()),
         task_types: None,
+        system_info: Some(system_info),
     };
 
     info!("registering with controller at {}", config.controller_url);

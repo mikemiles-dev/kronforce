@@ -5,6 +5,7 @@ let sortColumn = 'name';
 let sortDirection = 'asc';
 let currentJobId = null;
 let editingJobId = null;
+let editingJobUpdatedAt = null;
 let currentExecId = null;
 let pollTimer = null;
 let jobsPage = 1;
@@ -707,6 +708,7 @@ function showPage(page) {
         if (typeof loadAiSettings === 'function') loadAiSettings();
         showSettingsTab(currentSettingsTab || 'general');
     }
+    applyRoleVisibility();
 }
 
 function scrollToDocTopic(topicId) {
@@ -911,6 +913,53 @@ function updateCountdown() {
 // --- Auth ---
 let currentUser = null;
 
+/** True if user can create/edit/delete/trigger (admin or operator). */
+function canWrite() {
+    if (!currentUser || !currentUser.authenticated) return true; // no auth = full access
+    return currentUser.role === 'admin' || currentUser.role === 'operator';
+}
+
+/** True if user can manage keys, data import/export/delete (admin only). */
+function canAdmin() {
+    if (!currentUser || !currentUser.authenticated) return true;
+    return currentUser.role === 'admin';
+}
+
+/** Hide/show UI elements based on current user role. Call after auth and page transitions. */
+function applyRoleVisibility() {
+    const write = canWrite();
+    // Bulk action buttons (Create, Template, Run, Set Group, Delete)
+    ['bulk-run-btn', 'bulk-delete-btn', 'bulk-group-btn', 'bulk-clear-btn', 'run-group-btn'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.style.display = write ? '' : 'none';
+    });
+    // Create / Template buttons in the bulk bar
+    var bulkBar = document.getElementById('jobs-bulk-bar');
+    if (bulkBar) {
+        bulkBar.querySelectorAll('button').forEach(function(btn) {
+            if (btn.textContent.includes('Create') || btn.textContent.includes('Template')) {
+                btn.style.display = write ? '' : 'none';
+            }
+        });
+    }
+    // Builder nav item — hide for viewers
+    document.querySelectorAll('.sidebar-nav a').forEach(function(a) {
+        if (a.getAttribute('href') === '#/designer') {
+            a.style.display = write ? '' : 'none';
+        }
+    });
+    // Variables/Connections/Scripts create buttons
+    ['var-create-btn', 'conn-create-btn', 'script-create-btn'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = write ? '' : 'none';
+    });
+    // Data management (admin only)
+    ['data-export-btn', 'data-import-btn', 'data-delete-btn'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = canAdmin() ? '' : 'none';
+    });
+}
+
 function showLoginScreen() {
     document.getElementById('login-screen').style.display = '';
     document.getElementById('app-layout').style.display = 'none';
@@ -983,6 +1032,7 @@ async function checkAuth() {
         currentUser = await api('GET', '/api/auth/me');
         showApp();
         renderSidebarUser();
+        applyRoleVisibility();
         return true;
     } catch (e) {
         // If 401, login screen is already shown by the api() function
@@ -1019,7 +1069,7 @@ function renderSettingsAuth() {
 }
 
 // --- Theme ---
-let currentTheme = localStorage.getItem('kronforce-theme') || 'dark';
+let currentTheme = localStorage.getItem('kronforce-theme') || 'system';
 
 function clearBrowserCache() {
     if (!confirm('Clear all browser cache for this site and reload?')) return;

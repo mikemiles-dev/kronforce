@@ -4,6 +4,23 @@ use uuid::Uuid;
 
 use crate::db::models::{ExecutionStatus, TaskType, TaskTypeDefinition};
 
+/// System information reported by an agent for node inventory.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AgentSystemInfo {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub os: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cpus: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_mb: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub os_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_version: Option<String>,
+}
+
 /// Registration payload sent by an agent when it first connects to the controller.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentRegistration {
@@ -14,6 +31,8 @@ pub struct AgentRegistration {
     pub port: u16,
     pub agent_type: Option<String>,
     pub task_types: Option<Vec<TaskTypeDefinition>>,
+    #[serde(default)]
+    pub system_info: Option<AgentSystemInfo>,
 }
 
 /// Controller's response to a successful agent registration.

@@ -126,6 +126,7 @@ async function showExecDetail(id) {
             (e.params ? '<div class="output-section"><h4>Parameters</h4><pre class="output-pre">' + syntaxHighlightJson(esc(JSON.stringify(e.params, null, 2))) + '</pre></div>' : '') +
             renderExtractedValues(e.extracted) +
             (e.task_snapshot ? '<div class="output-section"><h4>Task Executed</h4><pre class="output-pre">' + syntaxHighlightJson(esc(JSON.stringify(sanitizeTaskSnapshot(e.task_snapshot), null, 2))) + '</pre></div>' : '') +
+            '<div style="display:flex;gap:8px;align-items:center;margin:12px 0 4px"><div class="search-wrap" style="flex:1;max-width:320px"><span class="search-icon">&#128269;</span><input id="exec-output-search" type="text" placeholder="Search in output..." oninput="highlightOutputSearch(this.value)" style="font-size:12px"></div><span id="exec-output-match-count" style="font-size:11px;color:var(--text-muted)"></span></div>' +
             renderOutputSection('Output', e.stdout, e.stdout_truncated) +
             renderOutputSection('Error', e.stderr, e.stderr_truncated) +
             '<div id="diff-section" style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="showOutputDiff(\'' + e.job_id + '\',\'' + e.id + '\')">Compare with previous run</button></div>';
@@ -368,6 +369,36 @@ function switchOutputView(id, mode, btn) {
 
 function infoField(label, value, className) {
     return '<div class="' + className + '"><label>' + label + '</label><div class="value">' + value + '</div></div>';
+}
+
+function highlightOutputSearch(query) {
+    var countEl = document.getElementById('exec-output-match-count');
+    var pres = document.querySelectorAll('#exec-detail-content .output-pre');
+    if (!query || query.length < 2) {
+        // Restore original output
+        pres.forEach(function(pre) {
+            if (pre._originalHTML) pre.innerHTML = pre._originalHTML;
+        });
+        if (countEl) countEl.textContent = '';
+        return;
+    }
+    var total = 0;
+    var escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = new RegExp('(' + escaped + ')', 'gi');
+    pres.forEach(function(pre) {
+        if (!pre._originalHTML) pre._originalHTML = pre.innerHTML;
+        var text = pre._originalHTML;
+        // Count matches in text content (strip tags first)
+        var plain = pre.textContent || '';
+        var m = plain.match(re);
+        if (m) total += m.length;
+        // Highlight in the HTML — only replace in text nodes, not inside tags
+        pre.innerHTML = text.replace(/(<[^>]+>)|([^<]+)/g, function(match, tag, content) {
+            if (tag) return tag;
+            return content.replace(re, '<mark style="background:var(--accent);color:#fff;border-radius:2px;padding:0 1px">$1</mark>');
+        });
+    });
+    if (countEl) countEl.textContent = total > 0 ? total + ' match' + (total !== 1 ? 'es' : '') : 'no matches';
 }
 
 let liveEventSource = null;

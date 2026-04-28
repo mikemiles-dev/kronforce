@@ -116,6 +116,24 @@ pub(crate) async fn cancel_execution(
     ))
 }
 
+/// Returns the last N execution statuses per job, for DAG visualization.
+/// Response: `{ "job_id": [{"status":"succeeded","started_at":"..."},  ...], ... }`
+pub(crate) async fn recent_statuses(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let db = state.db.clone();
+    let rows = db_call(&db, move |db| db.recent_execution_statuses(10)).await?;
+
+    let mut map: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+    for (job_id, status, started_at) in rows {
+        let arr = map.entry(job_id).or_insert_with(|| serde_json::json!([]));
+        if let Some(a) = arr.as_array_mut() {
+            a.push(serde_json::json!({ "status": status, "started_at": started_at }));
+        }
+    }
+    Ok(Json(serde_json::Value::Object(map)))
+}
+
 /// SSE endpoint for live output streaming during execution.
 pub(crate) async fn stream_execution(
     State(state): State<AppState>,

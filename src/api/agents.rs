@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use axum::Json;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Response};
 use chrono::Utc;
+use serde::Deserialize;
 use uuid::Uuid;
 
 use super::AppState;
@@ -51,6 +54,7 @@ pub(crate) async fn register_agent(
         last_heartbeat: Some(now),
         registered_at: existing.map(|a| a.registered_at).unwrap_or(now),
         task_types,
+        system_info: req.system_info,
     };
 
     let agent2 = agent.clone();
@@ -205,20 +209,54 @@ pub(crate) async fn update_agent_task_types(
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
+/// Query parameters for agent queue polling.
+#[derive(Deserialize)]
+pub(crate) struct PollQuery {
+    /// Optional long-poll timeout in seconds (max 60). When set, the server holds
+    /// the connection open and returns immediately when a job is queued, or after
+    /// the timeout expires with 204 No Content. This reduces polling latency from
+    /// the agent's poll interval to near-instant.
+    wait: Option<u64>,
+}
+
 /// Polls the job queue for the next pending item for this agent. Also updates heartbeat.
+///
+/// With `?wait=30`, enables long-polling: holds the connection for up to 30 seconds
+/// and returns instantly when a job is enqueued for this agent.
 pub(crate) async fn poll_agent_queue(
     State(state): State<AppState>,
     Path(agent_id): Path<Uuid>,
+    Query(query): Query<PollQuery>,
 ) -> Result<Response, AppError> {
     // Also update heartbeat
     let now = Utc::now();
     let aid = agent_id;
     let _ = db_call(&state.db, move |db| db.update_agent_heartbeat(aid, now)).await;
 
+    // Check for immediate work
     let job = db_call(&state.db, move |db| db.dequeue_job(agent_id)).await?;
-
-    match job {
-        Some(j) => Ok(Json(j).into_response()),
-        None => Ok(axum::http::StatusCode::NO_CONTENT.into_response()),
+    if let Some(j) = job {
+        return Ok(Json(j).into_response());
     }
+
+    // Long-poll: wait for notification or timeout
+    let wait_secs = query.wait.unwrap_or(0).min(60);
+    if wait_secs > 0 {
+        let notify = state
+            .agent_notify
+            .entry(agent_id)
+            .or_insert_with(|| Arc::new(tokio::sync::Notify::new()))
+            .clone();
+
+        let timeout = tokio::time::Duration::from_secs(wait_secs);
+        let _ = tokio::time::timeout(timeout, notify.notified()).await;
+
+        // Check again after wake
+        let job = db_call(&state.db, move |db| db.dequeue_job(agent_id)).await?;
+        if let Some(j) = job {
+            return Ok(Json(j).into_response());
+        }
+    }
+
+    Ok(axum::http::StatusCode::NO_CONTENT.into_response())
 }

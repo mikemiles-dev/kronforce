@@ -72,8 +72,16 @@ def discover_task_types(agent_id):
 
 
 def poll_for_work(agent_id):
-    """Poll the controller for a job to execute."""
-    resp = requests.get(f"{CONTROLLER_URL}/api/agent-queue/{agent_id}/next", headers=auth_headers())
+    """Long-poll the controller for a job to execute.
+
+    Uses ?wait=30 so the server holds the connection for up to 30 seconds
+    and returns instantly when work is available — near-zero dispatch latency.
+    """
+    resp = requests.get(
+        f"{CONTROLLER_URL}/api/agent-queue/{agent_id}/next?wait=30",
+        headers=auth_headers(),
+        timeout=35,  # slightly longer than server wait to avoid client timeout
+    )
     if resp.status_code == 204:
         return None  # No work available
     resp.raise_for_status()

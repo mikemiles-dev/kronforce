@@ -127,12 +127,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let script_store = kronforce::executor::scripts::ScriptStore::new(&config.scripts_dir)?;
     info!("scripts directory: {}", config.scripts_dir);
     let live_output = std::sync::Arc::new(dashmap::DashMap::new());
+    let agent_notify: std::sync::Arc<
+        dashmap::DashMap<uuid::Uuid, std::sync::Arc<tokio::sync::Notify>>,
+    > = std::sync::Arc::new(dashmap::DashMap::new());
     let executor = Executor::new(
         db.clone(),
         agent_client.clone(),
         scheduler_tx.clone(),
         script_store.clone(),
         live_output.clone(),
+        agent_notify.clone(),
     );
     let dag = DagResolver::new(db.clone());
     let scheduler = Scheduler::new(
@@ -365,6 +369,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         oidc: oidc_state,
         demo_mode: config.demo_mode,
         live_output,
+        agent_notify,
         ai_api_key: config.ai_api_key.clone(),
         ai_provider: config.ai_provider.clone(),
         ai_model: config.ai_model.clone(),

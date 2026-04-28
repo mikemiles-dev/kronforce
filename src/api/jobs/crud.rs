@@ -221,6 +221,18 @@ pub(crate) async fn update_job(
         .await?
         .ok_or_else(|| AppError::NotFound(format!("job {id} not found")))?;
 
+    // Optimistic concurrency check
+    if let Some(expected) = req.if_unmodified_since {
+        let diff = (job.updated_at - expected)
+            .num_milliseconds()
+            .unsigned_abs();
+        if diff > 1000 {
+            return Err(AppError::Conflict(
+                "job was modified by another user — reload and try again".into(),
+            ));
+        }
+    }
+
     // Snapshot before changes for audit diff
     let old_task = serde_json::to_string(&job.task).unwrap_or_default();
     let old_schedule = serde_json::to_string(&job.schedule).unwrap_or_default();

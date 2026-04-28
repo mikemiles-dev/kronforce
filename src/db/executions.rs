@@ -204,7 +204,7 @@ impl Db {
             f.add_eq("e.status", s);
         }
         if let Some(q) = search {
-            f.add_search(q, &["j.name", "e.stdout"]);
+            f.add_search(q, &["j.name", "e.stdout", "e.stderr"]);
         }
         if let Some(s) = since {
             f.add_gte("e.started_at", s);
@@ -303,6 +303,41 @@ impl Db {
             )
             .map_err(AppError::Db)?;
         Ok((total, succeeded, failed))
+    }
+
+    /// Returns the last N execution statuses per job for all jobs.
+    /// Result: Vec<(job_id, status, started_at)> ordered by job_id then started_at DESC.
+    pub fn recent_execution_statuses(
+        &self,
+        per_job: u32,
+    ) -> Result<Vec<(String, String, String)>, AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        // Use a window function to get the N most recent per job
+        let sql = format!(
+            "SELECT job_id, status, started_at FROM (\
+                SELECT job_id, status, started_at, \
+                ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY started_at DESC) as rn \
+                FROM executions WHERE status NOT IN ('pending', 'pending_approval')\
+            ) WHERE rn <= {per_job} ORDER BY job_id, started_at DESC"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(AppError::Db)?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .map_err(AppError::Db)?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row.map_err(AppError::Db)?);
+        }
+        Ok(result)
     }
 
     /// Get execution counts bucketed by minute for the last N minutes.

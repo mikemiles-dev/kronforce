@@ -52,7 +52,11 @@ Useful for logging on startup or validating that your agent handles the configur
 ### 3. Poll for Work
 
 ```bash
+# Instant poll — returns immediately
 curl http://localhost:8080/api/agent-queue/{agent_id}/next
+
+# Long-poll — holds connection for up to 30s, returns instantly when work arrives
+curl http://localhost:8080/api/agent-queue/{agent_id}/next?wait=30
 # Returns 204 if no work, or 200 with:
 ```
 
@@ -120,6 +124,7 @@ Task types can also be managed via API: `GET/PUT /api/agents/{id}/task-types`
 - Unclaimed jobs are failed after **5 minutes**
 - Claimed but unreported jobs are failed after **10 minutes**
 - Polling acts as a heartbeat — no separate call needed
+- Use `?wait=30` for long-polling — near-instant dispatch without tight poll loops
 - The UI shows a "queued" badge for pending custom agent jobs
 
 ## Building Your Own Agent
@@ -128,7 +133,7 @@ Any language with an HTTP client works. The protocol is:
 
 1. `POST /api/agents/register` with `"agent_type": "custom"`
 2. `GET /api/agents/{id}/task-types` (optional, for discovery)
-3. `GET /api/agent-queue/{id}/next` in a loop (also heartbeats)
+3. `GET /api/agent-queue/{id}/next?wait=30` in a loop (long-poll, also heartbeats)
 4. `POST {callback_url}` with the execution result
 
 ```python

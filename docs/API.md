@@ -760,6 +760,28 @@ The standard export includes jobs, variables (secrets masked), templates, agents
 
 Use this for backup and migration between Kronforce instances. Admin role required.
 
+## Data Import
+
+```bash
+# Import from a previous export (admin only)
+curl -X POST http://localhost:8080/api/data/import \
+  -H "Content-Type: application/json" \
+  -d @export.json
+```
+
+Restores data from an export JSON. Imports jobs, variables, connections, groups, and settings. Items that already exist (by name or ID) are skipped rather than overwritten. Masked secret variables (`********`) are also skipped.
+
+Returns a summary of imported and skipped counts per resource type:
+```json
+{
+  "status": "ok",
+  "imported": { "jobs": 5, "variables": 3, "connections": 2, "groups": 1, "settings": 4 },
+  "skipped": { "variables": 1, "connections": 1 }
+}
+```
+
+Admin role required.
+
 ## API Keys
 
 ```bash

@@ -40,6 +40,7 @@ function updateConnectionVisibility() {
 // --- Create/Edit Modal ---
 function resetJobForm() {
     editingJobId = null;
+    editingJobUpdatedAt = null;
     resetJobTabs();
     filePushBase64 = '';
     filePushFilename = '';
@@ -188,6 +189,7 @@ async function openEditModal(id) {
     try {
         const job = await api('GET', '/api/jobs/' + id);
         editingJobId = id;
+        editingJobUpdatedAt = job.updated_at || null;
         if (typeof hideAiPrompt === 'function') hideAiPrompt();
         (document.getElementById('modal-title') || document.getElementById('designer-title')).textContent = 'Edit Job';
         document.getElementById('f-name').value = job.name;
@@ -1291,6 +1293,7 @@ async function submitJobForm() {
     try {
         let jobId;
         if (editingJobId) {
+            if (editingJobUpdatedAt) body.if_unmodified_since = editingJobUpdatedAt;
             await api('PUT', '/api/jobs/' + editingJobId, body);
             toast('Job updated');
             jobId = editingJobId;
@@ -1307,7 +1310,14 @@ async function submitJobForm() {
             showPage('monitor');
         }
     } catch (e) {
-        toast(e.message, 'error');
+        if (e.message && e.message.includes('modified by another user')) {
+            toast('Conflict: this job was edited by someone else. Reloading latest version...', 'error');
+            if (editingJobId) {
+                setTimeout(function() { openEditModal(editingJobId); }, 1500);
+            }
+        } else {
+            toast(e.message, 'error');
+        }
     }
 }
 

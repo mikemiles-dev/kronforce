@@ -59,7 +59,7 @@ push: docker
 
 deploy: push
 	@echo "Pulling on droplet..."
-	ssh root@kronforce-prod 'cd ~/kronforce-platform/deploy && docker compose pull demo && docker compose up -d demo'
+	ssh root@167.172.242.225 'cd ~/kronforce-platform/deploy && docker compose pull demo && docker compose up -d demo'
 	@echo "Demo updated."
 
 # --- Seed ---

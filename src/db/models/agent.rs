@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::task::TaskTypeDefinition;
+use crate::agent::protocol::AgentSystemInfo;
 
 /// Connectivity state of a remote agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -80,6 +81,8 @@ pub struct Agent {
     pub registered_at: DateTime<Utc>,
     #[serde(default)]
     pub task_types: Vec<TaskTypeDefinition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub system_info: Option<AgentSystemInfo>,
 }
 
 impl Agent {
@@ -95,6 +98,7 @@ impl Agent {
         let hb_str: Option<String> = col(row, "last_heartbeat")?;
         let reg_str: String = col(row, "registered_at")?;
         let task_types_str: Option<String> = col(row, "task_types_json").unwrap_or(None);
+        let system_info_str: Option<String> = col(row, "system_info_json").unwrap_or(None);
 
         Ok(Agent {
             id: parse_uuid(&id_str)?,
@@ -113,6 +117,7 @@ impl Agent {
             task_types: task_types_str
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default(),
+            system_info: system_info_str.and_then(|s| serde_json::from_str(&s).ok()),
         })
     }
 }

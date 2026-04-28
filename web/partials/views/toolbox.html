@@ -8,7 +8,7 @@
         <!-- Scripts sub-tab -->
         <div id="toolbox-scripts-panel">
             <div style="display:flex;gap:12px;margin-bottom:16px;justify-content:space-between">
-                <button class="btn btn-primary" onclick="showCreateScript()">+ New Script</button>
+                <button class="btn btn-primary" id="script-create-btn" onclick="showCreateScript()">+ New Script</button>
             </div>
             <div id="scripts-list-wrap"></div>
             <div id="script-editor" style="display:none">
@@ -84,7 +84,7 @@
                             <span class="search-icon">&#128269;</span>
                             <input id="var-search-input" type="text" placeholder="Search variables..." oninput="filterVariables(this.value)" style="font-size:12px">
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="showAddVariableForm()">+ Add Variable</button>
+                        <button class="btn btn-primary btn-sm" id="var-create-btn" onclick="showAddVariableForm()">+ Add Variable</button>
                     </div>
                 </div>
                 <div id="add-variable-form" style="display:none;margin-bottom:12px;padding:12px;border:1px solid var(--border);border-radius:6px">
@@ -134,7 +134,7 @@
                         <span class="search-icon">&#128269;</span>
                         <input id="conn-search-input" type="text" placeholder="Search connections..." oninput="filterConnections(this.value)" style="font-size:12px">
                     </div>
-                    <button class="btn btn-primary btn-sm" onclick="showAddConnectionForm()">+ New Connection</button>
+                    <button class="btn btn-primary btn-sm" id="conn-create-btn" onclick="showAddConnectionForm()">+ New Connection</button>
                 </div>
             </div>
             <div id="connection-form" style="display:none;margin-bottom:20px">

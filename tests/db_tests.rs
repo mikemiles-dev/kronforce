@@ -228,6 +228,7 @@ fn test_upsert_and_get_agent() {
         last_heartbeat: Some(Utc::now()),
         registered_at: Utc::now(),
         task_types: vec![],
+        system_info: None,
     };
     db.upsert_agent(&agent).unwrap();
 
@@ -251,6 +252,7 @@ fn test_agent_re_registration_updates() {
         last_heartbeat: Some(Utc::now()),
         registered_at: Utc::now(),
         task_types: vec![],
+        system_info: None,
     };
     db.upsert_agent(&agent).unwrap();
 
@@ -277,6 +279,7 @@ fn test_list_agents() {
             last_heartbeat: Some(Utc::now()),
             registered_at: Utc::now(),
             task_types: vec![],
+            system_info: None,
         };
         db.upsert_agent(&agent).unwrap();
     }
@@ -300,6 +303,7 @@ fn test_get_online_agents_by_type() {
         last_heartbeat: Some(Utc::now()),
         registered_at: Utc::now(),
         task_types: vec![],
+        system_info: None,
     };
     let custom = Agent {
         id: Uuid::new_v4(),
@@ -313,6 +317,7 @@ fn test_get_online_agents_by_type() {
         last_heartbeat: Some(Utc::now()),
         registered_at: Utc::now(),
         task_types: vec![],
+        system_info: None,
     };
     db.upsert_agent(&standard).unwrap();
     db.upsert_agent(&custom).unwrap();

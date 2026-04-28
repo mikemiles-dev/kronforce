@@ -55,6 +55,8 @@ pub struct AppState {
     pub oidc: Option<Arc<oidc::OidcState>>,
     pub demo_mode: bool,
     pub live_output: Arc<dashmap::DashMap<Uuid, tokio::sync::broadcast::Sender<String>>>,
+    /// Per-agent notification channels for instant job dispatch to custom agents.
+    pub agent_notify: Arc<dashmap::DashMap<Uuid, Arc<tokio::sync::Notify>>>,
     pub ai_api_key: Option<String>,
     pub ai_provider: String,
     pub ai_model: Option<String>,
@@ -154,6 +156,10 @@ pub fn router(
             get(executions::list_executions),
         )
         .route("/api/executions", get(executions::list_all_executions))
+        .route(
+            "/api/executions/recent-statuses",
+            get(executions::recent_statuses),
+        )
         .route("/api/executions/{id}", get(executions::get_execution))
         .route(
             "/api/executions/{id}/stream",
@@ -207,6 +213,7 @@ pub fn router(
         .route("/api/ai/generate-job", post(ai::ai_generate_job))
         .route("/api/ai/models", get(ai::ai_list_models))
         .route("/api/data/export", get(data::export_data))
+        .route("/api/data/import", post(data::import_data))
         .route("/api/data/delete", delete(data::delete_all_data))
         .route(
             "/api/templates",

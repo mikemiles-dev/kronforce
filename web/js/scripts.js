@@ -28,7 +28,7 @@ function renderScriptsList() {
         html += '<div class="script-card" onclick="editScript(\'' + esc(s.name) + '\')">';
         html += '<div class="script-card-header">';
         html += '<span class="script-card-name">' + icon + ' ' + esc(s.name) + typeBadge + '</span>';
-        html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="event.stopPropagation();deleteScriptUI(\'' + esc(s.name) + '\')">Delete</button>';
+        if (canWrite()) html += '<button class="btn btn-ghost btn-sm unpair-btn" onclick="event.stopPropagation();deleteScriptUI(\'' + esc(s.name) + '\')">Delete</button>';
         html += '</div>';
         html += '<div class="script-card-meta">' + s.size + ' bytes' + (s.modified ? ' \u2022 ' + fmtDate(s.modified) : '') + '</div>';
         html += '</div>';

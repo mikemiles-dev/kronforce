@@ -104,6 +104,149 @@ pub(crate) async fn export_data(
     Ok(Json(data))
 }
 
+/// Import data from an export JSON. Admin only.
+/// Imports jobs, variables, connections, groups, and settings.
+/// Skips items that already exist (by name/id) rather than overwriting.
+pub(crate) async fn import_data(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(payload): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    if let Some(ref key) = auth.0
+        && !key.role.can_manage_keys()
+    {
+        return Err(AppError::Forbidden(
+            "admin role required for data import".into(),
+        ));
+    }
+
+    let db = state.db.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let mut imported = serde_json::Map::new();
+        let mut skipped = serde_json::Map::new();
+
+        // Import groups
+        if let Some(groups) = payload.get("groups").and_then(|v| v.as_array()) {
+            let mut count = 0;
+            for g in groups {
+                if let Some(name) = g.as_str() {
+                    if name != "Default" {
+                        let _ = db.add_custom_group(name);
+                        count += 1;
+                    }
+                }
+            }
+            imported.insert("groups".into(), serde_json::json!(count));
+        }
+
+        // Import variables
+        if let Some(vars) = payload.get("variables").and_then(|v| v.as_array()) {
+            let mut count = 0u32;
+            let mut skip = 0u32;
+            for v in vars {
+                if let Ok(var) = serde_json::from_value::<crate::db::models::Variable>(v.clone()) {
+                    if var.value == "********" {
+                        skip += 1;
+                        continue;
+                    }
+                    match db.get_variable(&var.name) {
+                        Ok(Some(_)) => {
+                            skip += 1;
+                        }
+                        _ => {
+                            if db.insert_variable(&var).is_ok() {
+                                count += 1;
+                            } else {
+                                skip += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            imported.insert("variables".into(), serde_json::json!(count));
+            if skip > 0 {
+                skipped.insert("variables".into(), serde_json::json!(skip));
+            }
+        }
+
+        // Import connections
+        if let Some(conns) = payload.get("connections").and_then(|v| v.as_array()) {
+            let mut count = 0u32;
+            let mut skip = 0u32;
+            for c in conns {
+                if let Ok(conn) = serde_json::from_value::<crate::db::models::Connection>(c.clone())
+                {
+                    match db.get_connection(&conn.name) {
+                        Ok(Some(_)) => {
+                            skip += 1;
+                        }
+                        _ => {
+                            if db.insert_connection(&conn).is_ok() {
+                                count += 1;
+                            } else {
+                                skip += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            imported.insert("connections".into(), serde_json::json!(count));
+            if skip > 0 {
+                skipped.insert("connections".into(), serde_json::json!(skip));
+            }
+        }
+
+        // Import jobs
+        if let Some(jobs) = payload.get("jobs").and_then(|v| v.as_array()) {
+            let mut count = 0u32;
+            let mut skip = 0u32;
+            for j in jobs {
+                if let Ok(job) = serde_json::from_value::<crate::db::models::Job>(j.clone()) {
+                    match db.get_job(job.id) {
+                        Ok(Some(_)) => {
+                            skip += 1;
+                        }
+                        _ => {
+                            if db.insert_job(&job).is_ok() {
+                                count += 1;
+                            } else {
+                                skip += 1;
+                            }
+                        }
+                    }
+                }
+            }
+            imported.insert("jobs".into(), serde_json::json!(count));
+            if skip > 0 {
+                skipped.insert("jobs".into(), serde_json::json!(skip));
+            }
+        }
+
+        // Import settings
+        if let Some(settings) = payload.get("settings").and_then(|v| v.as_object()) {
+            let mut count = 0u32;
+            for (k, v) in settings {
+                if let Some(val) = v.as_str() {
+                    if db.set_setting(k, val).is_ok() {
+                        count += 1;
+                    }
+                }
+            }
+            imported.insert("settings".into(), serde_json::json!(count));
+        }
+
+        Ok::<_, AppError>(serde_json::json!({
+            "status": "ok",
+            "imported": imported,
+            "skipped": skipped,
+        }))
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))??;
+
+    Ok(Json(result))
+}
+
 /// Deletes all data: jobs, executions, variables, templates, events, audit log.
 /// Requires admin role and confirmation header.
 pub(crate) async fn delete_all_data(

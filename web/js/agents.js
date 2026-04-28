@@ -93,6 +93,15 @@ function renderAgents() {
             }
             html += '</div>';
         }
+        if (a.system_info) {
+            var si = a.system_info;
+            html += '<div class="agent-system-info" style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--text-muted)">';
+            if (si.os) html += '<span title="OS">' + esc(si.os) + (si.arch ? '/' + esc(si.arch) : '') + '</span>';
+            if (si.cpus) html += '<span title="CPUs">&#9889; ' + si.cpus + ' CPU' + (si.cpus > 1 ? 's' : '') + '</span>';
+            if (si.memory_mb) html += '<span title="Memory">&#128190; ' + (si.memory_mb >= 1024 ? (si.memory_mb / 1024).toFixed(1) + ' GB' : si.memory_mb + ' MB') + '</span>';
+            if (si.agent_version) html += '<span title="Agent version">v' + esc(si.agent_version) + '</span>';
+            html += '</div>';
+        }
         if (isCustom) {
             const ttCount = (a.task_types && a.task_types.length) || 0;
             html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:11px;color:var(--text-secondary)">';
