@@ -55,7 +55,7 @@ function renderEvents(events) {
                 title: 'No events yet',
                 description: 'Events are logged when jobs run, agents change status, API keys are managed, and output patterns match. Activity will appear here automatically.',
                 actions: [
-                    { label: 'Create a Job', onclick: "showPage('jobs')", primary: true },
+                    { label: 'Create a Job', onclick: "openCreateModal()", primary: true },
                 ],
             });
         }

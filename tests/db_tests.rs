@@ -1337,6 +1337,7 @@ fn test_export_includes_jobs_and_variables() {
         value: "test-value".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     };
     db.insert_variable(&var).unwrap();
 
@@ -1359,6 +1360,7 @@ fn test_export_secret_variable_decrypted() {
         value: "super-secret-123".to_string(),
         updated_at: Utc::now(),
         secret: true,
+        expires_at: None,
     };
     db.insert_variable(&var).unwrap();
 

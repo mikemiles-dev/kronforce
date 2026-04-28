@@ -199,7 +199,7 @@
                 <select id="f-script-name" style="width:100%">
                     <option value="">Select a script...</option>
                 </select>
-                <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
+                <div class="form-hint">Manage scripts in the <a href="#" onclick="showPage('toolbox');setSubTab('toolbox','scripts');return false" style="color:var(--accent)">Scripts</a> page</div>
             </div>
         </div>
         <div id="task-docker_build-fields" style="display:none">
@@ -208,7 +208,7 @@
                 <select id="f-docker-script" style="width:100%">
                     <option value="">Select a Dockerfile script...</option>
                 </select>
-                <div class="form-hint">Create Dockerfile scripts in the <a href="#" onclick="showPage('scripts');return false" style="color:var(--accent)">Scripts</a> page with type "Dockerfile"</div>
+                <div class="form-hint">Create Dockerfile scripts in the <a href="#" onclick="showPage('toolbox');setSubTab('toolbox','scripts');return false" style="color:var(--accent)">Scripts</a> page with type "Dockerfile"</div>
             </div>
             <div class="form-group" style="display:flex;gap:8px">
                 <div style="flex:1"><label>Image Tag (optional)</label><input id="f-docker-tag" type="text" placeholder="my-app:latest"></div>

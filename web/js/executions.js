@@ -509,7 +509,7 @@ async function fetchAllExecutions() {
                 title: 'No executions yet',
                 description: 'Executions appear when jobs run. Create a job and trigger it to see results here.',
                 actions: [
-                    { label: 'Go to Jobs', onclick: "showPage('jobs')", primary: true },
+                    { label: 'Go to Jobs', onclick: "showPage('monitor');setSubTab('monitor','jobs')", primary: true },
                 ],
             });
         } else {

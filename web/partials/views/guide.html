@@ -30,7 +30,7 @@
                                 <code style="font-size:11px;color:var(--text-secondary)">GET https://httpbin.org/get</code>
                             </div>
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="showPage('jobs');setTimeout(openCreateModal,200)">Create a Job</button>
+                        <button class="btn btn-primary btn-sm" onclick="openCreateModal()">Create a Job</button>
                     </div>
                 </div>
 
@@ -42,7 +42,7 @@
                             <h3 style="margin:0;font-size:16px">Trigger and Watch</h3>
                         </div>
                         <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Click the <strong>&#9654; Trigger</strong> button on any job. Then check <strong>Executions</strong> to see the result with output, exit code, duration, and timestamps.</p>
-                        <button class="btn btn-ghost btn-sm" onclick="showPage('executions')">View Executions</button>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('monitor');setSubTab('monitor','runs')">View Runs</button>
                     </div>
                 </div>
 
@@ -74,7 +74,7 @@
                             <h3 style="margin:0;font-size:16px">Organize with Groups</h3>
                         </div>
                         <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Group related jobs together: <strong>ETL</strong>, <strong>Monitoring</strong>, <strong>Deploys</strong>, <strong>Maintenance</strong>. Groups appear as cards on the Groups page and as filters on the Jobs list.</p>
-                        <button class="btn btn-ghost btn-sm" onclick="showPage('groups')">Manage Groups</button>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('pipelines')">Manage Groups</button>
                     </div>
                 </div>
 
@@ -100,7 +100,7 @@
                                 <strong>Output extraction</strong> <span style="color:var(--text-muted)">&mdash; capture values from stdout, pass to the next job via <code>{{VAR}}</code></span>
                             </div>
                         </div>
-                        <button class="btn btn-ghost btn-sm" onclick="showPage('map')">View Dependency Map</button>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('pipelines');setSubTab('pipelines','map')">View Dependency Map</button>
                     </div>
                 </div>
 
@@ -117,7 +117,7 @@ KRONFORCE_CONTROLLER_URL=<span id="guide-controller-url"></span> \
 KRONFORCE_AGENT_NAME=my-agent \
   ./kronforce-agent</pre>
                         <p style="color:var(--text-secondary);margin:0 0 12px;font-size:13px">Or write a custom agent in <strong>Python</strong>, <strong>Go</strong>, or <strong>Node</strong> &mdash; see examples in the repo. See the <strong>Agents</strong> page for Docker and custom agent commands with copy button.</p>
-                        <button class="btn btn-ghost btn-sm" onclick="showPage('agents')">View Agents</button>
+                        <button class="btn btn-ghost btn-sm" onclick="showPage('settings')">View Agents</button>
                     </div>
                 </div>
 

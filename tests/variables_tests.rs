@@ -17,6 +17,7 @@ fn test_variable_create_and_get() {
         value: "https://api.example.com".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     };
     db.insert_variable(&var).unwrap();
 
@@ -39,6 +40,7 @@ fn test_variable_list() {
         value: "b".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     })
     .unwrap();
     db.insert_variable(&Variable {
@@ -46,6 +48,7 @@ fn test_variable_list() {
         value: "a".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     })
     .unwrap();
 
@@ -63,6 +66,7 @@ fn test_variable_update() {
         value: "old".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     })
     .unwrap();
 
@@ -85,6 +89,7 @@ fn test_variable_delete() {
         value: "val".to_string(),
         updated_at: Utc::now(),
         secret: false,
+        expires_at: None,
     })
     .unwrap();
 
