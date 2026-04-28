@@ -38,7 +38,7 @@ function updateConnectionVisibility() {
 }
 
 // --- Create/Edit Modal ---
-function openCreateModal() {
+function resetJobForm() {
     editingJobId = null;
     resetJobTabs();
     filePushBase64 = '';
@@ -81,13 +81,16 @@ function openCreateModal() {
     populateDeps(null);
     populateOutputRules(null);
     populateJobNotifications(null);
-    if (typeof showAiPrompt === 'function') showAiPrompt();
     // Load connections for the dropdown
     if (typeof fetchConnections === 'function' && (typeof allConnections === 'undefined' || allConnections.length === 0)) {
         api('GET', '/api/connections').then(c => { allConnections = c; populateConnectionSelect(''); }).catch(() => {});
     } else {
         populateConnectionSelect('');
     }
+}
+
+function openCreateModal() {
+    resetJobForm();
     // Navigate to designer page (full-page editor)
     showPage('designer');
 }

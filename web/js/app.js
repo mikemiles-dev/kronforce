@@ -690,8 +690,8 @@ function showPage(page) {
     } else if (page === 'designer') {
         // Full-page job editor — form is inline in designer.html
         fetchGroups();
-        if (!editingJobId) {
-            document.getElementById('designer-title').textContent = 'Create Job';
+        if (!editingJobId && typeof resetJobForm === 'function') {
+            resetJobForm();
         }
     } else if (page === 'toolbox') {
         setSubTab('toolbox', currentSubTab.toolbox);
