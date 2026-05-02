@@ -27,6 +27,9 @@ services:
       # Keys still needed for seed script to load data
       - KRONFORCE_BOOTSTRAP_ADMIN_KEY=${DEMO_ADMIN_KEY:-kf_demo_admin_key_change_me}
       - KRONFORCE_BOOTSTRAP_AGENT_KEY=${DEMO_AGENT_KEY:-kf_demo_agent_key_change_me}
+      # Bound execution/event/queue history so SQLite stays small for the demo
+      - KRONFORCE_RETENTION_DAYS=14
+      - KRONFORCE_AUDIT_RETENTION_DAYS=30
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/api/health"]
       interval: 10s

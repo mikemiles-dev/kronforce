@@ -140,6 +140,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Keys are only printed to stderr above — never written to disk for security.
     }
 
+    // Apply env-var-driven retention overrides on every startup. These set DB
+    // settings consumed by the periodic purge loop (see purge_old_executions /
+    // _events / _queue_items / _audit_log). Set to 0 to disable purging.
+    if let Ok(v) = std::env::var("KRONFORCE_RETENTION_DAYS")
+        && let Ok(parsed) = v.parse::<i64>()
+        && parsed >= 0
+    {
+        if let Err(e) = db.set_setting("retention_days", &parsed.to_string()) {
+            warn!("failed to apply KRONFORCE_RETENTION_DAYS: {e}");
+        } else {
+            info!("retention_days set from env: {}", parsed);
+        }
+    }
+    if let Ok(v) = std::env::var("KRONFORCE_AUDIT_RETENTION_DAYS")
+        && let Ok(parsed) = v.parse::<i64>()
+        && parsed >= 0
+    {
+        if let Err(e) = db.set_setting("audit_retention_days", &parsed.to_string()) {
+            warn!("failed to apply KRONFORCE_AUDIT_RETENTION_DAYS: {e}");
+        } else {
+            info!("audit_retention_days set from env: {}", parsed);
+        }
+    }
+
     let (scheduler_tx, scheduler_rx) = tokio::sync::mpsc::channel(64);
 
     let agent_client = AgentClient::new();
