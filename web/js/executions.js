@@ -405,14 +405,26 @@ let liveEventSource = null;
 
 var liveStreamRetries = 0;
 
-function startLiveStream(execId) {
+async function startLiveStream(execId) {
     stopLiveStream();
     const pre = document.getElementById('live-output');
     if (!pre) return;
 
-    var streamUrl = '/api/executions/' + execId + '/stream';
-    var apiKey = localStorage.getItem('kronforce-api-key');
-    if (apiKey) streamUrl += '?token=' + encodeURIComponent(apiKey);
+    // Mint a one-shot ticket via authenticated POST so the raw API key never
+    // appears as a URL query parameter (which would land in proxy logs and
+    // Referer headers). Each retry mints a fresh ticket.
+    let ticket;
+    try {
+        const resp = await api('POST', '/api/executions/' + execId + '/stream-ticket');
+        ticket = resp && resp.ticket;
+    } catch (e) {
+        // Auth failure or network error — let the modal render the static
+        // execution detail rather than spinning on retries.
+        return;
+    }
+    if (!ticket) return;
+
+    const streamUrl = '/api/executions/' + execId + '/stream?ticket=' + encodeURIComponent(ticket);
     liveEventSource = new EventSource(streamUrl);
     var connected = false;
     liveEventSource.onopen = function() { connected = true; liveStreamRetries = 0; };

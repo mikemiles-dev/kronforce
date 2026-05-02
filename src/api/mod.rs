@@ -60,6 +60,22 @@ pub struct AppState {
     pub ai_api_key: Option<String>,
     pub ai_provider: String,
     pub ai_model: Option<String>,
+    /// True when the controller is bound to a loopback address. Auth-disabled mode
+    /// (no API keys configured) is restricted to loopback so a non-loopback deploy
+    /// without keys does not silently expose every endpoint.
+    pub bind_is_loopback: bool,
+    /// One-shot tickets for SSE streaming endpoints. Tickets are minted via
+    /// POST /api/executions/{id}/stream-ticket (authenticated) and consumed by
+    /// GET /api/executions/{id}/stream?ticket=... so the raw API key never lands
+    /// on a URL (and therefore in proxy/access logs and Referer headers).
+    pub stream_tickets: Arc<dashmap::DashMap<String, StreamTicket>>,
+}
+
+/// One-shot SSE auth ticket. Bound to a single execution and a near-future expiry.
+#[derive(Clone, Debug)]
+pub struct StreamTicket {
+    pub execution_id: Uuid,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
 }
 
 const DASHBOARD_HTML: &str = include_str!(concat!(env!("OUT_DIR"), "/dashboard.html"));
@@ -164,6 +180,10 @@ pub fn router(
         .route(
             "/api/executions/{id}/stream",
             get(executions::stream_execution),
+        )
+        .route(
+            "/api/executions/{id}/stream-ticket",
+            post(executions::create_stream_ticket),
         )
         .route(
             "/api/executions/{id}/cancel",

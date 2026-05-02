@@ -92,11 +92,7 @@ impl Executor {
         let params_clone = params.clone();
         let substituted = tokio::task::spawn_blocking(move || {
             let vars = db.get_all_variables_map()?;
-            Ok::<_, AppError>(substitute_variables(
-                &task_clone,
-                &vars,
-                params_clone.as_ref(),
-            ))
+            substitute_variables(&task_clone, &vars, params_clone.as_ref())
         })
         .await
         .map_err(|e| AppError::Internal(e.to_string()))??;
@@ -144,15 +140,23 @@ impl Executor {
 }
 
 /// Substitute `{{VAR_NAME}}` and `{{params.NAME}}` placeholders in task fields.
-/// Returns None if no substitutions were needed, or Some(new_task) with resolved values.
+///
+/// Returns:
+/// - `Ok(None)` — no placeholders matched (nothing to do; caller should use the original task).
+/// - `Ok(Some(new_task))` — every matched placeholder was resolved.
+/// - `Err(_)` — at least one placeholder matched the syntax but had no corresponding
+///   variable/param, or the substituted result was no longer valid JSON. Surfacing this
+///   as an error prevents jobs from silently running with literal `{{X}}` in their fields.
 pub fn substitute_variables(
     task: &TaskType,
     vars: &HashMap<String, String>,
     params: Option<&serde_json::Value>,
-) -> Option<TaskType> {
-    let json_str = serde_json::to_string(task).ok()?;
+) -> Result<Option<TaskType>, AppError> {
+    let json_str = serde_json::to_string(task).map_err(|e| {
+        AppError::Internal(format!("failed to serialize task for substitution: {e}"))
+    })?;
     if !json_str.contains("{{") {
-        return None;
+        return Ok(None);
     }
 
     fn json_escape(value: &str) -> String {
@@ -173,58 +177,75 @@ pub fn substitute_variables(
     }
 
     let mut had_substitution = false;
+    let mut unresolved: Vec<String> = Vec::new();
     let mut result = json_str;
 
-    // Pass 1: {{params.NAME}} — from runtime trigger params
-    if let Some(params) = params
-        && let Some(obj) = params.as_object()
-    {
-        let re = Regex::new(r"\{\{params\.([A-Za-z0-9_]+)\}\}").ok()?;
-        let src = result.clone();
-        result = re
-            .replace_all(&src, |caps: &regex::Captures| {
-                let param_name = &caps[1];
-                if let Some(val) = obj.get(param_name) {
+    // Pass 1: {{params.NAME}} — from runtime trigger params.
+    // The placeholder syntax is reserved, so an unrecognized name is always an error
+    // even when params=None (the job author wrote {{params.X}} expecting a runtime value).
+    let re_params = Regex::new(r"\{\{params\.([A-Za-z0-9_]+)\}\}")
+        .map_err(|e| AppError::Internal(format!("regex compile failed: {e}")))?;
+    let params_obj = params.and_then(|p| p.as_object());
+    let src = result.clone();
+    result = re_params
+        .replace_all(&src, |caps: &regex::Captures| {
+            let param_name = &caps[1];
+            match params_obj.and_then(|o| o.get(param_name)) {
+                Some(val) => {
                     had_substitution = true;
                     let s = match val {
                         serde_json::Value::String(s) => s.clone(),
                         other => other.to_string(),
                     };
                     json_escape(&s)
-                } else {
+                }
+                None => {
+                    unresolved.push(format!("params.{param_name}"));
                     caps[0].to_string()
                 }
-            })
-            .to_string();
-    }
+            }
+        })
+        .to_string();
 
-    // Pass 2: {{VAR_NAME}} — from global variables
-    if !vars.is_empty() {
-        let re = Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}").ok()?;
-        let src = result.clone();
-        result = re
-            .replace_all(&src, |caps: &regex::Captures| {
-                let var_name = &caps[1];
-                if let Some(value) = vars.get(var_name) {
+    // Pass 2: {{VAR_NAME}} — from global variables.
+    let re_vars = Regex::new(r"\{\{([A-Za-z0-9_]+)\}\}")
+        .map_err(|e| AppError::Internal(format!("regex compile failed: {e}")))?;
+    let src = result.clone();
+    result = re_vars
+        .replace_all(&src, |caps: &regex::Captures| {
+            let var_name = &caps[1];
+            match vars.get(var_name) {
+                Some(value) => {
                     had_substitution = true;
                     json_escape(value)
-                } else {
-                    warn!("unresolved variable reference: {{{{{}}}}}", var_name);
+                }
+                None => {
+                    unresolved.push(var_name.to_string());
                     caps[0].to_string()
                 }
-            })
-            .to_string();
+            }
+        })
+        .to_string();
+
+    if !unresolved.is_empty() {
+        unresolved.sort();
+        unresolved.dedup();
+        warn!(
+            "unresolved variable references in task: {{{{{}}}}}",
+            unresolved.join("}}, {{")
+        );
+        return Err(AppError::BadRequest(format!(
+            "unresolved variable reference(s): {{{{{}}}}}",
+            unresolved.join("}}, {{")
+        )));
     }
 
     if !had_substitution {
-        return None;
+        return Ok(None);
     }
 
-    match serde_json::from_str(&result) {
-        Ok(new_task) => Some(new_task),
-        Err(e) => {
-            error!("variable substitution produced invalid JSON: {}", e);
-            None
-        }
-    }
+    serde_json::from_str(&result).map(Some).map_err(|e| {
+        error!("variable substitution produced invalid JSON: {}", e);
+        AppError::Internal(format!("variable substitution produced invalid JSON: {e}"))
+    })
 }

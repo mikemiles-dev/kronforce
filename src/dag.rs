@@ -30,8 +30,20 @@ impl DagResolver {
                     // Check time window if specified
                     if let Some(within_secs) = dep.within_secs {
                         if let Some(finished) = exec.finished_at {
-                            let elapsed = (now - finished).num_seconds();
-                            if elapsed < 0 || elapsed > within_secs as i64 {
+                            let raw = (now - finished).num_seconds();
+                            // Negative elapsed means finished_at is in the future — clock skew
+                            // or manual edits. Treat the magnitude as the elapsed time and warn,
+                            // rather than silently failing the dependency check.
+                            if raw < 0 {
+                                tracing::warn!(
+                                    job_id = %dep.job_id,
+                                    finished_at = %finished,
+                                    "dependency finished_at is in the future ({}s); treating as just-completed (clock skew?)",
+                                    raw
+                                );
+                            }
+                            let elapsed = raw.unsigned_abs();
+                            if elapsed > within_secs {
                                 return Ok(false);
                             }
                         } else {

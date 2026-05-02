@@ -35,15 +35,27 @@ pub fn generate_api_key() -> (String, String) {
 }
 
 /// Validates a Bearer token from request headers against the database.
-/// Returns None if no keys are configured (auth disabled), or the matching ApiKey.
+///
+/// Returns:
+/// - `Ok(Some(key))` — token validated to an active key.
+/// - `Ok(None)` — no API keys are configured AND the deployment is bound to loopback,
+///   so we permit the bootstrap flow. Non-loopback bindings without keys return an
+///   `Unauthorized` error instead of silently allowing access.
+/// - `Err(_)` — token missing, malformed, expired, or unknown.
 async fn validate_bearer_token(
     db: &crate::db::Db,
+    bind_is_loopback: bool,
     headers: &axum::http::HeaderMap,
     missing_msg: &str,
 ) -> Result<Option<ApiKey>, AppError> {
     let key_count = db_call(db, move |db| db.count_api_keys()).await?;
     if key_count == 0 {
-        return Ok(None);
+        if bind_is_loopback {
+            return Ok(None);
+        }
+        return Err(AppError::Unauthorized(
+            "no API keys configured: bootstrap from a loopback address (127.0.0.1) or run with --reset-admin-key".into(),
+        ));
     }
 
     let auth_header = headers
@@ -166,14 +178,19 @@ async fn touch_api_key(db: &crate::db::Db, key_id: Uuid) {
 }
 
 /// Middleware that authenticates agent-facing endpoints using Bearer tokens.
-/// Skips auth if no API keys are configured (first-time setup).
+/// Skips auth only on loopback when no API keys are configured (first-time setup).
 pub(crate) async fn agent_auth_middleware(
     State(state): State<AppState>,
     req: Request,
     next: Next,
 ) -> Result<Response, AppError> {
-    let Some(key) =
-        validate_bearer_token(&state.db, req.headers(), "agent API key required").await?
+    let Some(key) = validate_bearer_token(
+        &state.db,
+        state.bind_is_loopback,
+        req.headers(),
+        "agent API key required",
+    )
+    .await?
     else {
         return Ok(next.run(req).await);
     };
@@ -234,6 +251,7 @@ pub(crate) async fn auth_middleware(
     if has_bearer {
         let Some(key) = validate_bearer_token(
             &state.db,
+            state.bind_is_loopback,
             req.headers(),
             "missing or invalid Authorization header",
         )
@@ -253,34 +271,47 @@ pub(crate) async fn auth_middleware(
         return Ok(next.run(req).await);
     }
 
-    // Try query param token (for EventSource/SSE which can't set headers)
-    if let Some(query) = req.uri().query() {
-        for pair in query.split('&') {
-            if let Some(token) = pair.strip_prefix("token=") {
-                let token = token.to_string();
-                if !token.is_empty() {
-                    let db = state.db.clone();
-                    let hash = hash_api_key(&token);
-                    if let Ok(Some(key)) =
-                        tokio::task::spawn_blocking(move || db.get_api_key_by_hash(&hash))
-                            .await
-                            .unwrap_or(Ok(None))
-                        && key.active
-                        && key.expires_at.is_none_or(|exp| Utc::now() < exp)
-                    {
-                        check_ip_allowlist(&key, &req)?;
-                        touch_api_key(&state.db, key.id).await;
-                        req.extensions_mut().insert(key);
-                        return Ok(next.run(req).await);
-                    }
-                }
+    // Try one-shot SSE ticket (for EventSource which can't set headers).
+    // Tickets are bound to a single execution id, single-use, and expire quickly —
+    // raw API keys are never accepted as a URL parameter.
+    if let Some(query) = req.uri().query()
+        && let Some(ticket) = query
+            .split('&')
+            .find_map(|p| p.strip_prefix("ticket="))
+            .filter(|t| !t.is_empty())
+    {
+        // Tickets are only valid for /api/executions/{uuid}/stream. Parsing the
+        // path id here ensures a ticket minted for execution X cannot be used to
+        // open the stream of execution Y.
+        let path = req.uri().path();
+        let path_id = path
+            .strip_prefix("/api/executions/")
+            .and_then(|rest| rest.strip_suffix("/stream"))
+            .and_then(|s| Uuid::parse_str(s).ok());
+
+        let now = Utc::now();
+        // Consume on lookup so a leaked URL only works once.
+        if let (Some(want_id), Some((_, t))) = (path_id, state.stream_tickets.remove(ticket)) {
+            // Best-effort prune of any other expired entries
+            state.stream_tickets.retain(|_, v| v.expires_at > now);
+            if t.expires_at > now && t.execution_id == want_id {
+                // Tickets carry no caller identity beyond having been minted by an
+                // authenticated session. We therefore allow the request through
+                // without inserting an ApiKey extension — endpoints that consume
+                // tickets must not require a specific role beyond viewer-level read.
+                return Ok(next.run(req).await);
             }
         }
+        return Err(AppError::Unauthorized(
+            "stream ticket missing, expired, already consumed, or bound to a different execution"
+                .into(),
+        ));
     }
 
-    // No Bearer and no cookie — check if auth is disabled (no keys configured)
+    // No Bearer, no cookie, no ticket — only allow through if auth is disabled
+    // AND we're on a loopback bind (bootstrap path).
     let key_count = db_call(&state.db, move |db| db.count_api_keys()).await?;
-    if key_count == 0 {
+    if key_count == 0 && state.bind_is_loopback {
         return Ok(next.run(req).await);
     }
 

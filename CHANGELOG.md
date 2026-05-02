@@ -5,6 +5,23 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-alpha] - 2026-05-02
+
+### Security
+- **Auth-disabled bootstrap restricted to loopback** — when no API keys are configured the controller previously allowed all requests through, which silently exposed every endpoint on a non-loopback bind. The bypass is now gated by the bind address: it remains available on `127.0.0.1`/`::1` for first-time setup, but a non-loopback bind without keys returns 401 with a message pointing the operator at the bootstrap flow. A loud startup warning is emitted when this combination is detected.
+- **One-shot tickets for SSE auth** — the live execution stream no longer accepts the raw API key as a `?token=` query parameter (which leaked into proxy access logs and `Referer` headers). Clients now POST to `/api/executions/{id}/stream-ticket` with normal Bearer/cookie auth and trade the response for a 60-second, single-use, execution-bound ticket consumed by `GET /api/executions/{id}/stream?ticket=…`. The middleware verifies the ticket's execution id against the URL path, so a ticket for execution X cannot be replayed against execution Y.
+- **Variables UI escapes JS-string contexts correctly** — variable rows used `esc()` (HTML-escape) for values interpolated into inline `onclick`/`onchange` handlers, where a single quote in a name would have broken out of the JS string. Switched to `escAttr()` for those handler attributes.
+
+### Fixed
+- **Variable substitution surfaces unresolved placeholders** — `substitute_variables` previously returned silently when a `{{VAR}}` or `{{params.X}}` had no matching value, causing jobs to run with literal placeholders in their commands. The function now returns `Result<Option<TaskType>, AppError>` and rejects unresolved references and post-substitution invalid JSON, so the trigger fails fast with a descriptive error instead of executing a broken task.
+- **DAG dependency window tolerates clock skew** — the `within_secs` check used `(now - finished).num_seconds()` directly, so any backwards clock drift made `elapsed` negative and silently failed the dependency. The check now uses the magnitude and emits a warning when `finished_at` is in the future.
+- **Interval scheduler no longer refires on missing finish time** — when a previous execution had a terminal status but no `finished_at` (crash mid-finalize, schema drift), the scheduler treated it as "fire immediately" and re-fired on every tick. The interval check now skips re-firing in that state and emits a warning so an operator can reconcile.
+- **Scheduler tick errors are no longer swallowed** — `spawn_blocking` join errors and DB query errors in the interval-job check were mapped to defaults that effectively masked outages. They now log at `error` level with the job id.
+
+### Changed
+- **`substitute_variables` return type** — public function now returns `Result<Option<TaskType>, AppError>` instead of `Option<TaskType>`. External callers must handle the `Err` arm explicitly.
+- **`AppState`** — gains `bind_is_loopback: bool` and `stream_tickets: Arc<DashMap<String, StreamTicket>>` fields to support the auth and ticket changes above.
+
 ## [0.1.0-alpha] - 2026-04-26
 
 ### Added

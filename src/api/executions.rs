@@ -3,7 +3,7 @@ use axum::extract::{Path, Query, State};
 use serde::Deserialize;
 use uuid::Uuid;
 
-use super::{AppState, PaginatedResponse, paginate, paginated_response};
+use super::{AppState, PaginatedResponse, StreamTicket, paginate, paginated_response};
 use crate::db::db_call;
 use crate::db::models::*;
 use crate::error::AppError;
@@ -134,10 +134,46 @@ pub(crate) async fn recent_statuses(
     Ok(Json(serde_json::Value::Object(map)))
 }
 
+/// Mints a one-shot ticket for opening an SSE stream. The caller authenticates
+/// normally (Bearer/cookie), and trades that for a short-lived token so the raw
+/// API key never appears as a URL query parameter (which would land in proxy
+/// access logs and `Referer` headers).
+pub(crate) async fn create_stream_ticket(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    use rand::RngExt;
+    let mut bytes = [0u8; 24];
+    rand::rng().fill(&mut bytes);
+    let ticket = base64::Engine::encode(&base64::engine::general_purpose::URL_SAFE_NO_PAD, bytes);
+    let expires_at = chrono::Utc::now() + chrono::Duration::seconds(60);
+    state.stream_tickets.insert(
+        ticket.clone(),
+        StreamTicket {
+            execution_id: id,
+            expires_at,
+        },
+    );
+    Ok(Json(serde_json::json!({
+        "ticket": ticket,
+        "expires_at": expires_at,
+    })))
+}
+
+#[derive(Deserialize)]
+pub(crate) struct StreamQuery {
+    /// Optional ticket — present when the EventSource client used the ticket flow.
+    /// The middleware has already validated and consumed the ticket; this struct
+    /// lets axum parse the URL without erroring on the unknown query param.
+    #[allow(dead_code)]
+    ticket: Option<String>,
+}
+
 /// SSE endpoint for live output streaming during execution.
 pub(crate) async fn stream_execution(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    Query(_q): Query<StreamQuery>,
 ) -> Result<
     axum::response::sse::Sse<
         impl futures_core::Stream<Item = Result<axum::response::sse::Event, std::convert::Infallible>>,

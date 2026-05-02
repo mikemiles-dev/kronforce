@@ -1,7 +1,7 @@
 //! Tick-loop methods: periodic job checking for cron, calendar, interval, and one-shot schedules.
 
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use super::calendar::{last_weekday_of_month, nth_weekday_of_month, parse_weekday};
 use crate::db::models::*;
@@ -320,10 +320,15 @@ impl super::Scheduler {
         // Fire if enough time has passed since the last execution finished
         let db = self.db.clone();
         let job_id = job.id;
-        let last_exec =
-            tokio::task::spawn_blocking(move || db.get_latest_execution_for_job(job_id))
-                .await
-                .unwrap_or(Ok(None));
+        let join =
+            tokio::task::spawn_blocking(move || db.get_latest_execution_for_job(job_id)).await;
+        let last_exec = match join {
+            Ok(res) => res,
+            Err(e) => {
+                error!("interval check: spawn_blocking join failed for job {job_id}: {e}");
+                return;
+            }
+        };
 
         let should_fire = match last_exec {
             Ok(Some(exec)) => {
@@ -338,11 +343,24 @@ impl super::Scheduler {
                         let elapsed = (now - finished).num_seconds();
                         elapsed >= interval_secs as i64
                     }
-                    None => true, // No finish time recorded, fire
+                    None => {
+                        // Status is terminal but finished_at was never written — likely a
+                        // crash mid-finalize or schema drift. Refusing to fire prevents an
+                        // infinite refire loop; surface it loudly so an operator can reconcile.
+                        warn!(
+                            job_id = %job_id,
+                            status = ?exec.status,
+                            "interval check: previous execution has terminal status but no finished_at; skipping refire"
+                        );
+                        false
+                    }
                 }
             }
             Ok(None) => true, // Never run before, fire immediately
-            Err(_) => false,
+            Err(e) => {
+                error!("interval check: db query failed for job {job_id}: {e}");
+                false
+            }
         };
 
         if should_fire {

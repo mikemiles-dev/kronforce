@@ -10,6 +10,25 @@ use kronforce::db::Db;
 use kronforce::executor::Executor;
 use kronforce::scheduler::Scheduler;
 
+/// Returns true if `bind_addr` (e.g. "127.0.0.1:8080" or "[::1]:8080") binds
+/// only to a loopback interface. Used to gate the auth-disabled bootstrap path.
+fn bind_addr_is_loopback(bind_addr: &str) -> bool {
+    use std::net::ToSocketAddrs;
+    match bind_addr.to_socket_addrs() {
+        Ok(addrs) => {
+            let mut any = false;
+            for addr in addrs {
+                any = true;
+                if !addr.ip().is_loopback() {
+                    return false;
+                }
+            }
+            any
+        }
+        Err(_) => false,
+    }
+}
+
 /// Parses an HH:MM string to minutes since midnight. Returns None on invalid input.
 fn parse_hhmm(hhmm: &str) -> Option<i32> {
     let parts: Vec<&str> = hhmm.split(':').collect();
@@ -359,6 +378,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    let bind_is_loopback = bind_addr_is_loopback(&config.bind_addr);
+    if !bind_is_loopback {
+        let key_count = db.count_api_keys().unwrap_or(0);
+        if key_count == 0 {
+            warn!(
+                "no API keys configured AND bind address ({}) is not loopback — \
+                 unauthenticated requests will be REJECTED. Bootstrap by binding to \
+                 127.0.0.1 first, or run with --reset-admin-key.",
+                config.bind_addr
+            );
+        }
+    }
     let state = kronforce::api::AppState {
         db,
         dag,
@@ -373,6 +404,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ai_api_key: config.ai_api_key.clone(),
         ai_provider: config.ai_provider.clone(),
         ai_model: config.ai_model.clone(),
+        bind_is_loopback,
+        stream_tickets: std::sync::Arc::new(dashmap::DashMap::new()),
     };
     if config.ai_api_key.is_some() {
         info!("AI assistant enabled (provider: {})", config.ai_provider);

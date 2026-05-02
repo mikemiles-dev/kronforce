@@ -34,9 +34,9 @@ function renderVariables() {
         const w = canWrite();
         return `<tr>
         <td><code>${esc(v.name)}</code>${badge}${expiryBadge}</td>
-        <td><input type="${inputType}" class="var-edit-value" data-name="${esc(v.name)}" value="${esc(v.value)}" style="width:100%;font-family:var(--font-mono);font-size:12px" ${isSecret ? 'placeholder="••••••••" ' : ''}${w ? `onchange="updateVariable('${esc(v.name)}', this.value)"` : 'disabled'}></td>
+        <td><input type="${inputType}" class="var-edit-value" data-name="${esc(v.name)}" value="${esc(v.value)}" style="width:100%;font-family:var(--font-mono);font-size:12px" ${isSecret ? 'placeholder="••••••••" ' : ''}${w ? `onchange="updateVariable('${escAttr(v.name)}', this.value)"` : 'disabled'}></td>
         <td style="white-space:nowrap;color:var(--text-muted);font-size:12px">${fmtDate(v.updated_at)}</td>
-        ${w ? `<td><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteVariable('${esc(v.name)}')">Delete</button></td>` : '<td></td>'}
+        ${w ? `<td><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteVariable('${escAttr(v.name)}')">Delete</button></td>` : '<td></td>'}
     </tr>`;
     }).join('');
 }
