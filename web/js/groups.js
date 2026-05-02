@@ -180,6 +180,8 @@ function setGroupsView(mode) {
 }
 
 async function fetchGroupsPage() {
+    var grid = document.getElementById('groups-grid');
+    if (grid) grid.innerHTML = '<div class="loading-bar"></div><div class="loading-placeholder">Loading...</div>';
     try {
         const [groups, jobsRes] = await Promise.all([
             api('GET', '/api/jobs/groups'),

@@ -5,6 +5,8 @@ var cyInstance = null;
 var _recentStatuses = {};
 
 async function renderMap() {
+    var mapEl = document.getElementById('map-container');
+    if (mapEl) mapEl.innerHTML = '<div class="loading-bar"></div><div class="loading-placeholder">Loading map...</div>';
     let jobs;
     try {
         var [res, statuses] = await Promise.all([
