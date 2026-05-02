@@ -129,11 +129,11 @@ pub(crate) async fn import_data(
         if let Some(groups) = payload.get("groups").and_then(|v| v.as_array()) {
             let mut count = 0;
             for g in groups {
-                if let Some(name) = g.as_str() {
-                    if name != "Default" {
-                        let _ = db.add_custom_group(name);
-                        count += 1;
-                    }
+                if let Some(name) = g.as_str()
+                    && name != "Default"
+                {
+                    let _ = db.add_custom_group(name);
+                    count += 1;
                 }
             }
             imported.insert("groups".into(), serde_json::json!(count));
@@ -226,10 +226,10 @@ pub(crate) async fn import_data(
         if let Some(settings) = payload.get("settings").and_then(|v| v.as_object()) {
             let mut count = 0u32;
             for (k, v) in settings {
-                if let Some(val) = v.as_str() {
-                    if db.set_setting(k, val).is_ok() {
-                        count += 1;
-                    }
+                if let Some(val) = v.as_str()
+                    && db.set_setting(k, val).is_ok()
+                {
+                    count += 1;
                 }
             }
             imported.insert("settings".into(), serde_json::json!(count));

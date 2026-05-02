@@ -26,7 +26,7 @@ impl Db {
         let system_info_json = agent
             .system_info
             .as_ref()
-            .map(|si| serde_json::to_string(si))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| AppError::Internal(format!("serialize: {e}")))?;
         conn.execute(
