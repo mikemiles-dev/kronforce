@@ -1151,7 +1151,7 @@ function updateHash() {
         newHash = '#/' + currentPage;
     }
     if (location.hash !== newHash) {
-        history.replaceState(null, '', newHash);
+        history.pushState(null, '', newHash);
     }
 }
 

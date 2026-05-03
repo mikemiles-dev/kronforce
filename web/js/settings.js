@@ -104,7 +104,7 @@ async function renderSettingsAgents() {
             const dot = online ? '<span style="color:var(--success)">&#9679;</span>' : '<span style="color:var(--text-muted)">&#9679;</span>';
             const typeBadge = a.agent_type === 'custom' ? ' <span class="badge badge-paused" style="font-size:9px">custom</span>' : '';
             const tags = (a.tags || []).map(t => '<span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:8px">' + esc(t) + '</span>').join(' ');
-            html += '<div class="card" style="cursor:pointer" onclick="showPage(\'agents\')">';
+            html += '<div class="card">';
             html += '<div style="padding:14px">';
             html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
             html += '<strong>' + dot + ' ' + esc(a.name) + typeBadge + '</strong>';
