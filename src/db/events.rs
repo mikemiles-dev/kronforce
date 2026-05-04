@@ -15,7 +15,7 @@ impl Db {
             .get()
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         conn.execute(
-            "INSERT INTO events (id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO events (id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, execution_id, details, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 event.id.to_string(),
                 event.kind,
@@ -25,6 +25,7 @@ impl Db {
                 event.agent_id.map(|id| id.to_string()),
                 event.api_key_id.map(|id| id.to_string()),
                 event.api_key_name,
+                event.execution_id.map(|id| id.to_string()),
                 event.details,
                 event.timestamp.to_rfc3339(),
             ],
@@ -88,6 +89,7 @@ impl Db {
             agent_id,
             api_key_id,
             api_key_name,
+            execution_id: None,
             details,
             timestamp: Utc::now(),
         };
@@ -107,10 +109,10 @@ impl Db {
             .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
         let sql = match since {
             Some(_) => {
-                "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events WHERE timestamp >= ?3 ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
+                "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, execution_id, details, timestamp FROM events WHERE timestamp >= ?3 ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
             }
             None => {
-                "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, details, timestamp FROM events ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
+                "SELECT id, kind, severity, message, job_id, agent_id, api_key_id, api_key_name, execution_id, details, timestamp FROM events ORDER BY timestamp DESC LIMIT ?1 OFFSET ?2"
             }
         };
         let mut stmt = conn.prepare(sql).map_err(AppError::Db)?;
@@ -131,6 +133,7 @@ impl Db {
                     let agent_id_str: Option<String> = col(row, "agent_id")?;
                     let api_key_id_str: Option<String> = col(row, "api_key_id")?;
                     let api_key_name: Option<String> = col(row, "api_key_name")?;
+                    let execution_id_str: Option<String> = col(row, "execution_id")?;
                     let details: Option<String> = col(row, "details")?;
                     let ts_str: String = col(row, "timestamp")?;
                     Ok(Event {
@@ -149,11 +152,12 @@ impl Db {
                         agent_id: agent_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
                         api_key_id: api_key_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
                         api_key_name,
+                        execution_id: execution_id_str.and_then(|s| Uuid::parse_str(&s).ok()),
                         details,
                         timestamp: DateTime::parse_from_rfc3339(&ts_str)
                             .map_err(|_| {
                                 rusqlite::Error::InvalidColumnType(
-                                    9,
+                                    10,
                                     "timestamp".into(),
                                     rusqlite::types::Type::Text,
                                 )

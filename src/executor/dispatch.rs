@@ -243,7 +243,7 @@ impl super::Executor {
 
         match self
             .agent_client
-            .dispatch_job(&agent.address, agent.port, &dispatch)
+            .dispatch_job(agent.id, &agent.address, agent.port, &dispatch)
             .await
         {
             Ok(resp) if resp.accepted => {

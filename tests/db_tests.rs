@@ -505,6 +505,54 @@ fn test_log_event() {
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].kind, "test.event");
     assert_eq!(events[0].message, "test message");
+    assert_eq!(events[0].execution_id, None);
+}
+
+#[test]
+fn test_event_with_execution_id_round_trips() {
+    // Regression: events created from execution lifecycle paths must carry
+    // execution_id so the UI can link directly to the run's output.
+    let db = test_db();
+    let exec_id = Uuid::new_v4();
+    let job_id = Uuid::new_v4();
+    let event = Event {
+        id: Uuid::new_v4(),
+        kind: "execution.completed".to_string(),
+        severity: EventSeverity::Success,
+        message: format!("Job execution {} finished", exec_id),
+        job_id: Some(job_id),
+        agent_id: None,
+        api_key_id: None,
+        api_key_name: None,
+        execution_id: Some(exec_id),
+        details: None,
+        timestamp: Utc::now(),
+    };
+    db.insert_event(&event).unwrap();
+
+    let events = db.list_events(None, 10, 0).unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].execution_id, Some(exec_id));
+    assert_eq!(events[0].job_id, Some(job_id));
+}
+
+#[test]
+fn test_log_event_defaults_execution_id_to_none() {
+    // Convenience log_event paths (script.saved, agent.registered, etc.)
+    // should leave execution_id null so they don't render a stale output link.
+    let db = test_db();
+    db.log_event(
+        "agent.registered",
+        EventSeverity::Info,
+        "agent online",
+        None,
+        Some(Uuid::new_v4()),
+    )
+    .unwrap();
+
+    let events = db.list_events(None, 10, 0).unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].execution_id, None);
 }
 
 // --- Migrations ---

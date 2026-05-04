@@ -5,6 +5,26 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1-alpha] - 2026-05-03
+
+### Fixed
+- **Controller → agent dispatch no longer 401s with the standard pairing flow** — the controller previously required a separate env var (`KRONFORCE_BOOTSTRAP_AGENT_KEY` or `KRONFORCE_DISPATCH_KEY`) to know which bearer to send back to agents on `/execute`. Setting only `KRONFORCE_AGENT_KEY` (as every doc and pair command instructs) caused dispatch to fail with `401 invalid or missing agent key`, because agent API keys are hashed in the DB and the controller had no way to recover the raw value. Two fixes in series: `KRONFORCE_AGENT_KEY` is now part of the controller's dispatch-key fallback chain, and — preferred — the controller now captures each agent's bearer at registration time into an in-memory map keyed by agent id and uses that for outbound dispatch. No env coordination is required, multiple agents can use distinct keys, nothing extra is persisted to disk. See `AgentClient::register_dispatch_token` / `forget_dispatch_token`.
+- **Settings → Agents card click no longer blanks the page** — each card had `onclick="showPage('agents')"`, but `'agents'` is not a registered view (`ALL_VIEWS` in `web/js/app.js` doesn't list it and `partials/views/agents.html` is not included in `index.html`), so the handler hid every visible view and rendered nothing. The dead handler is removed.
+- **Browser back button walks through in-app navigation** — the SPA router used `history.replaceState` for every internal hash change, so the history stack only ever contained one Kronforce entry. Hitting back skipped past every page transition straight to whatever was open before Kronforce. Switched to `pushState`; the existing hash-equality guard keeps popstate replays from creating duplicate entries.
+
+### Added
+- **Per-agent dispatch token capture** — `AgentClient` carries an `Arc<RwLock<HashMap<Uuid, String>>>` populated by the `/api/agents/register` handler from the request's `Authorization: Bearer …` header. `dispatch_job`, `cancel_execution`, and `shutdown_agent` now take `agent_id` and prefer the per-agent token, falling back to the env-configured dispatch key when no registration is recorded (e.g., after controller restart, until the agent re-registers via heartbeat-fail).
+- **Events link directly to executions** — events now carry an `execution_id` column (migration `0021_event_execution_id.sql`). The Monitor → Events tab gains a clickable **📄 output** chip on rows that came from an execution lifecycle, and the job-detail event list makes the entire row clickable when an execution is attached. Agent and API-key chips on event cards are also clickable now (they navigate to the relevant Settings tab). Populated by the three execution-aware code paths: `execution.completed` from both local and remote callback, `execution.approved`, `job.pending_approval`, and `output.matched`.
+- **Visible affordance for clickable event chips** — new `.event-link` CSS class (accent text, subtle accent-tinted border, hover background/underline) replaces the inline-styled spans so interactive chips read as buttons rather than labels at rest. Job-detail event rows pick up a hover background tint and a fading "📄 output ›" trailing icon when clickable.
+
+### Changed
+- **`Event` model** — gains `pub execution_id: Option<Uuid>`. Serialized field defaults to `null` for older event rows.
+- **`api::log_and_notify` signature** — now takes `execution_id: Option<Uuid>` between `agent_id` and `auth`. All 11 in-tree call sites updated; pass `None` when the event is not bound to a specific execution.
+- **`AgentClient` API** — `dispatch_job`/`cancel_execution`/`shutdown_agent` take a leading `agent_id: Uuid` parameter so they can resolve the per-agent token. Callers in `executor::dispatch`, `scheduler::commands`, and `api::agents::deregister_agent` updated.
+
+### Security
+- **Agent dispatch tokens are not persisted** — captured registration tokens live only in process memory on the controller. They are never logged, never written to the database, and are dropped when the agent deregisters. After a controller restart the map is empty until each agent re-registers (which happens automatically on the next failed heartbeat).
+
 ## [0.2.0-alpha] - 2026-05-02
 
 ### Security

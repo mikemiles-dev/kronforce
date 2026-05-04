@@ -182,7 +182,7 @@ impl super::Scheduler {
             {
                 match self
                     .agent_client
-                    .cancel_execution(&agent.address, agent.port, exec_id)
+                    .cancel_execution(agent.id, &agent.address, agent.port, exec_id)
                     .await
                 {
                     Ok(_) => info!(

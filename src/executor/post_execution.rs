@@ -70,6 +70,7 @@ impl super::Executor {
             agent_id: None,
             api_key_id: None,
             api_key_name: None,
+            execution_id: Some(exec_id),
             details: None,
             timestamp: chrono::Utc::now(),
         };
@@ -169,6 +170,7 @@ impl super::Executor {
                 agent_id: None,
                 api_key_id: None,
                 api_key_name: None,
+                execution_id: None,
                 details: Some(group),
                 timestamp: chrono::Utc::now(),
             };

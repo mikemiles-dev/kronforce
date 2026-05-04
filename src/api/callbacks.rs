@@ -109,6 +109,7 @@ pub(crate) async fn execution_result_callback(
             agent_id: Some(result_agent_id),
             api_key_id: None,
             api_key_name: None,
+            execution_id: Some(result_exec_id),
             details: None,
             timestamp: chrono::Utc::now(),
         };
@@ -171,6 +172,7 @@ pub(crate) async fn execution_result_callback(
         &msg,
         Some(result.job_id),
         Some(result.agent_id),
+        Some(result.execution_id),
         &no_auth,
         None,
     )

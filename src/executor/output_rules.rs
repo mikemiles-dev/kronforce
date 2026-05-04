@@ -202,6 +202,7 @@ pub fn process_post_execution(
             agent_id: None,
             api_key_id: None,
             api_key_name: None,
+            execution_id: Some(exec_id),
             details: None,
             timestamp: chrono::Utc::now(),
         };

@@ -23,6 +23,8 @@ This means you can reconfigure task types without restarting the agent, and non-
 
 All agent endpoints require an API key with the `agent` role (or `admin`). On first startup, a bootstrap agent key is created and printed to the console. Set it as `KRONFORCE_AGENT_KEY` on your agents. Create additional agent keys in Settings.
 
+The controller automatically captures each agent's bearer at registration time and reuses it for dispatch (`/execute`, `/cancel`, `/shutdown`), so you do **not** need to set the same key on the controller. Different agents may use different keys.
+
 ### 1. Register
 
 ```bash

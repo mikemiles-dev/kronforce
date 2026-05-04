@@ -13,6 +13,10 @@ pub struct Event {
     pub agent_id: Option<Uuid>,
     pub api_key_id: Option<Uuid>,
     pub api_key_name: Option<String>,
+    /// The execution this event refers to, when applicable. Lets the UI link
+    /// directly from an event row to the execution's output.
+    #[serde(default)]
+    pub execution_id: Option<Uuid>,
     pub details: Option<String>,
     pub timestamp: DateTime<Utc>,
 }

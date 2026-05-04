@@ -82,6 +82,7 @@ pub(crate) async fn save_script(
         &format!("Script '{}' saved", name),
         None,
         None,
+        None,
         &auth,
         None,
     )
@@ -125,6 +126,7 @@ pub(crate) async fn delete_script(
         "script.deleted",
         EventSeverity::Warning,
         &format!("Script '{}' deleted", name),
+        None,
         None,
         None,
         &auth,

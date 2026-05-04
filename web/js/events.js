@@ -65,8 +65,10 @@ function renderEvents(events) {
     let html = '<div class="event-timeline">';
     for (const e of events) {
         const icon = eventIcon(e.severity, e.kind);
-        const jobLink = e.job_id ? '<span class="event-kind" style="cursor:pointer" onclick="showJobDetail(\'' + e.job_id + '\')">' + resolveJobName(e.job_id) + '</span>' : '';
-        const agentLink = e.agent_id ? '<span class="event-kind">' + resolveAgentName(e.agent_id) + '</span>' : '';
+        const jobLink = e.job_id ? '<span class="event-link" onclick="showJobDetail(\'' + e.job_id + '\')" title="Open job">&#128202; ' + resolveJobName(e.job_id) + '</span>' : '';
+        const agentLink = e.agent_id ? '<span class="event-link" onclick="showPage(\'settings\');showSettingsTab(\'agents\')" title="Open agents settings">&#128421; ' + resolveAgentName(e.agent_id) + '</span>' : '';
+        const keyLink = e.api_key_name ? '<span class="event-link" onclick="showPage(\'settings\');showSettingsTab(\'auth\')" title="Open API keys settings">&#128100; ' + esc(e.api_key_name) + '</span>' : '';
+        const execLink = e.execution_id ? '<span class="event-link" onclick="showExecDetail(\'' + e.execution_id + '\')" title="View execution output">&#128196; output</span>' : '';
 
         html += '<div class="event-item">';
         html += '<div class="event-icon ' + e.severity + '">' + icon + '</div>';
@@ -74,9 +76,10 @@ function renderEvents(events) {
         html += '<div class="event-message">' + esc(e.message) + '</div>';
         html += '<div class="event-meta">';
         html += '<span class="event-kind">' + e.kind + '</span>';
-        if (e.api_key_name) html += '<span class="event-kind" title="API Key: ' + (e.api_key_id || '') + '">&#128100; ' + esc(e.api_key_name) + '</span>';
+        if (keyLink) html += keyLink;
         if (jobLink) html += jobLink;
         if (agentLink) html += agentLink;
+        if (execLink) html += execLink;
         if (e.details) html += '<span class="event-kind" title="' + esc(e.details) + '">details</span>';
         html += '</div>';
         html += '</div>';

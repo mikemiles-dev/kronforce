@@ -77,6 +77,7 @@ pub(crate) async fn trigger_job(
             ),
             Some(id),
             None,
+            Some(exec_id),
             &auth,
             None,
         )
@@ -117,6 +118,7 @@ pub(crate) async fn trigger_job(
             }
         ),
         Some(id),
+        None,
         None,
         &auth,
         None,
@@ -199,6 +201,7 @@ pub(crate) async fn approve_execution(
         &format!("Execution {} approved", exec_id),
         Some(exec.job_id),
         None,
+        Some(exec_id),
         &auth,
         None,
     )
@@ -267,6 +270,7 @@ pub(crate) async fn webhook_trigger(
             job.name, token_prefix
         ),
         Some(job.id),
+        None,
         None,
         &super::AuthUser(None),
         None,

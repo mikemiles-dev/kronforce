@@ -277,7 +277,9 @@ KRONFORCE_CONTROLLER_URL=http://controller:8080 \
 | `KRONFORCE_RATE_LIMIT_AUTHENTICATED` | `120` | Max requests/min for authenticated endpoints (per key) |
 | `KRONFORCE_RATE_LIMIT_AGENT` | `600` | Max requests/min for agent endpoints (per key) |
 | `KRONFORCE_BOOTSTRAP_ADMIN_KEY` | (auto) | Pre-set admin API key on first startup |
-| `KRONFORCE_BOOTSTRAP_AGENT_KEY` | (auto) | Pre-set agent API key on first startup |
+| `KRONFORCE_BOOTSTRAP_AGENT_KEY` | (auto) | Pre-set agent API key on first startup. Also used as a dispatch-token fallback if no agent has registered yet. |
+| `KRONFORCE_DISPATCH_KEY` | (none) | Optional explicit fallback bearer token the controller sends to agents on `/execute` when no per-agent token has been captured. Not normally needed — the controller captures each agent's bearer at registration. |
+| `KRONFORCE_AGENT_KEY` | (none) | Optional fallback bearer token the controller sends to agents (same priority chain as `KRONFORCE_DISPATCH_KEY`). Setting this on the controller is no longer required for dispatch to work. |
 | `KRONFORCE_OIDC_ISSUER` | (none) | OIDC issuer URL (enables SSO) |
 | `KRONFORCE_OIDC_CLIENT_ID` | (none) | OAuth2 client ID |
 | `KRONFORCE_OIDC_CLIENT_SECRET` | (none) | OAuth2 client secret |

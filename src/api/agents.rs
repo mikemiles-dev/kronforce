@@ -16,9 +16,19 @@ use tracing::info;
 
 use crate::agent::protocol::{AgentHeartbeat, AgentRegistration, AgentRegistrationResponse};
 
+/// Extracts the raw bearer token from an Authorization header, if present.
+fn bearer_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.strip_prefix("Bearer "))
+        .map(|s| s.to_string())
+}
+
 /// Handles agent registration or re-registration, upserting the agent record.
 pub(crate) async fn register_agent(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(req): Json<AgentRegistration>,
 ) -> Result<Json<AgentRegistrationResponse>, AppError> {
     let name = req.name.clone();
@@ -59,6 +69,15 @@ pub(crate) async fn register_agent(
 
     let agent2 = agent.clone();
     db_call(&state.db, move |db| db.upsert_agent(&agent2)).await?;
+
+    // Capture the raw bearer this agent used to register so the controller can
+    // reuse it when dispatching back. API keys are hashed in the DB, so this
+    // in-memory copy is the only way to recover the value without env config.
+    if let Some(token) = bearer_token(&headers) {
+        state
+            .agent_client
+            .register_dispatch_token(agent.id, token);
+    }
 
     info!("agent registered: {} ({})", agent.name, agent.id);
 
@@ -129,9 +148,14 @@ pub(crate) async fn deregister_agent(
 
     // Send shutdown signal to agent (best-effort)
     if let Some(ref a) = agent {
-        let _ = state.agent_client.shutdown_agent(&a.address, a.port).await;
+        let _ = state
+            .agent_client
+            .shutdown_agent(a.id, &a.address, a.port)
+            .await;
         info!("sent shutdown to agent {} ({})", a.name, a.id);
     }
+
+    state.agent_client.forget_dispatch_token(id);
 
     db_call(&state.db, move |db| db.delete_agent(id)).await?;
 

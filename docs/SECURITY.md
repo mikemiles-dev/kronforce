@@ -51,8 +51,10 @@ For full database encryption, use volume-level encryption (AWS EBS encryption, L
 
 ### Agent Authentication
 
-- Controller → agent dispatch authenticated with shared key
-- Agent → controller authenticated with `KRONFORCE_AGENT_KEY`
+- Agent → controller authenticated with `KRONFORCE_AGENT_KEY` (a `kf_…` API key with the `agent` role)
+- Controller → agent dispatch reuses the same key: the controller captures the agent's bearer at registration time into an in-memory map keyed by agent id and replays it on `/execute`, `/cancel`, and `/shutdown`. The map is process-local, never persisted, and cleared on agent deregistration. After a controller restart the map is empty until each agent re-registers on its next heartbeat.
+- Multiple agents may use distinct keys; the controller does not need any matching env var for dispatch to work.
+- Optional fallback: if a per-agent token has not been captured yet, the controller will fall back to `KRONFORCE_DISPATCH_KEY`, `KRONFORCE_AGENT_KEY`, or `KRONFORCE_BOOTSTRAP_AGENT_KEY` (in that order) if any are set in its environment.
 - Constant-time key comparison to prevent timing attacks
 
 ## Authorization

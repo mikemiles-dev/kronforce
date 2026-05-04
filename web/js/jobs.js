@@ -560,11 +560,16 @@ async function fetchJobEvents(jobId) {
         let html = '<div style="display:flex;flex-direction:column;gap:4px;padding-top:8px">';
         for (const e of events) {
             const sevColor = e.severity === 'error' ? 'var(--danger)' : e.severity === 'warning' ? 'var(--warning)' : e.severity === 'success' ? 'var(--success)' : 'var(--text-muted)';
-            html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">';
+            const isClickable = !!e.execution_id;
+            const baseStyle = 'display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;border-bottom:1px solid var(--border);border-radius:3px';
+            const cls = isClickable ? 'job-event-row clickable' : 'job-event-row';
+            const clickAttrs = isClickable ? ' style="' + baseStyle + ';cursor:pointer" onclick="showExecDetail(\'' + e.execution_id + '\')" title="View execution output"' : ' style="' + baseStyle + '"';
+            html += '<div class="' + cls + '"' + clickAttrs + '>';
             html += '<span style="width:6px;height:6px;border-radius:50%;background:' + sevColor + ';flex-shrink:0"></span>';
             html += '<span style="color:var(--text-secondary);white-space:nowrap;font-size:11px">' + fmtDate(e.timestamp) + '</span>';
             html += '<span style="color:var(--accent);font-size:11px;white-space:nowrap">' + esc(e.kind) + '</span>';
             html += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(e.message) + '</span>';
+            if (isClickable) html += '<span class="job-event-link-icon" style="font-size:11px">&#128196; output &rsaquo;</span>';
             html += '</div>';
         }
         html += '</div>';

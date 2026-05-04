@@ -1925,6 +1925,38 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     border-radius: 3px;
 }
 
+.event-link {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--bg-tertiary);
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+}
+.event-link:hover {
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-tertiary));
+    border-color: var(--accent);
+    text-decoration: underline;
+}
+
+.job-event-row.clickable {
+    transition: background 0.1s;
+}
+.job-event-row.clickable:hover {
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.job-event-row.clickable .job-event-link-icon {
+    color: var(--accent);
+    opacity: 0.6;
+    transition: opacity 0.1s;
+}
+.job-event-row.clickable:hover .job-event-link-icon {
+    opacity: 1;
+}
+
 .dash-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

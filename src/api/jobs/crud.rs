@@ -165,6 +165,7 @@ pub(crate) async fn create_job(
         &format!("Job '{}' created", job.name),
         Some(job.id),
         None,
+        None,
         &auth,
         None,
     )
@@ -378,6 +379,7 @@ pub(crate) async fn update_job(
         &format!("Job '{}' updated", job.name),
         Some(job.id),
         None,
+        None,
         &auth,
         details.clone(),
     )
@@ -426,6 +428,7 @@ pub(crate) async fn delete_job(
         EventSeverity::Warning,
         &format!("Job deleted ({})", id),
         Some(id),
+        None,
         None,
         &auth,
         None,

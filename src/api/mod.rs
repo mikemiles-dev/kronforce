@@ -409,6 +409,7 @@ pub(crate) async fn log_and_notify(
     message: &str,
     job_id: Option<Uuid>,
     agent_id: Option<Uuid>,
+    execution_id: Option<Uuid>,
     auth: &auth::AuthUser,
     details: Option<String>,
 ) {
@@ -421,6 +422,7 @@ pub(crate) async fn log_and_notify(
         agent_id,
         api_key_id: auth.0.as_ref().map(|k| k.id),
         api_key_name: auth.0.as_ref().map(|k| k.name.clone()),
+        execution_id,
         details,
         timestamp: chrono::Utc::now(),
     };
