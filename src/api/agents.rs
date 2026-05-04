@@ -74,9 +74,7 @@ pub(crate) async fn register_agent(
     // reuse it when dispatching back. API keys are hashed in the DB, so this
     // in-memory copy is the only way to recover the value without env config.
     if let Some(token) = bearer_token(&headers) {
-        state
-            .agent_client
-            .register_dispatch_token(agent.id, token);
+        state.agent_client.register_dispatch_token(agent.id, token);
     }
 
     info!("agent registered: {} ({})", agent.name, agent.id);
