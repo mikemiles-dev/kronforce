@@ -42,10 +42,14 @@ async function api(method, path, body) {
 
 async function openApp(page, hashRoute = '#/dashboard') {
     const { adminKey } = runtime();
-    // Inject the API key into localStorage before any app JS runs so the SPA
-    // skips the login screen and uses authenticated requests.
+    // Inject the API key + suppress the first-time tour into localStorage
+    // before any app JS runs. The tour pops up an overlay that intercepts
+    // clicks, which fails most interaction tests.
     await page.addInitScript((key) => {
-        try { localStorage.setItem('kronforce-api-key', key); } catch (_) {}
+        try {
+            localStorage.setItem('kronforce-api-key', key);
+            localStorage.setItem('kf-tour-done', '1');
+        } catch (_) {}
     }, adminKey);
     await page.goto(baseUrl() + '/' + hashRoute);
 }

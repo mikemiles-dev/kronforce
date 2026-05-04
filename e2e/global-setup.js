@@ -47,6 +47,10 @@ module.exports = async () => {
             KRONFORCE_DB: dbPath,
             KRONFORCE_SCRIPTS_DIR: scriptsDir,
             KRONFORCE_BOOTSTRAP_ADMIN_KEY: ADMIN_KEY,
+            // E2E suites burst-call the API for seeding/cleanup faster than the
+            // default per-IP/key rate limits allow. Disable for the test
+            // controller — production deployments leave it on.
+            KRONFORCE_RATE_LIMIT_ENABLED: 'false',
             RUST_LOG: process.env.RUST_LOG || 'kronforce=warn',
         },
         stdio: ['ignore', logFd, logFd],

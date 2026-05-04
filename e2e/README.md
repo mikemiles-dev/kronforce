@@ -32,19 +32,15 @@ npm run report            # open the HTML report from the last run
 
 ## What's covered today
 
-`tests/regressions.spec.js` covers the four bugs we shipped fixes for in
-0.2.1-alpha:
-
-- Browser back button walks through in-app navigation (`pushState`
-  vs `replaceState`).
-- Settings → Agents card click does not blank the page (dead
-  `showPage('agents')` handler).
-- Script editor opens with the actual code visible in the textarea
-  (overlay-pattern regression).
-- Highlight overlay sits above the textarea so colored spans show
-  (z-index regression).
-- Event rows expose a clickable `output` chip when an `execution_id` is
-  attached.
+| Spec | Focus |
+|---|---|
+| `regressions.spec.js` | Bugs we already fixed in 0.2.1-alpha — back button, blank Settings → Agents click, script editor visible code, highlight z-index, event chip affordance. Treat as the canary. |
+| `smoke.spec.js` | Every top-level page renders, sub-tabs swap content, sidebar links route. Catches broad nav regressions. |
+| `jobs.spec.js` | API-create job → visible on Monitor; search filter; click-into detail; trigger creates execution; delete removes from list. |
+| `scripts.spec.js` | UI flow: + New Script saves, click loads code, type-switch swaps templates, delete removes from list. |
+| `variables.spec.js` | UI add/list/secret-masking/search. Delete via API (UI uses `confirm()`). |
+| `settings.spec.js` | All tabs swap content, retention persists across reload, notification toggle round-trips. |
+| `agents-list.spec.js` | API-register agent → visible under Settings → Agents with hostname/address/tags. |
 
 ## Adding tests
 
