@@ -2454,8 +2454,8 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     height: 100%;
     min-height: 300px;
     padding: 12px;
-    background: transparent;
-    color: transparent;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     caret-color: var(--text-primary);
     font-family: inherit;
     font-size: inherit;
@@ -2475,14 +2475,14 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     z-index: 1;
     padding: 12px;
     min-height: 300px;
-    background: var(--bg-primary);
+    background: transparent;
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
     white-space: pre;
     overflow: auto;
     pointer-events: none;
-    color: var(--text-primary);
+    color: transparent;
     word-wrap: normal;
     tab-size: 4;
 }
@@ -2494,7 +2494,7 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
 .script-highlight .cmt { color: #5c6370; font-style: italic; }
 .script-highlight .op { color: #e06c75; }
 
-[data-theme="light"] .script-highlight { background: var(--bg-tertiary); }
+[data-theme="light"] .script-textarea { background: var(--bg-tertiary); }
 [data-theme="light"] .script-highlight .kw { color: #8839cc; }
 [data-theme="light"] .script-highlight .fn { color: #2970e6; }
 [data-theme="light"] .script-highlight .str { color: #1a7a2e; }
