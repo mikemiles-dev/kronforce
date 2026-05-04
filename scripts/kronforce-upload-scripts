@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Upload Kronforce scripts (*.rhai, *.dockerfile) from a local directory to a
+# controller via PUT /api/scripts/{name}. Idempotent — re-running overwrites
+# existing scripts of the same name.
+#
+# Use after rebuilding a droplet/volume where the on-disk scripts dir was lost
+# but you still have the source files locally.
+#
+# Usage:
+#   KRONFORCE_API_KEY=kf_admin_key... ./kronforce-upload-scripts [dir]
+#
+# Env:
+#   KRONFORCE_URL      Controller base URL (default: http://localhost:8080)
+#   KRONFORCE_API_KEY  Bearer token with write access (required unless --dry-run)
+#
+# Args:
+#   dir   Directory to read from (default: directory of this script)
+#
+# Flags:
+#   --dry-run   List what would be uploaded without making any HTTP calls.
+
+set -euo pipefail
+
+URL="${KRONFORCE_URL:-http://localhost:8080}"
+KEY="${KRONFORCE_API_KEY:-}"
+DRY_RUN=0
+DIR=""
+
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run) DRY_RUN=1 ;;
+        --help|-h)
+            sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        -*)
+            echo "unknown flag: $arg" >&2
+            exit 2
+            ;;
+        *)
+            DIR="$arg"
+            ;;
+    esac
+done
+
+if [[ -z "$DIR" ]]; then
+    DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+if [[ ! -d "$DIR" ]]; then
+    echo "directory not found: $DIR" >&2
+    exit 1
+fi
+
+if [[ "$DRY_RUN" -eq 0 && -z "$KEY" ]]; then
+    echo "KRONFORCE_API_KEY is required (use --dry-run to preview without uploading)" >&2
+    exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to safely JSON-encode script bodies" >&2
+    exit 1
+fi
+
+shopt -s nullglob
+files=("$DIR"/*.rhai "$DIR"/*.dockerfile)
+shopt -u nullglob
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    echo "no *.rhai or *.dockerfile files in $DIR"
+    exit 0
+fi
+
+uploaded=0
+skipped=0
+failed=0
+
+for f in "${files[@]}"; do
+    base="$(basename "$f")"
+    case "$base" in
+        *.rhai)       name="${base%.rhai}";       script_type="rhai" ;;
+        *.dockerfile) name="${base%.dockerfile}"; script_type="dockerfile" ;;
+        *) skipped=$((skipped + 1)); continue ;;
+    esac
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        printf "[dry-run] PUT %s/api/scripts/%s (%s, %d bytes)\n" \
+            "$URL" "$name" "$script_type" "$(wc -c <"$f")"
+        uploaded=$((uploaded + 1))
+        continue
+    fi
+
+    body="$(jq -n --rawfile code "$f" --arg type "$script_type" \
+        '{code: $code, script_type: $type}')"
+
+    http_code="$(curl -sS -o /tmp/kfup.$$ -w '%{http_code}' \
+        -X PUT "$URL/api/scripts/$name" \
+        -H "Authorization: Bearer $KEY" \
+        -H "Content-Type: application/json" \
+        -d "$body" || echo "000")"
+
+    if [[ "$http_code" =~ ^2 ]]; then
+        printf "  uploaded %-40s (%s)\n" "$name" "$script_type"
+        uploaded=$((uploaded + 1))
+    else
+        printf "  FAILED   %-40s (%s) -> HTTP %s: %s\n" \
+            "$name" "$script_type" "$http_code" "$(cat /tmp/kfup.$$)"
+        failed=$((failed + 1))
+    fi
+    rm -f /tmp/kfup.$$
+done
+
+printf '\n%d uploaded, %d skipped, %d failed\n' "$uploaded" "$skipped" "$failed"
+[[ "$failed" -eq 0 ]]
