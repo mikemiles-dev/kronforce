@@ -2467,12 +2467,12 @@ label.pill-orange:has(input:checked) { border-color: var(--warning) !important; 
     overflow-wrap: normal;
     overflow-x: auto;
     tab-size: 4;
-    z-index: 2;
+    z-index: 1;
 }
 
 .script-highlight {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     padding: 12px;
     min-height: 300px;
     background: transparent;
