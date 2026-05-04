@@ -10,3 +10,9 @@
 # (kronforce-import-*, kronforce-upload-scripts) stays tracked.
 /scripts/*.rhai
 /scripts/*.dockerfile
+
+# Playwright e2e tests
+/e2e/node_modules
+/e2e/.runtime.json
+/e2e/playwright-report
+/e2e/test-results
