@@ -5,3 +5,8 @@
 *.db-shm
 .DS_Store
 .venv/
+
+# Personal/test fixtures in the scripts dir — operator tooling
+# (kronforce-import-*, kronforce-upload-scripts) stays tracked.
+/scripts/*.rhai
+/scripts/*.dockerfile
