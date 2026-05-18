@@ -21,8 +21,11 @@ async function loadAiSettings() {
         if (baseUrlEl && settings.ai_base_url) baseUrlEl.value = settings.ai_base_url;
         if (apiVersionEl && settings.ai_api_version) apiVersionEl.value = settings.ai_api_version;
         toggleAzureFields();
-        // Fetch models if key exists
-        if (settings.ai_api_key) {
+        // Set model value after toggle (input may have been swapped)
+        const modelEl2 = document.getElementById('settings-ai-model');
+        if (modelEl2 && settings.ai_model) modelEl2.value = settings.ai_model;
+        // Fetch models if key exists and not azure
+        if (settings.ai_api_key && provEl.value !== 'azure') {
             await populateAiModelDropdown(settings.ai_model || '');
         }
     } catch (e) { /* ignore */ }
@@ -97,12 +100,18 @@ function toggleAzureFields() {
     const provider = document.getElementById('settings-ai-provider').value;
     const azureFields = document.getElementById('azure-ai-fields');
     if (azureFields) azureFields.style.display = provider === 'azure' ? '' : 'none';
-    // Update model dropdown to be a text input for azure (deployment name)
-    const modelEl = document.getElementById('settings-ai-model');
-    if (provider === 'azure' && modelEl) {
-        const current = modelEl.value;
-        if (modelEl.tagName === 'SELECT' && !current) {
-            // Keep as-is, user can type a deployment name in the auto-detect option
+    // Swap model field: text input for azure, select for others
+    const wrap = document.getElementById('settings-ai-model-wrap');
+    if (!wrap) return;
+    const current = wrap.querySelector('#settings-ai-model');
+    const currentVal = current ? current.value : '';
+    if (provider === 'azure') {
+        if (current && current.tagName === 'SELECT') {
+            wrap.innerHTML = '<input id="settings-ai-model" type="text" placeholder="deployment name (e.g. gpt-4o)" style="width:100%;font-size:12px" value="' + esc(currentVal) + '">';
+        }
+    } else {
+        if (current && current.tagName === 'INPUT') {
+            wrap.innerHTML = '<select id="settings-ai-model" style="width:100%;font-size:12px"><option value="">Auto-detect</option></select>';
         }
     }
 }
