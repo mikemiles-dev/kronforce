@@ -235,13 +235,17 @@ async fn call_openai(
 ) -> Result<String, AppError> {
     let base = base_url.unwrap_or("https://api.openai.com/v1");
     let base = base.trim_end_matches('/');
-    let mut url = if base.ends_with("/v1") {
+    let uses_v1_path = base.ends_with("/v1");
+    let mut url = if uses_v1_path {
         format!("{}/chat/completions", base)
     } else {
         format!("{}/v1/chat/completions", base)
     };
-    if let Some(version) = api_version {
-        url.push_str(&format!("?api-version={}", version));
+    // Azure non-v1 endpoints require api-version; /v1 endpoints reject it
+    if !uses_v1_path {
+        if let Some(version) = api_version {
+            url.push_str(&format!("?api-version={}", version));
+        }
     }
 
     let body = serde_json::json!({

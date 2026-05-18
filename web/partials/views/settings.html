@@ -83,10 +83,10 @@
                             </div>
                             <div style="width:200px">
                                 <label class="settings-label">API Version</label>
-                                <input id="settings-ai-api-version" type="text" placeholder="preview" value="preview" style="width:100%;font-size:12px">
+                                <input id="settings-ai-api-version" type="text" placeholder="preview (only for non-/v1 endpoints)" style="width:100%;font-size:12px">
                             </div>
                         </div>
-                        <div class="form-hint" style="margin-top:4px">For Azure AI Foundry, set the model to your deployment name (e.g. gpt-4o).</div>
+                        <div class="form-hint" style="margin-top:4px">Set the model to your deployment name (e.g. gpt-4o). If your Base URL ends with <code>/v1</code>, leave API Version blank.</div>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">Save AI Settings</button>
                     <span id="ai-settings-status" style="font-size:12px;margin-left:8px"></span>
