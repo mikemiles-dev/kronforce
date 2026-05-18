@@ -248,14 +248,24 @@ async fn call_openai(
         }
     }
 
-    let body = serde_json::json!({
+    // Newer models (gpt-5.x, o-series) require max_completion_tokens instead of max_tokens
+    let use_new_param = model.starts_with("gpt-5")
+        || model.starts_with("o1")
+        || model.starts_with("o3")
+        || model.starts_with("o4");
+
+    let mut body = serde_json::json!({
         "model": model,
-        "max_tokens": 1024,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
     });
+    if use_new_param {
+        body["max_completion_tokens"] = serde_json::json!(1024);
+    } else {
+        body["max_tokens"] = serde_json::json!(1024);
+    }
 
     let resp = client
         .post(&url)
