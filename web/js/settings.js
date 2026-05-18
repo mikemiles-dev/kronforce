@@ -7,8 +7,20 @@ async function loadAiSettings() {
         const keyEl = document.getElementById('settings-ai-key');
         const provEl = document.getElementById('settings-ai-provider');
         const modelEl = document.getElementById('settings-ai-model');
+        const baseUrlEl = document.getElementById('settings-ai-base-url');
+        const apiVersionEl = document.getElementById('settings-ai-api-version');
         if (keyEl && settings.ai_api_key) keyEl.value = settings.ai_api_key;
-        if (provEl && settings.ai_provider) provEl.value = settings.ai_provider;
+        // Map azure provider: stored as "openai" with a base_url, shown as "azure" in UI
+        if (provEl && settings.ai_provider) {
+            if (settings.ai_provider === 'openai' && settings.ai_base_url) {
+                provEl.value = 'azure';
+            } else {
+                provEl.value = settings.ai_provider;
+            }
+        }
+        if (baseUrlEl && settings.ai_base_url) baseUrlEl.value = settings.ai_base_url;
+        if (apiVersionEl && settings.ai_api_version) apiVersionEl.value = settings.ai_api_version;
+        toggleAzureFields();
         // Fetch models if key exists
         if (settings.ai_api_key) {
             await populateAiModelDropdown(settings.ai_model || '');
@@ -38,15 +50,23 @@ async function populateAiModelDropdown(selectedModel) {
 
 async function saveAiSettings() {
     const key = document.getElementById('settings-ai-key').value.trim();
-    const provider = document.getElementById('settings-ai-provider').value;
+    const providerUi = document.getElementById('settings-ai-provider').value;
     const model = document.getElementById('settings-ai-model').value.trim();
+    const baseUrl = document.getElementById('settings-ai-base-url').value.trim();
+    const apiVersion = document.getElementById('settings-ai-api-version').value.trim();
     const statusEl = document.getElementById('ai-settings-status');
+
+    // Azure is stored as provider "openai" with a base_url
+    const provider = providerUi === 'azure' ? 'openai' : providerUi;
+
     try {
         const body = {};
         body.ai_api_key = key;
         body.ai_provider = provider;
         if (model) body.ai_model = model;
         else body.ai_model = '';
+        body.ai_base_url = providerUi === 'azure' ? baseUrl : '';
+        body.ai_api_version = providerUi === 'azure' ? (apiVersion || 'preview') : '';
         await api('PUT', '/api/settings', body);
         aiEnabled = !!key;
         if (typeof initAiPage === 'function') initAiPage();
@@ -71,6 +91,20 @@ async function saveAiSettings() {
 function toggleSettingsAiKeyVis() {
     const el = document.getElementById('settings-ai-key');
     if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function toggleAzureFields() {
+    const provider = document.getElementById('settings-ai-provider').value;
+    const azureFields = document.getElementById('azure-ai-fields');
+    if (azureFields) azureFields.style.display = provider === 'azure' ? '' : 'none';
+    // Update model dropdown to be a text input for azure (deployment name)
+    const modelEl = document.getElementById('settings-ai-model');
+    if (provider === 'azure' && modelEl) {
+        const current = modelEl.value;
+        if (modelEl.tagName === 'SELECT' && !current) {
+            // Keep as-is, user can type a deployment name in the auto-detect option
+        }
+    }
 }
 const SETTINGS_TABS = ['general', 'auth', 'notifications', 'agents'];
 
