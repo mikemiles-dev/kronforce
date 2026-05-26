@@ -30,7 +30,7 @@ pub struct SmsConfig {
 pub struct WebhookConfig {
     pub enabled: bool,
     pub url: String,
-    /// Webhook format: "slack", "teams", "pagerduty", or "generic" (default).
+    /// Webhook format: "slack", "teams", "pagerduty", "discord", or "generic" (default).
     #[serde(default = "default_generic")]
     pub format: String,
     /// Optional custom headers (e.g., Authorization).
@@ -362,7 +362,7 @@ pub async fn send_sms(config: &SmsConfig, to: &[String], body: &str) -> Result<(
     Ok(())
 }
 
-/// Sends a notification via a webhook (Slack, Teams, PagerDuty, or generic JSON POST).
+/// Sends a notification via a webhook (Slack, Teams, PagerDuty, Discord, or generic JSON POST).
 pub async fn send_webhook(config: &WebhookConfig, subject: &str, body: &str) -> Result<(), String> {
     let client = reqwest::Client::new();
 
@@ -386,6 +386,24 @@ pub async fn send_webhook(config: &WebhookConfig, subject: &str, body: &str) -> 
                 }
             }
         }),
+        "discord" => {
+            let color: u32 = if subject.contains("succeeded") {
+                0x2ECC71 // green
+            } else if subject.contains("timed out") {
+                0xF39C12 // orange
+            } else {
+                0xE74C3C // red
+            };
+            serde_json::json!({
+                "embeds": [{
+                    "title": subject,
+                    "description": body,
+                    "color": color,
+                    "footer": { "text": "Kronforce" },
+                    "timestamp": chrono::Utc::now().to_rfc3339(),
+                }]
+            })
+        },
         _ => serde_json::json!({
             "subject": subject,
             "body": body,
