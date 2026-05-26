@@ -7,10 +7,25 @@ async function loadAiSettings() {
         const keyEl = document.getElementById('settings-ai-key');
         const provEl = document.getElementById('settings-ai-provider');
         const modelEl = document.getElementById('settings-ai-model');
+        const baseUrlEl = document.getElementById('settings-ai-base-url');
+        const apiVersionEl = document.getElementById('settings-ai-api-version');
         if (keyEl && settings.ai_api_key) keyEl.value = settings.ai_api_key;
-        if (provEl && settings.ai_provider) provEl.value = settings.ai_provider;
-        // Fetch models if key exists
-        if (settings.ai_api_key) {
+        // Map azure provider: stored as "openai" with a base_url, shown as "azure" in UI
+        if (provEl && settings.ai_provider) {
+            if (settings.ai_provider === 'openai' && settings.ai_base_url) {
+                provEl.value = 'azure';
+            } else {
+                provEl.value = settings.ai_provider;
+            }
+        }
+        if (baseUrlEl && settings.ai_base_url) baseUrlEl.value = settings.ai_base_url;
+        if (apiVersionEl && settings.ai_api_version) apiVersionEl.value = settings.ai_api_version;
+        toggleAzureFields();
+        // Set model value after toggle (input may have been swapped)
+        const modelEl2 = document.getElementById('settings-ai-model');
+        if (modelEl2 && settings.ai_model) modelEl2.value = settings.ai_model;
+        // Fetch models if key exists and not azure
+        if (settings.ai_api_key && provEl.value !== 'azure') {
             await populateAiModelDropdown(settings.ai_model || '');
         }
     } catch (e) { /* ignore */ }
@@ -38,15 +53,23 @@ async function populateAiModelDropdown(selectedModel) {
 
 async function saveAiSettings() {
     const key = document.getElementById('settings-ai-key').value.trim();
-    const provider = document.getElementById('settings-ai-provider').value;
+    const providerUi = document.getElementById('settings-ai-provider').value;
     const model = document.getElementById('settings-ai-model').value.trim();
+    const baseUrl = document.getElementById('settings-ai-base-url').value.trim();
+    const apiVersion = document.getElementById('settings-ai-api-version').value.trim();
     const statusEl = document.getElementById('ai-settings-status');
+
+    // Azure is stored as provider "openai" with a base_url
+    const provider = providerUi === 'azure' ? 'openai' : providerUi;
+
     try {
         const body = {};
         body.ai_api_key = key;
         body.ai_provider = provider;
         if (model) body.ai_model = model;
         else body.ai_model = '';
+        body.ai_base_url = providerUi === 'azure' ? baseUrl : '';
+        body.ai_api_version = providerUi === 'azure' ? (apiVersion || 'preview') : '';
         await api('PUT', '/api/settings', body);
         aiEnabled = !!key;
         if (typeof initAiPage === 'function') initAiPage();
@@ -71,6 +94,26 @@ async function saveAiSettings() {
 function toggleSettingsAiKeyVis() {
     const el = document.getElementById('settings-ai-key');
     if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function toggleAzureFields() {
+    const provider = document.getElementById('settings-ai-provider').value;
+    const azureFields = document.getElementById('azure-ai-fields');
+    if (azureFields) azureFields.style.display = provider === 'azure' ? '' : 'none';
+    // Swap model field: text input for azure, select for others
+    const wrap = document.getElementById('settings-ai-model-wrap');
+    if (!wrap) return;
+    const current = wrap.querySelector('#settings-ai-model');
+    const currentVal = current ? current.value : '';
+    if (provider === 'azure') {
+        if (current && current.tagName === 'SELECT') {
+            wrap.innerHTML = '<input id="settings-ai-model" type="text" placeholder="deployment name (e.g. gpt-4o)" style="width:100%;font-size:12px" value="' + esc(currentVal) + '">';
+        }
+    } else {
+        if (current && current.tagName === 'INPUT') {
+            wrap.innerHTML = '<select id="settings-ai-model" style="width:100%;font-size:12px"><option value="">Auto-detect</option></select>';
+        }
+    }
 }
 const SETTINGS_TABS = ['general', 'auth', 'notifications', 'agents'];
 

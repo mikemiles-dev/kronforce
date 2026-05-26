@@ -42,6 +42,11 @@ pub struct ControllerConfig {
     pub ai_provider: String,
     /// AI model override (default: claude-sonnet-4-20250514 for anthropic, gpt-4o for openai).
     pub ai_model: Option<String>,
+    /// Custom base URL for the AI provider (e.g. Azure AI Foundry endpoint).
+    /// For Azure: `https://{resource}.services.ai.azure.com/openai/v1`
+    pub ai_base_url: Option<String>,
+    /// API version query parameter for Azure AI Foundry (e.g. "2024-12-01-preview").
+    pub ai_api_version: Option<String>,
 }
 
 impl ControllerConfig {
@@ -155,6 +160,12 @@ impl ControllerConfig {
             ai_provider: std::env::var("KRONFORCE_AI_PROVIDER")
                 .unwrap_or_else(|_| "anthropic".to_string()),
             ai_model: std::env::var("KRONFORCE_AI_MODEL")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            ai_base_url: std::env::var("KRONFORCE_AI_BASE_URL")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            ai_api_version: std::env::var("KRONFORCE_AI_API_VERSION")
                 .ok()
                 .filter(|s| !s.is_empty()),
         }

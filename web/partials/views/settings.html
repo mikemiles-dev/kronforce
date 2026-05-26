@@ -51,7 +51,7 @@
             <div class="card">
                 <div class="card-header"><h3>AI Assistant</h3></div>
                 <div class="settings-group">
-                    <div class="form-hint" style="margin-bottom:8px">Configure the AI provider for the AI Job Builder page. Supports Anthropic Claude and OpenAI GPT.</div>
+                    <div class="form-hint" style="margin-bottom:8px">Configure the AI provider for the AI Job Builder page. Supports Anthropic Claude, OpenAI GPT, and Azure OpenAI.</div>
                     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px">
                         <div style="flex:1;min-width:200px">
                             <label class="settings-label">API Key</label>
@@ -62,17 +62,33 @@
                         </div>
                         <div style="width:150px">
                             <label class="settings-label">Provider</label>
-                            <select id="settings-ai-provider" style="width:100%;font-size:12px">
+                            <select id="settings-ai-provider" onchange="toggleAzureFields()" style="width:100%;font-size:12px">
                                 <option value="anthropic">Anthropic</option>
                                 <option value="openai">OpenAI</option>
+                                <option value="azure">Azure OpenAI</option>
                             </select>
                         </div>
                         <div style="width:250px">
                             <label class="settings-label">Model</label>
-                            <select id="settings-ai-model" style="width:100%;font-size:12px">
-                                <option value="">Auto-detect</option>
-                            </select>
+                            <div id="settings-ai-model-wrap">
+                                <select id="settings-ai-model" style="width:100%;font-size:12px">
+                                    <option value="">Auto-detect</option>
+                                </select>
+                            </div>
                         </div>
+                    </div>
+                    <div id="azure-ai-fields" style="display:none;margin-bottom:8px">
+                        <div style="display:flex;gap:12px;flex-wrap:wrap">
+                            <div style="flex:1;min-width:300px">
+                                <label class="settings-label">Base URL</label>
+                                <input id="settings-ai-base-url" type="text" placeholder="https://my-resource.services.ai.azure.com/openai/v1" style="width:100%;font-size:12px">
+                            </div>
+                            <div style="width:200px">
+                                <label class="settings-label">API Version</label>
+                                <input id="settings-ai-api-version" type="text" placeholder="preview (only for non-/v1 endpoints)" style="width:100%;font-size:12px">
+                            </div>
+                        </div>
+                        <div class="form-hint" style="margin-top:4px">Set the model to your deployment name (e.g. gpt-4o). If your Base URL ends with <code>/v1</code>, leave API Version blank.</div>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="saveAiSettings()">Save AI Settings</button>
                     <span id="ai-settings-status" style="font-size:12px;margin-left:8px"></span>
