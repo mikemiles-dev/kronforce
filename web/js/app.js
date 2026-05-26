@@ -437,6 +437,13 @@ function describeCron(expr) {
     if (parts.length !== 6) return expr;
     const [sec, min, hr, dom, mon, dow] = parts;
     const pad = n => String(n).padStart(2, '0');
+    const fmtTime = (h, m) => {
+        const hrs = h.split(',').map(v => pad(parseInt(v.trim())));
+        const mns = m.split(',').map(v => pad(parseInt(v.trim())));
+        const times = [];
+        for (const hh of hrs) for (const mm of mns) times.push(hh + ':' + mm);
+        return times.join(', ');
+    };
     const dayNames = {0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat'};
 
     // Every N seconds
@@ -452,27 +459,27 @@ function describeCron(expr) {
     // Every N hours
     if (hr.startsWith('*/')) return 'every ' + hr.slice(2) + 'h';
     if (hr.includes('/')) return 'every ' + hr.split('/')[1] + 'h';
-    if (hr === '*' && min !== '*' && dom === '*') return 'hourly at :' + pad(parseInt(min));
+    if (hr === '*' && min !== '*' && dom === '*') return 'hourly at :' + min.split(',').map(v => pad(parseInt(v.trim()))).join(',:');
 
     // Weekly
     if (dow !== '*' && dom === '*') {
         const days = dow.split(',').map(d => dayNames[d.trim()] || d).join(', ');
-        if (hr !== '*') return days + ' at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        if (hr !== '*') return days + ' at ' + fmtTime(hr, min);
         return 'weekly on ' + days;
     }
 
     // Monthly
     if (dom !== '*' && !dom.startsWith('*/') && mon === '*' && dow === '*') {
-        if (hr !== '*') return 'monthly day ' + dom + ' at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        if (hr !== '*') return 'monthly day ' + dom + ' at ' + fmtTime(hr, min);
         return 'monthly on day ' + dom;
     }
 
     // Daily / every N days
     if (dom.startsWith('*/')) {
-        return 'every ' + dom.slice(2) + ' days at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        return 'every ' + dom.slice(2) + ' days at ' + fmtTime(hr, min);
     }
     if (hr !== '*' && min !== '*' && dom === '*' && dow === '*') {
-        return 'daily at ' + pad(parseInt(hr)) + ':' + pad(parseInt(min));
+        return 'daily at ' + fmtTime(hr, min);
     }
 
     // Fallback
