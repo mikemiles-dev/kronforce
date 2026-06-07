@@ -60,6 +60,8 @@ pub struct AppState {
     pub ai_api_key: Option<String>,
     pub ai_provider: String,
     pub ai_model: Option<String>,
+    pub ai_base_url: Option<String>,
+    pub ai_api_version: Option<String>,
     /// True when the controller is bound to a loopback address. Auth-disabled mode
     /// (no API keys configured) is restricted to loopback so a non-loopback deploy
     /// without keys does not silently expose every endpoint.

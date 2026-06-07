@@ -100,14 +100,17 @@ pub(crate) async fn ai_generate_job(
 ) -> Result<Json<AiResponse>, AppError> {
     // Check DB settings first, then fall back to env var config
     let db = state.db.clone();
-    let (db_key, db_provider, db_model) = tokio::task::spawn_blocking(move || {
-        let key = db.get_setting("ai_api_key").unwrap_or(None);
-        let provider = db.get_setting("ai_provider").unwrap_or(None);
-        let model = db.get_setting("ai_model").unwrap_or(None);
-        (key, provider, model)
-    })
-    .await
-    .unwrap_or((None, None, None));
+    let (db_key, db_provider, db_model, db_base_url, db_api_version) =
+        tokio::task::spawn_blocking(move || {
+            let key = db.get_setting("ai_api_key").unwrap_or(None);
+            let provider = db.get_setting("ai_provider").unwrap_or(None);
+            let model = db.get_setting("ai_model").unwrap_or(None);
+            let base_url = db.get_setting("ai_base_url").unwrap_or(None);
+            let api_version = db.get_setting("ai_api_version").unwrap_or(None);
+            (key, provider, model, base_url, api_version)
+        })
+        .await
+        .unwrap_or((None, None, None, None, None));
 
     let api_key = db_key
         .filter(|k| !k.is_empty())
@@ -143,9 +146,25 @@ pub(crate) async fn ai_generate_job(
             }
         });
 
+    let base_url = db_base_url
+        .filter(|u| !u.is_empty())
+        .or_else(|| state.ai_base_url.clone());
+
+    let api_version = db_api_version
+        .filter(|v| !v.is_empty())
+        .or_else(|| state.ai_api_version.clone());
+
     let client = reqwest::Client::new();
     let response_text = if provider == "openai" {
-        call_openai(&client, &api_key, &model, &prompt).await?
+        call_openai(
+            &client,
+            &api_key,
+            &model,
+            &prompt,
+            base_url.as_deref(),
+            api_version.as_deref(),
+        )
+        .await?
     } else {
         call_anthropic(&client, &api_key, &model, &prompt).await?
     };
@@ -211,18 +230,45 @@ async fn call_openai(
     api_key: &str,
     model: &str,
     prompt: &str,
+    base_url: Option<&str>,
+    api_version: Option<&str>,
 ) -> Result<String, AppError> {
-    let body = serde_json::json!({
+    let base = base_url.unwrap_or("https://api.openai.com/v1");
+    let base = base.trim_end_matches('/');
+    let uses_v1_path = base.ends_with("/v1");
+    let mut url = if uses_v1_path {
+        format!("{}/chat/completions", base)
+    } else {
+        format!("{}/v1/chat/completions", base)
+    };
+    // Azure non-v1 endpoints require api-version; /v1 endpoints reject it
+    if !uses_v1_path {
+        if let Some(version) = api_version {
+            url.push_str(&format!("?api-version={}", version));
+        }
+    }
+
+    // Newer models (gpt-5.x, o-series) require max_completion_tokens instead of max_tokens
+    let use_new_param = model.starts_with("gpt-5")
+        || model.starts_with("o1")
+        || model.starts_with("o3")
+        || model.starts_with("o4");
+
+    let mut body = serde_json::json!({
         "model": model,
-        "max_tokens": 1024,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ]
     });
+    if use_new_param {
+        body["max_completion_tokens"] = serde_json::json!(1024);
+    } else {
+        body["max_tokens"] = serde_json::json!(1024);
+    }
 
     let resp = client
-        .post("https://api.openai.com/v1/chat/completions")
+        .post(&url)
         .header("authorization", format!("Bearer {}", api_key))
         .header("content-type", "application/json")
         .json(&body)
@@ -257,13 +303,14 @@ pub(crate) async fn ai_list_models(
     _auth: AuthUser,
 ) -> Result<Json<serde_json::Value>, AppError> {
     let db = state.db.clone();
-    let (db_key, db_provider) = tokio::task::spawn_blocking(move || {
+    let (db_key, db_provider, db_base_url) = tokio::task::spawn_blocking(move || {
         let key = db.get_setting("ai_api_key").unwrap_or(None);
         let provider = db.get_setting("ai_provider").unwrap_or(None);
-        (key, provider)
+        let base_url = db.get_setting("ai_base_url").unwrap_or(None);
+        (key, provider, base_url)
     })
     .await
-    .unwrap_or((None, None));
+    .unwrap_or((None, None, None));
 
     let api_key = db_key
         .filter(|k| !k.is_empty())
@@ -276,7 +323,17 @@ pub(crate) async fn ai_list_models(
 
     let client = reqwest::Client::new();
 
+    let has_custom_url =
+        db_base_url.filter(|u| !u.is_empty()).is_some() || state.ai_base_url.is_some();
+
     if provider == "openai" {
+        if has_custom_url {
+            // Custom endpoints (e.g. Azure) don't support the standard models listing
+            return Ok(Json(serde_json::json!({
+                "object": "list",
+                "data": []
+            })));
+        }
         let resp = client
             .get("https://api.openai.com/v1/models")
             .header("authorization", format!("Bearer {}", api_key))

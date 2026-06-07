@@ -428,6 +428,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ai_api_key: config.ai_api_key.clone(),
         ai_provider: config.ai_provider.clone(),
         ai_model: config.ai_model.clone(),
+        ai_base_url: config.ai_base_url.clone(),
+        ai_api_version: config.ai_api_version.clone(),
         bind_is_loopback,
         stream_tickets: std::sync::Arc::new(dashmap::DashMap::new()),
     };
