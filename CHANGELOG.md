@@ -5,6 +5,37 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2-alpha] - 2026-06-07
+
+### Added
+- **Azure OpenAI / AI Foundry support for the AI Job Builder** — `call_openai` now accepts a custom base URL and optional `api-version` query parameter. The URL handling is path-aware: bases ending in `/v1` are used as-is and the API version is suppressed (Azure's `/v1` endpoints reject it), while non-`/v1` bases get `/v1/chat/completions` appended and the version query parameter attached. Configured via two new env vars (`KRONFORCE_AI_BASE_URL`, `KRONFORCE_AI_API_VERSION`) or from Settings → AI Assistant, where a third provider option "Azure OpenAI" reveals base-URL and API-version fields and swaps the model dropdown for a free-text input (the model field holds the Azure deployment name). Internally Azure is stored as provider `openai` with a base URL set, so existing OpenAI code paths continue to apply.
+- **Newer OpenAI model parameter shape** — for `gpt-5*`, `o1*`, `o3*`, and `o4*` models the request body now sends `max_completion_tokens` instead of `max_tokens`, matching the parameter rename the o-series and gpt-5 families require. Older models (gpt-4o etc.) continue to use `max_tokens`.
+- **Discord webhook notification format** — `WebhookConfig.format = "discord"` posts a Discord embed with the subject as the title, the body as the description, a Kronforce footer, an RFC3339 timestamp, and a color coded from the subject text: green (`0x2ECC71`) for `succeeded`, orange (`0xF39C12`) for `timed out`, red (`0xE74C3C`) otherwise.
+- **Playwright end-to-end suite** — new `e2e/` directory with a Playwright scaffold that boots a real controller on port 18080 against a temp DB and drives headless Chromium. Seven spec files cover smoke navigation, jobs CRUD, scripts, variables, settings, agents-list, and a regressions canary pinned to the bugs fixed in 0.2.1-alpha. See `e2e/README.md`.
+
+### Fixed
+- **Monitor → Runs and retention purge stay fast at high execution counts** — the executions table only had indexes on `job_id`, `status`, and `started_at`, but the Runs list orders by `created_at` and the periodic purger filters on `finished_at`. At ~84k rows on the demo deployment this meant a full table sort on every page load and a full scan on every purge tick. Migration `0022_execution_perf_indexes.sql` adds `idx_executions_created_at` and `idx_executions_finished_at`. Verified query plans switch from `SCAN executions` + `USE TEMP B-TREE FOR ORDER BY` to `SCAN executions USING INDEX idx_executions_created_at` (list) and `SEARCH executions USING INDEX idx_executions_finished_at` (purge). Existing deployments should `VACUUM;` after the migration applies and the first purge runs, since SQLite does not reclaim space automatically.
+- **Cron schedule descriptions handle comma-separated hours and minutes** — `describeCron` in `web/js/app.js` previously called `parseInt` on the raw hour/minute fields, so an expression like `0 0,30 9 * * *` rendered as `daily at 09:NaN`. A new `fmtTime(h, m)` helper splits both fields on commas, pads each value, and emits the cartesian product (e.g. `09:00, 09:30`). The weekly, monthly, every-N-days, daily, and hourly branches all route through it.
+- **CI green again after the dependabot + feature merge cluster** — `cargo clippy --all-targets --all-features` runs under `RUSTFLAGS=-Dwarnings` in CI, which was failing on a `collapsible_if` warning in the new Azure URL builder (`src/api/ai.rs`); collapsed into a let-chain. A trailing comma left after the Discord match-arm block (`src/executor/notifications.rs`) was also breaking `cargo fmt --check`; removed.
+
+### Changed
+- **`call_openai` signature** — gains `base_url: Option<&str>` and `api_version: Option<&str>` parameters. Internal-only change; the single call site in `ai_generate_job` was updated.
+- **`AppState`** — gains `ai_base_url: Option<String>` and `ai_api_version: Option<String>` fields, populated from `ControllerConfig` at startup and overridable per-request from the `ai_base_url` / `ai_api_version` settings rows.
+- **`ControllerConfig`** — gains `ai_base_url` and `ai_api_version` fields read from `KRONFORCE_AI_BASE_URL` and `KRONFORCE_AI_API_VERSION` (both treat empty strings as unset).
+- **`ai_list_models` short-circuits for custom endpoints** — when a base URL is configured, the `/api/ai/models` handler returns an empty list rather than hitting `https://api.openai.com/v1/models` with the Azure key. The UI already swaps the model dropdown for a free-text input in Azure mode, so the empty list is what the dropdown branch expects.
+
+### Dependencies
+- `dashmap` 6.1.0 → 6.2.1
+- `hyper` 1.9.0 → 1.10.1
+- `lettre` 0.11.21 → 0.11.22
+- `reqwest` 0.13.2 → 0.13.4
+- `rhai` 1.24.0 → 1.25.1
+- `rustls` 0.23.39 → 0.23.40
+- `serde_json` 1.0.149 → 1.0.150
+- `tokio` 1.52.1 → 1.52.3
+- `tower-http` 0.6.8 → 0.6.11
+- `uuid` 1.23.1 → 1.23.2
+
 ## [0.2.1-alpha] - 2026-05-03
 
 ### Fixed

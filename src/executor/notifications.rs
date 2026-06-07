@@ -403,7 +403,7 @@ pub async fn send_webhook(config: &WebhookConfig, subject: &str, body: &str) -> 
                     "timestamp": chrono::Utc::now().to_rfc3339(),
                 }]
             })
-        },
+        }
         _ => serde_json::json!({
             "subject": subject,
             "body": body,

@@ -242,10 +242,8 @@ async fn call_openai(
         format!("{}/v1/chat/completions", base)
     };
     // Azure non-v1 endpoints require api-version; /v1 endpoints reject it
-    if !uses_v1_path {
-        if let Some(version) = api_version {
-            url.push_str(&format!("?api-version={}", version));
-        }
+    if !uses_v1_path && let Some(version) = api_version {
+        url.push_str(&format!("?api-version={}", version));
     }
 
     // Newer models (gpt-5.x, o-series) require max_completion_tokens instead of max_tokens

@@ -3,11 +3,27 @@
 ## Running the Test Suite
 
 ```bash
-cargo test          # Run all 236+ tests
+cargo test          # Run all 290+ tests
 cargo test --test db_tests    # Run only database tests
 cargo test --test config_tests  # Run only config tests
 cargo clippy        # Lint check (zero warnings required)
 ```
+
+## End-to-End UI Tests
+
+The `e2e/` directory contains a Playwright suite that boots a real controller
+against a temp DB on port 18080 and drives headless Chromium. Seven spec files
+cover smoke navigation, jobs CRUD, scripts, variables, settings, agent listing,
+and a regressions canary pinned to previously-fixed bugs.
+
+```bash
+cd e2e
+npm install
+npx playwright install chromium
+npm test
+```
+
+See `e2e/README.md` for the spec inventory and instructions on adding tests.
 
 ## Seed Data
 
