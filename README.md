@@ -57,7 +57,7 @@ That's it. You have a running scheduler with a web dashboard.
 
 ### Scheduling & Execution
 
-- **AI job creation** — describe what you want in plain English, AI fills in all form fields (name, task, schedule, timeout, notifications). Supports Anthropic and OpenAI. Set `KRONFORCE_AI_API_KEY` to enable.
+- **AI job creation** — describe what you want in plain English, AI fills in all form fields (name, task, schedule, timeout, notifications). Supports Anthropic, OpenAI, and Azure OpenAI / AI Foundry. Set `KRONFORCE_AI_API_KEY` to enable.
 - **17 task types** — Shell, HTTP, SQL, FTP/SFTP, Rhai scripting, Docker Build, MCP (AI tools), file push, Kafka (pub + consume), RabbitMQ (pub + consume), MQTT (pub + subscribe), Redis (pub + read), and custom agent-defined types
 - **Flexible scheduling** — cron (second precision), calendar expressions (last day, nth weekday, skip weekends/holidays), interval (fixed delay from last completion), one-shot, on-demand, event-driven
 - **Timezone support** — optional IANA timezone per job (e.g. "America/New_York") for timezone-aware scheduling with DST handling
@@ -95,6 +95,7 @@ That's it. You have a running scheduler with a web dashboard.
 - **Slack** — incoming webhook with formatted messages
 - **Microsoft Teams** — webhook with title/body cards
 - **PagerDuty** — Events API v2 integration
+- **Discord** — incoming webhook with color-coded embeds (green/orange/red for success/timeout/failure)
 - **Email** — SMTP with TLS
 - **SMS** — Twilio or any webhook-based SMS provider
 - **Per-job controls** — notify on failure, success, or assertion failure with recipient overrides

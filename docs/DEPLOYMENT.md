@@ -289,9 +289,11 @@ KRONFORCE_CONTROLLER_URL=http://controller:8080 \
 | `KRONFORCE_OIDC_OPERATOR_VALUES` | (none) | Claim values → operator role |
 | `KRONFORCE_OIDC_DEFAULT_ROLE` | `viewer` | Fallback role |
 | `KRONFORCE_OIDC_SESSION_TTL_SECS` | `86400` | SSO session lifetime |
-| `KRONFORCE_AI_API_KEY` | (none) | Anthropic or OpenAI API key — enables AI job creation. Can also be set from Settings UI without restart. |
-| `KRONFORCE_AI_PROVIDER` | `anthropic` | AI provider: `anthropic` or `openai`. Can also be set from Settings UI. |
-| `KRONFORCE_AI_MODEL` | auto | Model override (default: `claude-sonnet-4-5-20250514` / `gpt-4o`). Can also be set from Settings UI. |
+| `KRONFORCE_AI_API_KEY` | (none) | Anthropic, OpenAI, or Azure OpenAI API key — enables AI job creation. Can also be set from Settings UI without restart. |
+| `KRONFORCE_AI_PROVIDER` | `anthropic` | AI provider: `anthropic` or `openai`. Azure OpenAI uses `openai` with `KRONFORCE_AI_BASE_URL` set. Can also be set from Settings UI. |
+| `KRONFORCE_AI_MODEL` | auto | Model override (default: `claude-sonnet-4-5-20250514` / `gpt-4o`). For Azure, set to the deployment name. Can also be set from Settings UI. |
+| `KRONFORCE_AI_BASE_URL` | (none) | Custom base URL for OpenAI-compatible endpoints (Azure AI Foundry, etc.). Example: `https://my-resource.services.ai.azure.com/openai/v1`. Can also be set from Settings UI. |
+| `KRONFORCE_AI_API_VERSION` | (none) | API version query param for Azure non-`/v1` endpoints (e.g. `2024-12-01-preview`). Leave unset when the base URL already ends with `/v1`. Can also be set from Settings UI. |
 | `KRONFORCE_ENCRYPTION_KEY` | (none) | AES-256 key for encrypting connection credentials at rest |
 | `KRONFORCE_DEMO_MODE` | `false` | Read-only demo mode — disables auth |
 | `KRONFORCE_MCP_ENABLED` | `true` | Enable MCP server endpoint at `POST /mcp` |
