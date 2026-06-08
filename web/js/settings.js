@@ -189,6 +189,30 @@ async function saveRetention() {
     }
 }
 
+async function vacuumDatabase() {
+    const btn = document.getElementById('vacuum-btn');
+    const status = document.getElementById('vacuum-status');
+    if (!confirm('Run VACUUM now? Concurrent writes will be briefly blocked.')) return;
+    btn.disabled = true;
+    status.style.color = 'var(--text-muted)';
+    status.textContent = 'Running...';
+    try {
+        const res = await api('POST', '/api/admin/vacuum');
+        const fmt = b => (b / (1024 * 1024)).toFixed(1) + ' MB';
+        const delta = res.size_before - res.size_after;
+        const sign = delta >= 0 ? '−' : '+';
+        status.style.color = 'var(--success)';
+        status.textContent = 'Done in ' + (res.elapsed_ms / 1000).toFixed(1) + 's: '
+            + fmt(res.size_before) + ' → ' + fmt(res.size_after)
+            + ' (' + sign + fmt(Math.abs(delta)) + ')';
+    } catch (e) {
+        status.style.color = 'var(--danger)';
+        status.textContent = 'Error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 async function loadNotificationSettings() {
     try {
         const settings = await api('GET', '/api/settings');

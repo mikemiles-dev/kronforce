@@ -114,4 +114,17 @@ impl Db {
             .map_err(AppError::Db)?;
         Ok(deleted as u32)
     }
+
+    /// Reclaims freelist pages and folds the WAL back into the main DB file.
+    /// Takes an exclusive write lock for the duration; concurrent writers are
+    /// blocked until it completes.
+    pub fn vacuum(&self) -> Result<(), AppError> {
+        let conn = self
+            .pool
+            .get()
+            .map_err(|e| AppError::Internal(format!("pool error: {e}")))?;
+        conn.execute_batch("VACUUM; PRAGMA wal_checkpoint(TRUNCATE);")
+            .map_err(AppError::Db)?;
+        Ok(())
+    }
 }

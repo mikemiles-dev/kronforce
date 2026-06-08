@@ -223,9 +223,11 @@ function toast(msg, type = 'success') {
 // --- Health ---
 async function fetchHealth() {
     try {
-        await api('GET', '/api/health');
+        const h = await api('GET', '/api/health');
         document.getElementById('health-dot').className = 'health-dot ok';
         document.getElementById('health-text').textContent = 'healthy';
+        const v = document.getElementById('sidebar-version');
+        if (v && h && h.version) v.textContent = 'v' + h.version;
     } catch {
         document.getElementById('health-dot').className = 'health-dot err';
         document.getElementById('health-text').textContent = 'unreachable';
@@ -1066,12 +1068,17 @@ function renderSettingsAuth() {
         info.innerHTML =
             '<div style="font-size:13px">Signed in as <strong>' + esc(currentUser.name) + '</strong></div>' +
             '<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">Role: ' + badge(currentUser.role) + ' &middot; Key: <span class="key-prefix">' + esc(currentUser.key_prefix) + '...</span></div>';
-        // Show keys card for admins
-        document.getElementById('keys-card').style.display = currentUser.role === 'admin' ? '' : 'none';
-        if (currentUser.role === 'admin') fetchKeys();
+        // Show keys card and db maintenance card for admins
+        const isAdmin = currentUser.role === 'admin';
+        document.getElementById('keys-card').style.display = isAdmin ? '' : 'none';
+        const dbCard = document.getElementById('db-maintenance-card');
+        if (dbCard) dbCard.style.display = isAdmin ? '' : 'none';
+        if (isAdmin) fetchKeys();
     } else {
         info.innerHTML = '<div style="font-size:13px;color:var(--text-muted)">No API keys configured. Authentication is disabled.</div>';
         document.getElementById('keys-card').style.display = 'none';
+        const dbCard = document.getElementById('db-maintenance-card');
+        if (dbCard) dbCard.style.display = '';
     }
 }
 

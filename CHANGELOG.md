@@ -5,6 +5,17 @@ All notable changes to Kronforce will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3-alpha] - 2026-06-07
+
+### Added
+- **Settings → Database Maintenance → Run VACUUM button** — `POST /api/admin/vacuum` runs `VACUUM; PRAGMA wal_checkpoint(TRUNCATE);` against the SQLite file to reclaim freelist pages left over from retention purges and fold the WAL back into the main DB file. Admin-only (gated on `can_manage_keys()`); the response returns `size_before`, `size_after`, and `elapsed_ms` so the UI can show how much space was reclaimed. Holds an exclusive write lock for the duration. Triggered manually from the new "Database Maintenance" card in Settings rather than running on a tick, so operators control when writes get blocked. The new `Db::vacuum()` helper lives next to the existing `purge_old_*` methods in `src/db/settings.rs`. Audit-logged as `settings.vacuum`.
+- **Controller version in the sidebar footer** — `/api/health` now returns a `version` field populated from `CARGO_PKG_VERSION`, and `fetchHealth()` reads it into a new `#sidebar-version` element that renders as `v0.2.3-alpha` under the health dot. Confirms at a glance which version the running controller is, which mattered when verifying the demo redeploy.
+
+### Fixed
+- **Pipelines page no longer stuck on "Loading…" under auto-refresh** — `fetchGroupsPage` in `web/js/groups.js` wiped the grid and rendered the loader placeholder at the start of every call, including the auto-refresh ticks that fire every 5s by default. On accounts with many groups the fetch takes longer than the tick interval, so the page essentially never finished rendering — the next tick replaced the partially-rendered content with the loader again. Three layered fixes: (1) only render the loader on initial load when the grid is empty, so auto-refresh ticks re-render in place; (2) skip a tick if the previous fetch is still in flight, gated by a new `groupsFetchInFlight` flag released in a `finally`; (3) parallelize the per-group `GET /api/jobs/pipeline-schedule/{group}` calls with `Promise.all` instead of a sequential `for…await` loop, collapsing N round-trips into one.
+- **CI security job: replace `EmbarkStudios/cargo-deny-action@v2` with a direct `cargo deny check` invocation** — the action built its own Docker image on every run and was failing with `Docker build failed with exit code 1` before any check could execute. Install the prebuilt `cargo-deny` binary via `taiki-e/install-action@cargo-deny` and run `cargo deny check` directly.
+- **CI security job: replace `rustsec/audit-check@v2` with a direct `cargo audit` invocation** — the action wraps `cargo audit` and parses its JSON output, which was failing with `Error: Unexpected end of JSON input` after running for ~2m50s. Same fix pattern as `cargo-deny`: install via `taiki-e/install-action@cargo-audit` and run `cargo audit` directly so a failure surfaces as a real cargo-audit exit code rather than an action wrapper parse error. `cargo audit` is invoked with `--db /tmp/cargo-audit-db` because `cargo deny check` runs first in the same job and populates the default `~/.cargo/advisory-db`, which cargo-audit refuses to fetch into when non-empty.
+
 ## [0.2.2-alpha] - 2026-06-07
 
 ### Added
