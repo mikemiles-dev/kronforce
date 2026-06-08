@@ -48,6 +48,17 @@
                     <div class="form-hint" style="margin-top:6px">Completed executions, events, and queue items older than this are automatically deleted. Runs every 10 seconds.</div>
                 </div>
             </div>
+            <div class="card" id="db-maintenance-card" style="display:none">
+                <div class="card-header"><h3>Database Maintenance</h3></div>
+                <div class="settings-group">
+                    <label class="settings-label">Compact database</label>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <button class="btn btn-secondary btn-sm" onclick="vacuumDatabase()" id="vacuum-btn">Run VACUUM</button>
+                        <span id="vacuum-status" style="font-size:11px;color:var(--text-muted)"></span>
+                    </div>
+                    <div class="form-hint" style="margin-top:6px">Reclaims freelist pages left over from retention purges and folds the WAL back into the main DB file. Holds an exclusive write lock — typically seconds on a small DB, longer on larger ones. Admin only.</div>
+                </div>
+            </div>
             <div class="card">
                 <div class="card-header"><h3>AI Assistant</h3></div>
                 <div class="settings-group">

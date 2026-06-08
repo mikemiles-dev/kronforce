@@ -438,6 +438,12 @@ body {
     font-size: 10px;
 }
 
+.sidebar-version {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 .action-bar {
     background: var(--bg-secondary);
     border-bottom: none;

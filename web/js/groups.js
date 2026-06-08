@@ -3,6 +3,7 @@
 
 let groupsPageJobs = [];
 let groupsViewMode = localStorage.getItem('kf-groupsView') || 'cards';
+let groupsFetchInFlight = false;
 // --- Generic Group Picker ---
 // Shared by Monitor, Pipelines, and Builder pages
 
@@ -180,8 +181,16 @@ function setGroupsView(mode) {
 }
 
 async function fetchGroupsPage() {
+    // Skip if a previous fetch is still in flight — auto-refresh ticks every 5s
+    // can fire before the previous render finishes on slow connections / large
+    // groups, which used to leave the grid stuck on the "Loading..." placeholder.
+    if (groupsFetchInFlight) return;
+    groupsFetchInFlight = true;
     var grid = document.getElementById('groups-grid');
-    if (grid) grid.innerHTML = '<div class="loading-bar"></div><div class="loading-placeholder">Loading...</div>';
+    // Only show the loader on initial load (empty grid). Auto-refresh ticks
+    // re-render in place so the page does not flash back to "Loading..." every 5s.
+    var isInitialLoad = grid && !grid.firstChild;
+    if (isInitialLoad) grid.innerHTML = '<div class="loading-bar"></div><div class="loading-placeholder">Loading...</div>';
     try {
         const [groups, jobsRes] = await Promise.all([
             api('GET', '/api/jobs/groups'),
@@ -246,12 +255,17 @@ async function fetchGroupsPage() {
             const selectedGroup = stagesFilter ? stagesFilter.value : '';
             // Show selected group, or all groups if none selected
             const groupsToShow = selectedGroup ? [selectedGroup] : sortedGroups.filter(g => (jobsByGroup[g] || []).length > 0);
+            // Parallelize per-group schedule lookups — previously this was a
+            // sequential loop, one round-trip per group, which dominated load
+            // time on accounts with many groups.
+            const scheduleResults = await Promise.all(groupsToShow.map(g =>
+                api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(g))
+                    .then(sched => [g, sched])
+                    .catch(() => [g, null])
+            ));
             let scheduleMap = {};
-            for (const g of groupsToShow) {
-                try {
-                    const sched = await api('GET', '/api/jobs/pipeline-schedule/' + encodeURIComponent(g));
-                    if (sched && sched.type) scheduleMap[g] = sched;
-                } catch (e) { /* no schedule */ }
+            for (const [g, sched] of scheduleResults) {
+                if (sched && sched.type) scheduleMap[g] = sched;
             }
             // Fetch recent execution statuses for sparklines
             try {
@@ -267,6 +281,8 @@ async function fetchGroupsPage() {
         }
     } catch (e) {
         console.error('fetchGroupsPage:', e);
+    } finally {
+        groupsFetchInFlight = false;
     }
 }
 

@@ -124,6 +124,7 @@ pub(crate) fn paginated_response<T: serde::Serialize>(
 #[derive(Serialize)]
 struct HealthResponse {
     status: String,
+    version: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     db: Option<DbHealth>,
 }
@@ -229,6 +230,7 @@ pub fn router(
             get(settings::get_settings).put(settings::update_settings),
         )
         .route("/api/notifications/test", post(settings::test_notification))
+        .route("/api/admin/vacuum", post(settings::vacuum_database))
         .route("/api/stats/charts", get(stats::chart_stats))
         .route("/api/mcp/tools", get(mcp::mcp_discover_tools))
         .route("/api/audit-log", get(audit::list_audit_log))
@@ -397,6 +399,7 @@ async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
 
     Json(HealthResponse {
         status: status.to_string(),
+        version: env!("CARGO_PKG_VERSION"),
         db: db_health,
     })
 }

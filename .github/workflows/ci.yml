@@ -52,11 +52,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: EmbarkStudios/cargo-deny-action@v2
-      - uses: rustsec/audit-check@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/install-action@cargo-deny
+      - name: Cargo deny
+        run: cargo deny check
+      - uses: taiki-e/install-action@cargo-audit
+      - name: Cargo audit
+        # cargo-deny check above shares ~/.cargo/advisory-db; cargo-audit
+        # refuses to fetch into a non-empty dir, so point it at its own path.
+        run: cargo audit --db /tmp/cargo-audit-db
 
   migration-check:
     name: Migration

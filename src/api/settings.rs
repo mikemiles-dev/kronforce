@@ -54,6 +54,57 @@ pub(crate) async fn update_settings(
     Ok(Json(serde_json::json!({ "status": "ok" })))
 }
 
+/// Compacts the SQLite database by running VACUUM and truncating the WAL.
+/// Admin only. Holds an exclusive write lock for the duration.
+pub(crate) async fn vacuum_database(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<serde_json::Value>, AppError> {
+    let key = auth
+        .0
+        .as_ref()
+        .ok_or_else(|| AppError::Unauthorized("authentication required".into()))?;
+    if !key.role.can_manage_keys() {
+        return Err(AppError::Forbidden("admin role required".into()));
+    }
+
+    let size_before = state
+        .db
+        .health_check()
+        .and_then(|h| h.size_bytes)
+        .unwrap_or(0);
+    let started = std::time::Instant::now();
+    db_call(&state.db, move |db| db.vacuum()).await?;
+    let elapsed_ms = started.elapsed().as_millis() as u64;
+    let size_after = state
+        .db
+        .health_check()
+        .and_then(|h| h.size_bytes)
+        .unwrap_or(0);
+
+    let actor_key_id = Some(key.id);
+    let actor_key_name = Some(key.name.clone());
+    let db_audit = state.db.clone();
+    let _ = db_call(&db_audit, move |db| {
+        db.record_audit(
+            "settings.vacuum",
+            "settings",
+            None,
+            actor_key_id,
+            actor_key_name.as_deref(),
+            None,
+        )
+    })
+    .await;
+
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "size_before": size_before,
+        "size_after": size_after,
+        "elapsed_ms": elapsed_ms,
+    })))
+}
+
 /// Sends a test notification using the currently configured notification channel.
 pub(crate) async fn test_notification(
     State(state): State<AppState>,
