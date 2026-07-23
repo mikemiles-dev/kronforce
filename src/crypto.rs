@@ -48,16 +48,16 @@ pub fn encrypt(plaintext: &str) -> String {
         return plaintext.to_string();
     };
 
-    let key = Key::<Aes256Gcm>::from_slice(key_bytes);
-    let cipher = Aes256Gcm::new(key);
+    let key = Key::<Aes256Gcm>::from(*key_bytes);
+    let cipher = Aes256Gcm::new(&key);
 
     // Generate random 12-byte nonce
     let mut nonce_bytes = [0u8; 12];
     use rand::RngExt;
     rand::rng().fill(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = Nonce::from(nonce_bytes);
 
-    let ciphertext = match cipher.encrypt(nonce, plaintext.as_bytes()) {
+    let ciphertext = match cipher.encrypt(&nonce, plaintext.as_bytes()) {
         Ok(ct) => ct,
         Err(e) => {
             tracing::error!("encryption failed: {e}");
@@ -95,13 +95,13 @@ pub fn decrypt(stored: &str) -> Result<String, String> {
         return Err("ciphertext too short".to_string());
     }
 
-    let key = Key::<Aes256Gcm>::from_slice(key_bytes);
-    let cipher = Aes256Gcm::new(key);
-    let nonce = Nonce::from_slice(&combined[..12]);
+    let key = Key::<Aes256Gcm>::from(*key_bytes);
+    let cipher = Aes256Gcm::new(&key);
+    let nonce = Nonce::try_from(&combined[..12]).map_err(|e| format!("invalid nonce: {e}"))?;
     let ciphertext = &combined[12..];
 
     let plaintext = cipher
-        .decrypt(nonce, ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|_| "decryption failed (wrong key?)".to_string())?;
 
     String::from_utf8(plaintext).map_err(|e| format!("invalid UTF-8: {e}"))
